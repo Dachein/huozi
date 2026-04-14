@@ -9,6 +9,7 @@ const UpdatePageSchema = z.object({
   title: z.string().min(1).max(500).optional(),
   content: z.string().min(1).optional(),
   description: z.string().max(500).optional(),
+  content_type: z.enum(["markdown", "html"]).optional(),
   published: z.boolean().optional(),
 });
 
@@ -100,34 +101,60 @@ export async function PUT(
   if (parsed.data.published !== undefined)
     updates.is_published = parsed.data.published;
 
-  // If content changed, create new version
-  if (parsed.data.content) {
-    // Content size check (2MB)
-    if (new TextEncoder().encode(parsed.data.content).length > 2 * 1024 * 1024) {
-      return NextResponse.json(
-        { error: "Content exceeds 2MB limit" },
-        { status: 413 }
-      );
+  // Resolve content_type: use provided value, or fall back to existing
+  const contentType = parsed.data.content_type || existing.content_type;
+
+  // Update content_type on the page if changed
+  if (parsed.data.content_type && parsed.data.content_type !== existing.content_type) {
+    updates.content_type = parsed.data.content_type;
+  }
+
+  // If content changed or content_type changed, create new version
+  if (parsed.data.content || parsed.data.content_type) {
+    const content = parsed.data.content || null;
+
+    if (content) {
+      // Content size check (2MB)
+      if (new TextEncoder().encode(content).length > 2 * 1024 * 1024) {
+        return NextResponse.json(
+          { error: "Content exceeds 2MB limit" },
+          { status: 413 }
+        );
+      }
     }
 
-    const newVersion = existing.latest_version + 1;
-    let renderedHtml: string | null = null;
-    if (existing.content_type === "markdown") {
-      renderedHtml = await renderMarkdown(parsed.data.content);
-    } else if (existing.content_type === "html") {
-      const result = processHtmlDirect(parsed.data.content);
-      renderedHtml = result.html;
+    // If only content_type changed (no new content), fetch existing content to re-render
+    let contentToRender = content;
+    if (!contentToRender) {
+      const { data: latestVersion } = await supabase
+        .from("page_versions")
+        .select("content")
+        .eq("page_id", existing.id)
+        .eq("version", existing.latest_version)
+        .single();
+      contentToRender = latestVersion?.content || null;
     }
 
-    await supabase.from("page_versions").insert({
-      page_id: existing.id,
-      version: newVersion,
-      content: parsed.data.content,
-      content_type: existing.content_type,
-      rendered_html: renderedHtml,
-    });
+    if (contentToRender) {
+      const newVersion = existing.latest_version + 1;
+      let renderedHtml: string | null = null;
+      if (contentType === "markdown") {
+        renderedHtml = await renderMarkdown(contentToRender);
+      } else if (contentType === "html") {
+        const result = processHtmlDirect(contentToRender);
+        renderedHtml = result.html;
+      }
 
-    updates.latest_version = newVersion;
+      await supabase.from("page_versions").insert({
+        page_id: existing.id,
+        version: newVersion,
+        content: contentToRender,
+        content_type: contentType,
+        rendered_html: renderedHtml,
+      });
+
+      updates.latest_version = newVersion;
+    }
   }
 
   const { data: page, error } = await supabase
