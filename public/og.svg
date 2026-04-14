@@ -1,0 +1,20 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" fill="#faf8f3"/>
+
+  <!-- Subtle grain texture -->
+  <filter id="grain">
+    <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch"/>
+    <feColorMatrix type="saturate" values="0"/>
+  </filter>
+  <rect width="1200" height="630" filter="url(#grain)" opacity="0.03"/>
+
+  <!-- Decorative horizontal lines -->
+  <line x1="440" y1="315" x2="520" y2="315" stroke="#e6dfd2" stroke-width="1"/>
+  <line x1="680" y1="315" x2="760" y2="315" stroke="#e6dfd2" stroke-width="1"/>
+
+  <!-- Main character 字 in accent red -->
+  <text x="600" y="340" font-family="Noto Serif SC, serif" font-weight="700" font-size="280" fill="#c4594a" text-anchor="middle" dominant-baseline="central">字</text>
+
+  <!-- huozi.app text below -->
+  <text x="600" y="530" font-family="system-ui, -apple-system, sans-serif" font-weight="400" font-size="32" fill="#9c9183" text-anchor="middle" letter-spacing="0.15em">huozi.app</text>
+</svg>
