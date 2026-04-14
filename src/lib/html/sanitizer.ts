@@ -1,5 +1,3 @@
-import sanitizeHtml from "sanitize-html";
-
 // Dangerous CSS patterns that can execute code or load external resources
 const DANGEROUS_CSS_PATTERNS = [
   /expression\s*\(/i, // IE CSS expressions
@@ -110,98 +108,6 @@ function sanitizeCss(css: string): string {
   return sanitized.join("\n");
 }
 
-// All standard HTML tags except script/iframe/embed/object
-const ALLOWED_TAGS = [
-  // Document structure
-  "div", "span", "p", "br", "hr",
-  // Headings
-  "h1", "h2", "h3", "h4", "h5", "h6",
-  // Text formatting
-  "a", "b", "i", "u", "s", "em", "strong", "small", "sub", "sup",
-  "mark", "del", "ins", "abbr", "cite", "q", "blockquote", "pre", "code",
-  "kbd", "samp", "var", "time", "ruby", "rt", "rp", "bdi", "bdo", "wbr",
-  // Lists
-  "ul", "ol", "li", "dl", "dt", "dd",
-  // Tables
-  "table", "thead", "tbody", "tfoot", "tr", "th", "td", "caption", "colgroup", "col",
-  // Media
-  "img", "picture", "source", "figure", "figcaption", "audio", "video", "track",
-  // Forms (display only — no submit)
-  "form", "input", "textarea", "select", "option", "optgroup", "label",
-  "fieldset", "legend", "button", "output", "meter", "progress", "datalist",
-  // Semantic
-  "article", "aside", "details", "summary", "dialog",
-  "header", "footer", "main", "nav", "section",
-  "address", "hgroup", "search",
-  // SVG basics
-  "svg", "g", "path", "circle", "ellipse", "line", "polyline", "polygon",
-  "rect", "text", "tspan", "defs", "use", "symbol", "clipPath",
-  "linearGradient", "radialGradient", "stop", "mask", "pattern",
-  "filter", "feGaussianBlur", "feOffset", "feBlend", "feColorMatrix",
-  "feComposite", "feFlood", "feMerge", "feMergeNode",
-  // Math
-  "math", "annotation", "semantics", "mrow", "mi", "mo", "mn",
-  "msup", "msub", "mfrac", "mover", "munder", "msqrt",
-  "mtable", "mtr", "mtd", "mtext", "mspace",
-];
-
-const ALLOWED_ATTRIBUTES: Record<string, sanitizeHtml.AllowedAttribute[]> = {
-  "*": [
-    "class", "id", "style", "title", "lang", "dir", "role",
-    "aria-*", "data-*", "tabindex", "hidden",
-  ],
-  a: ["href", "target", "rel", "download"],
-  img: ["src", "alt", "width", "height", "loading", "decoding", "srcset", "sizes"],
-  video: ["src", "poster", "controls", "width", "height", "autoplay", "loop", "muted", "preload", "playsinline"],
-  audio: ["src", "controls", "autoplay", "loop", "muted", "preload"],
-  source: ["src", "srcset", "type", "media", "sizes"],
-  track: ["src", "kind", "srclang", "label", "default"],
-  td: ["colspan", "rowspan", "headers"],
-  th: ["colspan", "rowspan", "headers", "scope"],
-  col: ["span"],
-  colgroup: ["span"],
-  time: ["datetime"],
-  meter: ["value", "min", "max", "low", "high", "optimum"],
-  progress: ["value", "max"],
-  input: ["type", "value", "placeholder", "checked", "disabled", "readonly", "name", "min", "max", "step", "pattern"],
-  textarea: ["placeholder", "rows", "cols", "disabled", "readonly"],
-  select: ["disabled", "multiple", "size"],
-  option: ["value", "selected", "disabled"],
-  label: ["for"],
-  button: ["type", "disabled"],
-  form: ["action", "method"],
-  details: ["open"],
-  dialog: ["open"],
-  // SVG attributes
-  svg: ["viewBox", "xmlns", "width", "height", "fill", "stroke", "preserveAspectRatio"],
-  path: ["d", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", "transform", "opacity", "fill-rule", "clip-rule"],
-  circle: ["cx", "cy", "r", "fill", "stroke", "stroke-width"],
-  ellipse: ["cx", "cy", "rx", "ry", "fill", "stroke", "stroke-width"],
-  line: ["x1", "y1", "x2", "y2", "stroke", "stroke-width"],
-  polyline: ["points", "fill", "stroke", "stroke-width"],
-  polygon: ["points", "fill", "stroke", "stroke-width"],
-  rect: ["x", "y", "width", "height", "rx", "ry", "fill", "stroke", "stroke-width"],
-  text: ["x", "y", "dx", "dy", "text-anchor", "font-size", "fill", "transform"],
-  tspan: ["x", "y", "dx", "dy"],
-  g: ["transform", "fill", "stroke", "opacity"],
-  use: ["href", "x", "y", "width", "height"],
-  symbol: ["viewBox", "id"],
-  clipPath: ["id"],
-  linearGradient: ["id", "x1", "y1", "x2", "y2", "gradientUnits", "gradientTransform"],
-  radialGradient: ["id", "cx", "cy", "r", "fx", "fy", "gradientUnits", "gradientTransform"],
-  stop: ["offset", "stop-color", "stop-opacity"],
-  mask: ["id", "x", "y", "width", "height"],
-  filter: ["id", "x", "y", "width", "height"],
-  feGaussianBlur: ["in", "stdDeviation", "result"],
-  feOffset: ["in", "dx", "dy", "result"],
-  feBlend: ["in", "in2", "mode", "result"],
-  feColorMatrix: ["in", "type", "values", "result"],
-  feComposite: ["in", "in2", "operator", "result"],
-  feFlood: ["flood-color", "flood-opacity", "result"],
-  feMerge: [],
-  feMergeNode: ["in"],
-};
-
 export interface SanitizeResult {
   html: string;
   meta?: {
@@ -212,88 +118,57 @@ export interface SanitizeResult {
   };
 }
 
-export function sanitizeHtmlContent(rawHtml: string): SanitizeResult {
-  const isFullDocument =
-    /<html[\s>]/i.test(rawHtml) ||
-    /<head[\s>]/i.test(rawHtml) ||
-    /<!DOCTYPE/i.test(rawHtml);
-
-  let bodyHtml: string;
-  let styles: string[] = [];
+/**
+ * Minimal security filter for trusted HTML (API-key-gated content).
+ * Strips only executable vectors: <script>, <iframe>, <embed>, <object>,
+ * on* event handlers, and javascript: URLs. Everything else passes through
+ * including <style>, inline style attributes, and all HTML tags.
+ */
+export function processHtmlDirect(rawHtml: string): SanitizeResult {
+  let html = rawHtml;
   let meta: SanitizeResult["meta"];
 
+  const isFullDocument =
+    /<html[\s>]/i.test(html) ||
+    /<head[\s>]/i.test(html) ||
+    /<!DOCTYPE/i.test(html);
+
   if (isFullDocument) {
-    const parsed = parseHtmlDocument(rawHtml);
-    bodyHtml = parsed.body;
-    styles = parsed.styles;
+    const parsed = parseHtmlDocument(html);
+    // Rebuild: styles + body
+    const parts: string[] = [];
+    for (const css of parsed.styles) {
+      const clean = sanitizeCss(css);
+      if (clean) parts.push(`<style>${clean}</style>`);
+    }
+    parts.push(parsed.body);
+    html = parts.join("\n");
     meta = {
       description: parsed.metaDescription,
       ogTitle: parsed.metaOgTitle,
       ogDescription: parsed.metaOgDescription,
       ogImage: parsed.metaOgImage,
     };
-  } else {
-    // Fragment — extract inline <style> tags
-    const styleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi;
-    let match;
-    while ((match = styleRegex.exec(rawHtml)) !== null) {
-      styles.push(match[1].trim());
-    }
-    bodyHtml = rawHtml.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
   }
 
-  // Sanitize the body HTML
-  const cleanBody = sanitizeHtml(bodyHtml, {
-    allowedTags: ALLOWED_TAGS,
-    allowedAttributes: ALLOWED_ATTRIBUTES,
-    allowedSchemes: ["http", "https", "mailto", "tel"],
-    allowedSchemesByTag: {
-      img: ["http", "https", "data"],
-    },
-    // Strip all event handlers (onclick, onerror, etc.)
-    exclusiveFilter: (frame) => {
-      if (frame.tag === "script" || frame.tag === "iframe" || frame.tag === "embed" || frame.tag === "object") {
-        return true;
-      }
-      return false;
-    },
-    transformTags: {
-      a: (tagName, attribs) => {
-        // Add rel="noopener noreferrer" and target="_blank" for external links
-        if (attribs.href && /^https?:\/\//i.test(attribs.href)) {
-          attribs.target = "_blank";
-          attribs.rel = "noopener noreferrer";
-        }
-        // Block javascript: URLs
-        if (attribs.href && /^\s*javascript\s*:/i.test(attribs.href)) {
-          attribs.href = "#";
-        }
-        return { tagName, attribs };
-      },
-      form: (tagName, attribs) => {
-        // Block form submissions
-        delete attribs.action;
-        delete attribs.method;
-        return { tagName, attribs };
-      },
-    },
-  });
+  // Strip dangerous tags and their content
+  html = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "");
+  html = html.replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, "");
+  html = html.replace(/<embed\b[^>]*>\s*(?:<\/embed>)?/gi, "");
+  html = html.replace(/<object\b[^>]*>[\s\S]*?<\/object>/gi, "");
 
-  // Sanitize and combine CSS
-  const cleanStyles = styles
-    .map(sanitizeCss)
-    .filter(Boolean)
-    .join("\n");
+  // Strip on* event handler attributes (onclick, onerror, onload, etc.)
+  html = html.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
 
-  // Build final HTML
-  const parts: string[] = [];
-  if (cleanStyles) {
-    parts.push(`<style>${cleanStyles}</style>`);
-  }
-  parts.push(cleanBody);
+  // Neutralize javascript: URLs in href/src/action attributes
+  html = html.replace(
+    /((?:href|src|action)\s*=\s*(?:["']))(\s*javascript\s*:)/gi,
+    "$1#blocked:"
+  );
 
   return {
-    html: parts.join("\n"),
+    html: html.trim(),
     meta: meta && Object.values(meta).some(Boolean) ? meta : undefined,
   };
 }
+

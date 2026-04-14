@@ -96,25 +96,29 @@ curl -s -X POST https://huozi.app/api/v1/pages \
 - **Fragment**: any HTML without `<html>`/`<head>` tags — treated as body content directly
 - `<meta>` OG tags (`og:title`, `og:description`, `og:image`) and `<meta name="description">` are extracted as fallback metadata; API fields (`title`, `description`) always take priority
 
-### HTML Constraints — What Is Allowed
+### HTML Rendering — Direct Mode
 
-| Category | Allowed | Blocked |
-|----------|---------|---------|
-| **HTML tags** | All standard tags: `div`, `span`, `table`, `form`, `svg`, `img`, `video`, `audio`, etc. | `<script>`, `<iframe>`, `<embed>`, `<object>`, `<link rel="stylesheet">` |
-| **CSS** | `<style>` blocks, inline `style=""`, all standard properties (flexbox, grid, animations, transforms, etc.) | `@import`, `expression()`, `javascript:` in `url()`, `-moz-binding`, `behavior:` |
-| **JavaScript** | None | All `<script>` tags stripped; all event handlers (`onclick`, `onerror`, `onload`, etc.) stripped |
-| **URLs** | `http:`, `https:`, `mailto:`, `tel:` | `javascript:` (rewritten to `#`), `data:` in CSS `url()` |
-| **Images** | `<img>` with `http:`/`https:`/`data:` src | — |
-| **SVG** | Full inline SVG support (path, circle, rect, gradient, filter, etc.) | External SVG via `<img src>` works; `<use href="external.svg">` does not |
-| **Forms** | Display only — `<input>`, `<select>`, `<textarea>`, `<button>` render but `action`/`method` are stripped | No form submission |
-| **External resources** | Images (`<img src>`), video/audio (`<video>`, `<audio>`) via `http:`/`https:` | External CSS (`<link>`), external JS, `@import` |
-| **Content size** | Max 2MB per page | — |
+HTML pages are rendered directly with minimal security filtering. All HTML tags, `<style>` blocks, inline `style=""` attributes, CSS properties (flexbox, grid, animations, etc.), SVG, images, forms — everything works as-is.
+
+**Only these are stripped for security:**
+
+| Stripped | Reason |
+|----------|--------|
+| `<script>` tags + content | No JavaScript execution |
+| `<iframe>`, `<embed>`, `<object>` | No embedded frames |
+| `on*` event handlers (`onclick`, `onerror`, etc.) | No inline JS |
+| `javascript:` URLs | Neutralized to `#blocked:` |
+| CSS `expression()`, `-moz-binding`, `behavior:` | Legacy browser exploits |
+| CSS `@import` | No external stylesheet injection |
+| `data:` in CSS `url()` | Blocked in stylesheets |
+
+**Content size limit:** 2MB per page.
 
 ### Best Practices for HTML Pages
 
-- **Include all CSS inline** — use `<style>` blocks in `<head>` or inline `style=""` attributes; external stylesheets are not supported
-- **Use system fonts or web-safe fonts** — `@import` for Google Fonts is blocked; use `font-family: system-ui, sans-serif` or embed fonts as base64 `@font-face` if essential
-- **Embed small images as data URIs** — for icons/logos under ~50KB; larger images should be hosted externally and referenced via `https://` URLs
+- **Include all CSS inline** — use `<style>` blocks or inline `style=""` attributes; `<link rel="stylesheet">` to external CSS is not stripped but the resource may not load depending on CORS
+- **Use system fonts or web-safe fonts** — or embed fonts as base64 `@font-face`
+- **Embed small images as data URIs** — for icons/logos under ~50KB; larger images should be hosted externally via `https://` URLs
 - **Design responsive layouts** — pages are served full-width; use `max-width` on a container and CSS media queries for mobile support
 - **Set a background color** — the page has no default background; always set `background` on `body` or a wrapper element
 
@@ -142,7 +146,7 @@ All require `Authorization: Bearer <api_key>` header. Base URL: `https://huozi.a
 - API keys start with `hz_` prefix
 - No password needed — registration uses email OTP only
 - Markdown: supports GFM, task lists, code highlighting, math (KaTeX)
-- HTML: full CSS + SVG + images, no JavaScript — see constraints table above
+- HTML: direct rendering — full CSS, SVG, images, forms; only `<script>`, `<iframe>`, and event handlers are stripped
 - Content limit: 2MB per page for both Markdown and HTML
 - Use `curl` via Bash to make API calls
 - When generating HTML for the user, always produce self-contained pages with all CSS inlined

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { validateApiKey } from "@/lib/auth/api-key";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { renderMarkdown } from "@/lib/markdown/renderer";
-import { sanitizeHtmlContent } from "@/lib/html/sanitizer";
+import { processHtmlDirect } from "@/lib/html/sanitizer";
 import { z } from "zod/v4";
 
 const UpdatePageSchema = z.object({
@@ -115,7 +115,7 @@ export async function PUT(
     if (existing.content_type === "markdown") {
       renderedHtml = await renderMarkdown(parsed.data.content);
     } else if (existing.content_type === "html") {
-      const result = sanitizeHtmlContent(parsed.data.content);
+      const result = processHtmlDirect(parsed.data.content);
       renderedHtml = result.html;
     }
 

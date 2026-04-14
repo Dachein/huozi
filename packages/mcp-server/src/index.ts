@@ -7,7 +7,7 @@ import { apiCall, getApiKey } from "./api.js";
 
 const server = new McpServer({
   name: "huozi",
-  version: "0.3.0",
+  version: "0.4.0",
 });
 
 // --- Auth tools ---
@@ -125,7 +125,7 @@ server.tool(
 
 server.tool(
   "huozi_publish",
-  "Publish or update a page on Huozi. Supports Markdown (default) and HTML. If a page with the same slug exists, it will be updated. HTML pages support full CSS styling, SVG, and images but no JavaScript — all <script> tags and event handlers are stripped.",
+  "Publish or update a page on Huozi. Supports Markdown (default) and HTML. Same slug = update. HTML pages are rendered directly with full CSS, SVG, forms, and images — only <script>, <iframe>, and event handlers are stripped.",
   {
     title: z.string().min(1).describe("Page title"),
     content: z.string().min(1).describe("Page content — Markdown or HTML"),
@@ -141,10 +141,17 @@ server.tool(
       .enum(["markdown", "html"])
       .optional()
       .describe(
-        "Content type: 'markdown' (default) or 'html'. HTML accepts full documents or body fragments. CSS is preserved, JS is stripped."
+        "Content type: 'markdown' (default) or 'html'. HTML is rendered directly — full CSS (<style> + inline), SVG, forms all work. Only <script>/<iframe>/event handlers stripped."
+      ),
+    access_token: z
+      .string()
+      .nullable()
+      .optional()
+      .describe(
+        'Page access protection. "random" = generate 6-char code, custom string = your password, null = remove protection (public).'
       ),
   },
-  async ({ title, content, slug, description, content_type }) => {
+  async ({ title, content, slug, description, content_type, access_token }) => {
     const apiKey = getApiKey();
     if (!apiKey) {
       return {
@@ -161,6 +168,7 @@ server.tool(
     if (slug) body.slug = slug;
     if (description) body.description = description;
     if (content_type) body.content_type = content_type;
+    if (access_token !== undefined) body.access_token = access_token;
 
     const res = await apiCall("/api/v1/pages", {
       method: "POST",
@@ -183,7 +191,7 @@ server.tool(
       content: [
         {
           type: "text" as const,
-          text: `Published! URL: ${res.data.url}`,
+          text: `Published! URL: ${res.data.url}${res.data.version ? ` (v${res.data.version})` : ""}${res.data.access_token ? `\nAccess code: ${res.data.access_token}` : ""}`,
         },
       ],
     };
@@ -321,6 +329,126 @@ server.tool(
     return {
       content: [
         { type: "text" as const, text: `Deleted page: ${slug}` },
+      ],
+    };
+  }
+);
+
+server.tool(
+  "huozi_versions",
+  "List all versions of a page.",
+  {
+    slug: z.string().describe("Page slug"),
+  },
+  async ({ slug }) => {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      return {
+        content: [
+          { type: "text" as const, text: "HUOZI_API_KEY is not set." },
+        ],
+      };
+    }
+
+    const res = await apiCall(`/api/v1/pages/${slug}/versions`, { apiKey });
+
+    if (!res.ok) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Failed: ${res.data.error || "Unknown error"}`,
+          },
+        ],
+      };
+    }
+
+    const versions = res.data.versions as Array<{
+      version: number;
+      content_type: string;
+      created_at: string;
+    }>;
+
+    if (!versions || versions.length === 0) {
+      return {
+        content: [{ type: "text" as const, text: "No versions found." }],
+      };
+    }
+
+    const list = versions
+      .map((v) => `v${v.version} (${v.content_type}) — ${v.created_at}`)
+      .join("\n");
+
+    return {
+      content: [{ type: "text" as const, text: `Versions of /${slug}:\n${list}` }],
+    };
+  }
+);
+
+server.tool(
+  "huozi_token",
+  'Manage access token (password protection) for a page. Set "random" to generate a 6-char code, a custom string for your own password, or null to remove protection.',
+  {
+    slug: z.string().describe("Page slug"),
+    access_token: z
+      .string()
+      .nullable()
+      .describe(
+        '"random" = generate code, custom string = your password, null = remove (make public)'
+      ),
+  },
+  async ({ slug, access_token }) => {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      return {
+        content: [
+          { type: "text" as const, text: "HUOZI_API_KEY is not set." },
+        ],
+      };
+    }
+
+    const res = await apiCall(`/api/v1/pages/${slug}/token`, {
+      method: "PUT",
+      body: { access_token },
+      apiKey,
+    });
+
+    if (!res.ok) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Failed: ${res.data.error || "Unknown error"}`,
+          },
+        ],
+      };
+    }
+
+    if (res.data.access_token) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Access code set for /${slug}: ${res.data.access_token}\nTell the user to share this code with people who need access.`,
+          },
+        ],
+      };
+    }
+
+    if (res.data.has_access_token) {
+      return {
+        content: [
+          { type: "text" as const, text: `Access code updated for /${slug}.` },
+        ],
+      };
+    }
+
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: `Protection removed. /${slug} is now public.`,
+        },
       ],
     };
   }

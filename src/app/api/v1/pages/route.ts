@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { validateApiKey } from "@/lib/auth/api-key";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { renderMarkdown } from "@/lib/markdown/renderer";
-import { sanitizeHtmlContent } from "@/lib/html/sanitizer";
+import { processHtmlDirect } from "@/lib/html/sanitizer";
 import { slugify } from "@/lib/utils";
 import { generateRandomToken, hashAccessToken } from "@/lib/auth/access-token";
 import { z } from "zod/v4";
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
   if (data.content_type === "markdown") {
     renderedHtml = await renderMarkdown(data.content);
   } else if (data.content_type === "html") {
-    const result = sanitizeHtmlContent(data.content);
+    const result = processHtmlDirect(data.content);
     renderedHtml = result.html;
     htmlMeta = result.meta;
   }

@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { renderMarkdown } from "@/lib/markdown/renderer";
-import { sanitizeHtmlContent } from "@/lib/html/sanitizer";
+import { processHtmlDirect } from "@/lib/html/sanitizer";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { SITE_URL } from "@/lib/constants";
@@ -94,7 +94,7 @@ export default async function PublicPage({ params }: PageProps) {
     if (version.content_type === "markdown") {
       html = await renderMarkdown(version.content);
     } else if (version.content_type === "html") {
-      html = sanitizeHtmlContent(version.content).html;
+      html = processHtmlDirect(version.content).html;
     }
     if (html) {
       supabase
