@@ -172,6 +172,47 @@ export default async function HomePage() {
 # { "url": "https://huozi.app/you/hello-world" }`}</code>
           </pre>
         </section>
+        {/* Open Source */}
+        <section className="mx-auto max-w-4xl px-6 pb-24">
+          <div className="rounded-xl border border-border/60 bg-muted/30 p-10 text-center">
+            <div className="font-serif text-3xl text-accent mb-3">源</div>
+            <h3 className="font-serif text-xl font-bold mb-3">Huozi Edge</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed max-w-lg mx-auto mb-8">
+              {_("home.oss.desc")}
+            </p>
+            <div className="flex items-center justify-center gap-3 flex-wrap">
+              <a
+                href="https://github.com/Dachein/huozi-edge"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-md border border-border px-5 py-2 text-sm font-medium hover:bg-muted transition-colors"
+              >
+                GitHub
+              </a>
+              <a
+                href="https://deploy.workers.cloudflare.com/?url=https://github.com/Dachein/huozi-edge"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-md border border-[#f48120]/40 px-5 py-2 text-sm font-medium text-[#f48120] hover:bg-[#f48120]/10 transition-colors"
+              >
+                {_("home.oss.deployCF")}
+              </a>
+              <a
+                href="https://vercel.com/new/clone?repository-url=https://github.com/Dachein/huozi-edge&env=NAMESPACE,API_KEY,SITE_URL&stores=[{%22type%22:%22kv%22}]"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-md bg-[#171717] px-5 py-2 text-sm font-medium text-white hover:bg-[#333] transition-colors"
+              >
+                {_("home.oss.deployVercel")}
+              </a>
+              <span
+                className="rounded-md border border-border/50 px-5 py-2 text-sm font-medium text-muted-foreground cursor-default"
+              >
+                EdgeOne ({_("home.oss.soon")})
+              </span>
+            </div>
+          </div>
+        </section>
       </main>
 
       {/* Footer */}
