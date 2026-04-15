@@ -114,6 +114,7 @@ export default async function PublicPage({ params }: PageProps) {
         title={page.title}
         hint={page.access_token_hint}
         html={html || ""}
+        contentType={version.content_type as "markdown" | "html"}
         publishedAt={page.published_at}
         version={version.version}
         siteUrl={SITE_URL}

@@ -9,6 +9,7 @@ interface AccessGateProps {
   title: string;
   hint: string | null;
   html: string;
+  contentType: "markdown" | "html";
   publishedAt: string | null;
   version: number;
   siteUrl: string;
@@ -19,6 +20,7 @@ export function AccessGate({
   title,
   hint,
   html,
+  contentType,
   publishedAt,
   version,
   siteUrl,
@@ -81,6 +83,22 @@ export function AccessGate({
   }
 
   if (unlocked) {
+    if (contentType === "html") {
+      return (
+        <div className="min-h-screen">
+          <div dangerouslySetInnerHTML={{ __html: html }} />
+          <footer className="mt-16 border-t border-neutral-200 pt-6 pb-8 px-6">
+            <p className="text-sm text-neutral-500">
+              Published on{" "}
+              <a href={siteUrl} className="underline hover:text-neutral-700">
+                Huozi
+              </a>
+            </p>
+          </footer>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-background">
         <article className="prose-huozi prose prose-neutral dark:prose-invert">

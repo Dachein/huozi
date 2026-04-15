@@ -90,15 +90,46 @@ curl -s -X POST https://huozi.app/api/v1/pages \
 - Set `content_type` to `"html"` (defaults to `"markdown"` if omitted)
 - Same slug = upsert, versioning, and access tokens work identically to Markdown pages
 
-### HTML Input Format
+### Recommended HTML Structure
 
-- **Full document**: `<html><head>...</head><body>...</body></html>` — head is parsed for `<style>` and `<meta>`, body is rendered
-- **Fragment**: any HTML without `<html>`/`<head>` tags — treated as body content directly
-- `<meta>` OG tags (`og:title`, `og:description`, `og:image`) and `<meta name="description">` are extracted as fallback metadata; API fields (`title`, `description`) always take priority
+Always use a full document structure. The platform parses `<head>` for metadata and styles, and renders `<body>` content directly.
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="description" content="Page description for SEO">
+  <meta property="og:title" content="Share title">
+  <meta property="og:description" content="Share description">
+  <meta property="og:image" content="https://example.com/cover.jpg">
+  <style>
+    /* Global styles — extracted, sanitized, and re-injected */
+    .container { max-width: 800px; margin: 0 auto; }
+    .card { border-radius: 8px; padding: 24px; }
+  </style>
+</head>
+<body>
+  <div style="background:#0d1117;color:#e6edf3;padding:40px 24px;min-height:100vh;">
+    <div class="container">
+      <!-- Your content here -->
+    </div>
+  </div>
+</body>
+</html>
+```
+
+**How the platform processes each part:**
+
+| Section | Processing |
+|---------|-----------|
+| `<meta>` in `<head>` | Extracted as fallback for `og:title`, `og:description`, `og:image`, `description`. API fields (`title`, `description`) always take priority |
+| `<style>` in `<head>` | Extracted, CSS-level security filter applied, re-injected as `<style>` block |
+| `<body>` content | Rendered directly with minimal security filtering |
+| `<title>`, `<link>`, `<script>` in `<head>` | Discarded |
 
 ### HTML Rendering — Direct Mode
 
-HTML pages are rendered directly with minimal security filtering. All HTML tags, `<style>` blocks, inline `style=""` attributes, CSS properties (flexbox, grid, animations, etc.), SVG, images, forms — everything works as-is.
+HTML pages are rendered directly. All HTML tags, `<style>` blocks, inline `style=""` attributes, CSS properties (flexbox, grid, animations, etc.), SVG, images, forms — everything works as-is.
 
 **Only these are stripped for security:**
 
@@ -116,11 +147,11 @@ HTML pages are rendered directly with minimal security filtering. All HTML tags,
 
 ### Best Practices for HTML Pages
 
-- **Include all CSS inline** — use `<style>` blocks or inline `style=""` attributes; `<link rel="stylesheet">` to external CSS is not stripped but the resource may not load depending on CORS
+- **Always set background and color on the outermost wrapper** — the page has no default dark/light theme; your content controls the entire visual appearance
+- **Use `<style>` blocks for reusable styles** — put them in `<head>`, use inline `style=""` for one-off overrides
 - **Use system fonts or web-safe fonts** — or embed fonts as base64 `@font-face`
-- **Embed small images as data URIs** — for icons/logos under ~50KB; larger images should be hosted externally via `https://` URLs
-- **Design responsive layouts** — pages are served full-width; use `max-width` on a container and CSS media queries for mobile support
-- **Set a background color** — the page has no default background; always set `background` on `body` or a wrapper element
+- **Embed small images as data URIs** — for icons/logos under ~50KB; larger images via `https://` URLs
+- **Design responsive layouts** — use `max-width` on a container and CSS media queries for mobile support
 
 ## Other Operations
 
