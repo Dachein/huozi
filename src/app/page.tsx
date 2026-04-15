@@ -198,7 +198,7 @@ export default async function HomePage() {
                 {_("home.oss.deployCF")}
               </a>
               <a
-                href="https://vercel.com/new/clone?repository-url=https://github.com/Dachein/huozi-edge&env=NAMESPACE,API_KEY,SITE_URL&stores=[{%22type%22:%22kv%22}]"
+                href="https://vercel.com/new/clone?repository-url=https://github.com/Dachein/huozi-edge&env=NAMESPACE,API_KEY,SITE_URL&envDescription=NAMESPACE%3D%20your%20workspace%20name%20(used%20in%20URL)%2C%20API_KEY%3D%20bearer%20token%20(start%20with%20hz_)%2C%20SITE_URL%3D%20your%20deployment%20URL&envLink=https%3A%2F%2Fgithub.com%2FDachein%2Fhuozi-edge%23configuration&stores=[{%22type%22:%22kv%22}]"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rounded-md bg-[#171717] px-5 py-2 text-sm font-medium text-white hover:bg-[#333] transition-colors"
