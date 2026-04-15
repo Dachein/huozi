@@ -331,61 +331,61 @@ curl -X PUT https://huozi.app/api/v1/pages/my-page/token \\
           <H2 id="html-support">HTML Support</H2>
           <P>
             Set <code className="bg-muted px-1.5 py-0.5 rounded text-foreground text-xs font-mono">content_type: &quot;html&quot;</code> to publish HTML pages.
-            HTML is sanitized server-side to prevent XSS while preserving visual fidelity.
+            HTML is rendered directly with minimal security filtering — full CSS, SVG, and layout support.
           </P>
 
-          <H3 id="html-input">Input Format</H3>
+          <H3 id="html-structure">Recommended Structure</H3>
+          <P>
+            Use a full document structure. The platform parses {'<head>'} for metadata and styles, and renders {'<body>'} content directly.
+          </P>
+          <Code code={`<!DOCTYPE html>
+<html>
+<head>
+  <meta name="description" content="Page description for SEO">
+  <meta property="og:title" content="Share title">
+  <meta property="og:description" content="Share description">
+  <meta property="og:image" content="https://example.com/cover.jpg">
+  <style>
+    .container { max-width: 800px; margin: 0 auto; }
+    .card { border-radius: 8px; padding: 24px; }
+  </style>
+</head>
+<body>
+  <div style="background:#0d1117;color:#e6edf3;padding:40px 24px;min-height:100vh;">
+    <div class="container">
+      <!-- Your content here -->
+    </div>
+  </div>
+</body>
+</html>`} />
+
+          <H3 id="html-processing">How Each Part Is Processed</H3>
           <Table>
             <thead>
-              <tr><Th>Format</Th><Th>Description</Th></tr>
+              <tr><Th>Section</Th><Th>Processing</Th></tr>
             </thead>
             <tbody>
-              <tr><Td>Full document</Td><Td>{`<html><head>...</head><body>...</body></html> — <style> and <meta> tags in <head> are extracted`}</Td></tr>
-              <tr><Td>Fragment</Td><Td>Any HTML without document tags — rendered as body content directly</Td></tr>
+              <tr><Td>{`<meta> in <head>`}</Td><Td>Extracted as fallback for og:title, og:description, og:image. API fields (title, description) take priority</Td></tr>
+              <tr><Td>{`<style> in <head>`}</Td><Td>Extracted, CSS-level security filter applied, re-injected as {'<style>'} block</Td></tr>
+              <tr><Td>{`<body> content`}</Td><Td>Rendered directly with minimal security filtering</Td></tr>
+              <tr><Td>{`<title>, <link>, <script>`}</Td><Td>Discarded</Td></tr>
             </tbody>
           </Table>
 
-          <H3 id="html-allowed">What Is Allowed</H3>
+          <H3 id="html-stripped">What Is Stripped</H3>
+          <P>Everything else passes through. Only these are removed for security:</P>
           <Table>
             <thead>
-              <tr><Th>Category</Th><Th>Allowed</Th><Th>Stripped</Th></tr>
+              <tr><Th>Stripped</Th><Th>Reason</Th></tr>
             </thead>
             <tbody>
-              <tr>
-                <Td>HTML tags</Td>
-                <Td>All standard tags: div, span, table, form, svg, img, video, audio, etc.</Td>
-                <Td>{`<script>, <iframe>, <embed>, <object>, <link rel="stylesheet">`}</Td>
-              </tr>
-              <tr>
-                <Td>CSS</Td>
-                <Td>{`<style> blocks, inline style="", all standard properties (flexbox, grid, animations, transforms)`}</Td>
-                <Td>{`@import, expression(), javascript: in url(), -moz-binding, behavior:`}</Td>
-              </tr>
-              <tr>
-                <Td>JavaScript</Td>
-                <Td>None</Td>
-                <Td>{`All <script> tags, all event handlers (onclick, onerror, onload, etc.)`}</Td>
-              </tr>
-              <tr>
-                <Td>URLs</Td>
-                <Td>http:, https:, mailto:, tel:</Td>
-                <Td>{`javascript: (rewritten to #), data: in CSS url()`}</Td>
-              </tr>
-              <tr>
-                <Td>SVG</Td>
-                <Td>Full SVG support including filters, animations, gradients</Td>
-                <Td>SVG script elements, foreignObject with scripts</Td>
-              </tr>
-              <tr>
-                <Td>Images</Td>
-                <Td>img, picture, source with http/https src</Td>
-                <Td>data: URIs in img src</Td>
-              </tr>
-              <tr>
-                <Td>Forms</Td>
-                <Td>Display only — input, select, textarea, button render visually</Td>
-                <Td>action and method attributes stripped, no form submission</Td>
-              </tr>
+              <tr><Td>{`<script> tags + content`}</Td><Td>No JavaScript execution</Td></tr>
+              <tr><Td>{`<iframe>, <embed>, <object>`}</Td><Td>No embedded frames</Td></tr>
+              <tr><Td>{`on* event handlers (onclick, onerror, etc.)`}</Td><Td>No inline JS</Td></tr>
+              <tr><Td>{`javascript: URLs`}</Td><Td>{'Neutralized to #blocked:'}</Td></tr>
+              <tr><Td>{`CSS expression(), -moz-binding, behavior:`}</Td><Td>Legacy browser exploits</Td></tr>
+              <tr><Td>{`CSS @import`}</Td><Td>No external stylesheet injection</Td></tr>
+              <tr><Td>{`data: in CSS url()`}</Td><Td>Blocked in stylesheets</Td></tr>
             </tbody>
           </Table>
 
@@ -397,11 +397,11 @@ curl -X PUT https://huozi.app/api/v1/pages/my-page/token \\
     "title": "My Landing Page",
     "slug": "landing",
     "content_type": "html",
-    "content": "<style>body{font-family:system-ui;max-width:680px;margin:0 auto;padding:2rem}h1{color:#2c2418}</style><h1>Welcome</h1><p>This is an HTML page.</p>"
+    "content": "<!DOCTYPE html><html><head><style>.container{max-width:680px;margin:0 auto}</style></head><body><div style=\\"background:#0d1117;color:#e6edf3;padding:40px 24px;min-height:100vh;\\"><div class=\\"container\\"><h1>Welcome</h1><p>This is an HTML page.</p></div></div></body></html>"
   }'`} />
           <P>
-            Best practice: produce self-contained HTML with all CSS inlined in {`<style>`} blocks.
-            External stylesheets ({`<link>`}) are stripped. Images must use absolute URLs.
+            Always set background and color on the outermost wrapper — the page has no default theme.
+            Put reusable CSS in {'<style>'} blocks in {'<head>'}, use inline style for one-off overrides.
           </P>
 
           {/* Markdown Features */}

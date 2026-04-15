@@ -139,33 +139,57 @@ Stored as SHA-256 hash, plaintext never stored.
 ## HTML Support
 
 Set content_type: "html" to publish HTML pages.
+HTML is rendered directly with minimal security filtering — NOT sanitized through an allowlist.
 
-### Input formats
-  Full document: <html><head>...</head><body>...</body></html>
-    → <style> and <meta> in <head> are extracted
-  Fragment: any HTML without document wrapper
-    → treated as body content
+### Recommended structure
 
-### What is allowed
-  HTML tags:    All standard (div, span, table, svg, img, video, audio, etc.)
-  CSS:          <style> blocks, inline style="", all standard properties
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta name="description" content="Page description for SEO">
+    <meta property="og:title" content="Share title">
+    <meta property="og:description" content="Share description">
+    <meta property="og:image" content="https://example.com/cover.jpg">
+    <style>
+      .container { max-width: 800px; margin: 0 auto; }
+    </style>
+  </head>
+  <body>
+    <div style="background:#0d1117;color:#e6edf3;padding:40px 24px;min-height:100vh;">
+      <div class="container">
+        <!-- content -->
+      </div>
+    </div>
+  </body>
+  </html>
+
+### How the platform processes each part
+  <meta> in <head>  → Extracted as fallback for og:title, og:description, og:image
+                       API fields (title, description) always take priority
+  <style> in <head> → Extracted, CSS-level security filter, re-injected as <style> block
+  <body> content    → Rendered directly, minimal security filtering only
+  <title>, <link>, <script> in <head> → Discarded
+
+### What is stripped (everything else passes through)
+  JavaScript:   ALL <script> tags + content, ALL event handlers (onclick, onerror, etc.)
+  Iframes:      <iframe>, <embed>, <object> + content
+  JS URLs:      javascript: URLs → rewritten to #blocked:
+  CSS dangers:  @import, expression(), -moz-binding, behavior: in CSS
+                data: URIs in CSS url()
+
+### What works (direct rendering)
+  HTML tags:    ALL standard tags — no allowlist restriction
+  CSS:          <style> blocks, inline style="" on ALL elements, all properties
   SVG:          Full support (filters, animations, gradients)
-  Images:       img, picture with http/https src
-  Forms:        Display only (input/select render, action/method stripped)
-
-### What is stripped
-  JavaScript:   ALL <script> tags, ALL event handlers (onclick, onerror, etc.)
-  Iframes:      <iframe>, <embed>, <object>
-  External CSS: <link rel="stylesheet"> (use <style> blocks instead)
-  Dangerous:    javascript: URLs → rewritten to #
-                @import, expression(), -moz-binding in CSS
-                data: URIs in img src
+  Images:       img, picture with http/https/data: src
+  Forms:        Display only (render visually, action/method work but no JS handlers)
 
 ### Best practices
-  1. Self-contained: all CSS in <style> blocks, no external refs
-  2. Images: use absolute https:// URLs
-  3. No JS: pages are static, plan accordingly
-  4. Test locally: render HTML in browser before publishing
+  1. Use full document structure: <html><head><style>...</style></head><body>...</body></html>
+  2. Set background + color on outermost wrapper — page has no default theme
+  3. Put reusable CSS in <style> blocks, one-off overrides in inline style=""
+  4. Images: use absolute https:// URLs or data: URIs for small icons
+  5. No JS: pages are static, plan accordingly
 
 ---
 

@@ -141,7 +141,7 @@ server.tool(
       .enum(["markdown", "html"])
       .optional()
       .describe(
-        "Content type: 'markdown' (default) or 'html'. HTML is rendered directly — full CSS (<style> + inline), SVG, forms all work. Only <script>/<iframe>/event handlers stripped."
+        "Content type: 'markdown' (default) or 'html'. For HTML, use full document structure: <html><head><style>...</style><meta og:image/description></head><body><div style='background:...;color:...;min-height:100vh;'>content</div></body></html>. Rendered directly — only <script>/<iframe>/event handlers stripped."
       ),
     access_token: z
       .string()

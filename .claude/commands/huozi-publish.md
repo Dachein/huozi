@@ -86,7 +86,7 @@ User: "帮我注册 huozi"
 - Markdown supports GFM (tables, task lists), code highlighting, and math (KaTeX)
 - Use `curl` via the Bash tool to make API calls
 - Supports both Markdown and HTML (set `content_type: "html"` for HTML pages)
-- HTML: rendered directly — full CSS (`<style>` + inline), SVG, forms all work. Only `<script>`, `<iframe>`, and event handlers stripped.
+- HTML: use full document structure `<html><head><style>...<meta og:*></head><body>...</body></html>`. Rendered directly — full CSS, SVG, forms. Only `<script>`, `<iframe>`, event handlers stripped. Always set background + color on outermost wrapper.
 - **Full API reference (agent-friendly):** https://huozi.app/docs4agent
 - Setup help: https://huozi.app/start
 - Human-readable docs: https://huozi.app/docs
