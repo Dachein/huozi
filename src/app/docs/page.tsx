@@ -5,15 +5,16 @@ import { SiteHeader } from "@/components/site-header";
 import { getLocale } from "@/lib/i18n/server";
 
 export const metadata: Metadata = {
-  title: "Documentation",
-  description: "Huozi API Reference — publish Markdown and HTML as shareable web pages.",
+  title: "Docs — huozi Cloud",
+  description:
+    "huozi Cloud API reference — an Agent-native cloud drive that speaks MCP + Claude Code's file-tool dialect.",
 };
 
-function Code({ code }: { code: string }) {
+function Code({ code, lang }: { code: string; lang?: string }) {
   return (
     <div className="relative group">
       <pre className="rounded-lg border border-border bg-[#1c1914] text-[#e8e0d0] p-4 pr-12 text-sm overflow-x-auto leading-relaxed">
-        <code>{code}</code>
+        <code className={lang ? `language-${lang}` : undefined}>{code}</code>
       </pre>
       <CopyButton text={code} />
     </div>
@@ -41,7 +42,11 @@ function H3({ id, children }: { id: string; children: React.ReactNode }) {
 }
 
 function P({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{children}</p>;
+  return (
+    <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+      {children}
+    </p>
+  );
 }
 
 function Table({ children }: { children: React.ReactNode }) {
@@ -62,9 +67,9 @@ function Th({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Td({ children, mono }: { children: React.ReactNode; mono?: boolean }) {
+function Td({ children }: { children: React.ReactNode }) {
   return (
-    <td className={`px-4 py-2.5 border-b border-border ${mono ? "font-mono text-xs" : ""}`}>
+    <td className="px-4 py-2.5 border-b border-border/60 align-top">
       {children}
     </td>
   );
@@ -76,379 +81,263 @@ export default async function DocsPage() {
   return (
     <div className="flex flex-col min-h-screen">
       <SiteHeader locale={locale} />
+      <main className="flex-1">
+        <div className="mx-auto max-w-3xl px-6 py-16">
+          <h1 className="text-4xl font-bold tracking-tight">Docs</h1>
+          <p className="mt-4 text-lg text-muted-foreground">
+            huozi Cloud is an Agent-native cloud drive. It speaks MCP over
+            HTTP and returns file-tool results bit-exact with Claude Code —
+            any MCP client (Claude Code, Cursor, Claude Desktop, scripts)
+            can use it as a shared workspace.
+          </p>
 
-      <div className="flex-1 mx-auto max-w-5xl px-6 py-12 flex gap-12">
-        {/* Sidebar */}
-        <nav className="hidden lg:block w-56 shrink-0 sticky top-20 self-start">
-          <ul className="space-y-1 text-sm">
-            <li><a href="#overview" className="block py-1 text-muted-foreground hover:text-foreground">Overview</a></li>
-            <li><a href="#authentication" className="block py-1 text-muted-foreground hover:text-foreground">Authentication</a></li>
-            <li><a href="#registration" className="block py-1 text-muted-foreground hover:text-foreground">Registration</a></li>
-            <li><a href="#publish" className="block py-1 text-muted-foreground hover:text-foreground">Publish a Page</a></li>
-            <li><a href="#list-pages" className="block py-1 text-muted-foreground hover:text-foreground">List Pages</a></li>
-            <li><a href="#get-page" className="block py-1 text-muted-foreground hover:text-foreground">Get a Page</a></li>
-            <li><a href="#update-page" className="block py-1 text-muted-foreground hover:text-foreground">Update a Page</a></li>
-            <li><a href="#delete-page" className="block py-1 text-muted-foreground hover:text-foreground">Delete a Page</a></li>
-            <li><a href="#versions" className="block py-1 text-muted-foreground hover:text-foreground">Versions</a></li>
-            <li><a href="#access-tokens" className="block py-1 text-muted-foreground hover:text-foreground">Access Tokens</a></li>
-            <li><a href="#html-support" className="block py-1 text-muted-foreground hover:text-foreground">HTML Support</a></li>
-            <li><a href="#markdown-features" className="block py-1 text-muted-foreground hover:text-foreground">Markdown Features</a></li>
-            <li><a href="#rate-limits" className="block py-1 text-muted-foreground hover:text-foreground">Limits</a></li>
+          <H2 id="concepts">Concepts</H2>
+          <Table>
+            <thead>
+              <tr>
+                <Th>Term</Th>
+                <Th>Meaning</Th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <Td>Workspace</Td>
+                <Td>
+                  A versioned, R2-backed file tree. Addressed as{" "}
+                  <code className="font-mono text-xs bg-muted px-1">
+                    ws_&lt;slug&gt;
+                  </code>
+                  .
+                </Td>
+              </tr>
+              <tr>
+                <Td>Connection</Td>
+                <Td>
+                  One API key issued to one Agent (Claude Code on your
+                  laptop, a CI runner, etc). Revocable independently.
+                </Td>
+              </tr>
+              <tr>
+                <Td>Commit</Td>
+                <Td>
+                  Every write / edit / delete produces a commit. Queryable
+                  per-file via the <code>huozi_history</code> tool.
+                </Td>
+              </tr>
+              <tr>
+                <Td>Scope</Td>
+                <Td>
+                  Optional path prefix glued to a key — the Agent sees the
+                  workspace rooted at that prefix.
+                </Td>
+              </tr>
+            </tbody>
+          </Table>
+
+          <H2 id="connecting">Connecting an Agent</H2>
+          <P>
+            Sign in at huozi.app, visit{" "}
+            <Link
+              href="/cloud/workspace/connect"
+              className="underline hover:text-foreground"
+            >
+              /cloud/workspace/connect
+            </Link>{" "}
+            and pick your Agent — we generate a key and hand you a
+            paste-ready config snippet.
+          </P>
+          <H3 id="claude-code">Claude Code</H3>
+          <Code
+            code={`claude mcp add --transport http huozi https://cloud.huozi.app/mcp \\
+  -H "Authorization: Bearer hz_your_key"`}
+          />
+          <H3 id="cursor">Cursor · ~/.cursor/mcp.json</H3>
+          <Code
+            code={JSON.stringify(
+              {
+                mcpServers: {
+                  huozi: {
+                    url: "https://cloud.huozi.app/mcp",
+                    headers: { Authorization: "Bearer hz_your_key" },
+                  },
+                },
+              },
+              null,
+              2,
+            )}
+          />
+          <H3 id="desktop">Claude Desktop</H3>
+          <P>
+            Add to <code>claude_desktop_config.json</code>, then restart the
+            app.
+          </P>
+          <Code
+            code={JSON.stringify(
+              {
+                mcpServers: {
+                  huozi: {
+                    command: "npx",
+                    args: [
+                      "-y",
+                      "mcp-remote",
+                      "https://cloud.huozi.app/mcp",
+                      "--header",
+                      "Authorization: Bearer hz_your_key",
+                    ],
+                  },
+                },
+              },
+              null,
+              2,
+            )}
+          />
+
+          <H2 id="tools">MCP tools</H2>
+          <P>
+            All tools return the exact shape Claude Code expects — drop
+            huozi in and your Agent uses it like a local filesystem.
+          </P>
+          <Table>
+            <thead>
+              <tr>
+                <Th>Tool</Th>
+                <Th>Purpose</Th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <Td>
+                  <code className="font-mono">huozi_read</code>
+                </Td>
+                <Td>
+                  Read a file with line-offset pagination. Returns
+                  cat-n-style text, or <code>file_unchanged</code> when the
+                  session already has it.
+                </Td>
+              </tr>
+              <tr>
+                <Td>
+                  <code className="font-mono">huozi_write</code>
+                </Td>
+                <Td>Create or overwrite a file in one commit.</Td>
+              </tr>
+              <tr>
+                <Td>
+                  <code className="font-mono">huozi_edit</code>
+                </Td>
+                <Td>
+                  Surgical string-based edit: <code>old_string</code> →{" "}
+                  <code>new_string</code>. Required{" "}
+                  <code>old_string</code> must be unique in the file or use{" "}
+                  <code>replace_all</code>. Returns a unified patch.
+                </Td>
+              </tr>
+              <tr>
+                <Td>
+                  <code className="font-mono">huozi_batch_edit</code>
+                </Td>
+                <Td>
+                  N edits across one or many files, applied atomically as
+                  one commit.
+                </Td>
+              </tr>
+              <tr>
+                <Td>
+                  <code className="font-mono">huozi_glob</code>
+                </Td>
+                <Td>Fast path listing. Backed by D1 index.</Td>
+              </tr>
+              <tr>
+                <Td>
+                  <code className="font-mono">huozi_grep</code>
+                </Td>
+                <Td>
+                  Regex search with FTS5 trigram pre-filter — 50× faster
+                  than walking the tree.
+                </Td>
+              </tr>
+              <tr>
+                <Td>
+                  <code className="font-mono">huozi_history</code>
+                </Td>
+                <Td>
+                  Commit log for a file: sha, author, operation, +/-
+                  lines, message.
+                </Td>
+              </tr>
+            </tbody>
+          </Table>
+
+          <H2 id="raw-rpc">Raw JSON-RPC</H2>
+          <P>
+            For scripts that can&rsquo;t use an MCP client library, the
+            endpoint is JSON-RPC 2.0 over POST.
+          </P>
+          <Code
+            code={`curl -X POST https://cloud.huozi.app/mcp \\
+  -H "Authorization: Bearer hz_your_key" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+    "params": {
+      "name": "huozi_write",
+      "arguments": {
+        "file_path": "notes/today.md",
+        "content": "# Today\\n\\nWrote via curl."
+      }
+    }
+  }'`}
+          />
+
+          <H2 id="events">Real-time events</H2>
+          <P>
+            Every commit broadcasts to WebSocket subscribers for the
+            affected workspace. Used by the Web UI to keep the file tree
+            and banner in sync.
+          </P>
+          <Code
+            code={`# 1. Mint a 60-second ticket (auth via Bearer)
+curl -X POST https://cloud.huozi.app/events/mint-ticket \\
+  -H "Authorization: Bearer hz_your_key"
+# → {"ok":true,"ticket":"tk_...","expires_in":60}
+
+# 2. Open a WS with that ticket
+wss://cloud.huozi.app/events/ws?ticket=tk_...
+
+# 3. Messages: {"type":"hello",...} once, then {"type":"commit",...} per write.`}
+          />
+
+          <H2 id="links">See also</H2>
+          <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1.5">
+            <li>
+              <Link
+                href="/cloud"
+                className="underline hover:text-foreground"
+              >
+                huozi Cloud overview
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/start"
+                className="underline hover:text-foreground"
+              >
+                Get started
+              </Link>
+            </li>
+            <li>
+              <a
+                href="https://github.com/Dachein/huozi-edge"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-foreground"
+              >
+                huozi Edge (open-source self-host)
+              </a>
+            </li>
           </ul>
-        </nav>
-
-        {/* Content */}
-        <main className="flex-1 min-w-0">
-          <h1 className="text-4xl font-bold tracking-tight">API Documentation</h1>
-          <P>Complete reference for the Huozi API. Base URL: <code className="bg-muted px-1.5 py-0.5 rounded text-foreground text-xs font-mono">https://huozi.app</code></P>
-
-          {/* Overview */}
-          <H2 id="overview">Overview</H2>
-          <P>
-            Huozi is a publishing service that turns Markdown and HTML into shareable web pages.
-            Every page gets a permanent URL at <code className="bg-muted px-1.5 py-0.5 rounded text-foreground text-xs font-mono">huozi.app/&#123;workspace&#125;/&#123;slug&#125;</code>.
-            Pages are versioned automatically — each publish creates a new version without overwriting previous content.
-          </P>
-          <Table>
-            <thead>
-              <tr><Th>Feature</Th><Th>Details</Th></tr>
-            </thead>
-            <tbody>
-              <tr><Td>Content types</Td><Td>Markdown (default), HTML</Td></tr>
-              <tr><Td>Versioning</Td><Td>Automatic. Same slug = new version. Access via /v1, /v2, etc.</Td></tr>
-              <tr><Td>Access control</Td><Td>Optional per-page access token (password protection)</Td></tr>
-              <tr><Td>Authentication</Td><Td>API Key (Bearer token) for publishing, email OTP for registration</Td></tr>
-              <tr><Td>Content limit</Td><Td>2 MB per page</Td></tr>
-            </tbody>
-          </Table>
-
-          {/* Authentication */}
-          <H2 id="authentication">Authentication</H2>
-          <P>
-            All publishing endpoints require an API key passed as a Bearer token.
-            API keys are scoped to a workspace and start with the <code className="bg-muted px-1.5 py-0.5 rounded text-foreground text-xs font-mono">hz_</code> prefix.
-          </P>
-          <Code code={`Authorization: Bearer hz_your_api_key`} />
-
-          {/* Registration */}
-          <H2 id="registration">Registration</H2>
-          <P>Passwordless registration using email OTP. Three steps to get an API key.</P>
-
-          <H3 id="reg-signup">POST /api/v1/auth/signup</H3>
-          <P>Send a verification code to the email address. Creates account if new, or logs in existing user.</P>
-          <Code code={`curl -X POST https://huozi.app/api/v1/auth/signup \\
-  -H "Content-Type: application/json" \\
-  -d '{"email": "alice@example.com"}'`} />
-          <P>Response:</P>
-          <Code code={`{
-  "message": "Verification code sent to your email.",
-  "email": "alice@example.com"
-}`} />
-
-          <H3 id="reg-verify">POST /api/v1/auth/verify</H3>
-          <P>Verify the code from email. Returns an access token for the setup step.</P>
-          <Code code={`curl -X POST https://huozi.app/api/v1/auth/verify \\
-  -H "Content-Type: application/json" \\
-  -d '{"email": "alice@example.com", "code": "12345678"}'`} />
-          <P>Response:</P>
-          <Code code={`{
-  "message": "Email verified successfully.",
-  "access_token": "eyJ...",
-  "user_id": "uuid"
-}`} />
-
-          <H3 id="reg-setup">POST /api/v1/auth/setup</H3>
-          <P>Create a workspace and generate an API key. Requires the access token from the verify step.</P>
-          <Code code={`curl -X POST https://huozi.app/api/v1/auth/setup \\
-  -H "Authorization: Bearer <access_token>" \\
-  -H "Content-Type: application/json" \\
-  -d '{"workspace_slug": "alice"}'`} />
-          <P>Response:</P>
-          <Code code={`{
-  "message": "Setup complete! You can now publish pages.",
-  "workspace": {
-    "slug": "alice",
-    "url": "https://huozi.app/alice"
-  },
-  "api_key": "hz_abc123..."
-}`} />
-
-          {/* Publish */}
-          <H2 id="publish">Publish a Page</H2>
-          <H3 id="publish-post">POST /api/v1/pages</H3>
-          <P>
-            Create a new page or update an existing one. If a page with the same slug exists
-            in your workspace, a new version is created automatically (upsert behavior).
-          </P>
-          <Table>
-            <thead>
-              <tr><Th>Field</Th><Th>Type</Th><Th>Required</Th><Th>Description</Th></tr>
-            </thead>
-            <tbody>
-              <tr><Td mono>title</Td><Td>string</Td><Td>Yes</Td><Td>Page title (max 500 chars)</Td></tr>
-              <tr><Td mono>content</Td><Td>string</Td><Td>Yes</Td><Td>Markdown or HTML content</Td></tr>
-              <tr><Td mono>slug</Td><Td>string</Td><Td>No</Td><Td>URL slug. Auto-generated from title if omitted. Keep under 8 words.</Td></tr>
-              <tr><Td mono>description</Td><Td>string</Td><Td>No</Td><Td>SEO description (max 500 chars)</Td></tr>
-              <tr><Td mono>content_type</Td><Td>string</Td><Td>No</Td><Td>{`"markdown"  (default) or "html"`}</Td></tr>
-              <tr><Td mono>published</Td><Td>boolean</Td><Td>No</Td><Td>Default true. Set false for drafts.</Td></tr>
-              <tr><Td mono>access_token</Td><Td>string | null</Td><Td>No</Td><Td>{`"random" = generate 6-char code, custom string = your password, null = public`}</Td></tr>
-            </tbody>
-          </Table>
-          <Code code={`curl -X POST https://huozi.app/api/v1/pages \\
-  -H "Authorization: Bearer hz_your_key" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "title": "Weekly Report",
-    "content": "# Weekly Report\\n\\nAll systems operational.",
-    "slug": "weekly-report"
-  }'`} />
-          <P>Response (201 for new, 200 for update):</P>
-          <Code code={`{
-  "id": "uuid",
-  "slug": "weekly-report",
-  "title": "Weekly Report",
-  "version": 1,
-  "url": "https://huozi.app/alice/weekly-report",
-  "access_token": "bvfy33"  // only if access_token was "random"
-}`} />
-
-          {/* List */}
-          <H2 id="list-pages">List Pages</H2>
-          <H3 id="list-get">GET /api/v1/pages</H3>
-          <P>List all pages in your workspace. Supports pagination.</P>
-          <Table>
-            <thead>
-              <tr><Th>Param</Th><Th>Type</Th><Th>Default</Th><Th>Description</Th></tr>
-            </thead>
-            <tbody>
-              <tr><Td mono>limit</Td><Td>int</Td><Td>20</Td><Td>Max 100</Td></tr>
-              <tr><Td mono>offset</Td><Td>int</Td><Td>0</Td><Td>Pagination offset</Td></tr>
-            </tbody>
-          </Table>
-          <Code code={`curl https://huozi.app/api/v1/pages \\
-  -H "Authorization: Bearer hz_your_key"`} />
-
-          {/* Get */}
-          <H2 id="get-page">Get a Page</H2>
-          <H3 id="get-slug">GET /api/v1/pages/:slug</H3>
-          <P>Get full details and latest content of a page.</P>
-          <Code code={`curl https://huozi.app/api/v1/pages/weekly-report \\
-  -H "Authorization: Bearer hz_your_key"`} />
-
-          {/* Update */}
-          <H2 id="update-page">Update a Page</H2>
-          <H3 id="update-put">PUT /api/v1/pages/:slug</H3>
-          <P>Partial update. If content is changed, a new version is created.</P>
-          <Table>
-            <thead>
-              <tr><Th>Field</Th><Th>Type</Th><Th>Description</Th></tr>
-            </thead>
-            <tbody>
-              <tr><Td mono>title</Td><Td>string</Td><Td>Update title</Td></tr>
-              <tr><Td mono>content</Td><Td>string</Td><Td>Update content (creates new version)</Td></tr>
-              <tr><Td mono>description</Td><Td>string</Td><Td>Update SEO description</Td></tr>
-              <tr><Td mono>published</Td><Td>boolean</Td><Td>Publish or unpublish</Td></tr>
-            </tbody>
-          </Table>
-          <Code code={`curl -X PUT https://huozi.app/api/v1/pages/weekly-report \\
-  -H "Authorization: Bearer hz_your_key" \\
-  -H "Content-Type: application/json" \\
-  -d '{"title": "Weekly Report - Updated"}'`} />
-
-          {/* Delete */}
-          <H2 id="delete-page">Delete a Page</H2>
-          <H3 id="delete-slug">DELETE /api/v1/pages/:slug</H3>
-          <P>Permanently delete a page and all its versions.</P>
-          <Code code={`curl -X DELETE https://huozi.app/api/v1/pages/weekly-report \\
-  -H "Authorization: Bearer hz_your_key"`} />
-
-          {/* Versions */}
-          <H2 id="versions">Versions</H2>
-          <P>
-            Every time you publish content to an existing slug, a new version is created.
-            The bare URL always shows the latest version. Append <code className="bg-muted px-1.5 py-0.5 rounded text-foreground text-xs font-mono">/v1</code>, <code className="bg-muted px-1.5 py-0.5 rounded text-foreground text-xs font-mono">/v2</code>, etc. to access specific versions.
-          </P>
-          <Table>
-            <thead>
-              <tr><Th>URL</Th><Th>Behavior</Th></tr>
-            </thead>
-            <tbody>
-              <tr><Td mono>/alice/my-page</Td><Td>Latest version</Td></tr>
-              <tr><Td mono>/alice/my-page/v1</Td><Td>Version 1 (original)</Td></tr>
-              <tr><Td mono>/alice/my-page/v3</Td><Td>Version 3</Td></tr>
-            </tbody>
-          </Table>
-
-          <H3 id="versions-list">GET /api/v1/pages/:slug/versions</H3>
-          <P>List all versions of a page.</P>
-          <Code code={`curl https://huozi.app/api/v1/pages/my-page/versions \\
-  -H "Authorization: Bearer hz_your_key"`} />
-          <P>Response:</P>
-          <Code code={`{
-  "versions": [
-    { "version": 3, "content_type": "markdown", "created_at": "2026-04-14T..." },
-    { "version": 2, "content_type": "markdown", "created_at": "2026-04-14T..." },
-    { "version": 1, "content_type": "markdown", "created_at": "2026-04-14T..." }
-  ]
-}`} />
-
-          {/* Access Tokens */}
-          <H2 id="access-tokens">Access Tokens</H2>
-          <P>
-            Protect pages with an access code. When set, visitors must enter the code to view the page.
-            The token is per-slug (all versions share it). Stored as SHA-256 hash — plaintext is never stored.
-          </P>
-
-          <H3 id="token-set">Set on publish</H3>
-          <P>Include <code className="bg-muted px-1.5 py-0.5 rounded text-foreground text-xs font-mono">access_token</code> in the POST /api/v1/pages body:</P>
-          <Table>
-            <thead>
-              <tr><Th>Value</Th><Th>Behavior</Th></tr>
-            </thead>
-            <tbody>
-              <tr><Td mono>{`"random"`}</Td><Td>Generate a 6-character random code. Returned once in the response.</Td></tr>
-              <tr><Td mono>{`"mypassword"`}</Td><Td>Use a custom access code.</Td></tr>
-              <tr><Td mono>null</Td><Td>Remove protection (public page).</Td></tr>
-              <tr><Td>(omitted)</Td><Td>No change to existing token.</Td></tr>
-            </tbody>
-          </Table>
-
-          <H3 id="token-update">PUT /api/v1/pages/:slug/token</H3>
-          <P>Update or remove the access token for an existing page.</P>
-          <Code code={`# Set random code
-curl -X PUT https://huozi.app/api/v1/pages/my-page/token \\
-  -H "Authorization: Bearer hz_your_key" \\
-  -H "Content-Type: application/json" \\
-  -d '{"access_token": "random"}'
-
-# Remove protection
-curl -X PUT https://huozi.app/api/v1/pages/my-page/token \\
-  -H "Authorization: Bearer hz_your_key" \\
-  -H "Content-Type: application/json" \\
-  -d '{"access_token": null}'`} />
-
-          {/* HTML Support */}
-          <H2 id="html-support">HTML Support</H2>
-          <P>
-            Set <code className="bg-muted px-1.5 py-0.5 rounded text-foreground text-xs font-mono">content_type: &quot;html&quot;</code> to publish HTML pages.
-            HTML is rendered directly with minimal security filtering — full CSS, SVG, and layout support.
-          </P>
-
-          <H3 id="html-structure">Recommended Structure</H3>
-          <P>
-            Use a full document structure. The platform parses {'<head>'} for metadata and styles, and renders {'<body>'} content directly.
-          </P>
-          <Code code={`<!DOCTYPE html>
-<html>
-<head>
-  <meta name="description" content="Page description for SEO">
-  <meta property="og:title" content="Share title">
-  <meta property="og:description" content="Share description">
-  <meta property="og:image" content="https://example.com/cover.jpg">
-  <style>
-    .container { max-width: 800px; margin: 0 auto; }
-    .card { border-radius: 8px; padding: 24px; }
-  </style>
-</head>
-<body>
-  <div style="background:#0d1117;color:#e6edf3;padding:40px 24px;min-height:100vh;">
-    <div class="container">
-      <!-- Your content here -->
-    </div>
-  </div>
-</body>
-</html>`} />
-
-          <H3 id="html-processing">How Each Part Is Processed</H3>
-          <Table>
-            <thead>
-              <tr><Th>Section</Th><Th>Processing</Th></tr>
-            </thead>
-            <tbody>
-              <tr><Td>{`<meta> in <head>`}</Td><Td>Extracted as fallback for og:title, og:description, og:image. API fields (title, description) take priority</Td></tr>
-              <tr><Td>{`<style> in <head>`}</Td><Td>Extracted, CSS-level security filter applied, re-injected as {'<style>'} block</Td></tr>
-              <tr><Td>{`<body> content`}</Td><Td>Rendered directly with minimal security filtering</Td></tr>
-              <tr><Td>{`<title>, <link>, <script>`}</Td><Td>Discarded</Td></tr>
-            </tbody>
-          </Table>
-
-          <H3 id="html-stripped">What Is Stripped</H3>
-          <P>Everything else passes through. Only these are removed for security:</P>
-          <Table>
-            <thead>
-              <tr><Th>Stripped</Th><Th>Reason</Th></tr>
-            </thead>
-            <tbody>
-              <tr><Td>{`<script> tags + content`}</Td><Td>No JavaScript execution</Td></tr>
-              <tr><Td>{`<iframe>, <embed>, <object>`}</Td><Td>No embedded frames</Td></tr>
-              <tr><Td>{`on* event handlers (onclick, onerror, etc.)`}</Td><Td>No inline JS</Td></tr>
-              <tr><Td>{`javascript: URLs`}</Td><Td>{'Neutralized to #blocked:'}</Td></tr>
-              <tr><Td>{`CSS expression(), -moz-binding, behavior:`}</Td><Td>Legacy browser exploits</Td></tr>
-              <tr><Td>{`CSS @import`}</Td><Td>No external stylesheet injection</Td></tr>
-              <tr><Td>{`data: in CSS url()`}</Td><Td>Blocked in stylesheets</Td></tr>
-            </tbody>
-          </Table>
-
-          <H3 id="html-example">Example</H3>
-          <Code code={`curl -X POST https://huozi.app/api/v1/pages \\
-  -H "Authorization: Bearer hz_your_key" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "title": "My Landing Page",
-    "slug": "landing",
-    "content_type": "html",
-    "content": "<!DOCTYPE html><html><head><style>.container{max-width:680px;margin:0 auto}</style></head><body><div style=\\"background:#0d1117;color:#e6edf3;padding:40px 24px;min-height:100vh;\\"><div class=\\"container\\"><h1>Welcome</h1><p>This is an HTML page.</p></div></div></body></html>"
-  }'`} />
-          <P>
-            Always set background and color on the outermost wrapper — the page has no default theme.
-            Put reusable CSS in {'<style>'} blocks in {'<head>'}, use inline style for one-off overrides.
-          </P>
-
-          {/* Markdown Features */}
-          <H2 id="markdown-features">Markdown Features</H2>
-          <P>
-            Markdown pages are rendered with a full pipeline supporting GitHub Flavored Markdown and more.
-          </P>
-          <Table>
-            <thead>
-              <tr><Th>Feature</Th><Th>Syntax</Th></tr>
-            </thead>
-            <tbody>
-              <tr><Td>GFM tables</Td><Td mono>{`| col | col |`}</Td></tr>
-              <tr><Td>Task lists</Td><Td mono>{`- [x] done`}</Td></tr>
-              <tr><Td>Strikethrough</Td><Td mono>{`~~text~~`}</Td></tr>
-              <tr><Td>Code highlighting</Td><Td mono>{`\`\`\`python ... \`\`\``}</Td></tr>
-              <tr><Td>Math (KaTeX)</Td><Td mono>{`$inline$ and $$block$$`}</Td></tr>
-              <tr><Td>Heading anchors</Td><Td>Auto-generated IDs and links</Td></tr>
-              <tr><Td>Inline HTML</Td><Td>Allowed, sanitized same as HTML pages</Td></tr>
-            </tbody>
-          </Table>
-
-          {/* Limits */}
-          <H2 id="rate-limits">Limits</H2>
-          <Table>
-            <thead>
-              <tr><Th>Limit</Th><Th>Value</Th></tr>
-            </thead>
-            <tbody>
-              <tr><Td>Content size</Td><Td>2 MB per page</Td></tr>
-              <tr><Td>Title length</Td><Td>500 characters</Td></tr>
-              <tr><Td>Slug length</Td><Td>100 characters</Td></tr>
-              <tr><Td>Workspace slug</Td><Td>1–40 characters, lowercase alphanumeric + hyphens</Td></tr>
-              <tr><Td>API keys per workspace</Td><Td>Unlimited</Td></tr>
-              <tr><Td>Pages per workspace</Td><Td>Unlimited</Td></tr>
-              <tr><Td>Versions per page</Td><Td>Unlimited</Td></tr>
-            </tbody>
-          </Table>
-
-          <div className="mt-16 pt-8 border-t border-border text-sm text-muted-foreground">
-            <P>
-              Questions? Visit <Link href="/start" className="underline hover:text-foreground">Get Started</Link> for
-              setup guides, or publish a page and see it live.
-            </P>
-          </div>
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

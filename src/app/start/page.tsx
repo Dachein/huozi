@@ -1,17 +1,17 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { CopyButton } from "@/components/copy-button";
-import { ConversationalPrompt } from "@/components/conversational-prompt";
 import { SiteHeader } from "@/components/site-header";
 import { getLocale } from "@/lib/i18n/server";
-import { t } from "@/lib/i18n";
 
 export const metadata: Metadata = {
-  title: "Get Started",
-  description: "Set up Huozi in seconds — publish Markdown and HTML via Claude Code, OpenClaw, or API.",
+  title: "Get Started — huozi Cloud",
+  description:
+    "Connect Claude Code / Cursor / Claude Desktop to a huozi Cloud workspace in 60 seconds.",
   openGraph: {
     title: "Get Started — 活字 Huozi",
-    description: "Set up Huozi in seconds — publish Markdown and HTML via Claude Code, OpenClaw, or API.",
+    description:
+      "Connect your Agent to a huozi Cloud workspace in 60 seconds.",
     siteName: "活字 Huozi",
   },
   twitter: {
@@ -30,221 +30,176 @@ function CopyBlock({ code }: { code: string }) {
   );
 }
 
+function Step({
+  n,
+  title,
+  children,
+}: {
+  n: number;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mt-12">
+      <div className="flex items-center gap-3 mb-3">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-background text-sm font-bold">
+          {n}
+        </span>
+        <h2 className="text-xl font-semibold">{title}</h2>
+      </div>
+      <div className="ml-11">{children}</div>
+    </section>
+  );
+}
+
 export default async function StartPage() {
   const locale = await getLocale();
-  const _ = (key: string) => t(locale, key);
 
   return (
     <div className="flex flex-col min-h-screen">
       <SiteHeader locale={locale} />
-
       <main className="flex-1">
-        <div className="mx-auto max-w-3xl px-4 py-16">
-          <h1 className="text-4xl font-bold tracking-tight">{_("start.title")}</h1>
-          <p className="mt-4 text-lg text-muted-foreground">
-            {_("start.subtitle")}
+        <div className="mx-auto max-w-2xl px-4 py-16">
+          <h1 className="text-4xl font-bold tracking-tight">Get started</h1>
+          <p className="mt-3 text-lg text-muted-foreground">
+            Claim a workspace → connect an Agent → write files in seconds.
           </p>
 
-          {/* Method 1: Conversational Setup */}
-          <section className="mt-16">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">
-                1
-              </span>
-              <h2 className="text-2xl font-semibold">{_("start.method1.title")}</h2>
-            </div>
-            <p className="text-muted-foreground mb-6">
-              {_("start.method1.desc")}
-            </p>
-
-            <ConversationalPrompt />
-
-            <div className="mt-8">
-              <h3 className="text-sm font-semibold mb-3">{_("start.method1.flow")}</h3>
-              <ol className="space-y-2 text-sm text-muted-foreground">
-                <li className="flex gap-2">
-                  <span className="font-mono text-foreground">1.</span>
-                  {_("start.method1.step1")}
-                </li>
-                <li className="flex gap-2">
-                  <span className="font-mono text-foreground">2.</span>
-                  {_("start.method1.step2")}
-                </li>
-                <li className="flex gap-2">
-                  <span className="font-mono text-foreground">3.</span>
-                  {_("start.method1.step3")}
-                </li>
-                <li className="flex gap-2">
-                  <span className="font-mono text-foreground">4.</span>
-                  {_("start.method1.step4")}
-                </li>
-              </ol>
-            </div>
-          </section>
-
-          {/* Method 2: OpenClaw / ClawHub */}
-          <section className="mt-16">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">
-                2
-              </span>
-              <h2 className="text-2xl font-semibold">{_("start.method2.title")}</h2>
-            </div>
-            <p className="text-muted-foreground mb-6">
-              {_("start.method2.desc")}
-            </p>
-
-            <h3 className="text-sm font-semibold uppercase text-muted-foreground mb-3">
-              {_("start.method2.installSkill")}
-            </h3>
-            <CopyBlock code={`npx clawhub install huozi`} />
-
-            <p className="mt-4 text-sm text-muted-foreground mb-3">
-              {_("start.method2.orCli")}
-            </p>
-            <CopyBlock code={`openclaw skills install huozi`} />
-
-            <h3 className="text-sm font-semibold uppercase text-muted-foreground mt-6 mb-3">
-              {_("start.method2.configure")}
-            </h3>
-            <p className="text-sm text-muted-foreground mb-3">
-              {_("start.method2.configureDesc")}
-            </p>
-            <CopyBlock code={`export HUOZI_API_KEY="hz_your_api_key"`} />
-
-            <h3 className="text-sm font-semibold uppercase text-muted-foreground mt-6 mb-3">
-              {_("start.method2.usage")}
-            </h3>
-            <p className="text-sm text-muted-foreground mb-3">
-              {_("start.method2.usageDesc")}
-            </p>
-            <CopyBlock
-              code={`"${_("start.method2.usagePrompt")}"`}
-            />
-          </section>
-
-          {/* Method 3: Claude Code MCP */}
-          <section className="mt-16">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">
-                3
-              </span>
-              <h2 className="text-2xl font-semibold">{_("start.method3.title")}</h2>
-            </div>
-            <p className="text-muted-foreground mb-6">
-              {_("start.method3.desc")}
-            </p>
-
-            <h3 className="text-sm font-semibold uppercase text-muted-foreground mb-3">
-              {_("start.method3.installMcp")}
-            </h3>
-            <CopyBlock
-              code={`claude mcp add huozi -- npx -y huozi-mcp-server`}
-            />
-
-            <h3 className="text-sm font-semibold uppercase text-muted-foreground mt-6 mb-3">
-              {_("start.method3.configureKey")}
-            </h3>
-            <p className="text-sm text-muted-foreground mb-3">
-              {_("start.method3.configureKeyDesc")}
-            </p>
-            <CopyBlock
-              code={`// ~/.claude/settings.json
-{
-  "mcpServers": {
-    "huozi": {
-      "command": "npx",
-      "args": ["-y", "huozi-mcp-server"],
-      "env": {
-        "HUOZI_API_KEY": "hz_your_api_key"
-      }
-    }
-  }
-}`}
-            />
-
-            <p className="mt-4 text-sm text-muted-foreground">
-              {_("start.method3.usageThen")}{" "}
-              <code className="rounded bg-muted px-1.5 py-0.5 text-foreground">
-                &ldquo;{_("start.method3.usagePrompt")}&rdquo;
+          <Step n={1} title="Sign in and pick a workspace name">
+            <p className="text-sm text-muted-foreground mb-4">
+              Email-OTP login, then a single-screen onboarding to pick your
+              slug. Your workspace lives at{" "}
+              <code className="font-mono text-xs bg-muted px-1 rounded">
+                huozi.app/&lt;your-slug&gt;
               </code>
+              .
             </p>
-          </section>
+            <Link
+              href="/cloud/onboard"
+              className="inline-flex items-center rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
+            >
+              Open onboarding →
+            </Link>
+          </Step>
 
-          {/* Raw API Reference */}
+          <Step n={2} title="Generate an API key for your Agent">
+            <p className="text-sm text-muted-foreground mb-4">
+              Visit{" "}
+              <Link
+                href="/cloud/workspace/connect"
+                className="underline hover:text-foreground"
+              >
+                Connect an Agent
+              </Link>
+              , pick Claude Code / Cursor / Claude Desktop / Raw HTTP, and
+              copy the ready-made config snippet. One key per Agent; revoke
+              any time from{" "}
+              <Link
+                href="/cloud/workspace/keys"
+                className="underline hover:text-foreground"
+              >
+                Keys
+              </Link>
+              .
+            </p>
+          </Step>
+
+          <Step n={3} title="Write a file">
+            <p className="text-sm text-muted-foreground mb-4">
+              From the Agent&rsquo;s side — any MCP client that speaks
+              Claude Code&rsquo;s file-tool dialect just works:
+            </p>
+            <CopyBlock
+              code={`# In Claude Code, just ask:
+> write a README.md explaining the project
+
+# Or call the tool directly:
+> huozi_write({ file_path: "README.md", content: "# Hello" })`}
+            />
+          </Step>
+
+          <Step n={4} title="Watch it land, live">
+            <p className="text-sm text-muted-foreground mb-4">
+              Open{" "}
+              <Link
+                href="/cloud/workspace"
+                className="underline hover:text-foreground"
+              >
+                your workspace
+              </Link>{" "}
+              in a browser. The file tree updates in ~100&nbsp;ms of each
+              write, every file has a full commit history, and the Recent
+              panel shows every Agent&rsquo;s edits in real-time.
+            </p>
+          </Step>
+
           <section className="mt-16">
             <details className="group">
               <summary className="cursor-pointer text-sm font-semibold text-muted-foreground hover:text-foreground">
-                {_("start.rawApi")}
+                Raw MCP / HTTP reference
               </summary>
               <div className="mt-4 space-y-4">
                 <h3 className="text-sm font-semibold uppercase text-muted-foreground">
-                  {_("start.rawApi.signup")}
+                  Claude Code
                 </h3>
                 <CopyBlock
-                  code={`curl -X POST https://huozi.app/api/v1/auth/signup \\
-  -H "Content-Type: application/json" \\
-  -d '{"email": "you@example.com", "password": "your_password"}'`}
+                  code={`claude mcp add --transport http huozi https://cloud.huozi.app/mcp \\
+  -H "Authorization: Bearer hz_your_key"`}
                 />
                 <h3 className="text-sm font-semibold uppercase text-muted-foreground">
-                  {_("start.rawApi.verify")}
+                  Cursor · ~/.cursor/mcp.json
                 </h3>
                 <CopyBlock
-                  code={`curl -X POST https://huozi.app/api/v1/auth/verify \\
-  -H "Content-Type: application/json" \\
-  -d '{"email": "you@example.com", "code": "12345678"}'`}
+                  code={JSON.stringify(
+                    {
+                      mcpServers: {
+                        huozi: {
+                          url: "https://cloud.huozi.app/mcp",
+                          headers: { Authorization: "Bearer hz_your_key" },
+                        },
+                      },
+                    },
+                    null,
+                    2,
+                  )}
                 />
                 <h3 className="text-sm font-semibold uppercase text-muted-foreground">
-                  {_("start.rawApi.setup")}
+                  Raw HTTP (JSON-RPC 2.0)
                 </h3>
                 <CopyBlock
-                  code={`curl -X POST https://huozi.app/api/v1/auth/setup \\
-  -H "Authorization: Bearer <access_token>" \\
+                  code={`curl -X POST https://cloud.huozi.app/mcp \\
+  -H "Authorization: Bearer hz_your_key" \\
   -H "Content-Type: application/json" \\
-  -d '{"workspace_slug": "your-name"}'`}
-                />
-                <h3 className="text-sm font-semibold uppercase text-muted-foreground">
-                  {_("start.rawApi.publish")} (Markdown)
-                </h3>
-                <CopyBlock
-                  code={`curl -X POST https://huozi.app/api/v1/pages \\
-  -H "Authorization: Bearer hz_your_api_key" \\
-  -H "Content-Type: application/json" \\
-  -d '{"title": "Hello", "content": "# Hello World"}'`}
-                />
-                <h3 className="text-sm font-semibold uppercase text-muted-foreground">
-                  {_("start.rawApi.publish")} (HTML)
-                </h3>
-                <CopyBlock
-                  code={`curl -X POST https://huozi.app/api/v1/pages \\
-  -H "Authorization: Bearer hz_your_api_key" \\
-  -H "Content-Type: application/json" \\
-  -d '{"title": "My Page", "content_type": "html", "content": "<style>body{font-family:sans-serif}</style><h1>Hello</h1>"}'`}
+  -d '{
+    "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+    "params": {
+      "name": "huozi_write",
+      "arguments": { "file_path": "hello.md", "content": "# Hello" }
+    }
+  }'`}
                 />
               </div>
             </details>
           </section>
 
-          {/* API Reference Links */}
-          <section className="mt-16 mb-16">
-            <h2 className="text-2xl font-semibold mb-6">{_("start.apiRef")}</h2>
+          <section className="mt-16 mb-12">
             <div className="flex flex-col sm:flex-row gap-4">
               <Link
                 href="/docs"
                 className="flex-1 rounded-lg border border-border p-6 hover:border-foreground/20 transition-colors"
               >
-                <h3 className="font-semibold mb-1">API Reference</h3>
+                <h3 className="font-semibold mb-1">MCP reference</h3>
                 <p className="text-sm text-muted-foreground">
-                  {_("start.apiRefLink.desc")}
+                  Every tool, schemas, and real-time events.
                 </p>
               </Link>
               <Link
-                href="/docs4agent"
+                href="/cloud"
                 className="flex-1 rounded-lg border border-border p-6 hover:border-foreground/20 transition-colors"
               >
-                <h3 className="font-semibold mb-1">API Doc for Agent</h3>
+                <h3 className="font-semibold mb-1">About huozi Cloud</h3>
                 <p className="text-sm text-muted-foreground">
-                  {_("start.apiDocAgentLink.desc")}
+                  Why Agents need a shared drive with commit history.
                 </p>
               </Link>
             </div>
@@ -254,7 +209,7 @@ export default async function StartPage() {
 
       <footer className="border-t border-border py-6">
         <div className="mx-auto max-w-5xl px-4 text-center text-sm text-muted-foreground">
-          {_("start.footer")}
+          An external hard drive, for Agents.
         </div>
       </footer>
     </div>

@@ -5,38 +5,42 @@ export const fr = {
   "nav.signIn": "Connexion",
   "nav.signUp": "Inscription",
   "nav.docs": "Docs",
-  "nav.pages": "Pages",
-  "nav.settings": "Paramètres",
-  "nav.signOut": "Déconnexion",
+  "nav.cloud": "Cloud",
 
   // Home hero
   "home.title1": "Le verbe porte la voie",
   "home.title2.highlight": "Huozi",
   "home.title2.rest": ", le vecteur",
   "home.divider": "文",
-  "home.subtitle1": "Transformez Markdown et HTML en pages web partageables.",
-  "home.subtitle2": "Conçu pour les agents IA et les développeurs.",
+  "home.subtitle1": "Un disque cloud pour agents.",
+  "home.subtitle2": "Parle le dialecte d'outils-fichier de Claude Code. Montable depuis tout client MCP.",
   "home.cta.start": "Commencer",
   "home.cta.signIn": "Connexion",
   "home.cta.preview": "Aperçu",
 
   // Home features
-  "home.feat1.icon": "Pub",
-  "home.feat1.title": "Publication instantanée",
-  "home.feat1.desc": "Un seul appel API transforme Markdown ou HTML en une belle page web. Pas de build, pas de déploiement.",
-  "home.feat2.icon": "API",
-  "home.feat2.title": "Conçu pour les agents",
-  "home.feat2.desc": "API RESTful avec authentification Bearer. Les agents IA publient du contenu directement, intégré aux workflows.",
-  "home.feat3.icon": "Hub",
-  "home.feat3.title": "Espaces de travail",
-  "home.feat3.desc": "Espaces de travail et URL personnalisés. Votre contenu, votre marque, votre chemin de domaine.",
+  "home.feat1.icon": "云",
+  "home.feat1.title": "Disque cloud pour agents",
+  "home.feat1.desc": "Montez un workspace via MCP. Les outils Read / Edit / Write / Glob / Grep déjà connus de votre agent fonctionnent — rien à réapprendre.",
+  "home.feat2.icon": "器",
+  "home.feat2.title": "Bit-exact avec Claude Code",
+  "home.feat2.desc": "Mêmes schémas, mêmes codes d'erreur, même cache de session. Claude Code, Cursor, Desktop ou HTTP brut — interchangeables.",
+  "home.feat3.icon": "时",
+  "home.feat3.title": "Sync live + historique",
+  "home.feat3.desc": "Chaque commit est diffusé en ~100 ms à l'UI web. Chaque fichier a un journal complet. Écritures multi-agent atomiques.",
 
-  // Home conversational install
-  "home.install.title": "Installation conversationnelle",
-  "home.install.desc": "Copiez le texte suivant et collez-le dans Claude Code ou tout agent IA pour terminer la configuration.",
+  // Home CTA band
+  "home.install.title": "Démarrer en 60 secondes",
 
   // Home code
-  "home.code.title": "Un appel, publication instantanée",
+  "home.code.title": "Monter, écrire un fichier",
+
+  // Home open source
+  "home.oss.title": "Open Source",
+  "home.oss.desc": "Auto-hébergez votre propre moteur de publication Markdown & HTML. Zéro base de données, juste KV. Licence MIT.",
+  "home.oss.deployCF": "Déployer sur Cloudflare",
+  "home.oss.deployVercel": "Déployer sur Vercel",
+  "home.oss.soon": "bientôt",
 
   // Home footer
   "home.footer": "Huozi — Typographie mobile pour l'ère de l'IA",
@@ -56,24 +60,8 @@ export const fr = {
   "auth.login.guide": "Guide de démarrage",
 
   // Dashboard
-  "dashboard.pages": "Pages",
-  "dashboard.newPage": "Nouvelle page",
-  "dashboard.noPages": "Aucune page",
-  "dashboard.noPagesDesc": "Créez votre première page ou utilisez l'API pour publier du Markdown ou HTML.",
-  "dashboard.draft": "Brouillon",
-  "dashboard.confirmDelete": "Êtes-vous sûr de vouloir supprimer cette page ?",
-  "dashboard.copyUrl": "Copier l'URL",
-  "dashboard.openPage": "Ouvrir la page",
-  "dashboard.delete": "Supprimer",
 
   // Dashboard new page
-  "dashboard.new.title": "Nouvelle page",
-  "dashboard.new.titleLabel": "Titre",
-  "dashboard.new.slug": "Slug",
-  "dashboard.new.content": "Contenu (Markdown)",
-  "dashboard.new.publish": "Publier",
-  "dashboard.new.publishing": "Publication...",
-  "dashboard.new.cancel": "Annuler",
 
   // Settings
   "settings.title": "Paramètres",

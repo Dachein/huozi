@@ -6,9 +6,9 @@ import { useRouter } from "next/navigation";
 
 const labels: Record<Locale, string> = {
   zh: "中文",
-  en: "EN",
+  en: "English",
   ja: "日本語",
-  fr: "FR",
+  fr: "Français",
 };
 
 export function LocaleSwitcher() {

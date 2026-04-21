@@ -5,38 +5,42 @@ export const en = {
   "nav.signIn": "Sign in",
   "nav.signUp": "Sign up",
   "nav.docs": "Docs",
-  "nav.pages": "Pages",
-  "nav.settings": "Settings",
-  "nav.signOut": "Sign out",
+  "nav.cloud": "Cloud",
 
   // Home hero
   "home.title1": "Words carry the Way",
   "home.title2.highlight": "Huozi",
   "home.title2.rest": ", the vessel",
   "home.divider": "文",
-  "home.subtitle1": "Turn Markdown and HTML into shareable web pages.",
-  "home.subtitle2": "Built for AI agents and developers.",
+  "home.subtitle1": "An Agent-native cloud drive.",
+  "home.subtitle2": "Speaks Claude Code's file-tool dialect. Mount from any MCP client.",
   "home.cta.start": "Get Started",
   "home.cta.signIn": "Sign in",
   "home.cta.preview": "Preview",
 
   // Home features
-  "home.feat1.icon": "Pub",
-  "home.feat1.title": "One-Click Publish",
-  "home.feat1.desc": "A single API call turns Markdown or HTML into a beautiful web page. No build, no deploy.",
-  "home.feat2.icon": "API",
-  "home.feat2.title": "Built for Agents",
-  "home.feat2.desc": "RESTful API with Bearer auth. AI agents can publish content directly, seamlessly integrated into workflows.",
-  "home.feat3.icon": "Hub",
-  "home.feat3.title": "Workspaces",
-  "home.feat3.desc": "Custom workspaces and URLs. Your content, your brand, your domain path.",
+  "home.feat1.icon": "云",
+  "home.feat1.title": "Cloud drive for Agents",
+  "home.feat1.desc": "Mount a workspace over MCP. Every Read / Edit / Write / Glob / Grep your Agent already knows just works — no new tools to learn.",
+  "home.feat2.icon": "器",
+  "home.feat2.title": "Bit-exact Claude Code",
+  "home.feat2.desc": "Same schemas, same error codes, same session cache. Claude Code, Cursor, Desktop, or raw HTTP — all interchangeable.",
+  "home.feat3.icon": "时",
+  "home.feat3.title": "Live sync + history",
+  "home.feat3.desc": "Every commit broadcasts in ~100 ms to the Web UI. Every file has a full commit log. Multi-Agent atomic writes.",
 
-  // Home conversational install
-  "home.install.title": "Conversational Install",
-  "home.install.desc": "Copy the following and paste into Claude Code or any AI Agent to complete setup instantly.",
+  // Home CTA band
+  "home.install.title": "Get started in 60 seconds",
 
   // Home code
-  "home.code.title": "One call, instant publish",
+  "home.code.title": "Mount it, write a file",
+
+  // Home open source
+  "home.oss.title": "Open Source",
+  "home.oss.desc": "Self-host your own Markdown & HTML publishing. Zero database, just KV. MIT licensed.",
+  "home.oss.deployCF": "Deploy to Cloudflare",
+  "home.oss.deployVercel": "Deploy to Vercel",
+  "home.oss.soon": "soon",
 
   // Home footer
   "home.footer": "Huozi — Movable type for the AI era",
@@ -56,24 +60,8 @@ export const en = {
   "auth.login.guide": "Get Started guide",
 
   // Dashboard
-  "dashboard.pages": "Pages",
-  "dashboard.newPage": "New Page",
-  "dashboard.noPages": "No pages yet",
-  "dashboard.noPagesDesc": "Create your first page or use the API to publish Markdown or HTML.",
-  "dashboard.draft": "Draft",
-  "dashboard.confirmDelete": "Are you sure you want to delete this page?",
-  "dashboard.copyUrl": "Copy URL",
-  "dashboard.openPage": "Open page",
-  "dashboard.delete": "Delete",
 
   // Dashboard new page
-  "dashboard.new.title": "New Page",
-  "dashboard.new.titleLabel": "Title",
-  "dashboard.new.slug": "Slug",
-  "dashboard.new.content": "Content (Markdown)",
-  "dashboard.new.publish": "Publish",
-  "dashboard.new.publishing": "Publishing...",
-  "dashboard.new.cancel": "Cancel",
 
   // Settings
   "settings.title": "Settings",

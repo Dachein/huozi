@@ -30,6 +30,12 @@ export function SiteHeader({ locale }: { locale: Locale }) {
           >
             {_("nav.docs")}
           </Link>
+          <Link
+            href="/cloud"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {_("nav.cloud")}
+          </Link>
           <LocaleSwitcher />
         </nav>
       </div>

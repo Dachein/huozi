@@ -5,38 +5,42 @@ export const ja = {
   "nav.signIn": "ログイン",
   "nav.signUp": "新規登録",
   "nav.docs": "ドキュメント",
-  "nav.pages": "ページ",
-  "nav.settings": "設定",
-  "nav.signOut": "ログアウト",
+  "nav.cloud": "クラウド",
 
   // Home hero
   "home.title1": "文以載道",
   "home.title2.highlight": "活字",
   "home.title2.rest": "為器",
   "home.divider": "文",
-  "home.subtitle1": "MarkdownとHTMLを共有可能なWebページに変換。",
-  "home.subtitle2": "AIエージェントと開発者のために。",
+  "home.subtitle1": "エージェント向けクラウドドライブ。",
+  "home.subtitle2": "Claude Codeのファイルツール方言を話す。MCPクライアントからマウント可能。",
   "home.cta.start": "はじめる",
   "home.cta.signIn": "ログイン",
   "home.cta.preview": "プレビュー",
 
   // Home features
-  "home.feat1.icon": "書",
-  "home.feat1.title": "ワンクリック公開",
-  "home.feat1.desc": "APIを一回呼び出すだけで、MarkdownやHTMLが美しいWebページに。ビルドもデプロイも不要。",
+  "home.feat1.icon": "云",
+  "home.feat1.title": "エージェント向けクラウドドライブ",
+  "home.feat1.desc": "MCPでワークスペースをマウント。エージェントが既に知っているRead/Edit/Write/Glob/Grepがそのまま使える — 新しいツールを覚える必要なし。",
   "home.feat2.icon": "器",
-  "home.feat2.title": "エージェント対応",
-  "home.feat2.desc": "RESTful API、Bearer認証。AIエージェントから直接コンテンツを公開、ワークフローにシームレスに統合。",
-  "home.feat3.icon": "道",
-  "home.feat3.title": "ワークスペース",
-  "home.feat3.desc": "カスタムワークスペースとURL。あなたのコンテンツ、あなたのブランド、あなたのドメインパス。",
+  "home.feat2.title": "Claude Codeとビット単位で互換",
+  "home.feat2.desc": "同じスキーマ、エラーコード、セッションキャッシュ。Claude Code、Cursor、Desktop、または生HTTP — すべて交換可能。",
+  "home.feat3.icon": "时",
+  "home.feat3.title": "ライブ同期 + 履歴",
+  "home.feat3.desc": "すべてのコミットが約100msでWeb UIにブロードキャスト。すべてのファイルに完全なコミットログ。マルチエージェント原子書き込み。",
 
-  // Home conversational install
-  "home.install.title": "会話インストール",
-  "home.install.desc": "以下をコピーしてClaude Codeまたは任意のAIエージェントに貼り付けると、すぐにセットアップが完了します。",
+  // Home CTA band
+  "home.install.title": "60秒で開始",
 
   // Home code
-  "home.code.title": "一回の呼び出しで即座に公開",
+  "home.code.title": "マウントしてファイルを書く",
+
+  // Home open source
+  "home.oss.title": "オープンソース",
+  "home.oss.desc": "Markdown & HTMLパブリッシングを自己ホスト。データベース不要、KVのみ。MITライセンス。",
+  "home.oss.deployCF": "Cloudflareにデプロイ",
+  "home.oss.deployVercel": "Vercelにデプロイ",
+  "home.oss.soon": "近日公開",
 
   // Home footer
   "home.footer": "活字 — AI時代の活版印刷",
@@ -56,24 +60,8 @@ export const ja = {
   "auth.login.guide": "スタートガイド",
 
   // Dashboard
-  "dashboard.pages": "ページ",
-  "dashboard.newPage": "新規ページ",
-  "dashboard.noPages": "ページがありません",
-  "dashboard.noPagesDesc": "最初のページを作成するか、APIでMarkdownやHTMLを公開してください。",
-  "dashboard.draft": "下書き",
-  "dashboard.confirmDelete": "このページを削除してもよろしいですか？",
-  "dashboard.copyUrl": "URLをコピー",
-  "dashboard.openPage": "ページを開く",
-  "dashboard.delete": "削除",
 
   // Dashboard new page
-  "dashboard.new.title": "新規ページ",
-  "dashboard.new.titleLabel": "タイトル",
-  "dashboard.new.slug": "スラグ",
-  "dashboard.new.content": "コンテンツ (Markdown)",
-  "dashboard.new.publish": "公開",
-  "dashboard.new.publishing": "公開中...",
-  "dashboard.new.cancel": "キャンセル",
 
   // Settings
   "settings.title": "設定",

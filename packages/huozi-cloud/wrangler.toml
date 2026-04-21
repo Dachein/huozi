@@ -1,0 +1,37 @@
+name = "huozi-cloud"
+main = "dist/worker/index.js"
+compatibility_date = "2026-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Custom domain — CF auto-creates the DNS record on deploy.
+routes = [
+  { pattern = "cloud.huozi.app", custom_domain = true }
+]
+
+# ── R2: blob storage ─────────────────────────────────────────────────
+[[r2_buckets]]
+binding = "BLOBS"
+bucket_name = "huozi-blobs"
+
+# ── D1: metadata + history ───────────────────────────────────────────
+[[d1_databases]]
+binding = "DB"
+database_name = "huozi-db"
+database_id = "fd87c0ca-7bcc-4470-8a7b-b6f6ed14c33b"
+
+# ── Durable Objects ──────────────────────────────────────────────────
+[[durable_objects.bindings]]
+name = "WORKSPACE_DO"
+class_name = "HuoziWorkspaceDO"
+
+[[durable_objects.bindings]]
+name = "SESSION_DO"
+class_name = "HuoziSessionDO"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["HuoziWorkspaceDO", "HuoziSessionDO"]
+
+# ── Observability ────────────────────────────────────────────────────
+[observability]
+enabled = true

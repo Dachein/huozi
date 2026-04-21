@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ConversationalInstall } from "@/components/conversational-install";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { getLocale } from "@/lib/i18n/server";
 import { t } from "@/lib/i18n";
@@ -143,15 +142,25 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* Conversational Install */}
-        <section className="mx-auto max-w-3xl px-6 pb-16">
-          <p className="text-sm font-medium text-muted-foreground mb-6 text-center font-serif tracking-wider">
+        {/* Get started CTA */}
+        <section className="mx-auto max-w-3xl px-6 pb-16 text-center">
+          <p className="text-sm font-medium text-muted-foreground mb-6 font-serif tracking-wider">
             {_("home.install.title")}
           </p>
-          <p className="text-center text-sm text-muted-foreground mb-6">
-            {_("home.install.desc")}
-          </p>
-          <ConversationalInstall />
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <Link
+              href="/cloud/onboard"
+              className="rounded-md bg-foreground px-5 py-2.5 text-sm font-medium text-background hover:opacity-90 transition-opacity"
+            >
+              Claim a workspace →
+            </Link>
+            <Link
+              href="/start"
+              className="rounded-md border border-border px-5 py-2.5 text-sm font-medium hover:border-foreground/30 transition-colors"
+            >
+              Get started guide
+            </Link>
+          </div>
         </section>
 
         {/* Code example */}
@@ -160,16 +169,15 @@ export default async function HomePage() {
             {_("home.code.title")}
           </p>
           <pre className="rounded-xl border border-border bg-muted/50 p-6 text-sm overflow-x-auto font-mono leading-relaxed">
-            <code>{`curl -X POST https://huozi.app/api/v1/pages \\
-  -H "Authorization: Bearer hz_your_key" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "title": "Hello World",
-    "content": "# Hello\\n\\nPublished from my agent."
-  }'
+            <code>{`# Mount the workspace in Claude Code:
+claude mcp add --transport http huozi https://cloud.huozi.app/mcp \\
+  -H "Authorization: Bearer hz_your_key"
 
-# Response:
-# { "url": "https://huozi.app/you/hello-world" }`}</code>
+# Then ask the Agent to create a file:
+#   > write a README.md explaining the project
+#
+# It lands in your workspace, live-synced to the Web UI at
+# huozi.app/cloud/workspace — with full commit history.`}</code>
           </pre>
         </section>
         {/* Open Source */}

@@ -5,38 +5,42 @@ export const zh = {
   "nav.signIn": "登录",
   "nav.signUp": "注册",
   "nav.docs": "文档",
-  "nav.pages": "页面",
-  "nav.settings": "设置",
-  "nav.signOut": "退出登录",
+  "nav.cloud": "云盘",
 
   // Home hero
   "home.title1": "以文载道",
   "home.title2.highlight": "活字",
   "home.title2.rest": "为器",
   "home.divider": "文",
-  "home.subtitle1": "将 Markdown 与 HTML 化为可分享的网页。",
-  "home.subtitle2": "为 AI 智能体与开发者而造。",
+  "home.subtitle1": "为 Agent 而造的云盘。",
+  "home.subtitle2": "讲 Claude Code 的文件工具方言。任何 MCP 客户端都能挂载。",
   "home.cta.start": "开始使用",
   "home.cta.signIn": "登录",
   "home.cta.preview": "预览",
 
   // Home features
-  "home.feat1.icon": "书",
-  "home.feat1.title": "一键发布",
-  "home.feat1.desc": "一个 API 调用，Markdown 或 HTML 即刻化为美观的网页。无需构建，无需部署。",
+  "home.feat1.icon": "云",
+  "home.feat1.title": "Agent 云盘",
+  "home.feat1.desc": "通过 MCP 挂载一个工作空间。Agent 已经会的 Read / Edit / Write / Glob / Grep 直接可用 —— 不用学新工具。",
   "home.feat2.icon": "器",
-  "home.feat2.title": "为智能体而造",
-  "home.feat2.desc": "RESTful API，Bearer 认证。AI Agent 可直接调用发布内容，无缝集成工作流。",
-  "home.feat3.icon": "道",
-  "home.feat3.title": "工作空间",
-  "home.feat3.desc": "自定义工作空间与链接。你的内容，你的品牌，你的域名路径。",
+  "home.feat2.title": "和 Claude Code 逐字节一致",
+  "home.feat2.desc": "同样的 schema、错误码、session 缓存。Claude Code、Cursor、Desktop 或裸 HTTP —— 可互换。",
+  "home.feat3.icon": "时",
+  "home.feat3.title": "实时同步 + 历史",
+  "home.feat3.desc": "每次提交 ~100 毫秒内推送到 Web UI。每个文件都有完整 commit 日志。多 Agent 原子写。",
 
-  // Home conversational install
-  "home.install.title": "对话安装",
-  "home.install.desc": "复制以下内容，粘贴到 Claude Code 或任意 AI Agent，即刻完成注册与配置。",
+  // Home CTA band
+  "home.install.title": "60 秒上手",
 
   // Home code
-  "home.code.title": "一次调用，即刻发布",
+  "home.code.title": "挂载、写一个文件",
+
+  // Home open source
+  "home.oss.title": "开源",
+  "home.oss.desc": "自部署 Markdown 与 HTML 发布引擎。零数据库，纯 KV 存储。MIT 开源协议。",
+  "home.oss.deployCF": "部署到 Cloudflare",
+  "home.oss.deployVercel": "部署到 Vercel",
+  "home.oss.soon": "即将支持",
 
   // Home footer
   "home.footer": "活字 — 以文载道，活字为器",
@@ -56,24 +60,8 @@ export const zh = {
   "auth.login.guide": "查看入门指南",
 
   // Dashboard
-  "dashboard.pages": "页面",
-  "dashboard.newPage": "新建页面",
-  "dashboard.noPages": "暂无页面",
-  "dashboard.noPagesDesc": "创建你的第一个页面，或通过 API 发布 Markdown 或 HTML。",
-  "dashboard.draft": "草稿",
-  "dashboard.confirmDelete": "确定要删除这个页面吗？",
-  "dashboard.copyUrl": "复制链接",
-  "dashboard.openPage": "打开页面",
-  "dashboard.delete": "删除",
 
   // Dashboard new page
-  "dashboard.new.title": "新建页面",
-  "dashboard.new.titleLabel": "标题",
-  "dashboard.new.slug": "路径",
-  "dashboard.new.content": "内容 (Markdown)",
-  "dashboard.new.publish": "发布",
-  "dashboard.new.publishing": "发布中...",
-  "dashboard.new.cancel": "取消",
 
   // Settings
   "settings.title": "设置",

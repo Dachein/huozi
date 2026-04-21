@@ -1,0 +1,46 @@
+{
+  "name": "huozi-cloud",
+  "version": "0.0.0",
+  "description": "Agent-native cloud drive. Speaks Claude Code tool dialect. Runs on Cloudflare Workers + R2 + D1 + Durable Objects.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "smoke": "tsc && node dist/smoke.js",
+    "smoke:mcp": "tsc && node dist/smoke-mcp.js",
+    "smoke:cf": "tsc && node dist/smoke-mcp-cf.js",
+    "smoke:cf:scope": "tsc && node dist/smoke-mcp-cf-scope.js",
+    "smoke:cf:secrets": "tsc && node dist/smoke-mcp-cf-secrets.js",
+    "bench": "tsc && node dist/bench.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "mcp:stdio": "node dist/mcp/stdio.js",
+    "cf:dev": "wrangler dev",
+    "cf:deploy": "wrangler deploy",
+    "cf:migrate": "wrangler d1 execute huozi-db --file src/storage/cloudflare/schema.sql --remote"
+  },
+  "keywords": [
+    "mcp",
+    "claude-code",
+    "cloudflare-workers",
+    "agent-storage",
+    "huozi"
+  ],
+  "author": "Dachein",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "diff": "^5.2.0",
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.25.2"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260420.1",
+    "@types/diff": "^5.2.0",
+    "@types/node": "^20.12.0",
+    "typescript": "^5.5.0",
+    "vitest": "^4.1.4",
+    "wrangler": "^4.84.0"
+  }
+}
