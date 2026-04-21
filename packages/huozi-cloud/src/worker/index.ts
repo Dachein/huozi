@@ -31,6 +31,13 @@ import {
 } from '../storage/cloudflare/events.js'
 import { handleRecent } from '../storage/cloudflare/recent.js'
 import {
+  handleCreateShare,
+  handleGetShare,
+  handleListShares,
+  handleRevokeShare,
+  handleUnlockShare,
+} from '../storage/cloudflare/shares.js'
+import {
   applyScopeToArgs,
   unscopeResult,
 } from '../storage/cloudflare/scope.js'
@@ -107,6 +114,23 @@ const handler: ExportedHandler<HuoziCloudflareBindings> = {
     }
     if (url.pathname === '/events/recent') {
       return handleRecent(request, env)
+    }
+
+    // Public shares — `huozi.app/p/<slug>` backing endpoints.
+    if (url.pathname === '/shares') {
+      return request.method === 'GET'
+        ? handleListShares(request, env)
+        : handleCreateShare(request, env)
+    }
+    {
+      const m = url.pathname.match(/^\/shares\/([a-z0-9]{6,24})(?:\/(unlock|revoke))?$/)
+      if (m) {
+        const slug = m[1]!
+        const action = m[2]
+        if (action === 'unlock') return handleUnlockShare(request, env, slug)
+        if (action === 'revoke') return handleRevokeShare(request, env, slug)
+        return handleGetShare(request, env, slug)
+      }
     }
 
     // Admin endpoints — server-to-server via HUOZI_ADMIN_SECRET.

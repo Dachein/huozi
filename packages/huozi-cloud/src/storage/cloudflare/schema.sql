@@ -88,6 +88,35 @@ CREATE TABLE IF NOT EXISTS api_tickets (
 CREATE INDEX IF NOT EXISTS idx_api_tickets_expires
   ON api_tickets (expires_at);
 
+-- Public shares — one row per `huozi.app/p/<slug>` URL. The slug points
+-- at a *snapshot* (blob_sha) captured at publish time; later edits to the
+-- source file don't affect the published link. R2's content-addressed
+-- storage means the frozen bytes remain fetchable as long as the blob row
+-- (or any commit referencing it) exists.
+--
+-- `passcode_hash` NULL = fully public. Non-null = 6-digit SHA-256 gate.
+-- No expiry in v1. Owners can revoke via `revoked_at`.
+CREATE TABLE IF NOT EXISTS shares (
+  slug          TEXT PRIMARY KEY,
+  workspace_id  TEXT NOT NULL,
+  file_path     TEXT NOT NULL,
+  blob_sha      TEXT NOT NULL,
+  commit_sha    TEXT NOT NULL,
+  passcode_hash TEXT,
+  created_at    INTEGER NOT NULL,
+  revoked_at    INTEGER,
+  view_count    INTEGER NOT NULL DEFAULT 0,
+  /* The user-facing principal who issued the share (for audit; RLS lives at
+     the Worker boundary via api_keys). */
+  created_by    TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_shares_ws
+  ON shares (workspace_id);
+
+CREATE INDEX IF NOT EXISTS idx_shares_ws_path
+  ON shares (workspace_id, file_path);
+
 -- FTS5 trigram index for grep pre-filtering.
 -- Maintained by WorkspaceDO: one row per current file version. Before an
 -- UPDATE we DELETE the existing row for (workspace_id, path) and re-INSERT

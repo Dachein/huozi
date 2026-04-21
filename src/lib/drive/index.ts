@@ -15,3 +15,4 @@
 
 export * from "./mcp-client";
 export * from "./admin";
+export * from "./shares";

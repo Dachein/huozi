@@ -8,6 +8,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { PublishDialog } from "./publish-dialog";
 
 export interface FileActionsMenuProps {
   path: string;
@@ -31,6 +32,7 @@ function formatBytes(n: number): string {
 export function FileActionsMenu(props: FileActionsMenuProps) {
   const { path, wantRaw, offset, limit, canRender, totalLines, size, mimeType, blobSha } = props;
   const [open, setOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -73,6 +75,11 @@ export function FileActionsMenu(props: FileActionsMenuProps) {
       >
         ⋯
       </button>
+      <PublishDialog
+        path={path}
+        open={publishOpen}
+        onClose={() => setPublishOpen(false)}
+      />
       {open && (
         <div
           role="menu"
@@ -103,7 +110,17 @@ export function FileActionsMenu(props: FileActionsMenuProps) {
           <MenuLink href={historyHref} onClick={() => setOpen(false)}>
             History →
           </MenuLink>
-          <MenuDisabled>Publish · soon</MenuDisabled>
+          <MenuButton
+            onClick={() => {
+              setOpen(false);
+              setPublishOpen(true);
+            }}
+          >
+            Publish / Share…
+          </MenuButton>
+          <MenuLink href="/cloud/workspace/shares" onClick={() => setOpen(false)}>
+            Manage shares →
+          </MenuLink>
           <Separator />
           <div className="px-3 py-1.5 text-[11px] text-muted-foreground space-y-0.5 font-mono">
             {totalLines !== null && (
@@ -149,12 +166,22 @@ function MenuLink({
   );
 }
 
-function MenuDisabled({ children }: { children: React.ReactNode }) {
+function MenuButton({
+  onClick,
+  children,
+}: {
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 text-muted-foreground/50 cursor-not-allowed select-none">
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+    >
       <span className="w-3 text-xs"></span>
       <span>{children}</span>
-    </div>
+    </button>
   );
 }
 
