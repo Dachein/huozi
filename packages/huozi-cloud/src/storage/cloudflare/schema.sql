@@ -88,6 +88,47 @@ CREATE TABLE IF NOT EXISTS api_tickets (
 CREATE INDEX IF NOT EXISTS idx_api_tickets_expires
   ON api_tickets (expires_at);
 
+-- Device authorization grants (OAuth 2.0 device flow, §3.2).
+--
+-- Agent flow, mirroring `claude login` / `gh auth login`:
+--   1. Agent POSTs /auth/device-code, gets { device_code, user_code,
+--      verification_url, interval, expires_in }.
+--   2. Agent shows user `user_code` + URL. Agent starts polling
+--      /auth/token with the device_code.
+--   3. User opens huozi.app/device?code=<user_code> (same tab that's
+--      already signed in, typically), picks a workspace, clicks
+--      Authorize. Next.js server-side calls Worker
+--      /admin/device-authorize which resolves user_code → grant row,
+--      mints a scoped api_key, stores it on the row.
+--   4. Agent's next poll sees status='authorized', returns the key,
+--      the row is marked consumed and the plaintext key is scrubbed.
+--
+-- user_code is 8 chars (e.g. "ABCD-1234") to make it easy to read
+-- aloud / retype. Expiry is 15 min by default.
+CREATE TABLE IF NOT EXISTS device_grants (
+  device_code     TEXT PRIMARY KEY,
+  user_code       TEXT NOT NULL UNIQUE,
+  client_name     TEXT,
+  agent_kind      TEXT,
+  status          TEXT NOT NULL DEFAULT 'pending',
+    /* pending | authorized | denied | expired | consumed */
+  user_id         TEXT,
+  workspace_id    TEXT,
+  workspace_slug  TEXT,
+  api_key         TEXT,
+  api_key_id      TEXT,
+  created_at      INTEGER NOT NULL,
+  expires_at      INTEGER NOT NULL,
+  authorized_at   INTEGER,
+  consumed_at     INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_device_grants_user_code
+  ON device_grants (user_code);
+
+CREATE INDEX IF NOT EXISTS idx_device_grants_status
+  ON device_grants (status, expires_at);
+
 -- Public shares — one row per `huozi.app/p/<slug>` URL. The slug points
 -- at a *snapshot* (blob_sha) captured at publish time; later edits to the
 -- source file don't affect the published link. R2's content-addressed

@@ -38,6 +38,13 @@ import {
   handleUnlockShare,
 } from '../storage/cloudflare/shares.js'
 import {
+  handleDeviceAuthorize,
+  handleDeviceCode,
+  handleDeviceDeny,
+  handleDeviceInspect,
+  handleDeviceToken,
+} from '../storage/cloudflare/device-auth.js'
+import {
   applyScopeToArgs,
   unscopeResult,
 } from '../storage/cloudflare/scope.js'
@@ -157,6 +164,38 @@ const handler: ExportedHandler<HuoziCloudflareBindings> = {
         if (r instanceof Response) return r
         throw r
       }
+    }
+    if (url.pathname === '/admin/device-authorize') {
+      try {
+        return await handleDeviceAuthorize(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/admin/device-deny') {
+      try {
+        return await handleDeviceDeny(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/admin/device-inspect') {
+      try {
+        return await handleDeviceInspect(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+
+    // Device-flow public endpoints (no auth; Agents hit these).
+    if (url.pathname === '/auth/device-code') {
+      return handleDeviceCode(request, env)
+    }
+    if (url.pathname === '/auth/token') {
+      return handleDeviceToken(request, env)
     }
 
     // TEMPORARY DEBUG: clear session state for the token's principal.

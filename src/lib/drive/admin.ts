@@ -108,3 +108,78 @@ export async function cloudAdminRevokeKey(
 export function slugToWorkspaceId(slug: string): string {
   return `ws_${slug}`;
 }
+
+// ── Device-flow admin helpers ─────────────────────────────────────────
+
+export interface DeviceGrantSummary {
+  user_code: string;
+  client_name: string | null;
+  agent_kind: string | null;
+  status: "pending" | "authorized" | "denied" | "expired" | "consumed";
+  created_at: number;
+  expires_at: number;
+}
+
+/**
+ * Server-side lookup of a device grant by user_code. Used by the
+ * `/device` page to render client context before asking the user
+ * to approve.
+ */
+export async function cloudAdminDeviceInspect(
+  userCode: string,
+): Promise<DeviceGrantSummary | null> {
+  const res = await fetch(
+    `${CLOUD_URL}/admin/device-inspect?user_code=${encodeURIComponent(userCode)}`,
+    {
+      method: "GET",
+      headers: { "X-Admin-Secret": adminSecret() },
+    },
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    const body = await res.text().catch(() => "?");
+    throw new Error(`device-inspect failed: ${res.status} ${body}`);
+  }
+  const json = (await res.json()) as { ok: true; grant: DeviceGrantSummary };
+  return json.grant;
+}
+
+export async function cloudAdminDeviceAuthorize(input: {
+  user_code: string;
+  user_id: string;
+  workspace_id: string;
+  workspace_slug: string;
+  label?: string;
+}): Promise<{ ok: true }> {
+  const res = await fetch(`${CLOUD_URL}/admin/device-authorize`, {
+    method: "POST",
+    headers: {
+      "X-Admin-Secret": adminSecret(),
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "?");
+    throw new Error(`device-authorize failed: ${res.status} ${body}`);
+  }
+  return (await res.json()) as { ok: true };
+}
+
+export async function cloudAdminDeviceDeny(
+  userCode: string,
+): Promise<{ ok: true }> {
+  const res = await fetch(`${CLOUD_URL}/admin/device-deny`, {
+    method: "POST",
+    headers: {
+      "X-Admin-Secret": adminSecret(),
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ user_code: userCode }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "?");
+    throw new Error(`device-deny failed: ${res.status} ${body}`);
+  }
+  return (await res.json()) as { ok: true };
+}

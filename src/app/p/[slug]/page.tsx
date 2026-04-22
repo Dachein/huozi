@@ -37,7 +37,7 @@ function ext(path: string): string {
 async function renderForPath(
   filePath: string,
   text: string,
-): Promise<string> {
+): Promise<string | null> {
   const e = ext(filePath);
   if (e === "md" || e === "mdx") {
     return await renderMarkdown(text);
@@ -46,7 +46,11 @@ async function renderForPath(
     const { html } = processHtmlDirect(processChartComponents(text));
     return html;
   }
-  // JSON / CSV / TXT: wrap in a preformatted block with minimal escaping.
+  // CSV / TSV: null → ShareViewer mounts the interactive client table.
+  if (e === "csv" || e === "tsv") {
+    return null;
+  }
+  // JSON / TXT / other: wrap in a preformatted block with minimal escaping.
   const escaped = text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -83,7 +87,8 @@ export default async function SharedPage({ params }: { params: Params }) {
     // share.text is the raw file content
     rawText = share.text;
     if (rawText) {
-      prerenderedHtml = await renderForPath(share.file_path, rawText);
+      const rendered = await renderForPath(share.file_path, rawText);
+      if (rendered !== null) prerenderedHtml = rendered;
     }
   }
 

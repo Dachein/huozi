@@ -1,6 +1,7 @@
 import { renderMarkdown } from "@/lib/markdown/renderer";
 import { processHtmlDirect } from "@/lib/html/sanitizer";
 import { processChartComponents } from "@/lib/html/chart-components";
+import { CsvTable } from "@/components/csv-table";
 
 /**
  * Renders a file's content based on its extension.
@@ -66,10 +67,9 @@ export async function FileRenderer({ path, content, raw }: FileRendererProps) {
     return <SourceBlock content={pretty} mono />;
   }
 
-  // CSV / TSV — table view.
+  // CSV / TSV — interactive table view.
   if (ext === "csv" || ext === "tsv") {
-    const delim = ext === "tsv" ? "\t" : ",";
-    return <CsvTable content={content} delim={delim} />;
+    return <CsvTable content={content} delim={ext === "tsv" ? "\t" : ","} />;
   }
 
   // Everything else: show as source. Code files get monospace + light wrap.
@@ -103,55 +103,3 @@ function SourceBlock({
   );
 }
 
-function CsvTable({ content, delim }: { content: string; delim: string }) {
-  const lines = content.split(/\r?\n/).filter((l) => l.length > 0);
-  if (lines.length === 0) {
-    return (
-      <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-        Empty file.
-      </div>
-    );
-  }
-
-  // Very basic CSV parser — doesn't handle quoted delimiters. v2 can add PapaParse.
-  const rows = lines.map((l) => l.split(delim));
-  const header = rows[0]!;
-  const body = rows.slice(1, 501); // cap at 500 rows to keep the page responsive
-  const truncated = rows.length - 1 > 500;
-
-  return (
-    <div className="space-y-2">
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full text-xs">
-          <thead className="bg-muted">
-            <tr>
-              {header.map((h, i) => (
-                <th key={i} className="px-3 py-2 text-left font-medium border-b border-border">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {body.map((row, i) => (
-              <tr key={i} className="odd:bg-muted/30">
-                {row.map((cell, j) => (
-                  <td
-                    key={j}
-                    className="px-3 py-1.5 border-b border-border/40 font-mono whitespace-nowrap"
-                  >
-                    {cell}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="text-xs text-muted-foreground">
-        {rows.length - 1} row{rows.length - 1 === 1 ? "" : "s"}
-        {truncated ? ` (showing first 500)` : ""}
-      </div>
-    </div>
-  );
-}
