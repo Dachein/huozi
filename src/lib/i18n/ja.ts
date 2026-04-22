@@ -3,6 +3,7 @@ export const ja = {
   "nav.home": "huozi.app",
   "nav.getStarted": "はじめる",
   "nav.signIn": "ログイン",
+  "nav.workspace": "ワークスペース",
   "nav.signUp": "新規登録",
   "nav.docs": "ドキュメント",
   "nav.cloud": "クラウド",

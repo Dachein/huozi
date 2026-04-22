@@ -8,7 +8,7 @@
  * In Edge mode:
  *   - Skip Supabase entirely (those env vars won't exist).
  *   - Cloud-only routes (/dashboard, /login, /signup) redirect to
- *     /cloud/connect — the Edge deployer's paste-key flow.
+ *     /connect — the Edge deployer's paste-key flow.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -44,7 +44,7 @@ export async function middleware(request: NextRequest) {
     const path = request.nextUrl.pathname;
     if (CLOUD_ONLY_PREFIXES.some((p) => path === p || path.startsWith(p + "/"))) {
       const url = request.nextUrl.clone();
-      url.pathname = "/cloud/connect";
+      url.pathname = "/connect";
       url.search = "";
       const res = NextResponse.redirect(url);
       applyLocale(request, res);
@@ -96,7 +96,7 @@ export async function middleware(request: NextRequest) {
     user
   ) {
     const url = request.nextUrl.clone();
-    url.pathname = "/cloud/workspace";
+    url.pathname = "/workspace";
     url.search = "";
     return NextResponse.redirect(url);
   }

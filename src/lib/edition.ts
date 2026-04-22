@@ -10,7 +10,7 @@
  *     whoever holds `HUOZI_ADMIN_SECRET` is the admin; all users connect
  *     via pasted API keys. No Supabase, no email login, no dashboard.
  *     Published pages (the `/dashboard` publishing feature) are dropped —
- *     the drive surface (`/cloud/workspace`) is all that remains.
+ *     the drive surface (`/workspace`) is all that remains.
  *
  * Code that needs to diverge by edition should route through this module
  * (or through `@/lib/identity`, which already dispatches on edition). No

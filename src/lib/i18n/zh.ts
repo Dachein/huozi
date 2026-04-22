@@ -3,6 +3,7 @@ export const zh = {
   "nav.home": "huozi.app",
   "nav.getStarted": "开始使用",
   "nav.signIn": "登录",
+  "nav.workspace": "云盘",
   "nav.signUp": "注册",
   "nav.docs": "文档",
   "nav.cloud": "云盘",

@@ -19,8 +19,8 @@
  *          -H "X-Admin-Secret: $HUOZI_ADMIN_SECRET" \
  *          -d '{"workspace_id":"ws_default","principal_id":"admin",
  *               "principal_type":"user","name":"Admin · browser"}'
- *   3. Deployer visits `/cloud/connect` and pastes the returned key.
- *   4. From then on the `/cloud/workspace/keys` + `/cloud/workspace/connect`
+ *   3. Deployer visits `/connect` and pastes the returned key.
+ *   4. From then on the `/workspace/keys` + `/workspace/connect`
  *      UI mints additional keys for Agents normally.
  */
 

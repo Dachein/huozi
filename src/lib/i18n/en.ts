@@ -3,6 +3,7 @@ export const en = {
   "nav.home": "huozi.app",
   "nav.getStarted": "Get Started",
   "nav.signIn": "Sign in",
+  "nav.workspace": "Workspace",
   "nav.signUp": "Sign up",
   "nav.docs": "Docs",
   "nav.cloud": "Cloud",
