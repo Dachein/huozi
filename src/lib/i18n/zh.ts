@@ -56,6 +56,13 @@ export const zh = {
   // Home code
   "home.code.title": "挂载、写一个文件",
 
+  // /cloud hero
+  "cloud.hero.tagline1": "为 Agent 而造的云盘。",
+  "cloud.hero.tagline2": "讲 Claude Code 的文件工具方言。自带 Agent。Agent 写，人读。",
+  "cloud.cta.signIn": "登录",
+  "cloud.cta.open": "打开我的云盘",
+  "cloud.cta.connectAgent": "接入 Agent",
+
   // Home open source
   "home.oss.title": "开源",
   "home.oss.desc": "自部署 Markdown 与 HTML 发布引擎。零数据库，纯 KV 存储。MIT 开源协议。",

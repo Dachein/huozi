@@ -56,6 +56,13 @@ export const ja = {
   // Home code
   "home.code.title": "マウントしてファイルを書く",
 
+  // /cloud hero
+  "cloud.hero.tagline1": "エージェント向けのハードドライブ。",
+  "cloud.hero.tagline2": "Claude Code のファイルツール方言を話す。自分の Agent を持ち込む。Agent が書き、人が読む。",
+  "cloud.cta.signIn": "ログイン",
+  "cloud.cta.open": "ワークスペースを開く",
+  "cloud.cta.connectAgent": "Agent を接続",
+
   // Home open source
   "home.oss.title": "オープンソース",
   "home.oss.desc": "Markdown & HTMLパブリッシングを自己ホスト。データベース不要、KVのみ。MITライセンス。",

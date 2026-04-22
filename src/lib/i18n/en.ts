@@ -56,6 +56,13 @@ export const en = {
   // Home code
   "home.code.title": "Mount it, write a file",
 
+  // /cloud hero
+  "cloud.hero.tagline1": "An Agent-native hard drive.",
+  "cloud.hero.tagline2": "Speaks Claude Code's file-tool dialect. Bring your own Agent. Agents write, humans read.",
+  "cloud.cta.signIn": "Sign in",
+  "cloud.cta.open": "Open my workspace",
+  "cloud.cta.connectAgent": "Connect an Agent",
+
   // Home open source
   "home.oss.title": "Open Source",
   "home.oss.desc": "Self-host your own Markdown & HTML publishing. Zero database, just KV. MIT licensed.",

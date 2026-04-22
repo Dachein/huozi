@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { CopyButton } from "@/components/copy-button";
 import { getLocale } from "@/lib/i18n/server";
+import { t } from "@/lib/i18n";
 import { getIdentity } from "@/lib/identity";
 
 export const metadata: Metadata = {
@@ -46,6 +47,7 @@ function Status({ kind }: { kind: "shipping" | "coming" | "preview" }) {
 
 export default async function CloudPage() {
   const locale = await getLocale();
+  const _ = (key: string) => t(locale, key);
   const isCJK = locale === "zh" || locale === "ja";
 
   // Auth-aware primary CTA. Signed-out sees Sign in (the main funnel);
@@ -91,11 +93,10 @@ export default async function CloudPage() {
               <span className="text-accent">云</span> huozi Cloud
             </h1>
             <p className="mt-6 text-lg sm:text-xl text-muted-foreground leading-relaxed animate-ink-reveal delay-200">
-              An Agent-native hard drive.
+              {_("cloud.hero.tagline1")}
               <br />
               <span className="text-sm sm:text-base">
-                Speaks Claude Code&rsquo;s file-tool dialect. Bring your own
-                Agent. Agents write, humans read.
+                {_("cloud.hero.tagline2")}
               </span>
             </p>
 
@@ -106,33 +107,22 @@ export default async function CloudPage() {
             </div>
 
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-              {signedIn ? (
-                <Link
-                  href="/workspace"
-                  className="rounded-full bg-foreground px-6 py-2.5 text-sm font-medium text-background hover:opacity-90 transition-opacity"
-                >
-                  Open my workspace →
-                </Link>
-              ) : (
-                <Link
-                  href="/login?redirect=/workspace"
-                  className="rounded-full bg-foreground px-6 py-2.5 text-sm font-medium text-background hover:opacity-90 transition-opacity"
-                >
-                  Sign in to Cloud →
-                </Link>
-              )}
               <Link
-                href="/docs"
-                className="rounded-full border border-border px-5 py-2.5 text-sm font-medium hover:border-foreground/30 transition-colors"
+                href={signedIn ? "/workspace" : "/login?redirect=/workspace"}
+                className="rounded-full bg-foreground px-6 py-2.5 text-sm font-medium text-background hover:opacity-90 transition-opacity"
               >
-                Read the docs
+                {signedIn ? _("cloud.cta.open") : _("cloud.cta.signIn")} →
               </Link>
-              <a
-                href="#try-it"
-                className="rounded-full border border-border px-5 py-2.5 text-sm font-medium hover:border-foreground/30 transition-colors"
+              <Link
+                href={
+                  signedIn
+                    ? "/workspace/connect"
+                    : "/login?redirect=/workspace/connect"
+                }
+                className="rounded-full border border-border px-6 py-2.5 text-sm font-medium hover:border-foreground/30 transition-colors"
               >
-                Or connect an Agent ↓
-              </a>
+                {_("cloud.cta.connectAgent")} →
+              </Link>
             </div>
           </div>
         </section>

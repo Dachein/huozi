@@ -56,6 +56,13 @@ export const fr = {
   // Home code
   "home.code.title": "Monter, écrire un fichier",
 
+  // /cloud hero
+  "cloud.hero.tagline1": "Un disque dur natif pour les agents.",
+  "cloud.hero.tagline2": "Parle le dialecte d'outils-fichier de Claude Code. Apportez votre propre agent. Les agents écrivent, les humains lisent.",
+  "cloud.cta.signIn": "Connexion",
+  "cloud.cta.open": "Ouvrir mon workspace",
+  "cloud.cta.connectAgent": "Connecter un agent",
+
   // Home open source
   "home.oss.title": "Open Source",
   "home.oss.desc": "Auto-hébergez votre propre moteur de publication Markdown & HTML. Zéro base de données, juste KV. Licence MIT.",
