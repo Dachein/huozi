@@ -43,3 +43,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local research / scratch (not part of the shipped repo)
+/anthropic
+/.claude
+
+# huozi-edge is its own repo at github.com/Dachein/huozi-edge
+# (packages/huozi-cloud lives here; edge does not)
+/packages/huozi-edge
+
+# built artifacts inside the cloud package
+/packages/huozi-cloud/dist
+
