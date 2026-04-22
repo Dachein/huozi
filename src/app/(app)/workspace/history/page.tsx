@@ -30,7 +30,11 @@ export default async function CloudHistoryPage({ searchParams }: SearchParams) {
 
   const cookieStore = await cookies();
   const key = cookieStore.get(HUOZI_CLOUD_KEY_COOKIE)?.value;
-  if (!key) redirect("/connect");
+  if (!key) {
+    const self =
+      "/workspace/history" + (path ? `?path=${encodeURIComponent(path)}` : "");
+    redirect(`/api/app/session/refresh?next=${encodeURIComponent(self)}`);
+  }
   if (!path) redirect("/workspace");
 
   const [globRes, histRes, recentRes] = await Promise.all([

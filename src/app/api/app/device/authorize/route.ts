@@ -51,13 +51,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  let result: Awaited<ReturnType<typeof cloudAdminDeviceAuthorize>>;
+  const deviceLabel = `Device · ${principal.displayLabel}`;
   try {
-    await cloudAdminDeviceAuthorize({
+    result = await cloudAdminDeviceAuthorize({
       user_code: userCode,
       user_id: principal.userId,
       workspace_id: slugToWorkspaceId(ws.slug),
       workspace_slug: ws.slug,
-      label: `Device · ${principal.displayLabel}`,
+      label: deviceLabel,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -65,6 +67,46 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { error: "authorize_failed", message },
       { status: 502 },
     );
+  }
+
+  // Record the connection in Supabase so the StatusSummary + Keys page
+  // can show it alongside keys minted via the Connect-Agent UI flow.
+  // Best-effort: if this fails the key still works, the row is just
+  // cosmetic UX metadata.
+  const allowedKinds = new Set([
+    "claude-code",
+    "cursor",
+    "desktop",
+    "openclaw",
+    "hermes",
+    "raw-curl",
+    "other",
+  ]);
+  // Accept `hermes-agent` as an alias for `hermes` (the vendor uses
+  // that name on its website).
+  const normalizedKind =
+    result.agent_kind === "hermes-agent" ? "hermes" : result.agent_kind;
+  const agentKind = (
+    normalizedKind && allowedKinds.has(normalizedKind)
+      ? normalizedKind
+      : "other"
+  ) as
+    | "claude-code"
+    | "cursor"
+    | "desktop"
+    | "openclaw"
+    | "hermes"
+    | "raw-curl"
+    | "other";
+  try {
+    await identity.insertConnection({
+      workspaceId: ws.id,
+      keyId: result.key_id,
+      label: result.client_name || deviceLabel,
+      agentKind,
+    });
+  } catch {
+    /* ignore — not fatal */
   }
 
   return NextResponse.json({ ok: true });

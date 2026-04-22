@@ -30,6 +30,8 @@ export type AgentKind =
   | "claude-code"
   | "cursor"
   | "desktop"
+  | "openclaw"
+  | "hermes"
   | "raw-curl"
   | "other";
 

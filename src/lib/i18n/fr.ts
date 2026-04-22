@@ -63,6 +63,37 @@ export const fr = {
   "cloud.cta.open": "Ouvrir mon workspace",
   "cloud.cta.connectAgent": "Connecter un agent",
 
+  // /workspace — onboarding d'état vide
+  "ws.status.title": "Votre workspace",
+  "ws.status.connectedAgents": "Agents connectés",
+  "ws.status.browserSession": "Session navigateur",
+  "ws.status.never": "—",
+  "ws.status.now": "à l'instant",
+  "ws.status.activeKeys": "clés actives",
+  "ws.status.manage": "Gérer",
+  "ws.status.connectNew": "Connecter un agent",
+
+  "ws.onboard.heading": "Créons quelque chose",
+  "ws.onboard.subheading": "Copiez un scénario ci-dessous, collez-le dans votre agent, et regardez le premier fichier apparaître ici en temps réel. Choisissez le format qui vous convient — l'agent s'occupe du reste.",
+
+  "ws.onboard.md.badge": ".md",
+  "ws.onboard.md.title": "Bilan hebdomadaire",
+  "ws.onboard.md.scenario": "Note libre — idéal pour écrire, réfléchir, tenir un journal. Affiché en Markdown.",
+  "ws.onboard.md.prompt": "Écris-moi un bilan de cette semaine : trois choses livrées, deux choses bloquées, une idée à poursuivre la semaine prochaine. Dans reviews/2026-w17.md, avec titres Markdown et listes courtes.",
+
+  "ws.onboard.csv.badge": ".csv",
+  "ws.onboard.csv.title": "Un tableau de données",
+  "ws.onboard.csv.scenario": "Données tabulaires structurées. Affiché comme un tableau triable, facile à étendre ligne par ligne.",
+  "ws.onboard.csv.prompt": "Construis un CSV dans data/ai-milestones-2025.csv répertoriant 12 moments marquants d'entreprises IA de l'année écoulée. Colonnes : date, company, event, impact_note. Trier chronologiquement.",
+
+  "ws.onboard.html.badge": ".html",
+  "ws.onboard.html.title": "Une page visuelle",
+  "ws.onboard.html.scenario": "Rendu riche — illustrations, graphiques, pages de couverture. Rendu HTML avec assainissement.",
+  "ws.onboard.html.prompt": "Crée une belle page HTML de couverture dans cover/movable-type.html sur l'imprimerie à caractères mobiles, avec un dégradé beige chaud, typographie serif, et un court paragraphe expliquant son importance. Ajoute une timeline Echarts simple des inventions clés.",
+
+  "ws.onboard.copy": "Copier le prompt",
+  "ws.onboard.copied": "Copié",
+
   // Home open source
   "home.oss.title": "Open Source",
   "home.oss.desc": "Auto-hébergez votre propre moteur de publication Markdown & HTML. Zéro base de données, juste KV. Licence MIT.",

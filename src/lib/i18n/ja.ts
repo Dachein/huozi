@@ -63,6 +63,37 @@ export const ja = {
   "cloud.cta.open": "ワークスペースを開く",
   "cloud.cta.connectAgent": "Agent を接続",
 
+  // /workspace — 空状態オンボーディング
+  "ws.status.title": "あなたのワークスペース",
+  "ws.status.connectedAgents": "接続中の Agent",
+  "ws.status.browserSession": "ブラウザセッション",
+  "ws.status.never": "—",
+  "ws.status.now": "たった今",
+  "ws.status.activeKeys": "有効なキー",
+  "ws.status.manage": "管理",
+  "ws.status.connectNew": "Agent を接続",
+
+  "ws.onboard.heading": "何か作ってみよう",
+  "ws.onboard.subheading": "下のシナリオをコピーして Agent に貼り、最初のファイルがここにリアルタイムで現れるのを見てみましょう。作りたい形式を選んで — あとは Agent に任せます。",
+
+  "ws.onboard.md.badge": ".md",
+  "ws.onboard.md.title": "週次レビュー",
+  "ws.onboard.md.scenario": "自由形式のメモ — 執筆、思考、ログに。閲覧時は Markdown としてレンダリング。",
+  "ws.onboard.md.prompt": "今週の週報を書いて：リリースした 3 件、詰まっている 2 件、来週試したいアイデア 1 件。reviews/2026-w17.md に Markdown 見出しと短い箇条書きで。",
+
+  "ws.onboard.csv.badge": ".csv",
+  "ws.onboard.csv.title": "データテーブル",
+  "ws.onboard.csv.scenario": "構造化表データ。ソート可能なテーブルでレンダリング。行単位で拡張しやすい。",
+  "ws.onboard.csv.prompt": "data/ai-milestones-2025.csv に、過去 1 年の AI 企業の注目イベント 12 件を追跡する CSV を作って。列: date, company, event, impact_note。時系列順に並べる。",
+
+  "ws.onboard.html.badge": ".html",
+  "ws.onboard.html.title": "ビジュアルページ",
+  "ws.onboard.html.scenario": "リッチなレンダリング — 挿絵、チャート、カバーページ。HTML として安全にレンダリング。",
+  "ws.onboard.html.prompt": "cover/movable-type.html に活版印刷についての美しい HTML カバーページを作って。温かみのあるベージュのグラデーション背景、セリフ書体、なぜ重要かを説明する短い段落。主要な発明のシンプルな Echarts タイムラインも含める。",
+
+  "ws.onboard.copy": "プロンプトをコピー",
+  "ws.onboard.copied": "コピー済み",
+
   // Home open source
   "home.oss.title": "オープンソース",
   "home.oss.desc": "Markdown & HTMLパブリッシングを自己ホスト。データベース不要、KVのみ。MITライセンス。",

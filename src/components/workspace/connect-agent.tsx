@@ -80,9 +80,9 @@ const DEVICES: Device[] = [
   },
   {
     kind: "other",
-    title: "Raw HTTP (curl / scripts)",
+    title: "Terminal (curl / scripts)",
     blurb: "Send JSON-RPC over HTTP with a Bearer token header.",
-    defaultLabel: "Script",
+    defaultLabel: "Terminal",
     snippet: (apiKey) => ({
       lang: "bash",
       text: `curl -X POST ${CLOUD_MCP_URL} \\

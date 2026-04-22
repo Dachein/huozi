@@ -27,7 +27,7 @@ function agentKindLabel(kind: string): string {
     case "desktop":
       return "Claude Desktop";
     case "raw-curl":
-      return "Raw HTTP";
+      return "Terminal";
     default:
       return "Other";
   }

@@ -367,6 +367,10 @@ export async function handleDeviceAuthorize(
     workspace_slug: workspaceSlug,
     client_name: row.client_name,
     agent_kind: row.agent_kind,
+    // Expose the newly-minted key id so the Cloud edition's authorize
+    // route can record a matching cloud_connections row. The key itself
+    // is held privately until the Agent polls /auth/token.
+    key_id,
   })
 }
 

@@ -16,7 +16,15 @@ import {
   slugToWorkspaceId,
 } from "@/lib/drive/admin";
 
-const ALLOWED_KINDS = ["claude-code", "cursor", "desktop", "raw-curl", "other"] as const;
+const ALLOWED_KINDS = [
+  "claude-code",
+  "cursor",
+  "desktop",
+  "openclaw",
+  "hermes",
+  "raw-curl",
+  "other",
+] as const;
 type AgentKind = (typeof ALLOWED_KINDS)[number];
 
 interface MintBody {

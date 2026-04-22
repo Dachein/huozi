@@ -35,7 +35,7 @@ export default async function SharesPage() {
   const cookieStore = await cookies();
   const key = cookieStore.get(HUOZI_CLOUD_KEY_COOKIE)?.value;
   if (!key) {
-    redirect("/connect");
+    redirect("/api/app/session/refresh?next=/workspace/shares");
   }
 
   const res = await listShares(key);
@@ -55,9 +55,9 @@ export default async function SharesPage() {
               Shares
             </h1>
             <p className="mt-3 text-sm text-muted-foreground max-w-lg leading-relaxed">
-              Every share is a snapshot of a file at publish time. Revoking
-              stops the URL from working immediately; the original file and
-              its history are unchanged.
+              Each share is a public URL that tracks a file live — every visit
+              serves the latest bytes. Revoking turns the URL off immediately;
+              the file itself is unchanged.
             </p>
           </div>
 

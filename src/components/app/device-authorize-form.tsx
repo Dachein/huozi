@@ -36,7 +36,7 @@ function agentKindLabel(k: string | null): string {
     case "desktop":
       return "Claude Desktop";
     case "raw-curl":
-      return "Raw HTTP";
+      return "Terminal";
     case "other":
     case null:
     case undefined:

@@ -63,6 +63,37 @@ export const en = {
   "cloud.cta.open": "Open my workspace",
   "cloud.cta.connectAgent": "Connect an Agent",
 
+  // /workspace — empty-state status + onboarding
+  "ws.status.title": "Your workspace",
+  "ws.status.connectedAgents": "Connected Agents",
+  "ws.status.browserSession": "Browser session",
+  "ws.status.never": "—",
+  "ws.status.now": "just now",
+  "ws.status.activeKeys": "active keys",
+  "ws.status.manage": "Manage",
+  "ws.status.connectNew": "Connect Agent",
+
+  "ws.onboard.heading": "Let's make something",
+  "ws.onboard.subheading": "Copy a scenario below, paste into your Agent, and watch the first file land here in real time. Pick the format that fits what you want to make — the Agent handles the rest.",
+
+  "ws.onboard.md.badge": ".md",
+  "ws.onboard.md.title": "A weekly review",
+  "ws.onboard.md.scenario": "A free-form note — good for writing, thinking, logs. Rendered as Markdown on the viewer.",
+  "ws.onboard.md.prompt": "Write me a weekly review for this week: three things I shipped, two things that stalled, and one idea I want to chase next week. Put it in reviews/2026-w17.md with Markdown headings and short bullets.",
+
+  "ws.onboard.csv.badge": ".csv",
+  "ws.onboard.csv.title": "A data table",
+  "ws.onboard.csv.scenario": "Structured tabular data. Rendered as a sortable table; easy to extend row by row.",
+  "ws.onboard.csv.prompt": "Build me a CSV at data/ai-milestones-2025.csv tracking 12 notable AI company milestones from the past year. Columns: date, company, event, impact_note. Sort chronologically.",
+
+  "ws.onboard.html.badge": ".html",
+  "ws.onboard.html.title": "A visual page",
+  "ws.onboard.html.scenario": "Rich rendering — illustrations, charts, a cover page. Rendered as HTML with sanitization.",
+  "ws.onboard.html.prompt": "Create a beautiful HTML cover page at cover/movable-type.html about 活字印刷术 (movable type printing) with a subtle warm-beige gradient background, serif typography, and a short paragraph explaining why it mattered. Include a simple Echarts timeline of key inventions.",
+
+  "ws.onboard.copy": "Copy prompt",
+  "ws.onboard.copied": "Copied",
+
   // Home open source
   "home.oss.title": "Open Source",
   "home.oss.desc": "Self-host your own Markdown & HTML publishing. Zero database, just KV. MIT licensed.",

@@ -63,6 +63,37 @@ export const zh = {
   "cloud.cta.open": "打开我的云盘",
   "cloud.cta.connectAgent": "接入 Agent",
 
+  // /workspace — 空态引导
+  "ws.status.title": "你的云盘",
+  "ws.status.connectedAgents": "已连接 Agent",
+  "ws.status.browserSession": "浏览器会话",
+  "ws.status.never": "—",
+  "ws.status.now": "刚刚",
+  "ws.status.activeKeys": "把有效 key",
+  "ws.status.manage": "管理",
+  "ws.status.connectNew": "接入 Agent",
+
+  "ws.onboard.heading": "开始造点东西",
+  "ws.onboard.subheading": "复制下面一段场景话术，粘给你的 Agent，第一份文件就会实时出现在这里。选你想创造的文件类型 —— 剩下交给 Agent。",
+
+  "ws.onboard.md.badge": ".md",
+  "ws.onboard.md.title": "一份周报",
+  "ws.onboard.md.scenario": "自由形态的笔记，适合写作、思考、日志。查看时按 Markdown 渲染。",
+  "ws.onboard.md.prompt": "帮我写一份这周的周报：三件我推进的事、两件卡住的事、一个下周想试的点子。放在 reviews/2026-w17.md，用 Markdown 标题和简短列表。",
+
+  "ws.onboard.csv.badge": ".csv",
+  "ws.onboard.csv.title": "一张数据表",
+  "ws.onboard.csv.scenario": "结构化表格数据。查看时按可排序表格渲染，易于逐行扩展。",
+  "ws.onboard.csv.prompt": "在 data/ai-milestones-2025.csv 建一张 CSV，记录过去一年 12 个 AI 公司的重要事件。列：date、company、event、impact_note。按时间排序。",
+
+  "ws.onboard.html.badge": ".html",
+  "ws.onboard.html.title": "一个可视化页面",
+  "ws.onboard.html.scenario": "富渲染 —— 插图、图表、封面页。作为 HTML 渲染，带安全消毒。",
+  "ws.onboard.html.prompt": "在 cover/movable-type.html 帮我做一个讲活字印刷术的精美 HTML 封面页，用温和米色渐变背景、衬线字体，写一段为什么它重要。加一个简单的 Echarts 时间线显示关键发明节点。",
+
+  "ws.onboard.copy": "复制 prompt",
+  "ws.onboard.copied": "已复制",
+
   // Home open source
   "home.oss.title": "开源",
   "home.oss.desc": "自部署 Markdown 与 HTML 发布引擎。零数据库，纯 KV 存储。MIT 开源协议。",

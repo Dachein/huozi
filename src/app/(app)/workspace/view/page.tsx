@@ -44,7 +44,11 @@ export default async function CloudFileView({ searchParams }: SearchParams) {
 
   const cookieStore = await cookies();
   const key = cookieStore.get(HUOZI_CLOUD_KEY_COOKIE)?.value;
-  if (!key) redirect("/connect");
+  if (!key) {
+    const self =
+      "/workspace/view" + (path ? `?path=${encodeURIComponent(path)}` : "");
+    redirect(`/api/app/session/refresh?next=${encodeURIComponent(self)}`);
+  }
   if (!path) redirect("/workspace");
 
   // Tree always needs the file list.
