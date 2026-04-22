@@ -8,6 +8,7 @@ export const fr = {
   "nav.docs": "Docs",
   "nav.cloud": "Cloud",
   "nav.edge": "Edge",
+  "nav.blog": "Blog",
 
   // Home hero
   "home.title1": "Le verbe porte la voie",

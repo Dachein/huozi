@@ -51,6 +51,12 @@ export function MarketingHeader({ locale }: { locale: Locale }) {
             {_("nav.docs")}
           </Link>
           <Link
+            href="/blog"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {_("nav.blog")}
+          </Link>
+          <Link
             href="/start"
             className="hidden sm:inline text-sm text-muted-foreground hover:text-foreground transition-colors"
           >

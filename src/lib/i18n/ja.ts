@@ -8,6 +8,7 @@ export const ja = {
   "nav.docs": "ドキュメント",
   "nav.cloud": "Cloud",
   "nav.edge": "Edge",
+  "nav.blog": "ブログ",
 
   // Home hero
   "home.title1": "文以載道",

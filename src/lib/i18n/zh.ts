@@ -8,6 +8,7 @@ export const zh = {
   "nav.docs": "文档",
   "nav.cloud": "Cloud",
   "nav.edge": "Edge",
+  "nav.blog": "博客",
 
   // Home hero
   "home.title1": "以文载道",
