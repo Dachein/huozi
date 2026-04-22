@@ -13,6 +13,32 @@ export type Post = {
 
 export const posts: Post[] = [
   {
+    slug: "mcp-design-principles",
+    date: "2026-04-23",
+    meta: {
+      zh: {
+        title: "文件系统、Workspace、不要向量化 —— huozi MCP 的设计原则",
+        excerpt:
+          "为什么我们把 Agent 当工程师对待：一个真正的文件系统、一个 Workspace 而非单文档、逐字节对齐 Claude Code 的工具方言，以及 —— 像 Claude Code 一样，用 grep 而不是向量化。",
+      },
+      en: {
+        title: "File System, Workspace, No Vectors — Huozi's MCP Design Principles",
+        excerpt:
+          "Why we treat Agents like engineers: a real file system, a Workspace rather than a single document, bit-exact parity with Claude Code's tool dialect, and — like Claude Code — grep instead of vector search.",
+      },
+      ja: {
+        title: "ファイルシステム、Workspace、ベクトル検索しない —— huozi MCP の設計原則",
+        excerpt:
+          "なぜ我々は Agent をエンジニアのように扱うか：本物のファイルシステム、単一ドキュメントではなく Workspace、Claude Code のツール方言とビット単位で一致、そして Claude Code と同様に —— ベクトルではなく grep。",
+      },
+      fr: {
+        title: "Système de fichiers, Workspace, pas de vecteurs — les principes de conception du MCP de Huozi",
+        excerpt:
+          "Pourquoi nous traitons les Agents comme des ingénieurs : un vrai système de fichiers, un Workspace plutôt qu'un document isolé, une parité bit-exacte avec le dialecte d'outils de Claude Code, et — comme Claude Code — grep plutôt que la recherche vectorielle.",
+      },
+    },
+  },
+  {
     slug: "what-is-huozi",
     date: "2026-04-23",
     meta: {
