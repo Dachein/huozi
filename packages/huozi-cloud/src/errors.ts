@@ -24,6 +24,8 @@ export const ERR = {
   SECRET_DETECTED: 102, // security scanner hit
   READ_FILE_TOO_LARGE: 103, // v1 binary > 4 MB, caller should use pages or signed URL
   INVALID_URI: 110, // not a huozi:// URI
+  CONFLICT: 111, // resource already exists (e.g. slug taken)
+  INTERNAL: 112, // unexpected server-side failure
 } as const
 
 export type ErrorCode = (typeof ERR)[keyof typeof ERR]

@@ -1,24 +1,27 @@
 /**
  * Public-share endpoints — `huozi.app/p/<slug>` support.
  *
- * Design:
- *   - Shares live in the Worker's D1, not in huozi.app's Supabase. This means
- *     both Cloud and Edge editions get shares for free and the storage layer
- *     stays single-source-of-truth.
- *   - A share pins an immutable `blob_sha` at publish time. Later edits to
- *     the source file create new blobs and new commits; the share keeps
- *     serving the frozen bytes because R2 objects are content-addressed.
- *   - Passcode is optional. When set, it's a 6-digit numeric code stored as
- *     a SHA-256 hash. Anonymous visitors hit `GET /shares/:slug` and get a
- *     `{ has_passcode: true }` stub; they then POST `/shares/:slug/unlock`
- *     with the code to retrieve the content.
+ * Design (live-mode):
+ *   - Shares live in the Worker's D1, not in huozi.app's Supabase. Both Cloud
+ *     and Edge editions get shares from the same storage layer.
+ *   - A share BINDS a (workspace_id, file_path, slug) triple. On every read
+ *     we resolve the CURRENT `blob_sha` from `files_current` and serve that.
+ *     → Editing the source file makes subsequent visits show the new bytes.
+ *     → Deleting the source file makes the URL return `file_no_longer_exists`.
+ *   - The row still records `blob_sha` / `commit_sha` at publish time as
+ *     *audit metadata*, not as the authoritative read pointer.
+ *   - Passcode: optional 6-digit code, SHA-256 hashed. Anonymous GET on a
+ *     locked share returns only the locked stub; POST /unlock trades the
+ *     code for content.
+ *   - Slug: user can supply a custom `slug` (3-40 chars, a-z0-9-, unique)
+ *     or leave it unset and we generate a 10-char random one.
  *
  * Routes:
- *   - `POST /shares`                        (Bearer) create + return { slug, url }
- *   - `GET  /shares/:slug`                  (public) metadata + (if no passcode) content
- *   - `POST /shares/:slug/unlock`           (public) { passcode } → content
- *   - `GET  /shares` (list, Bearer)         (Bearer) all shares the caller owns
- *   - `POST /shares/:slug/revoke`           (Bearer) mark revoked
+ *   - `POST /shares`               (Bearer)  create + return { slug, url }
+ *   - `GET  /shares/:slug`         (public)  metadata + (if no passcode) content
+ *   - `POST /shares/:slug/unlock`  (public)  { passcode } → content
+ *   - `GET  /shares`               (Bearer)  list owner's shares
+ *   - `POST /shares/:slug/revoke`  (Bearer)  mark revoked
  */
 
 import type { HuoziCloudflareBindings } from './bindings.js'
@@ -26,7 +29,8 @@ import { resolveBearer } from './auth.js'
 import { blobKey } from './sha.js'
 import { sha256Hex } from './sha.js'
 
-const SLUG_RE = /^[a-z0-9]{6,24}$/
+/** Accepted form for both generated and user-supplied slugs. */
+const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/
 const PATH_MAX = 1024
 
 /** Short base32-ish alphabet (no 0/O/1/l to reduce mistype). */
@@ -39,6 +43,14 @@ function generateSlug(len = 10): string {
   for (let i = 0; i < len; i++) {
     s += SLUG_ALPHABET[buf[i]! % SLUG_ALPHABET.length]
   }
+  return s
+}
+
+function normalizeCustomSlug(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null
+  const s = raw.trim().toLowerCase()
+  if (!s) return null
+  if (!SLUG_RE.test(s)) return null
   return s
 }
 
@@ -126,11 +138,17 @@ function detectTextMime(path: string): string {
 /**
  * Payload returned to an unlocked viewer. UTF-8 decoded when possible;
  * binaries come back base64.
+ *
+ * Live-mode semantics: `blob_sha` / `commit_sha` here reflect *the
+ * current version at read time*, NOT what was published. If the source
+ * file has been edited since publishing, these move to track latest.
  */
 interface ShareContent {
   file_path: string
   mime_type: string
+  /** Current blob_sha at read time (live-mode). */
   blob_sha: string
+  /** Latest commit that touched the path (provenance). */
   commit_sha: string
   size: number
   text?: string
@@ -141,12 +159,21 @@ interface ShareContent {
 async function buildShareContent(
   env: HuoziCloudflareBindings,
   row: ShareRow,
-): Promise<ShareContent | null> {
-  const blob = await fetchBlobContent(env, row.blob_sha)
-  if (!blob) return null
+): Promise<
+  | { ok: true; content: ShareContent }
+  | { ok: false; reason: 'file_gone' | 'blob_missing' }
+> {
+  // Live lookup — resolve the current blob_sha for this file path.
+  const current = await currentBlobForPath(env, row.workspace_id, row.file_path)
+  if (!current) {
+    return { ok: false, reason: 'file_gone' }
+  }
+  const blob = await fetchBlobContent(env, current.blob_sha)
+  if (!blob) {
+    return { ok: false, reason: 'blob_missing' }
+  }
   const mime = detectTextMime(row.file_path)
   let text: string | undefined
-  // Try UTF-8 decode for anything looking textual.
   if (mime.startsWith('text/') || mime === 'application/json') {
     try {
       text = new TextDecoder('utf-8', { fatal: false }).decode(blob.bytes)
@@ -155,14 +182,169 @@ async function buildShareContent(
     }
   }
   return {
-    file_path: row.file_path,
-    mime_type: mime,
-    blob_sha: row.blob_sha,
-    commit_sha: row.commit_sha,
-    size: blob.size,
-    ...(text !== undefined
-      ? { text }
-      : { binary_base64: bytesToBase64(blob.bytes) }),
+    ok: true,
+    content: {
+      file_path: row.file_path,
+      mime_type: mime,
+      blob_sha: current.blob_sha,
+      commit_sha: current.commit_sha ?? '',
+      size: blob.size,
+      ...(text !== undefined
+        ? { text }
+        : { binary_base64: bytesToBase64(blob.bytes) }),
+    },
+  }
+}
+
+// ── Core creation logic (reusable by HTTP + MCP tool) ──────────────────
+
+export interface CreateShareInput {
+  /** File path as the caller sees it (scope-relative if scoped). */
+  file_path: string
+  /** Optional user-supplied slug. Leave empty to auto-generate. */
+  slug?: string
+  /** Optional 6-digit passcode. */
+  passcode?: string
+}
+
+export interface CreateSharePrincipal {
+  workspaceId: string
+  principalId: string
+  scopePath: string | null
+}
+
+export type CreateShareResult =
+  | {
+      ok: true
+      slug: string
+      file_path: string
+      blob_sha: string
+      commit_sha: string | null
+      has_passcode: boolean
+      created_at: number
+    }
+  | {
+      ok: false
+      error:
+        | 'invalid_file_path'
+        | 'invalid_slug'
+        | 'invalid_passcode'
+        | 'file_not_found'
+        | 'slug_taken'
+        | 'insert_failed'
+      message?: string
+    }
+
+/**
+ * Core share-creation logic. Used by both the HTTP /shares endpoint and
+ * the `huozi_share` MCP tool. Keeps scope handling, slug validation,
+ * collision retry, and INSERT in one place.
+ */
+export async function createShareRow(
+  env: HuoziCloudflareBindings,
+  principal: CreateSharePrincipal,
+  input: CreateShareInput,
+): Promise<CreateShareResult> {
+  const filePath = (input.file_path ?? '').trim()
+  if (!filePath || filePath.length > PATH_MAX) {
+    return { ok: false, error: 'invalid_file_path' }
+  }
+
+  // Apply scope prefix — shares are stored with absolute path even
+  // when the caller sees a scope-relative one.
+  const absolutePath = principal.scopePath
+    ? principal.scopePath + '/' + filePath.replace(/^\/+/, '')
+    : filePath
+
+  const current = await currentBlobForPath(env, principal.workspaceId, absolutePath)
+  if (!current) {
+    return { ok: false, error: 'file_not_found', message: filePath }
+  }
+
+  // Validate passcode if supplied.
+  let passcodeHash: string | null = null
+  if (
+    input.passcode !== undefined &&
+    input.passcode !== null &&
+    input.passcode !== ''
+  ) {
+    const pc = validPasscode(input.passcode)
+    if (!pc) {
+      return {
+        ok: false,
+        error: 'invalid_passcode',
+        message: 'passcode must be exactly 6 digits (0–9).',
+      }
+    }
+    passcodeHash = await sha256Hex(pc)
+  }
+
+  // Resolve slug: user-supplied (strict validation, returns slug_taken
+  // on collision) OR auto-generated (retry a few times on collision).
+  let slug: string
+  if (input.slug !== undefined && input.slug !== null && input.slug !== '') {
+    const custom = normalizeCustomSlug(input.slug)
+    if (!custom) {
+      return {
+        ok: false,
+        error: 'invalid_slug',
+        message:
+          'slug must be 3–40 chars, lowercase a-z, 0-9 or hyphen, not starting or ending with hyphen.',
+      }
+    }
+    const existing = await env.DB.prepare('SELECT slug FROM shares WHERE slug = ?')
+      .bind(custom)
+      .first()
+    if (existing) {
+      return { ok: false, error: 'slug_taken', message: custom }
+    }
+    slug = custom
+  } else {
+    slug = generateSlug()
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const existing = await env.DB.prepare('SELECT slug FROM shares WHERE slug = ?')
+        .bind(slug)
+        .first()
+      if (!existing) break
+      slug = generateSlug()
+    }
+  }
+
+  const now = Date.now()
+  try {
+    await env.DB.prepare(
+      `INSERT INTO shares
+       (slug, workspace_id, file_path, blob_sha, commit_sha, passcode_hash, created_at, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+      .bind(
+        slug,
+        principal.workspaceId,
+        absolutePath,
+        current.blob_sha,
+        current.commit_sha ?? '',
+        passcodeHash,
+        now,
+        principal.principalId,
+      )
+      .run()
+  } catch (err) {
+    // UNIQUE slug is the likely cause under racing inserts.
+    return {
+      ok: false,
+      error: 'insert_failed',
+      message: err instanceof Error ? err.message : String(err),
+    }
+  }
+
+  return {
+    ok: true,
+    slug,
+    file_path: filePath,
+    blob_sha: current.blob_sha,
+    commit_sha: current.commit_sha ?? null,
+    has_passcode: passcodeHash !== null,
+    created_at: now,
   }
 }
 
@@ -170,6 +352,7 @@ async function buildShareContent(
 
 interface CreateShareBody {
   file_path?: string
+  slug?: string
   passcode?: string
 }
 
@@ -195,76 +378,43 @@ export async function handleCreateShare(
   } catch {
     return Response.json({ error: 'invalid_json' }, { status: 400 })
   }
-  const filePath = (body.file_path ?? '').trim()
-  if (!filePath || filePath.length > PATH_MAX) {
-    return Response.json({ error: 'invalid_file_path' }, { status: 400 })
-  }
 
-  // Apply scope prefix (mirror the MCP flow — shares are scope-relative from
-  // the caller's perspective, but stored with absolute path).
-  const absolutePath = p.scopePath
-    ? p.scopePath + '/' + filePath.replace(/^\/+/, '')
-    : filePath
-
-  const current = await currentBlobForPath(env, p.workspaceId, absolutePath)
-  if (!current) {
-    return Response.json(
-      { error: 'file_not_found', file_path: filePath },
-      { status: 404 },
-    )
-  }
-
-  let passcodeHash: string | null = null
-  if (body.passcode !== undefined && body.passcode !== null && body.passcode !== '') {
-    const pc = validPasscode(body.passcode)
-    if (!pc) {
-      return Response.json(
-        {
-          error: 'invalid_passcode',
-          message: 'passcode must be exactly 6 digits (0–9).',
-        },
-        { status: 400 },
-      )
-    }
-    passcodeHash = await sha256Hex(pc)
-  }
-
-  // Collision-retry loop (vanishingly unlikely but cheap).
-  let slug = generateSlug()
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const existing = await env.DB.prepare('SELECT slug FROM shares WHERE slug = ?')
-      .bind(slug)
-      .first()
-    if (!existing) break
-    slug = generateSlug()
-  }
-
-  const now = Date.now()
-  await env.DB.prepare(
-    `INSERT INTO shares
-     (slug, workspace_id, file_path, blob_sha, commit_sha, passcode_hash, created_at, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  const res = await createShareRow(
+    env,
+    {
+      workspaceId: p.workspaceId,
+      principalId: p.principalId,
+      scopePath: p.scopePath,
+    },
+    {
+      file_path: body.file_path ?? '',
+      slug: body.slug,
+      passcode: body.passcode,
+    },
   )
-    .bind(
-      slug,
-      p.workspaceId,
-      absolutePath,
-      current.blob_sha,
-      current.commit_sha ?? '',
-      passcodeHash,
-      now,
-      p.principalId,
-    )
-    .run()
 
+  if (!res.ok) {
+    const status =
+      res.error === 'file_not_found'
+        ? 404
+        : res.error === 'slug_taken'
+          ? 409
+          : res.error === 'insert_failed'
+            ? 500
+            : 400
+    return Response.json(
+      { error: res.error, message: res.message },
+      { status },
+    )
+  }
   return Response.json({
     ok: true,
-    slug,
-    file_path: filePath,
-    blob_sha: current.blob_sha,
-    commit_sha: current.commit_sha,
-    has_passcode: passcodeHash !== null,
-    created_at: now,
+    slug: res.slug,
+    file_path: res.file_path,
+    blob_sha: res.blob_sha,
+    commit_sha: res.commit_sha,
+    has_passcode: res.has_passcode,
+    created_at: res.created_at,
   })
 }
 
@@ -307,10 +457,14 @@ export async function handleGetShare(
     })
   }
 
-  const content = await buildShareContent(env, row)
-  if (!content) {
+  const res = await buildShareContent(env, row)
+  if (!res.ok) {
     return Response.json(
-      { error: 'content_missing', slug },
+      {
+        error:
+          res.reason === 'file_gone' ? 'file_no_longer_exists' : 'content_missing',
+        slug,
+      },
       { status: 410 },
     )
   }
@@ -320,7 +474,7 @@ export async function handleGetShare(
     has_passcode: false,
     locked: false,
     created_at: row.created_at,
-    ...content,
+    ...res.content,
   })
 }
 
@@ -365,9 +519,15 @@ export async function handleUnlockShare(
   }
   if (!row.passcode_hash) {
     // Already public — client shouldn't reach here, but behave gracefully.
-    const content = await buildShareContent(env, row)
-    if (!content) {
-      return Response.json({ error: 'content_missing' }, { status: 410 })
+    const pub = await buildShareContent(env, row)
+    if (!pub.ok) {
+      return Response.json(
+        {
+          error:
+            pub.reason === 'file_gone' ? 'file_no_longer_exists' : 'content_missing',
+        },
+        { status: 410 },
+      )
     }
     return Response.json({
       ok: true,
@@ -375,7 +535,7 @@ export async function handleUnlockShare(
       has_passcode: false,
       locked: false,
       created_at: row.created_at,
-      ...content,
+      ...pub.content,
     })
   }
 
@@ -384,9 +544,17 @@ export async function handleUnlockShare(
     return Response.json({ error: 'wrong_passcode' }, { status: 403 })
   }
 
-  const content = await buildShareContent(env, row)
-  if (!content) {
-    return Response.json({ error: 'content_missing' }, { status: 410 })
+  const unlocked = await buildShareContent(env, row)
+  if (!unlocked.ok) {
+    return Response.json(
+      {
+        error:
+          unlocked.reason === 'file_gone'
+            ? 'file_no_longer_exists'
+            : 'content_missing',
+      },
+      { status: 410 },
+    )
   }
   return Response.json({
     ok: true,
@@ -394,7 +562,7 @@ export async function handleUnlockShare(
     has_passcode: true,
     locked: false,
     created_at: row.created_at,
-    ...content,
+    ...unlocked.content,
   })
 }
 

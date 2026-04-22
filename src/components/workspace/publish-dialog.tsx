@@ -1,14 +1,18 @@
 "use client";
 
 /**
- * Two-step "Publish a snapshot" modal, triggered from the file view menu:
+ * Two-step "Share this file" modal, triggered from the file view menu:
  *
- *   Step 1 — choose passcode:   ( ) Public   (•) 6-digit passcode [______]
- *   Step 2 — success:           https://huozi.app/p/abc123xyz    [Copy]
- *                               passcode: 424242                   (if set)
+ *   Step 1 — choose URL + passcode:
+ *               Custom slug (optional)  [my-research_______]
+ *               ( ) Public   (•) 6-digit passcode [______]
+ *   Step 2 — success:
+ *               https://huozi.app/p/<slug>    [Copy]
+ *               passcode: 424242               (if set)
  *
- * v1 keeps it deliberately small — no expiry picker, no rename, no list
- * (that's on the Shares page).
+ * Shares are LIVE: the URL always serves the current bytes of the file.
+ * Edits after publish are reflected immediately; delete the file and the
+ * URL starts returning "file no longer exists".
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -27,6 +31,8 @@ interface MintedShare {
   passcode?: string;
 }
 
+const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/;
+
 function randomPasscode(): string {
   const buf = new Uint32Array(1);
   crypto.getRandomValues(buf);
@@ -35,6 +41,7 @@ function randomPasscode(): string {
 
 export function PublishDialog({ path, open, onClose }: PublishDialogProps) {
   const [step, setStep] = useState<Step>("choose");
+  const [slug, setSlug] = useState("");
   const [protect, setProtect] = useState(false);
   const [passcode, setPasscode] = useState(() => randomPasscode());
   const [submitting, setSubmitting] = useState(false);
@@ -47,6 +54,7 @@ export function PublishDialog({ path, open, onClose }: PublishDialogProps) {
   useEffect(() => {
     if (open) {
       setStep("choose");
+      setSlug("");
       setProtect(false);
       setPasscode(randomPasscode());
       setSubmitting(false);
@@ -67,13 +75,17 @@ export function PublishDialog({ path, open, onClose }: PublishDialogProps) {
 
   if (!open) return null;
 
+  const trimmedSlug = slug.trim().toLowerCase();
+  const slugInvalid = trimmedSlug.length > 0 && !SLUG_RE.test(trimmedSlug);
+
   async function handlePublish() {
     setSubmitting(true);
     setError(null);
     try {
-      const body: { file_path: string; passcode?: string } = {
+      const body: { file_path: string; slug?: string; passcode?: string } = {
         file_path: path,
       };
+      if (trimmedSlug) body.slug = trimmedSlug;
       if (protect) body.passcode = passcode;
       const res = await fetch("/api/app/shares", {
         method: "POST",
@@ -88,7 +100,18 @@ export function PublishDialog({ path, open, onClose }: PublishDialogProps) {
         error?: string;
       };
       if (!res.ok || !data.ok || !data.slug) {
-        setError(data.message || data.error || `HTTP ${res.status}`);
+        if (data.error === "slug_taken" || res.status === 409) {
+          setError(
+            `"${trimmedSlug}" is already taken. Pick a different slug.`,
+          );
+        } else if (data.error === "invalid_slug") {
+          setError(
+            data.message ||
+              "Slug must be 3–40 lowercase letters/digits with hyphens allowed in the middle.",
+          );
+        } else {
+          setError(data.message || data.error || `HTTP ${res.status}`);
+        }
         setSubmitting(false);
         return;
       }
@@ -139,7 +162,7 @@ export function PublishDialog({ path, open, onClose }: PublishDialogProps) {
         <div className="flex items-start justify-between mb-4 gap-4">
           <div>
             <h2 className="text-base font-semibold">
-              {step === "choose" ? "Publish snapshot" : "Published"}
+              {step === "choose" ? "Share this file" : "Shared"}
             </h2>
             <p className="mt-1 text-xs text-muted-foreground font-mono truncate">
               {path}
@@ -158,10 +181,46 @@ export function PublishDialog({ path, open, onClose }: PublishDialogProps) {
         {step === "choose" && (
           <div className="space-y-4">
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Freezes the current bytes at{" "}
-              <span className="font-mono">huozi.app/p/&lt;slug&gt;</span>. Later
-              edits to this file don&rsquo;t change the published link.
+              Makes this file readable at{" "}
+              <span className="font-mono">huozi.app/p/&lt;slug&gt;</span>. The
+              link always shows the latest version — edits go live immediately.
             </p>
+
+            <div>
+              <label
+                htmlFor="slug"
+                className="block text-xs font-medium mb-1"
+              >
+                Custom slug{" "}
+                <span className="font-normal text-muted-foreground">
+                  (optional)
+                </span>
+              </label>
+              <div className="flex items-center rounded-md border border-border bg-muted focus-within:border-foreground/40">
+                <span className="pl-3 pr-1 text-xs text-muted-foreground font-mono select-none">
+                  /p/
+                </span>
+                <input
+                  id="slug"
+                  type="text"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  placeholder="my-research"
+                  className="flex-1 bg-transparent px-1 py-2 text-sm font-mono focus:outline-none"
+                />
+              </div>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                3–40 chars, lowercase + digits + hyphens. Leave empty for a
+                random slug.
+              </p>
+              {slugInvalid && (
+                <p className="mt-1 text-[11px] text-red-500">
+                  Use lowercase letters, digits, and hyphens (not at the edges).
+                </p>
+              )}
+            </div>
 
             <div className="space-y-2">
               <label className="flex items-start gap-2 text-sm cursor-pointer">
@@ -244,10 +303,14 @@ export function PublishDialog({ path, open, onClose }: PublishDialogProps) {
               <button
                 type="button"
                 onClick={handlePublish}
-                disabled={submitting || (protect && passcode.length !== 6)}
+                disabled={
+                  submitting ||
+                  slugInvalid ||
+                  (protect && passcode.length !== 6)
+                }
                 className="flex-1 rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {submitting ? "Publishing…" : "Publish"}
+                {submitting ? "Sharing…" : "Share"}
               </button>
             </div>
           </div>

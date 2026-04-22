@@ -150,7 +150,12 @@ export async function cloudAdminDeviceAuthorize(input: {
   workspace_id: string;
   workspace_slug: string;
   label?: string;
-}): Promise<{ ok: true }> {
+}): Promise<{
+  ok: true;
+  key_id: string;
+  agent_kind: string | null;
+  client_name: string | null;
+}> {
   const res = await fetch(`${CLOUD_URL}/admin/device-authorize`, {
     method: "POST",
     headers: {
@@ -163,7 +168,12 @@ export async function cloudAdminDeviceAuthorize(input: {
     const body = await res.text().catch(() => "?");
     throw new Error(`device-authorize failed: ${res.status} ${body}`);
   }
-  return (await res.json()) as { ok: true };
+  return (await res.json()) as {
+    ok: true;
+    key_id: string;
+    agent_kind: string | null;
+    client_name: string | null;
+  };
 }
 
 export async function cloudAdminDeviceDeny(

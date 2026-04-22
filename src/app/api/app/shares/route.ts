@@ -3,7 +3,7 @@
  * workspace. Reads the HttpOnly API-key cookie, forwards to huozi-cloud's
  * /shares endpoint.
  *
- * Body: { file_path: string; passcode?: string }
+ * Body: { file_path: string; slug?: string; passcode?: string }
  * Returns: { ok: true, slug, file_path, has_passcode, ... }
  */
 
@@ -14,8 +14,11 @@ import { HUOZI_CLOUD_KEY_COOKIE } from "@/lib/drive/mcp-client";
 
 interface Body {
   file_path?: string;
+  slug?: string;
   passcode?: string;
 }
+
+const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/;
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const cookieStore = await cookies();
@@ -40,15 +43,36 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 400 },
     );
   }
+  const slug = (body.slug ?? "").trim().toLowerCase();
+  if (slug && !SLUG_RE.test(slug)) {
+    return NextResponse.json(
+      {
+        error: "invalid_slug",
+        message:
+          "Slug must be 3–40 lowercase letters/digits, with hyphens allowed in the middle.",
+      },
+      { status: 400 },
+    );
+  }
 
   const res = await createShare(key, {
     file_path: filePath,
+    ...(slug ? { slug } : {}),
     ...(passcode ? { passcode } : {}),
   });
   if (!res.ok) {
+    // Map Worker errors to useful HTTP statuses so the UI can react.
+    const status =
+      res.error === "slug_taken"
+        ? 409
+        : res.error === "invalid_slug" || res.error === "invalid_passcode"
+          ? 400
+          : res.error === "file_not_found"
+            ? 404
+            : res.status || 502;
     return NextResponse.json(
-      { error: "create_failed", message: res.message },
-      { status: 502 },
+      { error: res.error ?? "create_failed", message: res.message },
+      { status },
     );
   }
   return NextResponse.json(res);

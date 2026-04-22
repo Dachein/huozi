@@ -31,6 +31,7 @@ import {
 } from '../storage/cloudflare/events.js'
 import { handleRecent } from '../storage/cloudflare/recent.js'
 import {
+  createShareRow,
   handleCreateShare,
   handleGetShare,
   handleListShares,
@@ -130,7 +131,7 @@ const handler: ExportedHandler<HuoziCloudflareBindings> = {
         : handleCreateShare(request, env)
     }
     {
-      const m = url.pathname.match(/^\/shares\/([a-z0-9]{6,24})(?:\/(unlock|revoke))?$/)
+      const m = url.pathname.match(/^\/shares\/([a-z0-9][a-z0-9-]{1,38}[a-z0-9])(?:\/(unlock|revoke))?$/)
       if (m) {
         const slug = m[1]!
         const action = m[2]
@@ -249,7 +250,15 @@ async function handleMcp(
 
   // Registry + storage.
   const storage = new CloudflareStorage(env)
-  const registry = createHuoziToolRegistry({ storage })
+  const registry = createHuoziToolRegistry({
+    storage,
+    shareDeps: {
+      // Bind the D1-backed createShareRow to an arrow that matches the
+      // Tool's expected signature (no env leaked into ShareTool itself).
+      createShare: (principal, input) => createShareRow(env, principal, input),
+      publicBase: 'https://huozi.app',
+    },
+  })
 
   if (rpc.method === 'initialize') {
     // Minimal initialize response so MCP clients are satisfied.

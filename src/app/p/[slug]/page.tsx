@@ -124,7 +124,7 @@ export default async function SharedPage({ params }: { params: Params }) {
       </main>
       <footer className="border-t border-border/50 py-4">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 text-xs text-muted-foreground flex items-center justify-between">
-          <span>Snapshot published by the owner. Live file may have changed since.</span>
+          <span>Shared by the owner. This URL stays in sync with the file.</span>
           <Link href="/cloud" className="underline hover:text-foreground">
             What is huozi?
           </Link>

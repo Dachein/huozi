@@ -35,6 +35,7 @@ export type ShareResponse = ShareContent | LockedShare
 
 export interface CreateShareInput {
   file_path: string
+  slug?: string
   passcode?: string
 }
 
@@ -124,7 +125,7 @@ export async function createShare(
       has_passcode: boolean
       created_at: number
     }
-  | { ok: false; message: string }
+  | { ok: false; error?: string; message: string; status: number }
 > {
   try {
     const res = await fetch(`${CLOUD_URL}/shares`, {
@@ -140,6 +141,8 @@ export async function createShare(
     if (!res.ok || !body.ok) {
       return {
         ok: false,
+        status: res.status,
+        error: (body.error as string) || undefined,
         message:
           (body.message as string) || (body.error as string) || `HTTP ${res.status}`,
       }
@@ -156,6 +159,7 @@ export async function createShare(
   } catch (err) {
     return {
       ok: false,
+      status: 0,
       message: err instanceof Error ? err.message : String(err),
     }
   }
