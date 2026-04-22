@@ -6,7 +6,8 @@ export const zh = {
   "nav.workspace": "云盘",
   "nav.signUp": "注册",
   "nav.docs": "文档",
-  "nav.cloud": "云盘",
+  "nav.cloud": "Cloud",
+  "nav.edge": "Edge",
 
   // Home hero
   "home.title1": "以文载道",
@@ -29,6 +30,25 @@ export const zh = {
   "home.feat3.icon": "时",
   "home.feat3.title": "实时同步 + 历史",
   "home.feat3.desc": "每次提交 ~100 毫秒内推送到 Web UI。每个文件都有完整 commit 日志。多 Agent 原子写。",
+
+  // Home · 两个版本
+  "home.products.label": "两个版本",
+  "home.products.footnote": "同样的 MCP 协议，同样的 Agent 方言。选你把字节放在哪里。",
+
+  "home.cloud.tagline": "huozi.app 提供的托管版。邮箱登录、创建工作空间、60 秒接入 Claude Code。面向团队与多 Agent 协作。",
+  "home.cloud.bullet1": "邮箱登录、多人使用、每个 Agent 独立 API key",
+  "home.cloud.bullet2": "实时 WebSocket 推送到 Web UI",
+  "home.cloud.bullet3": "公开分享 URL，可加 6 位口令",
+  "home.cloud.cta": "了解 Cloud",
+
+  "home.edge.tagline": "把同一套云盘部署到你自己的 Cloudflare 或 Vercel。单人单工作空间，无需 Supabase。MIT 开源。",
+  "home.edge.bullet1": "除 edge 运行时外无任何外部依赖",
+  "home.edge.bullet2": "粘贴 key 即登录，无需注册",
+  "home.edge.bullet3": "一键部署，自带域名",
+  "home.edge.cta": "了解 Edge",
+
+  // Home · 共享特性
+  "home.shared.label": "两版共享",
 
   // Home CTA band
   "home.install.title": "60 秒上手",

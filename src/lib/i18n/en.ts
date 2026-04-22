@@ -7,6 +7,7 @@ export const en = {
   "nav.signUp": "Sign up",
   "nav.docs": "Docs",
   "nav.cloud": "Cloud",
+  "nav.edge": "Edge",
 
   // Home hero
   "home.title1": "Words carry the Way",
@@ -29,6 +30,25 @@ export const en = {
   "home.feat3.icon": "时",
   "home.feat3.title": "Live sync + history",
   "home.feat3.desc": "Every commit broadcasts in ~100 ms to the Web UI. Every file has a full commit log. Multi-Agent atomic writes.",
+
+  // Home · two-product positioning
+  "home.products.label": "Two editions",
+  "home.products.footnote": "Same MCP surface, same Agent dialect. Choose where the bytes live.",
+
+  "home.cloud.tagline": "Hosted on huozi.app. Sign in with email, claim a workspace, connect Claude Code in 60 seconds. Built for teams and multi-Agent collaboration.",
+  "home.cloud.bullet1": "Email login, multi-user, per-Agent API keys",
+  "home.cloud.bullet2": "Live WebSocket sync to the Web UI",
+  "home.cloud.bullet3": "Public share URLs with optional 6-digit passcodes",
+  "home.cloud.cta": "Explore Cloud",
+
+  "home.edge.tagline": "Self-host the same drive on your own Cloudflare or Vercel account. One deployer, one workspace, no Supabase. MIT licensed.",
+  "home.edge.bullet1": "Zero external dependencies beyond the edge runtime",
+  "home.edge.bullet2": "Paste-key auth — no email, no signup",
+  "home.edge.bullet3": "Deploy in one click, bring your own domain",
+  "home.edge.cta": "Explore Edge",
+
+  // Home · shared features section
+  "home.shared.label": "Shared across both",
 
   // Home CTA band
   "home.install.title": "Get started in 60 seconds",

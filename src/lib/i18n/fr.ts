@@ -7,6 +7,7 @@ export const fr = {
   "nav.signUp": "Inscription",
   "nav.docs": "Docs",
   "nav.cloud": "Cloud",
+  "nav.edge": "Edge",
 
   // Home hero
   "home.title1": "Le verbe porte la voie",
@@ -29,6 +30,25 @@ export const fr = {
   "home.feat3.icon": "时",
   "home.feat3.title": "Sync live + historique",
   "home.feat3.desc": "Chaque commit est diffusé en ~100 ms à l'UI web. Chaque fichier a un journal complet. Écritures multi-agent atomiques.",
+
+  // Home · deux éditions
+  "home.products.label": "Deux éditions",
+  "home.products.footnote": "Même surface MCP, même dialecte d'Agent. Choisissez où vivent les octets.",
+
+  "home.cloud.tagline": "Hébergé sur huozi.app. Connexion e-mail, créez un workspace, branchez Claude Code en 60 secondes. Conçu pour les équipes et la collaboration multi-Agent.",
+  "home.cloud.bullet1": "Connexion e-mail, multi-utilisateur, clé API par Agent",
+  "home.cloud.bullet2": "Synchronisation WebSocket live vers l'UI web",
+  "home.cloud.bullet3": "URL de partage publiques avec code à 6 chiffres optionnel",
+  "home.cloud.cta": "Explorer Cloud",
+
+  "home.edge.tagline": "Auto-hébergez le même disque sur votre propre compte Cloudflare ou Vercel. Un déployeur, un workspace, zéro Supabase. Licence MIT.",
+  "home.edge.bullet1": "Aucune dépendance externe au-delà du runtime edge",
+  "home.edge.bullet2": "Auth par collage de clé — pas d'e-mail, pas d'inscription",
+  "home.edge.bullet3": "Déploiement en un clic, domaine personnalisé",
+  "home.edge.cta": "Explorer Edge",
+
+  // Home · fonctionnalités partagées
+  "home.shared.label": "Partagé entre les deux",
 
   // Home CTA band
   "home.install.title": "Démarrer en 60 secondes",

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { CopyButton } from "@/components/copy-button";
 import { getLocale } from "@/lib/i18n/server";
+import { getIdentity } from "@/lib/identity";
 
 export const metadata: Metadata = {
   title: "huozi Cloud — An Agent-Native Hard Drive",
@@ -47,10 +48,19 @@ export default async function CloudPage() {
   const locale = await getLocale();
   const isCJK = locale === "zh" || locale === "ja";
 
-  return (
-    <div className="flex flex-col min-h-screen">
+  // Auth-aware primary CTA. Signed-out sees Sign in (the main funnel);
+  // signed-in jumps straight to their workspace. Failures (no Supabase
+  // env, network hiccup) silently fall back to the signed-out CTA.
+  let signedIn = false;
+  try {
+    const identity = await getIdentity();
+    signedIn = !!(await identity.getPrincipal());
+  } catch {
+    signedIn = false;
+  }
 
-      <main className="flex-1">
+  return (
+    <>
         {/* Hero */}
         <section className="relative flex flex-col items-center justify-center px-6 pt-24 pb-16 overflow-hidden">
           <div className="absolute inset-0 pointer-events-none">
@@ -96,24 +106,33 @@ export default async function CloudPage() {
             </div>
 
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-              <Link
-                href="/workspace"
-                className="rounded-full bg-foreground px-5 py-2 text-sm font-medium text-background hover:opacity-90 transition-opacity"
-              >
-                Open my workspace
-              </Link>
-              <a
-                href="#try-it"
-                className="rounded-full border border-border px-5 py-2 text-sm font-medium hover:border-foreground/30 transition-colors"
-              >
-                Connect an Agent
-              </a>
+              {signedIn ? (
+                <Link
+                  href="/workspace"
+                  className="rounded-full bg-foreground px-6 py-2.5 text-sm font-medium text-background hover:opacity-90 transition-opacity"
+                >
+                  Open my workspace →
+                </Link>
+              ) : (
+                <Link
+                  href="/login?redirect=/workspace"
+                  className="rounded-full bg-foreground px-6 py-2.5 text-sm font-medium text-background hover:opacity-90 transition-opacity"
+                >
+                  Sign in to Cloud →
+                </Link>
+              )}
               <Link
                 href="/docs"
-                className="rounded-full border border-border px-5 py-2 text-sm font-medium hover:border-foreground/30 transition-colors"
+                className="rounded-full border border-border px-5 py-2.5 text-sm font-medium hover:border-foreground/30 transition-colors"
               >
                 Read the docs
               </Link>
+              <a
+                href="#try-it"
+                className="rounded-full border border-border px-5 py-2.5 text-sm font-medium hover:border-foreground/30 transition-colors"
+              >
+                Or connect an Agent ↓
+              </a>
             </div>
           </div>
         </section>
@@ -437,14 +456,7 @@ export default async function CloudPage() {
             </div>
           </div>
         </section>
-      </main>
-
-      <footer className="border-t border-border py-6">
-        <div className="mx-auto max-w-5xl px-4 text-center text-xs text-muted-foreground">
-          © huozi · built on Cloudflare Workers · MCP-native
-        </div>
-      </footer>
-    </div>
+    </>
   );
 }
 

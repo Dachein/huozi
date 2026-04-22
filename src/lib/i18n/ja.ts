@@ -6,7 +6,8 @@ export const ja = {
   "nav.workspace": "ワークスペース",
   "nav.signUp": "新規登録",
   "nav.docs": "ドキュメント",
-  "nav.cloud": "クラウド",
+  "nav.cloud": "Cloud",
+  "nav.edge": "Edge",
 
   // Home hero
   "home.title1": "文以載道",
@@ -29,6 +30,25 @@ export const ja = {
   "home.feat3.icon": "时",
   "home.feat3.title": "ライブ同期 + 履歴",
   "home.feat3.desc": "すべてのコミットが約100msでWeb UIにブロードキャスト。すべてのファイルに完全なコミットログ。マルチエージェント原子書き込み。",
+
+  // Home · 2つのエディション
+  "home.products.label": "2つのエディション",
+  "home.products.footnote": "同じMCPサーフェス、同じAgent方言。バイトをどこに置くかを選ぶだけ。",
+
+  "home.cloud.tagline": "huozi.appのホスティング版。メール認証、ワークスペース作成、60秒でClaude Codeと接続。チームとマルチAgent協業のために設計。",
+  "home.cloud.bullet1": "メール認証、マルチユーザー、Agentごとの独立APIキー",
+  "home.cloud.bullet2": "Web UIへのリアルタイムWebSocket同期",
+  "home.cloud.bullet3": "公開共有URL、任意の6桁パスコード付き",
+  "home.cloud.cta": "Cloudを見る",
+
+  "home.edge.tagline": "同じドライブを自分のCloudflareまたはVercelでホスト。一人デプロイヤー、一ワークスペース、Supabase不要。MITライセンス。",
+  "home.edge.bullet1": "edge ランタイム以外の外部依存ゼロ",
+  "home.edge.bullet2": "キー貼り付け認証 — メールや登録不要",
+  "home.edge.bullet3": "ワンクリックデプロイ、独自ドメイン対応",
+  "home.edge.cta": "Edgeを見る",
+
+  // Home · 共通機能
+  "home.shared.label": "両方で共有",
 
   // Home CTA band
   "home.install.title": "60秒で開始",

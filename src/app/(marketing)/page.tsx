@@ -9,146 +9,161 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* Hero */}
-      <section className="relative flex flex-col items-center justify-center px-6 pt-32 pb-20 overflow-hidden">
-          {/* Decorative mist layers */}
-          <div className="absolute inset-0 pointer-events-none">
-            <div
-              className="absolute top-1/4 left-0 right-0 h-64 animate-mist"
-              style={{
-                background:
-                  "radial-gradient(ellipse 80% 50% at 50% 50%, var(--border), transparent)",
-              }}
-            />
-          </div>
+      {/* Hero — calligraphic opening, product-agnostic. */}
+      <section className="relative flex flex-col items-center justify-center px-6 pt-28 pb-16 overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none">
+          <div
+            className="absolute top-1/4 left-0 right-0 h-64 animate-mist"
+            style={{
+              background:
+                "radial-gradient(ellipse 80% 50% at 50% 50%, var(--border), transparent)",
+            }}
+          />
+        </div>
 
-          {/* Main title */}
-          <div className="relative z-10 text-center">
-            <h1 className={`font-serif font-bold leading-tight animate-ink-reveal ${
+        <div className="relative z-10 text-center max-w-2xl">
+          <h1
+            className={`font-serif font-bold leading-tight animate-ink-reveal ${
               isCJK
                 ? "text-4xl sm:text-5xl md:text-6xl tracking-[0.2em]"
                 : "text-3xl sm:text-4xl md:text-5xl tracking-[0.08em]"
-            }`}>
-              {_("home.title1")}
-            </h1>
-            <h2 className={`font-serif mt-4 animate-ink-reveal delay-200 whitespace-nowrap ${
+            }`}
+          >
+            {_("home.title1")}
+          </h1>
+          <h2
+            className={`font-serif mt-4 animate-ink-reveal delay-200 whitespace-nowrap ${
               isCJK
                 ? "text-4xl sm:text-5xl md:text-6xl tracking-[0.2em]"
                 : "text-3xl sm:text-4xl md:text-5xl tracking-[0.08em]"
-            }`}>
-              <span className={`text-accent font-bold ${
+            }`}
+          >
+            <span
+              className={`text-accent font-bold ${
                 isCJK
                   ? "text-5xl sm:text-6xl md:text-7xl"
                   : "text-4xl sm:text-5xl md:text-6xl"
-              }`}>
-                {_("home.title2.highlight")}
-              </span>
-              <span className="text-muted-foreground">
-                {_("home.title2.rest")}
-              </span>
-            </h2>
+              }`}
+            >
+              {_("home.title2.highlight")}
+            </span>
+            <span className="text-muted-foreground">
+              {_("home.title2.rest")}
+            </span>
+          </h2>
 
-            {/* Decorative divider */}
-            <div className="mt-10 mb-8 flex items-center justify-center gap-4 animate-ink-reveal-slow delay-400">
-              <span className="block w-16 h-px bg-border" />
-              <span className="text-accent text-lg font-serif">
-                {_("home.divider")}
-              </span>
-              <span className="block w-16 h-px bg-border" />
+          <div className="mt-10 mb-8 flex items-center justify-center gap-4 animate-ink-reveal-slow delay-400">
+            <span className="block w-16 h-px bg-border" />
+            <span className="text-accent text-lg font-serif">
+              {_("home.divider")}
+            </span>
+            <span className="block w-16 h-px bg-border" />
+          </div>
+
+          <p className="text-lg sm:text-xl text-muted-foreground leading-relaxed animate-ink-reveal-slow delay-600">
+            {_("home.subtitle1")}
+            <br />
+            <span className="text-sm sm:text-base">{_("home.subtitle2")}</span>
+          </p>
+        </div>
+      </section>
+
+      {/* Two products: Cloud + Edge — the core framing. */}
+      <section className="mx-auto max-w-5xl px-6 py-16">
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground text-center mb-8 font-serif">
+          {_("home.products.label")}
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Cloud card */}
+          <Link
+            href="/cloud"
+            className="group relative rounded-2xl border border-border bg-background hover:border-foreground/40 transition-colors p-8 flex flex-col"
+          >
+            <div className="flex items-baseline gap-3 mb-4">
+              <span className="font-serif text-3xl text-accent">云</span>
+              <h3 className="font-serif text-2xl font-bold">huozi Cloud</h3>
             </div>
-
-            <p className="text-lg sm:text-xl text-muted-foreground max-w-lg mx-auto leading-relaxed animate-ink-reveal-slow delay-600">
-              {_("home.subtitle1")}
-              <br />
-              {_("home.subtitle2")}
+            <p className="text-sm text-muted-foreground leading-relaxed mb-5">
+              {_("home.cloud.tagline")}
             </p>
-
-            <div className="mt-10 flex items-center justify-center gap-4 animate-ink-reveal-slow delay-800">
-              <Link
-                href="/start"
-                className="rounded-md bg-primary px-7 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
-              >
-                {_("home.cta.start")}
-              </Link>
-              <a
-                href="/dachein/manifesto"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-md border border-border px-7 py-2.5 text-sm font-medium hover:bg-muted transition-colors"
-              >
-                {_("home.cta.preview")}
-              </a>
+            <ul className="text-xs text-muted-foreground space-y-1.5 mb-6">
+              <li>· {_("home.cloud.bullet1")}</li>
+              <li>· {_("home.cloud.bullet2")}</li>
+              <li>· {_("home.cloud.bullet3")}</li>
+            </ul>
+            <div className="mt-auto pt-2 flex items-center justify-between">
+              <span className="text-sm font-medium group-hover:text-foreground transition-colors">
+                {_("home.cloud.cta")} →
+              </span>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider rounded-full border border-border/70 px-2 py-0.5">
+                hosted
+              </span>
             </div>
-          </div>
-        </section>
+          </Link>
 
-        {/* Features */}
-        <section className="mx-auto max-w-4xl px-6 py-20">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="rounded-xl border border-border/60 bg-muted/30 p-8 transition-all hover:border-border hover:shadow-sm">
-              <div className="font-serif text-3xl text-accent mb-4">
-                {_("home.feat1.icon")}
-              </div>
-              <h3 className="font-serif text-lg font-bold mb-2">
-                {_("home.feat1.title")}
-              </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {_("home.feat1.desc")}
-              </p>
+          {/* Edge card */}
+          <Link
+            href="/edge"
+            className="group relative rounded-2xl border border-border bg-background hover:border-foreground/40 transition-colors p-8 flex flex-col"
+          >
+            <div className="flex items-baseline gap-3 mb-4">
+              <span className="font-serif text-3xl text-accent">源</span>
+              <h3 className="font-serif text-2xl font-bold">huozi Edge</h3>
             </div>
-            <div className="rounded-xl border border-border/60 bg-muted/30 p-8 transition-all hover:border-border hover:shadow-sm">
-              <div className="font-serif text-3xl text-accent mb-4">
-                {_("home.feat2.icon")}
-              </div>
-              <h3 className="font-serif text-lg font-bold mb-2">
-                {_("home.feat2.title")}
-              </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {_("home.feat2.desc")}
-              </p>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-5">
+              {_("home.edge.tagline")}
+            </p>
+            <ul className="text-xs text-muted-foreground space-y-1.5 mb-6">
+              <li>· {_("home.edge.bullet1")}</li>
+              <li>· {_("home.edge.bullet2")}</li>
+              <li>· {_("home.edge.bullet3")}</li>
+            </ul>
+            <div className="mt-auto pt-2 flex items-center justify-between">
+              <span className="text-sm font-medium group-hover:text-foreground transition-colors">
+                {_("home.edge.cta")} →
+              </span>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider rounded-full border border-border/70 px-2 py-0.5">
+                open source · MIT
+              </span>
             </div>
-            <div className="rounded-xl border border-border/60 bg-muted/30 p-8 transition-all hover:border-border hover:shadow-sm">
-              <div className="font-serif text-3xl text-accent mb-4">
-                {_("home.feat3.icon")}
-              </div>
-              <h3 className="font-serif text-lg font-bold mb-2">
-                {_("home.feat3.title")}
-              </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {_("home.feat3.desc")}
-              </p>
-            </div>
-          </div>
-        </section>
+          </Link>
+        </div>
+        <p className="mt-6 text-xs text-muted-foreground/80 text-center max-w-lg mx-auto">
+          {_("home.products.footnote")}
+        </p>
+      </section>
 
-        {/* Get started CTA */}
-        <section className="mx-auto max-w-3xl px-6 pb-16 text-center">
-          <p className="text-sm font-medium text-muted-foreground mb-6 font-serif tracking-wider">
-            {_("home.install.title")}
-          </p>
-          <div className="flex items-center justify-center gap-3 flex-wrap">
-            <Link
-              href="/onboard"
-              className="rounded-md bg-foreground px-5 py-2.5 text-sm font-medium text-background hover:opacity-90 transition-opacity"
-            >
-              Claim a workspace →
-            </Link>
-            <Link
-              href="/start"
-              className="rounded-md border border-border px-5 py-2.5 text-sm font-medium hover:border-foreground/30 transition-colors"
-            >
-              Get started guide
-            </Link>
-          </div>
-        </section>
+      {/* Shared features — apply to both editions. */}
+      <section className="mx-auto max-w-4xl px-6 py-16">
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground text-center mb-8 font-serif">
+          {_("home.shared.label")}
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <FeatureCard
+            icon={_("home.feat1.icon")}
+            title={_("home.feat1.title")}
+            desc={_("home.feat1.desc")}
+          />
+          <FeatureCard
+            icon={_("home.feat2.icon")}
+            title={_("home.feat2.title")}
+            desc={_("home.feat2.desc")}
+          />
+          <FeatureCard
+            icon={_("home.feat3.icon")}
+            title={_("home.feat3.title")}
+            desc={_("home.feat3.desc")}
+          />
+        </div>
+      </section>
 
-        {/* Code example */}
-        <section className="mx-auto max-w-3xl px-6 pb-24">
-          <p className="text-sm font-medium text-muted-foreground mb-4 text-center font-serif tracking-wider">
-            {_("home.code.title")}
-          </p>
-          <pre className="rounded-xl border border-border bg-muted/50 p-6 text-sm overflow-x-auto font-mono leading-relaxed">
-            <code>{`# Mount the workspace in Claude Code:
+      {/* Code example */}
+      <section className="mx-auto max-w-3xl px-6 pb-16">
+        <p className="text-sm font-medium text-muted-foreground mb-4 text-center font-serif tracking-wider">
+          {_("home.code.title")}
+        </p>
+        <pre className="rounded-xl border border-border bg-muted/50 p-6 text-sm overflow-x-auto font-mono leading-relaxed">
+          <code>{`# Mount the workspace in Claude Code:
 claude mcp add --transport http huozi https://cloud.huozi.app/mcp \\
   -H "Authorization: Bearer hz_your_key"
 
@@ -157,58 +172,26 @@ claude mcp add --transport http huozi https://cloud.huozi.app/mcp \\
 #
 # It lands in your workspace, live-synced to the Web UI at
 # huozi.app/workspace — with full commit history.`}</code>
-          </pre>
-        </section>
-        {/* Open Source */}
-        <section className="mx-auto max-w-4xl px-6 pb-24">
-          <div className="rounded-xl border border-border/60 bg-muted/30 p-10 text-center">
-            <div className="font-serif text-3xl text-accent mb-3">源</div>
-            <h3 className="font-serif text-xl font-bold mb-3">Huozi Edge</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed max-w-lg mx-auto mb-8">
-              {_("home.oss.desc")}
-            </p>
-            <div className="flex items-center justify-center gap-3 flex-wrap">
-              <a
-                href="https://github.com/Dachein/huozi-edge"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-md border border-border px-5 py-2 text-sm font-medium hover:bg-muted transition-colors"
-              >
-                GitHub
-              </a>
-              <a
-                href="https://deploy.workers.cloudflare.com/?url=https://github.com/Dachein/huozi-edge"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-md border border-[#f48120]/40 px-5 py-2 text-sm font-medium text-[#f48120] hover:bg-[#f48120]/10 transition-colors"
-              >
-                {_("home.oss.deployCF")}
-              </a>
-              <a
-                href="https://vercel.com/new/clone?repository-url=https://github.com/Dachein/huozi-edge&env=NAMESPACE,API_KEY,SITE_URL&envDescription=NAMESPACE%3D%20your%20workspace%20name%20(used%20in%20URL)%2C%20API_KEY%3D%20bearer%20token%20(start%20with%20hz_%2C%20replace%20with%20your%20own)%2C%20SITE_URL%3D%20your%20deployment%20URL&envDefault=NAMESPACE%3Dhuozi-space%2CAPI_KEY%3Dhz_change_me&envLink=https%3A%2F%2Fgithub.com%2FDachein%2Fhuozi-edge%23configuration&stores=[{%22type%22:%22kv%22}]"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-md bg-[#171717] px-5 py-2 text-sm font-medium text-white hover:bg-[#333] transition-colors"
-              >
-                {_("home.oss.deployVercel")}
-              </a>
-              <span
-                className="rounded-md border border-border/50 px-5 py-2 text-sm font-medium text-muted-foreground cursor-default"
-              >
-                EdgeOne ({_("home.oss.soon")})
-              </span>
-            </div>
-          </div>
-        </section>
-
-      {/* Footer */}
-      <footer className="border-t border-border/50 py-8">
-        <div className="mx-auto max-w-5xl px-6 text-center">
-          <span className="font-serif text-sm text-muted-foreground tracking-wider">
-            {_("home.footer")}
-          </span>
-        </div>
-      </footer>
+        </pre>
+      </section>
     </>
+  );
+}
+
+function FeatureCard({
+  icon,
+  title,
+  desc,
+}: {
+  icon: string;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-muted/30 p-7 transition-all hover:border-border hover:shadow-sm">
+      <div className="font-serif text-2xl text-accent mb-3">{icon}</div>
+      <h3 className="font-serif text-base font-bold mb-2">{title}</h3>
+      <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
+    </div>
   );
 }

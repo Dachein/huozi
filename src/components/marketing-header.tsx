@@ -1,52 +1,23 @@
 import Link from "next/link";
-import { LocaleSwitcher } from "@/components/locale-switcher";
 import { t, type Locale } from "@/lib/i18n";
-import { isEdge } from "@/lib/edition";
-import { getIdentity } from "@/lib/identity";
 
-export async function MarketingHeader({ locale }: { locale: Locale }) {
+/**
+ * Marketing header.
+ *
+ * Four links: Cloud · Edge · Docs · Get Started. Nothing else.
+ *
+ * Deliberate omissions:
+ *   - No LocaleSwitcher here — it lives in the footer. Language is a
+ *     visit-time preference, not a primary action, so it doesn't need
+ *     top-row real estate.
+ *   - No Sign in. That's a *Cloud* action, not a huozi.app-generic one.
+ *     Signing in lives inside `/cloud` (since Edge users don't sign in
+ *     at all). Keeping it out of the global header makes the product
+ *     hierarchy readable: huozi.app is the umbrella; Cloud and Edge are
+ *     the two siblings underneath.
+ */
+export function MarketingHeader({ locale }: { locale: Locale }) {
   const _ = (key: string) => t(locale, key);
-
-  // Auth state determines the right-side CTA:
-  //   - signed in  → "Workspace →" shortcut
-  //   - signed out → prominent "Sign in" button
-  //   - edge mode  → "Connect" (no accounts exist)
-  // Failures fall back to the signed-out state silently.
-  let authSlot: React.ReactNode;
-  if (isEdge()) {
-    authSlot = (
-      <Link
-        href="/connect"
-        className="rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:border-foreground/40 transition-colors"
-      >
-        Connect
-      </Link>
-    );
-  } else {
-    let signedIn = false;
-    try {
-      const identity = await getIdentity();
-      const principal = await identity.getPrincipal();
-      signedIn = !!principal;
-    } catch {
-      signedIn = false;
-    }
-    authSlot = signedIn ? (
-      <Link
-        href="/workspace"
-        className="rounded-md bg-foreground px-3 py-1.5 text-sm font-medium text-background hover:opacity-90 transition-opacity"
-      >
-        {_("nav.workspace")} →
-      </Link>
-    ) : (
-      <Link
-        href="/login?redirect=/workspace"
-        className="rounded-md bg-foreground px-3 py-1.5 text-sm font-medium text-background hover:opacity-90 transition-opacity"
-      >
-        {_("nav.signIn")}
-      </Link>
-    );
-  }
 
   return (
     <header className="border-b border-border/50">
@@ -60,7 +31,7 @@ export async function MarketingHeader({ locale }: { locale: Locale }) {
           </span>
           {_("nav.home")}
         </Link>
-        <nav className="flex items-center gap-4 sm:gap-5">
+        <nav className="flex items-center gap-5 sm:gap-6">
           <Link
             href="/cloud"
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -68,8 +39,14 @@ export async function MarketingHeader({ locale }: { locale: Locale }) {
             {_("nav.cloud")}
           </Link>
           <Link
+            href="/edge"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {_("nav.edge")}
+          </Link>
+          <Link
             href="/docs"
-            className="hidden sm:inline text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             {_("nav.docs")}
           </Link>
@@ -79,8 +56,6 @@ export async function MarketingHeader({ locale }: { locale: Locale }) {
           >
             {_("nav.getStarted")}
           </Link>
-          <LocaleSwitcher />
-          {authSlot}
         </nav>
       </div>
     </header>
