@@ -40,7 +40,7 @@ export function MarketingFooter({ locale }: { locale: Locale }) {
             GitHub
           </a>
         </div>
-        <LocaleSwitcher />
+        <LocaleSwitcher placement="up" />
       </div>
     </footer>
   );
