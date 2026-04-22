@@ -3,19 +3,18 @@
 /**
  * Client-side controller for the `/p/<slug>` page.
  *
- * Boots with the server-fetched share metadata. If the share is locked,
- * renders the passcode form; otherwise it forwards straight to the
- * rendered content (injected as `initialContent` when the server already
- * had the text — avoids a second round-trip on public shares).
+ * Routes the share content to the right renderer:
+ *   - Prose (md/html): uses the server-prerendered HTML string.
+ *   - CSV/TSV: mounts the interactive CsvGrid.
+ *   - Everything else: source block.
  *
- * Content rendering itself is server-side (the caller passes a fully
- * rendered HTML string for text types). For passcoded shares we can't do
- * that at SSR time, so we render markdown/html on the client after unlock
- * using the same pipeline.
+ * For passcoded shares we unlock on the client and then apply the same
+ * routing to the freshly-fetched text.
  */
 
 import { useState } from "react";
 import { PasscodeForm } from "./passcode-form";
+import { CsvGrid } from "@/components/csv-grid";
 import type { ShareContent } from "@/lib/drive/shares";
 
 interface ShareViewerProps {
@@ -24,9 +23,20 @@ interface ShareViewerProps {
   locked: boolean;
   /** Pre-rendered HTML for the content area when already unlocked at SSR. */
   prerenderedHtml?: string;
-  /** Raw text (for Source toggle). */
+  /** Raw text (for Source toggle + client-side renderers like CSV). */
   rawText?: string;
   mimeType?: string;
+}
+
+type Kind = "csv" | "tsv" | "prose" | "source";
+
+function kindFor(filePath: string, hasPrerendered: boolean): Kind {
+  const i = filePath.lastIndexOf(".");
+  const ext = i < 0 ? "" : filePath.slice(i + 1).toLowerCase();
+  if (ext === "csv") return "csv";
+  if (ext === "tsv") return "tsv";
+  if (hasPrerendered) return "prose";
+  return "source";
 }
 
 export function ShareViewer(props: ShareViewerProps) {
@@ -41,19 +51,32 @@ export function ShareViewer(props: ShareViewerProps) {
     );
   }
 
-  // After client-side unlock, we only have raw text/binary. Client-side
-  // rendering of markdown/html requires a library we aren't shipping to
-  // the browser; for v1 we show source in a preformatted block for
-  // passcoded shares. SSR'd public shares get the full prose rendering.
+  // After client-side unlock we only have raw text — route by extension.
   if (unlocked) {
+    const filePath = unlocked.file_path;
+    const text = unlocked.text ?? "";
+    const kind = kindFor(filePath, false);
     return (
-      <ShareContentView
-        filePath={unlocked.file_path}
-        text={unlocked.text ?? "(binary)"}
-        mimeType={unlocked.mime_type}
-      />
+      <>
+        <div className="mb-4 text-xs text-muted-foreground font-mono truncate">
+          {filePath} · <span className="opacity-70">{unlocked.mime_type}</span>
+        </div>
+        {kind === "csv" || kind === "tsv" ? (
+          <CsvGrid content={text} delim={kind === "tsv" ? "\t" : ","} />
+        ) : (
+          <SourceBlock content={text || "(binary)"} />
+        )}
+        {kind !== "csv" && kind !== "tsv" && (
+          <div className="mt-4 text-xs text-muted-foreground">
+            Passcoded prose shares display as source. Ask the owner for a public
+            link if you want the rendered view.
+          </div>
+        )}
+      </>
     );
   }
+
+  const kind = kindFor(props.filePath, Boolean(props.prerenderedHtml));
 
   return (
     <>
@@ -61,7 +84,7 @@ export function ShareViewer(props: ShareViewerProps) {
         <div className="text-muted-foreground font-mono truncate max-w-[60%]">
           {props.filePath}
         </div>
-        {props.rawText && (
+        {props.rawText && kind !== "source" && (
           <button
             type="button"
             onClick={() => setShowSource((v) => !v)}
@@ -73,40 +96,32 @@ export function ShareViewer(props: ShareViewerProps) {
       </div>
       {showSource && props.rawText ? (
         <SourceBlock content={props.rawText} />
-      ) : props.prerenderedHtml ? (
+      ) : kind === "csv" || kind === "tsv" ? (
+        props.rawText ? (
+          <CsvGrid
+            content={props.rawText}
+            delim={kind === "tsv" ? "\t" : ","}
+          />
+        ) : (
+          <EmptyHint />
+        )
+      ) : kind === "prose" && props.prerenderedHtml ? (
         <article
           className="prose prose-sm sm:prose-base max-w-none break-words"
           dangerouslySetInnerHTML={{ __html: props.prerenderedHtml }}
         />
+      ) : props.rawText ? (
+        <SourceBlock content={props.rawText} />
       ) : (
-        <div className="text-sm text-muted-foreground italic">
-          (no content)
-        </div>
+        <EmptyHint />
       )}
     </>
   );
 }
 
-function ShareContentView({
-  filePath,
-  text,
-  mimeType,
-}: {
-  filePath: string;
-  text: string;
-  mimeType: string;
-}) {
+function EmptyHint() {
   return (
-    <div>
-      <div className="mb-4 text-xs text-muted-foreground font-mono truncate">
-        {filePath} · <span className="opacity-70">{mimeType}</span>
-      </div>
-      <SourceBlock content={text} />
-      <div className="mt-4 text-xs text-muted-foreground">
-        Passcoded shares display as source in this version. Ask the owner for
-        a public link if you want the rendered view.
-      </div>
-    </div>
+    <div className="text-sm text-muted-foreground italic">(no content)</div>
   );
 }
 

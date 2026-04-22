@@ -49,6 +49,8 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col font-sans bg-background text-foreground">
         <LocaleProvider locale={locale}>{children}</LocaleProvider>
+        {/* Portal root for Glide Data Grid cell overlays. */}
+        <div id="portal" style={{ position: "fixed", left: 0, top: 0, zIndex: 9999 }} />
       </body>
     </html>
   );

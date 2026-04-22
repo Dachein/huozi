@@ -1,7 +1,7 @@
 import { renderMarkdown } from "@/lib/markdown/renderer";
 import { processHtmlDirect } from "@/lib/html/sanitizer";
 import { processChartComponents } from "@/lib/html/chart-components";
-import { CsvTable } from "@/components/csv-table";
+import { CsvGrid } from "@/components/csv-grid";
 
 /**
  * Renders a file's content based on its extension.
@@ -69,7 +69,7 @@ export async function FileRenderer({ path, content, raw }: FileRendererProps) {
 
   // CSV / TSV — interactive table view.
   if (ext === "csv" || ext === "tsv") {
-    return <CsvTable content={content} delim={ext === "tsv" ? "\t" : ","} />;
+    return <CsvGrid content={content} delim={ext === "tsv" ? "\t" : ","} />;
   }
 
   // Everything else: show as source. Code files get monospace + light wrap.
