@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { LocaleSwitcher } from "@/components/locale-switcher";
 import { getLocale } from "@/lib/i18n/server";
 import { t } from "@/lib/i18n";
 
@@ -9,29 +8,9 @@ export default async function HomePage() {
   const isCJK = locale === "zh" || locale === "ja";
 
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Header */}
-      <header className="border-b border-border/50">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
-          <span className="flex items-baseline gap-2 text-lg font-medium tracking-wide">
-            <span className="font-serif text-xl font-bold text-accent leading-none">字</span>
-            {_("nav.home")}
-          </span>
-          <nav className="flex items-center gap-5">
-            <Link
-              href="/start"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {_("nav.getStarted")}
-            </Link>
-            <LocaleSwitcher />
-          </nav>
-        </div>
-      </header>
-
+    <>
       {/* Hero */}
-      <main className="flex-1">
-        <section className="relative flex flex-col items-center justify-center px-6 pt-32 pb-20 overflow-hidden">
+      <section className="relative flex flex-col items-center justify-center px-6 pt-32 pb-20 overflow-hidden">
           {/* Decorative mist layers */}
           <div className="absolute inset-0 pointer-events-none">
             <div
@@ -221,7 +200,6 @@ claude mcp add --transport http huozi https://cloud.huozi.app/mcp \\
             </div>
           </div>
         </section>
-      </main>
 
       {/* Footer */}
       <footer className="border-t border-border/50 py-8">
@@ -231,6 +209,6 @@ claude mcp add --transport http huozi https://cloud.huozi.app/mcp \\
           </span>
         </div>
       </footer>
-    </div>
+    </>
   );
 }
