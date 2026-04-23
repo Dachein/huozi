@@ -60,7 +60,17 @@ export async function middleware(request: NextRequest) {
   // Lazy-load Supabase SSR so Edge builds don't need its env vars.
   const { createServerClient } = await import("@supabase/ssr");
 
-  let response = NextResponse.next({ request });
+  // Inject the current request path as a header so RSC layouts can build
+  // accurate `?redirect=` URLs when bouncing unauthenticated users to
+  // /login. Without this the parent `(app)/layout.tsx` would have to
+  // hard-code a fallback and lose whatever subpage the user was after.
+  const buildHeaders = () => {
+    const h = new Headers(request.headers);
+    h.set("x-pathname", request.nextUrl.pathname + request.nextUrl.search);
+    return h;
+  };
+
+  let response = NextResponse.next({ request: { headers: buildHeaders() } });
   applyLocale(request, response);
 
   const supabase = createServerClient(
@@ -75,7 +85,7 @@ export async function middleware(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),
           );
-          response = NextResponse.next({ request });
+          response = NextResponse.next({ request: { headers: buildHeaders() } });
           applyLocale(request, response);
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options),
