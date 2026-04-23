@@ -26,74 +26,80 @@ export async function generateMetadata(): Promise<Metadata> {
  * it risks subtle semantic drift in the steps the Agent follows.
  */
 
-const agentPrompt = `Install huozi Cloud. If Node ≥18 is available, prefer the one-liner:
+const agentPrompt = `Install huozi Cloud.
 
-  npx huozi-mcp
+huozi exposes a self-describing HTTP state machine for Agent-driven install.
+Follow the \`next\` field of every response literally — the server tells
+you what to ask the human and where to POST next. You never hard-code
+flow logic.
 
-It runs the full OAuth device flow, auto-detects your client (Claude Code,
-Cursor, OpenClaw), opens a browser for authorization, and writes the MCP
-config. Tell the human the verification URL it prints; they click Authorize;
-you're done.
+STEP 1 — Start a session.
 
-If \`npx\` is not available, follow the four-step device flow below literally
-— do not improvise or skip.
+  curl -sS -X POST https://huozi.app/api/agent/start \\
+    -H "content-type: application/json" -d '{}'
 
-STEP 1 — Request a device code.
-Run in Bash:
+Response:
+  { "ok": true,
+    "session_id": "sess_…",
+    "next": { "action": "ask_user", "prompt": "...", "input": {"key":"choice"}, "then": {...} } }
 
-  curl -sS -X POST https://cloud.huozi.app/auth/device-code \\
-    -H "content-type: application/json" \\
-    -d '{"client_name":"<your agent name>","agent_kind":"claude-code"}'
+STEP 2 — Drive the loop. Repeat until you see a terminal action.
 
-Use your real name in client_name (e.g. "Claude Code", "Cursor", "OpenClaw").
-Use agent_kind ∈ { "claude-code" | "cursor" | "openclaw" | "other" }.
+For every response:
 
-The response is JSON:
-  { device_code, user_code, verification_url_complete, interval, expires_in }
+  if next.action === "ask_user":
+      Ask the human next.prompt (show next.hint if present). Take their
+      reply, trimmed. Then:
+        POST next.then.url  (it's always https://huozi.app/api/agent/step)
+        body = { ...next.then.body, [next.input.key]: <their reply> }
 
-Keep device_code private. Tell the human:
-  "Open <verification_url_complete> and click Authorize."
+  if next.action === "run_device_flow":
+      Execute the steps[] to request a device_code, tell the human to open
+      verification_url_complete and click Authorize, then poll
+      https://cloud.huozi.app/auth/token every <interval>s until you
+      receive an api_key. Then:
+        POST next.then.url
+        body = { ...next.then.body, [next.then.input.key]: <api_key> }
 
-STEP 2 — Poll for the key.
-Every <interval> seconds (default 5), up to <expires_in> seconds (default 900),
-run in Bash:
+  if next.action === "install_mcp":
+      Terminal success. You now have:
+        - next.api_key           (Bearer token, never print to the human)
+        - next.workspace_slug    (may be empty for choice 2 / 3)
+        - next.commands.*        (per-client install snippet)
+      Write the snippet that matches your host into its MCP config:
+        claude-code  → run \`commands["claude-code"]\` as a shell command
+        cursor       → merge \`commands.cursor\` JSON into ~/.cursor/mcp.json
+        openclaw     → merge \`commands.openclaw\` JSON into
+                       ~/.openclaw/openclaw.json under mcp.servers
+        generic      → print \`commands.generic\` for the human
+      Then verify by calling huozi_glob { pattern: "**/*" } once the MCP
+      server is registered — if > 0 files, tell the human:
+        "✓ Connected to workspace <slug>. You can now ask me to read,
+         write, or edit files in your huozi workspace."
 
-  curl -sS -X POST https://cloud.huozi.app/auth/token \\
-    -H "content-type: application/json" \\
-    -d '{"device_code":"<the device_code from step 1>"}'
+  if next.action === "error":
+      Stop. Tell the human next.message. Codes worth handling specifically:
+        session_expired  → start over via POST /api/agent/start
+        otp_verify_failed → ask for the code again (they may have mistyped)
+        token_invalid     → ask them to paste the key again
 
-Interpret the response:
-  - HTTP 202, { error: "authorization_pending" }        → sleep <interval>, retry
-  - HTTP 400, { error: "expired_token" }                → stop, tell the human, offer to restart
-  - HTTP 400, { error: "access_denied" }                → stop, tell the human
-  - HTTP 200, { api_key, key_id, workspace }            → success, go to step 3
+PATH CHOICE (what to say at the first ask_user):
 
-STEP 3 — Register the MCP server.
-Substitute the api_key from step 2 (keep it to yourself; do not print it):
+The first prompt presents three options. Describe them verbatim to the
+human and submit their reply as { "choice": "1" | "2" | "3" }:
 
-  claude mcp add --transport http huozi https://cloud.huozi.app/mcp \\
-    -H "Authorization: Bearer <api_key>"
-
-If you are Cursor: update ~/.cursor/mcp.json to add:
-  { "mcpServers": { "huozi": { "url": "https://cloud.huozi.app/mcp",
-      "headers": { "Authorization": "Bearer <api_key>" } } } }
-
-If you are OpenClaw: update ~/.openclaw/openclaw.json to add under mcp.servers:
-  { "huozi": { "url": "https://cloud.huozi.app/mcp",
-      "transport": "streamable-http",
-      "headers": { "Authorization": "Bearer <api_key>" } } }
-
-If you are another client: do the equivalent.
-
-STEP 4 — Verify end to end.
-Call huozi_glob with { pattern: "**/*" } and report the number of files
-visible. If > 0, tell the human: "✓ Connected to workspace <slug>.
-You can now ask me to read, write, or edit files in your huozi workspace."
+  1. Sign up for a new account (email OTP, auto-provisions a workspace)
+  2. Log in via the browser device flow (existing account)
+  3. Paste an API key I already have (starts with hz_)
 
 Security rules:
-  - Never print api_key, device_code, or key_id to the human.
+  - Never print api_key, device_code, or session_id to the human.
   - Do not persist them outside the MCP config your client owns.
-  - The human revokes access at any time from the Connected Agents panel on huozi.app/workspace.`;
+  - The human can revoke access any time from the Connected Agents panel
+    on huozi.app/workspace.
+
+Prefer \`npx huozi-mcp\` if the human is at a terminal themselves — the
+CLI runs the same flow interactively.`;
 
 export default async function StartPage() {
   const locale = await getLocale();
