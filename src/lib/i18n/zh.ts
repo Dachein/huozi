@@ -266,9 +266,9 @@ export const zh = {
   "start.picker.content.openclaw.mcp.body":
     "跑这行 OpenClaw 的 MCP 层就配置好了。CLI 写 ~/.openclaw/openclaw.json 的 mcp.servers.huozi（transport: streamable-http），重启 OpenClaw 生效。",
   "start.picker.content.openclaw.skill.body":
-    "OpenClaw 原生的生态是 ClawHub —— Skill 在这里是一等公民。现在手动放文件，未来发到 ClawHub 之后一行 `openclaw skills install huozi/mcp` 即可。",
+    "OpenClaw 原生的生态是 ClawHub —— Skill 在这里是一等公民。跑这行，CLI 会从 ClawHub 拉 huozi/mcp 并写进 ~/.openclaw/skills/，重启 OpenClaw 生效。",
   "start.picker.content.openclaw.skill.note":
-    "ClawHub 发布待定。Skill 这条路只出现在 OpenClaw，因为那里才是它的原生习惯 —— Claude Code 和 Cursor 用户保持 MCP 一条路就够了。",
+    "Skill 这条路只出现在 OpenClaw，因为那里才是它的原生习惯 —— Claude Code 和 Cursor 用户保持 MCP 一条路就够了。",
 
   "start.picker.content.generic.mcp.body":
     "任何能发 HTTP 请求的 Agent 都适用。把下面这段提示词贴给 Agent —— 它读指令、跑 curl 设备流程、把拿到的 key 写进自己的 MCP 配置里。你只需要在浏览器里点一次 Authorize。",

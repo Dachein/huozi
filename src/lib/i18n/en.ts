@@ -268,9 +268,9 @@ export const en = {
   "start.picker.content.openclaw.mcp.body":
     "Run this and OpenClaw's MCP layer is configured. The CLI writes ~/.openclaw/openclaw.json under mcp.servers.huozi (transport: streamable-http); restart OpenClaw to pick it up.",
   "start.picker.content.openclaw.skill.body":
-    "OpenClaw's native ecosystem is ClawHub — Skill is a first-class entry point here. Today, drop the file manually; once we publish the package you'll run `openclaw skills install huozi/mcp` instead.",
+    "OpenClaw's native ecosystem is ClawHub — Skill is a first-class entry point here. Run this; the CLI pulls huozi/mcp from ClawHub into ~/.openclaw/skills/ and you restart OpenClaw to pick it up.",
   "start.picker.content.openclaw.skill.note":
-    "ClawHub publication is pending. We only surface Skill for OpenClaw because that's where it's the native idiom — Claude Code and Cursor users stick with MCP.",
+    "We only surface Skill for OpenClaw because that's where it's the native idiom — Claude Code and Cursor users stick with MCP.",
 
   "start.picker.content.generic.mcp.body":
     "Any Agent that can make HTTP calls. Copy this prompt into the Agent — it reads the steps, runs the curl device flow, and writes its own MCP config. Your only job: click one Authorize link in the browser.",

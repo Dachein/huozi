@@ -63,12 +63,10 @@ function commandFor(client: Client, mode: Mode): string {
   if (mode === "mcp" && client !== "generic") {
     return `npx huozi-mcp --client ${client}`;
   }
-  // OpenClaw skill — drop in the workspace skills directory until the
-  // ClawHub package ships.
+  // OpenClaw skill — published to ClawHub as huozi/mcp; the CLI fetches
+  // and wires the skill into ~/.openclaw/skills/ for you.
   if (client === "openclaw" && mode === "skill") {
-    return `mkdir -p ~/.openclaw/skills/huozi && \\
-  curl -sS https://huozi.app/skill.md \\
-    -o ~/.openclaw/skills/huozi/SKILL.md`;
+    return `openclaw skills install huozi/mcp`;
   }
   return "";
 }

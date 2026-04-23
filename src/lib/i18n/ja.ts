@@ -268,9 +268,9 @@ export const ja = {
   "start.picker.content.openclaw.mcp.body":
     "これを実行すれば OpenClaw の MCP 層は設定完了。CLI が ~/.openclaw/openclaw.json の mcp.servers.huozi（transport: streamable-http）に書き込みます。OpenClaw を再起動で反映。",
   "start.picker.content.openclaw.skill.body":
-    "OpenClaw のネイティブ生態系は ClawHub —— Skill はここでは一級市民です。現在は手動配置、公開後は `openclaw skills install huozi/mcp` で完了します。",
+    "OpenClaw のネイティブ生態系は ClawHub —— Skill はここでは一級市民です。これを実行すると、CLI が ClawHub から huozi/mcp を取得して ~/.openclaw/skills/ に配置します。OpenClaw を再起動で反映。",
   "start.picker.content.openclaw.skill.note":
-    "ClawHub 公開は準備中。Skill を表示するのは OpenClaw だけです —— そこが Skill のネイティブな慣習だから。Claude Code と Cursor のユーザーは MCP 一本で十分。",
+    "Skill を表示するのは OpenClaw だけです —— そこが Skill のネイティブな慣習だから。Claude Code と Cursor のユーザーは MCP 一本で十分。",
 
   "start.picker.content.generic.mcp.body":
     "HTTP を扱える任意の Agent 向け。このプロンプトを Agent に貼り付け —— Agent が手順を読み、curl デバイスフローを実行し、自身の MCP 設定を書き込みます。あなたはブラウザで Authorize を一回クリックするだけ。",
