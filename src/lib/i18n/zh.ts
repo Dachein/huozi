@@ -251,6 +251,38 @@ export const zh = {
   "start.footer.edge.desc":
     "同一款云盘，部署到你自己的 Cloudflare / Vercel。MIT 协议。",
 
+  // /start 页上的 InstallPicker
+  "start.picker.title": "按客户端选择安装方式",
+  "start.picker.subtitle":
+    "选你的客户端 —— 下方会只显示与之相关的路径。MCP 加的是工具，Skill / Rules 加的是说明书；大多数场景两者都需要。",
+  "start.picker.generic.name": "通用 / 其他",
+
+  "start.picker.content.claude-code.mcp.body":
+    "最简单：在任意 shell 里跑这行。CLI 打开浏览器让你一键授权，写进 Claude Code 的用户级 MCP 配置，新开一个 shell 就生效。",
+  "start.picker.content.claude-code.skill.body":
+    "把官方 SKILL.md 放进 Claude Code 的 skills 目录。Agent 会在需要时加载这份说明书，知道什么时候调用哪个 huozi_* 工具。",
+  "start.picker.content.claude-code.skill.note":
+    "Skill 加的是「说明书」，工具本身来自 MCP。如果还没装 MCP，先去上面 MCP tab 装一遍。",
+
+  "start.picker.content.cursor.mcp.body":
+    "最简单：打开 Cursor 的集成终端（⌘J），跑这行。CLI 写 ~/.cursor/mcp.json，Reload Window（⌘⇧P）生效。",
+  "start.picker.content.cursor.rules.body":
+    "Cursor 里 Skill 的对应物叫 Rules —— 放在 .cursor/rules/ 的一份 Markdown，Agent 按需加载。源文件和其他客户端共用同一份。",
+  "start.picker.content.cursor.rules.note":
+    "这样装是项目级。想全局可用，把同一份文件放到 ~/.cursor/rules/ 即可。工具调用照常走 MCP。",
+
+  "start.picker.content.openclaw.mcp.body":
+    "最简单：跑这行。CLI 写 ~/.openclaw/openclaw.json 的 mcp.servers.huozi（transport: streamable-http），重启 OpenClaw 生效。",
+  "start.picker.content.openclaw.skill.body":
+    "OpenClaw 原生 skill 系统。现在手动下载文件，未来发到 ClawHub 之后一行 `openclaw skills install huozi/mcp` 即可。",
+  "start.picker.content.openclaw.skill.note":
+    "ClawHub 发布待定；在此之前用手动命令。和其他 skill 流程一样 —— skill 提供说明书，工具仍走 MCP。",
+
+  "start.picker.content.generic.mcp.body":
+    "任何能发 HTTP 请求的 Agent 都适用。把下面这段提示词贴给 Agent —— 它读指令、跑 curl 设备流程、把拿到的 key 写进自己的 MCP 配置里。你只需要在浏览器里点一次 Authorize。",
+  "start.picker.content.generic.mcp.note":
+    "保留英文 —— LLM 原生读英文，翻译反而可能让步骤出现细微偏差。适用于任何 stdio / HTTP MCP 客户端。",
+
   // Connect-Agent 页面
   "connect.back": "← 工作区",
   "connect.title": "连接 Agent",

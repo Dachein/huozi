@@ -253,6 +253,38 @@ export const ja = {
   "start.footer.edge.desc":
     "同じドライブを、あなた自身の Cloudflare / Vercel にデプロイ。MIT。",
 
+  // /start の InstallPicker
+  "start.picker.title": "クライアント別のインストール",
+  "start.picker.subtitle":
+    "クライアントを選んでください —— 該当するパスだけを表示します。MCP はツール、Skill / Rules はノウハウを加えます。大抵は両方必要です。",
+  "start.picker.generic.name": "汎用 / その他",
+
+  "start.picker.content.claude-code.mcp.body":
+    "最も簡単：任意のシェルでこのコマンドを実行。CLI がブラウザを開いてワンクリック認証、Claude Code のユーザースコープ MCP 設定に書き込み、新しいシェルで有効になります。",
+  "start.picker.content.claude-code.skill.body":
+    "公式 SKILL.md を Claude Code の skills ディレクトリに配置。Agent は必要に応じてロードし、どの huozi_* ツールをいつ使うかを学びます。",
+  "start.picker.content.claude-code.skill.note":
+    "Skill はノウハウを加えるもの、ツール本体は MCP 経由です。MCP 未設定なら先に上の MCP タブで実行してください。",
+
+  "start.picker.content.cursor.mcp.body":
+    "最も簡単：Cursor の統合ターミナル（⌘J）を開いて実行。~/.cursor/mcp.json に書き込みます。Reload Window（⌘⇧P）で反映。",
+  "start.picker.content.cursor.rules.body":
+    "Cursor で Skill に相当するのが Rules —— .cursor/rules/ に置く Markdown で、Agent が文脈として読み込みます。他クライアントと同じソースファイルです。",
+  "start.picker.content.cursor.rules.note":
+    "これはプロジェクト単位。ユーザー全体で使うなら同じファイルを ~/.cursor/rules/ に置いてください。ツール呼び出しには MCP が必要です。",
+
+  "start.picker.content.openclaw.mcp.body":
+    "最も簡単：これを実行。CLI が ~/.openclaw/openclaw.json の mcp.servers.huozi（transport: streamable-http）に書き込みます。OpenClaw を再起動で反映。",
+  "start.picker.content.openclaw.skill.body":
+    "OpenClaw はネイティブ skill システムを持ちます。現在は手動配置、ClawHub 公開後は `openclaw skills install huozi/mcp` で完了します。",
+  "start.picker.content.openclaw.skill.note":
+    "ClawHub 公開は準備中。それまでは手動で。他の skill フローと同様、skill はガイド、ツール呼び出しは MCP 経由です。",
+
+  "start.picker.content.generic.mcp.body":
+    "HTTP を扱える任意の Agent 向け。このプロンプトを Agent に貼り付け —— Agent が手順を読み、curl デバイスフローを実行し、自身の MCP 設定を書き込みます。あなたはブラウザで Authorize を一回クリックするだけ。",
+  "start.picker.content.generic.mcp.note":
+    "英語のまま —— LLM はどれも英語をネイティブに読みますし、ステップを訳すと微妙にずれるリスクがあります。stdio / HTTP のどんな MCP クライアントでも動作。",
+
   // Connect-Agent ページ
   "connect.back": "← ワークスペース",
   "connect.title": "Agent を接続",

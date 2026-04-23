@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { CopyButton } from "@/components/copy-button";
+import { InstallPicker } from "@/components/start/install-picker";
 import { getLocale } from "@/lib/i18n/server";
 import { t } from "@/lib/i18n";
 
@@ -134,31 +135,17 @@ export default async function StartPage() {
         </p>
       </section>
 
-      {/* 1 · The prompt — for Agents that prefer to run the flow themselves */}
+      {/* 1 · Per-client install picker — MCP × Skill tabs per actual support */}
       <section className="mb-14">
-        <div className="flex items-baseline justify-between gap-3 mb-3">
+        <div className="mb-4">
           <h2 className="font-serif text-lg font-bold">
-            {tx("start.prompt.title")}
+            {tx("start.picker.title")}
           </h2>
-          <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-            {tx("start.prompt.badge")}
-          </span>
+          <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+            {tx("start.picker.subtitle")}
+          </p>
         </div>
-
-        <div className="relative rounded-xl border-2 border-dashed border-border bg-muted/40">
-          <pre className="p-5 pr-14 text-xs leading-relaxed whitespace-pre-wrap break-words font-mono overflow-x-auto max-h-[380px]">
-            <code>{agentPrompt}</code>
-          </pre>
-          <div className="absolute top-3 right-3">
-            <CopyButton text={agentPrompt} />
-          </div>
-        </div>
-        <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
-          {tx("start.prompt.desc")}{" "}
-          <span className="text-muted-foreground/70">
-            {tx("start.prompt.langNote")}
-          </span>
-        </p>
+        <InstallPicker agentPrompt={agentPrompt} />
       </section>
 
       {/* 2 · What happens next */}

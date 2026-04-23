@@ -253,6 +253,38 @@ export const fr = {
   "start.footer.edge.desc":
     "Le même drive, déployé sur votre propre Cloudflare / Vercel. MIT.",
 
+  // InstallPicker sur /start
+  "start.picker.title": "Installation selon votre agent",
+  "start.picker.subtitle":
+    "Choisissez votre client — nous afficherons exactement ce qui s'applique. MCP apporte les outils ; Skill / Rules apporte le savoir-faire. La plupart des clients veulent les deux.",
+  "start.picker.generic.name": "Générique / Autre",
+
+  "start.picker.content.claude-code.mcp.body":
+    "Le plus simple : exécutez ceci dans n'importe quel terminal. Le CLI ouvre votre navigateur pour une autorisation en un clic, écrit la configuration MCP utilisateur de Claude Code, et tout nouveau shell la prend en compte.",
+  "start.picker.content.claude-code.skill.body":
+    "Déposez le SKILL.md canonique dans le dossier skills de Claude Code. L'Agent le charge à la demande et apprend quand utiliser chaque outil huozi_*.",
+  "start.picker.content.claude-code.skill.note":
+    "Skill ajoute le *savoir-faire*, pas les outils eux-mêmes. Si vous n'avez pas encore configuré MCP, faites-le d'abord (onglet MCP ci-dessus).",
+
+  "start.picker.content.cursor.mcp.body":
+    "Le plus simple : ouvrez le terminal intégré de Cursor (⌘J) et exécutez ceci. Il écrit ~/.cursor/mcp.json ; Reload Window (⌘⇧P) pour prendre en compte.",
+  "start.picker.content.cursor.rules.body":
+    "L'équivalent Cursor d'un Skill est une Rule — un fichier Markdown dans .cursor/rules/ que l'Agent charge en contexte. Même fichier source que les autres clients.",
+  "start.picker.content.cursor.rules.note":
+    "Cela s'installe au niveau du projet. Pour des règles utilisateur, déposez le même fichier dans ~/.cursor/rules/. L'accès aux outils passe toujours par MCP.",
+
+  "start.picker.content.openclaw.mcp.body":
+    "Le plus simple : exécutez ceci. Le CLI écrit ~/.openclaw/openclaw.json sous mcp.servers.huozi (transport : streamable-http) ; redémarrez OpenClaw pour l'activer.",
+  "start.picker.content.openclaw.skill.body":
+    "OpenClaw dispose d'un système de skill natif. Pour l'instant, placez le fichier manuellement ; une fois publié sur ClawHub, vous lancerez `openclaw skills install huozi/mcp`.",
+  "start.picker.content.openclaw.skill.note":
+    "Publication ClawHub en attente. Même principe que les autres flux skill : le skill apporte le guide ; les appels d'outils passent toujours par MCP.",
+
+  "start.picker.content.generic.mcp.body":
+    "Tout Agent capable d'appels HTTP. Collez cette invite dans l'Agent — il lit les étapes, exécute le flux device en curl, et écrit sa propre configuration MCP. Votre seul rôle : cliquer une fois sur Authorize dans le navigateur.",
+  "start.picker.content.generic.mcp.note":
+    "Conservé en anglais — les LLM lisent l'anglais nativement et traduire les étapes risque des dérives subtiles. Fonctionne pour tout client MCP stdio / HTTP.",
+
   // Page Connect-Agent
   "connect.back": "← Espace de travail",
   "connect.title": "Connecter un Agent",
