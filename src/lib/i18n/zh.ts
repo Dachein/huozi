@@ -258,25 +258,17 @@ export const zh = {
   "start.picker.generic.name": "通用 / 其他",
 
   "start.picker.content.claude-code.mcp.body":
-    "最简单：在任意 shell 里跑这行。CLI 打开浏览器让你一键授权，写进 Claude Code 的用户级 MCP 配置，新开一个 shell 就生效。",
-  "start.picker.content.claude-code.skill.body":
-    "把官方 SKILL.md 放进 Claude Code 的 skills 目录。Agent 会在需要时加载这份说明书，知道什么时候调用哪个 huozi_* 工具。",
-  "start.picker.content.claude-code.skill.note":
-    "Skill 加的是「说明书」，工具本身来自 MCP。如果还没装 MCP，先去上面 MCP tab 装一遍。",
+    "Claude Code 的原生扩展方式就是 MCP —— 工具描述本身就承载了 Agent 需要的全部上下文。在任意 shell 跑这行，CLI 打开浏览器让你一键授权，写进 Claude Code 的用户级 MCP 配置，新开一个 shell 就生效。",
 
   "start.picker.content.cursor.mcp.body":
-    "最简单：打开 Cursor 的集成终端（⌘J），跑这行。CLI 写 ~/.cursor/mcp.json，Reload Window（⌘⇧P）生效。",
-  "start.picker.content.cursor.rules.body":
-    "Cursor 里 Skill 的对应物叫 Rules —— 放在 .cursor/rules/ 的一份 Markdown，Agent 按需加载。源文件和其他客户端共用同一份。",
-  "start.picker.content.cursor.rules.note":
-    "这样装是项目级。想全局可用，把同一份文件放到 ~/.cursor/rules/ 即可。工具调用照常走 MCP。",
+    "Cursor 原生支持远程 MCP。打开 Cursor 的集成终端（⌘J），跑这行 —— CLI 写 ~/.cursor/mcp.json，Reload Window（⌘⇧P）生效。",
 
   "start.picker.content.openclaw.mcp.body":
-    "最简单：跑这行。CLI 写 ~/.openclaw/openclaw.json 的 mcp.servers.huozi（transport: streamable-http），重启 OpenClaw 生效。",
+    "跑这行 OpenClaw 的 MCP 层就配置好了。CLI 写 ~/.openclaw/openclaw.json 的 mcp.servers.huozi（transport: streamable-http），重启 OpenClaw 生效。",
   "start.picker.content.openclaw.skill.body":
-    "OpenClaw 原生 skill 系统。现在手动下载文件，未来发到 ClawHub 之后一行 `openclaw skills install huozi/mcp` 即可。",
+    "OpenClaw 原生的生态是 ClawHub —— Skill 在这里是一等公民。现在手动放文件，未来发到 ClawHub 之后一行 `openclaw skills install huozi/mcp` 即可。",
   "start.picker.content.openclaw.skill.note":
-    "ClawHub 发布待定；在此之前用手动命令。和其他 skill 流程一样 —— skill 提供说明书，工具仍走 MCP。",
+    "ClawHub 发布待定。Skill 这条路只出现在 OpenClaw，因为那里才是它的原生习惯 —— Claude Code 和 Cursor 用户保持 MCP 一条路就够了。",
 
   "start.picker.content.generic.mcp.body":
     "任何能发 HTTP 请求的 Agent 都适用。把下面这段提示词贴给 Agent —— 它读指令、跑 curl 设备流程、把拿到的 key 写进自己的 MCP 配置里。你只需要在浏览器里点一次 Authorize。",

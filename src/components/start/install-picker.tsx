@@ -24,13 +24,24 @@ import { AgentLogo } from "@/components/workspace/agent-logo";
 import { useT } from "@/lib/i18n/context";
 
 type Client = "claude-code" | "cursor" | "openclaw" | "generic";
-type Mode = "mcp" | "skill" | "rules";
+type Mode = "mcp" | "skill";
 
 const CLIENTS: Client[] = ["claude-code", "cursor", "openclaw", "generic"];
 
+/**
+ * Per-client install modes, matched to each ecosystem's native extension
+ * culture:
+ *   - Claude Code / Cursor → MCP is the canonical way to extend, and their
+ *     MCP tool descriptions carry enough context that a separate Skill
+ *     layer is redundant. Same pattern Supabase / Linear / GitHub MCP
+ *     servers follow.
+ *   - OpenClaw → ClawHub is the first-class ecosystem. Skill and MCP coexist;
+ *     users may prefer the Skill entry point.
+ *   - Generic → only the Agent-readable curl prompt applies.
+ */
 const CLIENT_MODES: Record<Client, Mode[]> = {
-  "claude-code": ["mcp", "skill"],
-  cursor: ["mcp", "rules"],
+  "claude-code": ["mcp"],
+  cursor: ["mcp"],
   openclaw: ["mcp", "skill"],
   generic: ["mcp"],
 };
@@ -41,29 +52,16 @@ const CLIENT_NAMES: Record<Exclude<Client, "generic">, string> = {
   openclaw: "OpenClaw",
 };
 
-// Mode labels are product names — we don't translate "MCP", "Skill", "Rules".
+// Mode labels are product names — we don't translate "MCP" / "Skill".
 const MODE_LABELS: Record<Mode, string> = {
   mcp: "MCP",
   skill: "Skill",
-  rules: "Rules",
 };
 
 function commandFor(client: Client, mode: Mode): string {
   // MCP install — the one-liner wraps the whole thing.
   if (mode === "mcp" && client !== "generic") {
     return `npx huozi-mcp --client ${client}`;
-  }
-  // Claude Code skill — drop a SKILL.md into the user's skills directory.
-  if (client === "claude-code" && mode === "skill") {
-    return `mkdir -p ~/.claude/skills/huozi && \\
-  curl -sS https://huozi.app/skill.md \\
-    -o ~/.claude/skills/huozi/SKILL.md`;
-  }
-  // Cursor rules — same source file, different path + extension.
-  if (client === "cursor" && mode === "rules") {
-    return `mkdir -p .cursor/rules && \\
-  curl -sS https://huozi.app/skill.md \\
-    -o .cursor/rules/huozi.mdc`;
   }
   // OpenClaw skill — drop in the workspace skills directory until the
   // ClawHub package ships.

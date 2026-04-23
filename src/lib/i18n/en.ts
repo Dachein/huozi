@@ -260,25 +260,17 @@ export const en = {
   "start.picker.generic.name": "Generic / Other",
 
   "start.picker.content.claude-code.mcp.body":
-    "Simplest: run this in any terminal. The CLI opens your browser for a one-click authorize, writes Claude Code's user-scope MCP config, and any fresh shell picks it up.",
-  "start.picker.content.claude-code.skill.body":
-    "Drop the canonical SKILL.md into Claude Code's skills directory. The Agent loads it on demand and learns when to reach for each huozi_* tool.",
-  "start.picker.content.claude-code.skill.note":
-    "Skill adds the *know-how*, not the tools themselves. If you haven't set up MCP yet, do that first (MCP tab above).",
+    "Claude Code's canonical way to extend is MCP — the tool descriptions carry everything the Agent needs. Run this in any terminal; the CLI opens your browser for a one-click authorize, writes Claude Code's user-scope MCP config, and any fresh shell picks it up.",
 
   "start.picker.content.cursor.mcp.body":
-    "Simplest: open Cursor's integrated terminal (⌘J) and run this. It writes ~/.cursor/mcp.json; Reload Window (⌘⇧P) to pick it up.",
-  "start.picker.content.cursor.rules.body":
-    "Cursor's equivalent of a Skill is a Rule — a Markdown file in .cursor/rules/ that the Agent loads for context. Same source file as the other clients.",
-  "start.picker.content.cursor.rules.note":
-    "This installs project-level. For user-wide rules, drop the same file into ~/.cursor/rules/ instead. Tool access still goes through MCP.",
+    "Cursor ships native remote-MCP support. Open Cursor's integrated terminal (⌘J) and run this — it writes ~/.cursor/mcp.json; Reload Window (⌘⇧P) to pick it up.",
 
   "start.picker.content.openclaw.mcp.body":
-    "Simplest: run this. The CLI writes ~/.openclaw/openclaw.json under mcp.servers.huozi (transport: streamable-http); restart OpenClaw to pick it up.",
+    "Run this and OpenClaw's MCP layer is configured. The CLI writes ~/.openclaw/openclaw.json under mcp.servers.huozi (transport: streamable-http); restart OpenClaw to pick it up.",
   "start.picker.content.openclaw.skill.body":
-    "OpenClaw has a native skill system. Drop the file manually today; once we publish to ClawHub you'll run `openclaw skills install huozi/mcp` instead.",
+    "OpenClaw's native ecosystem is ClawHub — Skill is a first-class entry point here. Today, drop the file manually; once we publish the package you'll run `openclaw skills install huozi/mcp` instead.",
   "start.picker.content.openclaw.skill.note":
-    "ClawHub publication is pending. Same rule as the other skill flows: the skill adds guidance; tool calls still go through the MCP setup.",
+    "ClawHub publication is pending. We only surface Skill for OpenClaw because that's where it's the native idiom — Claude Code and Cursor users stick with MCP.",
 
   "start.picker.content.generic.mcp.body":
     "Any Agent that can make HTTP calls. Copy this prompt into the Agent — it reads the steps, runs the curl device flow, and writes its own MCP config. Your only job: click one Authorize link in the browser.",
