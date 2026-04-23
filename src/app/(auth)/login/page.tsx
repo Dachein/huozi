@@ -128,25 +128,6 @@ function LoginForm() {
         onSubmit={step === "email" ? handleSendCode : handleVerifyCode}
         className="space-y-6"
       >
-        {step === "code" && (
-          <div className="flex items-center justify-between text-xs text-muted-foreground -mb-2">
-            <span className="font-mono truncate" title={email}>
-              → {email}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setStep("email");
-                setCode("");
-                setError("");
-              }}
-              className="underline underline-offset-4 hover:text-foreground transition-colors shrink-0 ml-3"
-            >
-              {_("auth.login.changeEmail")}
-            </button>
-          </div>
-        )}
-
         <Field
           /* Stable id — same input, two roles. */
           id="auth-input"
@@ -156,6 +137,30 @@ function LoginForm() {
           type={step === "email" ? "email" : "text"}
           label={
             step === "email" ? _("auth.login.email") : _("auth.login.code")
+          }
+          /* On the code step, mount email + "change email" inline in the
+             label row so the whole grouping reads as one block. Avoids the
+             old "floating meta row + negative margin" trick that visually
+             overlapped the label on narrow viewports. */
+          labelMeta={
+            step === "code" ? (
+              <>
+                <span className="font-mono truncate" title={email}>
+                  → {email}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep("email");
+                    setCode("");
+                    setError("");
+                  }}
+                  className="underline underline-offset-4 hover:text-foreground transition-colors shrink-0"
+                >
+                  {_("auth.login.changeEmail")}
+                </button>
+              </>
+            ) : null
           }
           value={step === "email" ? email : code}
           onChange={(v) => {
@@ -206,6 +211,7 @@ function Field({
   id,
   type,
   label,
+  labelMeta,
   value,
   onChange,
   placeholder,
@@ -219,6 +225,11 @@ function Field({
   id: string;
   type: string;
   label: string;
+  /** Optional right-aligned content shown on the same row as the label
+   *  (e.g. "→ you@example.com  [change]"). Kept in the label row to
+   *  avoid a separate floating row that collided visually on narrow
+   *  viewports. */
+  labelMeta?: React.ReactNode;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
@@ -231,12 +242,19 @@ function Field({
 }) {
   return (
     <div>
-      <label
-        htmlFor={id}
-        className="block text-xs uppercase tracking-[0.15em] text-muted-foreground mb-2"
-      >
-        {label}
-      </label>
+      <div className="mb-2 flex items-baseline justify-between gap-3 min-w-0">
+        <label
+          htmlFor={id}
+          className="text-xs uppercase tracking-[0.15em] text-muted-foreground shrink-0"
+        >
+          {label}
+        </label>
+        {labelMeta && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
+            {labelMeta}
+          </div>
+        )}
+      </div>
       <input
         id={id}
         type={type}
