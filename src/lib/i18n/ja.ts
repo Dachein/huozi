@@ -197,48 +197,61 @@ export const ja = {
   "install.copyButton": "コピーしてインストール",
   "install.copied": "コピー済み！",
 
-  // Get started
-  "start.title": "はじめる",
-  "start.subtitle": "お好みの方法でHuoziでの公開を始めましょう。",
-  "start.method1.title": "会話インストール",
-  "start.method1.desc": "以下をコピーしてClaude Codeまたは任意のAIエージェントに貼り付けてください。登録、認証、設定を案内します。",
-  "start.method1.flow": "フロー：",
-  "start.method1.step1": "エージェントがメールとパスワードを尋ね、登録APIを呼び出す",
-  "start.method1.step2": "メールを確認し、認証コードをエージェントに伝える",
-  "start.method1.step3": "認証後、エージェントがワークスペーススラグを尋ねる",
-  "start.method1.step4": "ワークスペース作成 + APIキー生成 — すぐに使用可能",
-  "start.method2.title": "OpenClaw / ClawHub",
-  "start.method3.title": "Claude Code (MCP)",
-  "start.rawApi": "API例を表示（スクリプト・直接統合用）",
-  "start.apiRef": "APIリファレンス",
-  "start.apiRefLink.desc": "全エンドポイント、パラメータ、使用例を含む完全なAPIドキュメント。",
-  "start.apiDocAgentLink.desc": "AIエージェント向けに最適化されたAPIリファレンス — エージェントのコンテキストに直接貼り付け可能。",
-  "start.endpoint": "エンドポイント",
-  "start.method": "メソッド",
-  "start.description": "説明",
-  "start.auth": "認証",
-  "start.footer": "活字 — AI時代の活版印刷",
+  // /start — インストールガイド
+  "start.meta.title": "はじめる — huozi Cloud",
+  "start.meta.description":
+    "一行のコマンド、または一つのプロンプト。Agent に渡して、リンクを一回クリック。完了。",
+  "start.hero.title": "はじめる",
+  "start.hero.subtitle":
+    "プロンプト 1 つ、クリック 1 回で完了。MCP 対応の任意の Agent で動作。",
 
-  "start.method2.desc": "ClawHubからHuoziスキルをインストールし、OpenClawから直接MarkdownやHTMLを公開。",
-  "start.method2.installSkill": "スキルをインストール",
-  "start.method2.orCli": "またはOpenClaw CLIで：",
-  "start.method2.configure": "設定",
-  "start.method2.configureDesc": "APIキーを環境変数に設定：",
-  "start.method2.usage": "使い方",
-  "start.method2.usageDesc": "インストール後、エージェントに伝えるだけ：",
-  "start.method2.usagePrompt": "このmarkdownをhuoziに公開して",
+  "start.fastest.title": "最速 · 一行コマンド",
+  "start.fastest.badge": "Node ≥ 18",
+  "start.fastest.desc1":
+    "下記と同じ OAuth デバイスフローを実行します。クライアント（Claude Code / Cursor / OpenClaw）を自動検出し、ブラウザを開いて認証を求め、MCP 設定を適切な場所に書き込みます。",
+  "start.fastest.desc2Before": "Agent に伝えてください：",
+  "start.fastest.tellAgent": "npx huozi-mcp を実行して認証を手伝って",
+  "start.fastest.desc2After": "—— あとは Agent が処理します。",
 
-  "start.method3.desc": "HuoziをClaude Code MCPサーバーとして追加。会話から直接MarkdownとHTMLを公開。",
-  "start.method3.installMcp": "MCPサーバーをインストール",
-  "start.method3.configureKey": "APIキーを設定",
-  "start.method3.configureKeyDesc": "MCPサーバー環境にAPIキーを追加：",
-  "start.method3.usageThen": "Claude Codeで次のように言うだけ：",
-  "start.method3.usagePrompt": "このドキュメントをHuoziに公開して",
+  "start.prompt.title": "1 · または、このプロンプトを Agent に貼り付け",
+  "start.prompt.badge": "Agent 可読",
+  "start.prompt.desc":
+    "Claude Code、Cursor、OpenClaw、または HTTP を扱える任意の Agent で動作します。Agent が手順を読んで実行し、あなたはブラウザで Authorize を一度クリックするだけです。",
+  "start.prompt.langNote":
+    "（英語のまま —— LLM はどれも英語をネイティブに読めます。）",
 
-  "start.rawApi.signup": "登録",
-  "start.rawApi.verify": "認証",
-  "start.rawApi.setup": "ワークスペース作成",
-  "start.rawApi.publish": "公開",
+  "start.authorize.title": "2 · Agent がリンクを出力 —— Authorize をクリック",
+  "start.authorize.example":
+    "→ https://huozi.app/device?code=ABCD-1234 を開いて Authorize をクリック。",
+  "start.authorize.desc":
+    "任意のブラウザで開きます。huozi.app にログインしていなければ、一度限りのメール OTP を実行。その後「どの Agent が要求しているか」「どのワークスペースにアクセスするか」と Authorize ボタンが表示されます。クリックしてタブを閉じてください。",
+
+  "start.done.title": "3 · Agent が自動接続 · 完了",
+  "start.done.descBefore":
+    "数秒以内に Agent が鍵を取得し、MCP サーバーを登録し、次のように報告します：",
+  "start.done.connectedPhrase": "✓ ワークスペース … に接続",
+  "start.done.descAfter":
+    "。以降、Agent のあらゆるリクエストが huozi ワークスペースを読み書き可能になります。",
+  "start.done.manageBefore":
+    "接続管理、ファイル閲覧、取消はいつでもこちらから：",
+  "start.done.manageAfter": "。",
+
+  "start.manual.summary": "Agent なし？手動で",
+  "start.manual.desc":
+    "同じフローはただの HTTP です — 自分で curl を実行できます：",
+  "start.manual.noteBefore":
+    "すでに huozi.app にログイン済み？Cursor / OpenClaw 用の設定スニペットを直接取得することもできます：",
+  "start.manual.noteAfter": "。",
+
+  "start.footer.mcp.title": "MCP リファレンス",
+  "start.footer.mcp.desc":
+    "すべての huozi_* ツール、JSON-RPC 形式、リアルタイムイベント。",
+  "start.footer.cloud.title": "Cloud について",
+  "start.footer.cloud.desc":
+    "なぜ Agent にコミット履歴付きの共有ドライブが必要なのか。",
+  "start.footer.edge.title": "セルフホスト（Edge）",
+  "start.footer.edge.desc":
+    "同じドライブを、あなた自身の Cloudflare / Vercel にデプロイ。MIT。",
 
   // Connect-Agent ページ
   "connect.back": "← ワークスペース",

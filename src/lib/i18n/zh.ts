@@ -197,51 +197,59 @@ export const zh = {
   "install.copyButton": "复制即安装",
   "install.copied": "已复制！",
 
-  // Get started
-  "start.title": "开始使用",
-  "start.subtitle": "选择你喜欢的方式开始使用活字发布内容。",
-  "start.method1.title": "对话安装",
-  "start.method1.desc": "复制以下内容，粘贴到 Claude Code 或任意 AI Agent。Agent 会引导你完成注册、验证和配置。",
-  "start.method1.flow": "流程：",
-  "start.method1.step1": "Agent 询问邮箱，调用注册 API",
-  "start.method1.step2": "查看邮箱，将验证码告诉 Agent",
-  "start.method1.step3": "Agent 验证后，询问你的工作空间 slug",
-  "start.method1.step4": "创建工作空间 + 生成 API Key — 即刻可用",
-  "start.method2.title": "OpenClaw / ClawHub",
-  "start.method3.title": "Claude Code (MCP)",
-  "start.rawApi": "显示原始 API 示例（用于脚本和直接集成）",
-  "start.apiRef": "API 参考",
-  "start.apiRefLink.desc": "完整的 API 文档，包含所有端点、参数和示例。",
-  "start.apiDocAgentLink.desc": "为 AI Agent 优化的 API 参考 — 可直接粘贴到 Agent 上下文中。",
-  "start.endpoint": "端点",
-  "start.method": "方法",
-  "start.description": "描述",
-  "start.auth": "认证",
-  "start.footer": "活字 — 以文载道，活字为器",
+  // /start — 安装指南
+  "start.meta.title": "开始使用 — huozi Cloud",
+  "start.meta.description":
+    "一行命令，或一段提示词。交给任何 Agent。点一次链接，搞定。",
+  "start.hero.title": "开始使用",
+  "start.hero.subtitle":
+    "一段提示词、一次点击，搞定。适用于任何支持 MCP 的 Agent。",
 
-  // Method 2: OpenClaw
-  "start.method2.desc": "从 ClawHub 安装 Huozi 技能，通过 OpenClaw 直接发布 Markdown 或 HTML。",
-  "start.method2.installSkill": "安装技能",
-  "start.method2.orCli": "或通过 OpenClaw CLI：",
-  "start.method2.configure": "配置",
-  "start.method2.configureDesc": "将你的 API 密钥设为环境变量：",
-  "start.method2.usage": "使用",
-  "start.method2.usageDesc": "安装后，告诉你的 Agent：",
-  "start.method2.usagePrompt": "帮我把这个 markdown 发布到 huozi",
+  "start.fastest.title": "最快 · 一行命令",
+  "start.fastest.badge": "Node ≥ 18",
+  "start.fastest.desc1":
+    "走的是和下方相同的 OAuth 设备流程，自动检测客户端（Claude Code / Cursor / OpenClaw），打开浏览器授权，然后把 MCP 配置写到对应位置。",
+  "start.fastest.desc2Before": "对 Agent 说",
+  "start.fastest.tellAgent": "跑 npx huozi-mcp，帮我完成授权",
+  "start.fastest.desc2After": "—— 剩下的 Agent 自己处理。",
 
-  // Method 3: Claude Code MCP
-  "start.method3.desc": "将 Huozi 添加为 Claude Code MCP 服务器，直接在对话中发布 Markdown 与 HTML。",
-  "start.method3.installMcp": "安装 MCP 服务器",
-  "start.method3.configureKey": "配置 API 密钥",
-  "start.method3.configureKeyDesc": "将 API 密钥添加到 MCP 服务器环境：",
-  "start.method3.usageThen": "然后在 Claude Code 中说：",
-  "start.method3.usagePrompt": "帮我把这篇文档发布到 Huozi",
+  "start.prompt.title": "1 · 或者，把这段提示词贴给 Agent",
+  "start.prompt.badge": "Agent 可读",
+  "start.prompt.desc":
+    "适用于 Claude Code、Cursor、OpenClaw，或任何能发 HTTP 请求的 Agent。Agent 读完步骤后自行执行；你只需要在浏览器里点一次 Authorize。",
+  "start.prompt.langNote": "（保留英文 —— 任何 LLM 都能原生阅读。）",
 
-  // Raw API
-  "start.rawApi.signup": "注册",
-  "start.rawApi.verify": "验证",
-  "start.rawApi.setup": "创建工作空间",
-  "start.rawApi.publish": "发布",
+  "start.authorize.title": "2 · Agent 会打印一个链接 —— 点一下 Authorize",
+  "start.authorize.example":
+    "→ 打开 https://huozi.app/device?code=ABCD-1234 并点 Authorize。",
+  "start.authorize.desc":
+    "用任意浏览器打开链接。如果你还没登录 huozi.app，会先走一次 email OTP。然后你会看到「哪个 Agent 在请求」「要访问哪个工作区」以及一个 Authorize 按钮。点它，关掉页面。",
+
+  "start.done.title": "3 · Agent 自动连接 · 完成",
+  "start.done.descBefore":
+    "几秒钟内，Agent 拿到 key，注册 MCP server，回报",
+  "start.done.connectedPhrase": "✓ 已连接到工作区 …",
+  "start.done.descAfter":
+    "。从此每一次 Agent 请求都能读写你的 huozi 工作区。",
+  "start.done.manageBefore": "管理连接、浏览文件、随时吊销，都在",
+  "start.done.manageAfter": "。",
+
+  "start.manual.summary": "没有 Agent？手动装一遍",
+  "start.manual.desc":
+    "整条流程就是纯 HTTP —— 你可以自己跑 curl：",
+  "start.manual.noteBefore":
+    "已登录 huozi.app？也可以在此处直接拿到为 Cursor / OpenClaw 准备好的配置片段：",
+  "start.manual.noteAfter": "。",
+
+  "start.footer.mcp.title": "MCP 参考文档",
+  "start.footer.mcp.desc":
+    "所有 huozi_* 工具、JSON-RPC 格式、实时事件。",
+  "start.footer.cloud.title": "关于 Cloud",
+  "start.footer.cloud.desc":
+    "为什么 Agent 需要一个带 commit 历史的共享云盘。",
+  "start.footer.edge.title": "自部署（Edge）",
+  "start.footer.edge.desc":
+    "同一款云盘，部署到你自己的 Cloudflare / Vercel。MIT 协议。",
 
   // Connect-Agent 页面
   "connect.back": "← 工作区",

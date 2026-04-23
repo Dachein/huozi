@@ -197,48 +197,61 @@ export const fr = {
   "install.copyButton": "Copier pour installer",
   "install.copied": "Copié !",
 
-  // Get started
-  "start.title": "Commencer",
-  "start.subtitle": "Choisissez votre méthode préférée pour commencer à publier avec Huozi.",
-  "start.method1.title": "Installation conversationnelle",
-  "start.method1.desc": "Copiez le texte suivant et collez-le dans Claude Code ou tout agent IA. L'agent vous guidera à travers l'inscription, la vérification et la configuration.",
-  "start.method1.flow": "Processus :",
-  "start.method1.step1": "L'agent demande votre e-mail et mot de passe, appelle l'API d'inscription",
-  "start.method1.step2": "Vérifiez votre e-mail, communiquez le code de vérification à l'agent",
-  "start.method1.step3": "Après vérification, l'agent demande votre slug d'espace de travail",
-  "start.method1.step4": "Espace créé + clé API générée — prêt à l'emploi",
-  "start.method2.title": "OpenClaw / ClawHub",
-  "start.method3.title": "Claude Code (MCP)",
-  "start.rawApi": "Afficher les exemples API bruts (pour scripts et intégration directe)",
-  "start.apiRef": "Référence API",
-  "start.apiRefLink.desc": "Documentation API complète avec tous les endpoints, paramètres et exemples.",
-  "start.apiDocAgentLink.desc": "Référence API optimisée pour les agents IA — à coller dans le contexte de votre agent.",
-  "start.endpoint": "Endpoint",
-  "start.method": "Méthode",
-  "start.description": "Description",
-  "start.auth": "Auth",
-  "start.footer": "Huozi — Typographie mobile pour l'ère de l'IA",
+  // /start — guide d'installation
+  "start.meta.title": "Commencer — huozi Cloud",
+  "start.meta.description":
+    "Une commande ou une invite. Donnez-la à n'importe quel Agent. Un clic de lien. Terminé.",
+  "start.hero.title": "Commencer",
+  "start.hero.subtitle":
+    "Une invite, un clic, terminé. Fonctionne avec n'importe quel Agent compatible MCP.",
 
-  "start.method2.desc": "Installez le skill Huozi depuis ClawHub et publiez du Markdown ou HTML directement depuis OpenClaw.",
-  "start.method2.installSkill": "Installer le skill",
-  "start.method2.orCli": "Ou via OpenClaw CLI :",
-  "start.method2.configure": "Configurer",
-  "start.method2.configureDesc": "Définissez votre clé API comme variable d'environnement :",
-  "start.method2.usage": "Utilisation",
-  "start.method2.usageDesc": "Une fois installé, dites simplement à votre agent :",
-  "start.method2.usagePrompt": "Publie ce markdown sur huozi",
+  "start.fastest.title": "Le plus rapide · une commande",
+  "start.fastest.badge": "Node ≥ 18",
+  "start.fastest.desc1":
+    "Exécute le même flux OAuth device que ci-dessous. Détecte automatiquement votre client (Claude Code / Cursor / OpenClaw), ouvre un navigateur pour l'autorisation, puis écrit la configuration MCP au bon endroit.",
+  "start.fastest.desc2Before": "Dites à votre Agent :",
+  "start.fastest.tellAgent": "exécute npx huozi-mcp et aide-moi à autoriser",
+  "start.fastest.desc2After": "— l'Agent fait le reste.",
 
-  "start.method3.desc": "Ajoutez Huozi comme serveur MCP Claude Code. Publiez du Markdown et HTML directement depuis vos conversations.",
-  "start.method3.installMcp": "Installer le serveur MCP",
-  "start.method3.configureKey": "Configurer la clé API",
-  "start.method3.configureKeyDesc": "Ajoutez votre clé API à l'environnement du serveur MCP :",
-  "start.method3.usageThen": "Puis dans Claude Code, dites simplement :",
-  "start.method3.usagePrompt": "Publie ce document sur Huozi",
+  "start.prompt.title": "1 · Ou, collez cette invite dans votre Agent",
+  "start.prompt.badge": "Lisible par l'Agent",
+  "start.prompt.desc":
+    "Fonctionne dans Claude Code, Cursor, OpenClaw, ou tout Agent capable d'appels HTTP. L'Agent lit les étapes et les exécute ; votre seul rôle est de cliquer une fois sur Authorize dans le navigateur.",
+  "start.prompt.langNote":
+    "(Conservé en anglais — tous les LLM le lisent nativement.)",
 
-  "start.rawApi.signup": "Inscription",
-  "start.rawApi.verify": "Vérification",
-  "start.rawApi.setup": "Créer l'espace",
-  "start.rawApi.publish": "Publier",
+  "start.authorize.title": "2 · L'Agent imprime un lien — cliquez sur Authorize",
+  "start.authorize.example":
+    "→ Ouvrez https://huozi.app/device?code=ABCD-1234 et cliquez sur Authorize.",
+  "start.authorize.desc":
+    "Ouvrez le lien dans n'importe quel navigateur. Si vous n'êtes pas connecté à huozi.app, faites d'abord un email OTP unique. Vous verrez ensuite quel Agent demande l'accès, à quel workspace, et un bouton Authorize. Cliquez, puis fermez l'onglet.",
+
+  "start.done.title": "3 · L'Agent se connecte automatiquement · terminé",
+  "start.done.descBefore":
+    "En quelques secondes, l'Agent récupère la clé, enregistre le serveur MCP, et annonce",
+  "start.done.connectedPhrase": "✓ Connecté au workspace …",
+  "start.done.descAfter":
+    ". Désormais chaque requête de l'Agent peut lire et écrire dans votre workspace huozi.",
+  "start.done.manageBefore":
+    "Gérez les connexions, parcourez les fichiers, révoquez à tout moment depuis",
+  "start.done.manageAfter": ".",
+
+  "start.manual.summary": "Pas d'Agent ? À la main",
+  "start.manual.desc":
+    "Le même flux est du HTTP brut — vous pouvez exécuter les commandes curl vous-même :",
+  "start.manual.noteBefore":
+    "Déjà connecté à huozi.app ? Vous pouvez aussi obtenir un extrait de configuration prêt à coller pour Cursor / OpenClaw directement à :",
+  "start.manual.noteAfter": ".",
+
+  "start.footer.mcp.title": "Référence MCP",
+  "start.footer.mcp.desc":
+    "Tous les outils huozi_*, le format JSON-RPC, les événements temps réel.",
+  "start.footer.cloud.title": "À propos de Cloud",
+  "start.footer.cloud.desc":
+    "Pourquoi les Agents ont besoin d'un drive partagé avec historique de commits.",
+  "start.footer.edge.title": "Auto-hébergé (Edge)",
+  "start.footer.edge.desc":
+    "Le même drive, déployé sur votre propre Cloudflare / Vercel. MIT.",
 
   // Page Connect-Agent
   "connect.back": "← Espace de travail",

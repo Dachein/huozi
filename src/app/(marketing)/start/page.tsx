@@ -1,12 +1,16 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { CopyButton } from "@/components/copy-button";
+import { getLocale } from "@/lib/i18n/server";
+import { t } from "@/lib/i18n";
 
-export const metadata: Metadata = {
-  title: "Get started — huozi Cloud",
-  description:
-    "Copy one prompt. Give it to any Agent. Click one link. Done.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  return {
+    title: t(locale, "start.meta.title"),
+    description: t(locale, "start.meta.description"),
+  };
+}
 
 /**
  * /start — the install guide.
@@ -16,10 +20,9 @@ export const metadata: Metadata = {
  * prompt below literally, and execute the device-authorization flow
  * end-to-end. The user's only interaction is clicking one Authorize link.
  *
- * The prompt itself targets huozi-cloud's OAuth 2.0 device flow endpoints
- * (RFC 8628) at cloud.huozi.app:
- *   - POST /auth/device-code   → issues { device_code, user_code, url }
- *   - POST /auth/token         → polled by Agent; returns api_key on auth
+ * All human-facing copy is localized via `start.*` keys. The agentPrompt
+ * itself is kept in English because LLMs read English natively; translating
+ * it risks subtle semantic drift in the steps the Agent follows.
  */
 
 const agentPrompt = `Install huozi Cloud. If Node ≥18 is available, prefer the one-liner:
@@ -42,7 +45,7 @@ Run in Bash:
     -d '{"client_name":"<your agent name>","agent_kind":"claude-code"}'
 
 Use your real name in client_name (e.g. "Claude Code", "Cursor", "OpenClaw").
-Use agent_kind ∈ { "claude-code" | "cursor" | "desktop" | "other" }.
+Use agent_kind ∈ { "claude-code" | "cursor" | "openclaw" | "other" }.
 
 The response is JSON:
   { device_code, user_code, verification_url_complete, interval, expires_in }
@@ -74,6 +77,11 @@ If you are Cursor: update ~/.cursor/mcp.json to add:
   { "mcpServers": { "huozi": { "url": "https://cloud.huozi.app/mcp",
       "headers": { "Authorization": "Bearer <api_key>" } } } }
 
+If you are OpenClaw: update ~/.openclaw/openclaw.json to add under mcp.servers:
+  { "huozi": { "url": "https://cloud.huozi.app/mcp",
+      "transport": "streamable-http",
+      "headers": { "Authorization": "Bearer <api_key>" } } }
+
 If you are another client: do the equivalent.
 
 STEP 4 — Verify end to end.
@@ -86,15 +94,18 @@ Security rules:
   - Do not persist them outside the MCP config your client owns.
   - The human revokes access at any time from the Connected Agents panel on huozi.app/workspace.`;
 
-export default function StartPage() {
+export default async function StartPage() {
+  const locale = await getLocale();
+  const tx = (key: string) => t(locale, key);
+
   return (
     <div className="mx-auto max-w-3xl px-6 py-12">
       <div className="text-center mb-12">
         <h1 className="font-serif text-3xl sm:text-4xl font-bold tracking-[0.06em]">
-          Get started
+          {tx("start.hero.title")}
         </h1>
         <p className="mt-3 text-muted-foreground">
-          One prompt, one click, done. Works with any MCP-capable Agent.
+          {tx("start.hero.subtitle")}
         </p>
       </div>
 
@@ -102,10 +113,10 @@ export default function StartPage() {
       <section className="mb-12">
         <div className="flex items-baseline justify-between gap-3 mb-3">
           <h2 className="font-serif text-lg font-bold">
-            Fastest · one command
+            {tx("start.fastest.title")}
           </h2>
           <span className="text-[11px] uppercase tracking-wider text-accent">
-            Node ≥ 18
+            {tx("start.fastest.badge")}
           </span>
         </div>
         <div className="relative rounded-xl border-2 border-accent/40 bg-muted/20">
@@ -115,11 +126,11 @@ export default function StartPage() {
           <CopyButton text="npx huozi-mcp" />
         </div>
         <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
-          Runs the same OAuth device flow as below. Auto-detects your client
-          (Claude Code, Cursor, OpenClaw), opens a browser for authorization,
-          and writes the MCP config into the right place. Tell your Agent
-          <span className="font-mono text-foreground"> &ldquo;run npx huozi-mcp and help me authorize&rdquo;</span>{" "}
-          — the Agent does the rest.
+          {tx("start.fastest.desc1")} {tx("start.fastest.desc2Before")}{" "}
+          <span className="font-mono text-foreground">
+            &ldquo;{tx("start.fastest.tellAgent")}&rdquo;
+          </span>{" "}
+          {tx("start.fastest.desc2After")}
         </p>
       </section>
 
@@ -127,10 +138,10 @@ export default function StartPage() {
       <section className="mb-14">
         <div className="flex items-baseline justify-between gap-3 mb-3">
           <h2 className="font-serif text-lg font-bold">
-            1 · Or, copy this prompt into your Agent
+            {tx("start.prompt.title")}
           </h2>
           <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-            Agent-readable
+            {tx("start.prompt.badge")}
           </span>
         </div>
 
@@ -143,58 +154,47 @@ export default function StartPage() {
           </div>
         </div>
         <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
-          Works in Claude Code, Cursor, OpenClaw, or any Agent that can
-          make HTTP calls. The Agent reads the steps and executes them;
-          your only job is to click one Authorize link in the browser.
+          {tx("start.prompt.desc")}{" "}
+          <span className="text-muted-foreground/70">
+            {tx("start.prompt.langNote")}
+          </span>
         </p>
       </section>
 
       {/* 2 · What happens next */}
       <section className="mb-14">
         <h2 className="font-serif text-lg font-bold mb-4">
-          2 · The Agent prints a link — click Authorize
+          {tx("start.authorize.title")}
         </h2>
         <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-xs font-mono text-muted-foreground mb-3">
-          → Open https://huozi.app/device?code=ABCD-1234 and click Authorize.
+          {tx("start.authorize.example")}
         </div>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          Open the link in any browser. If you&rsquo;re not signed in to
-          huozi.app, do a one-time email OTP first. Then you&rsquo;ll see
-          which Agent is asking, which workspace it will access, and a
-          single <strong>Authorize</strong> button. Click it. Close the tab.
+          {tx("start.authorize.desc")}
         </p>
       </section>
 
       {/* 3 · Done */}
       <section className="mb-14">
         <h2 className="font-serif text-lg font-bold mb-4">
-          3 · Agent auto-connects · you&rsquo;re done
+          {tx("start.done.title")}
         </h2>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          Within a few seconds, the Agent catches the key, registers the
-          MCP server, and reports{" "}
+          {tx("start.done.descBefore")}{" "}
           <span className="font-mono text-foreground">
-            ✓ Connected to workspace …
+            {tx("start.done.connectedPhrase")}
           </span>
-          . From now on every Agent request can read and write in your
-          huozi workspace.
+          {tx("start.done.descAfter")}
         </p>
         <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-          Manage the connection from the Connected Agents panel on{" "}
-          <Link
-            href="/workspace"
-            className="underline hover:text-foreground"
-          >
-            /workspace
-          </Link>{" "}
-          — revoke any time. Browse and publish files at{" "}
+          {tx("start.done.manageBefore")}{" "}
           <Link
             href="/workspace"
             className="underline hover:text-foreground"
           >
             /workspace
           </Link>
-          .
+          {tx("start.done.manageAfter")}
         </p>
       </section>
 
@@ -205,12 +205,11 @@ export default function StartPage() {
             <span className="inline-block transition-transform group-open:rotate-90 text-[9px]">
               ▸
             </span>
-            No Agent? Do it by hand
+            {tx("start.manual.summary")}
           </summary>
           <div className="mt-4 space-y-4 pl-5 border-l border-border/50">
             <p className="text-sm text-muted-foreground leading-relaxed">
-              The same flow is plain HTTP — you can run the curl commands
-              yourself:
+              {tx("start.manual.desc")}
             </p>
             <CodeBlock
               code={`# 1. get codes
@@ -229,15 +228,14 @@ claude mcp add --transport http huozi https://cloud.huozi.app/mcp \\
   -H "Authorization: Bearer <api_key from step 2>"`}
             />
             <p className="text-xs text-muted-foreground">
-              Already signed in at huozi.app? You can also mint a
-              ready-made config snippet for Cursor / Desktop directly at{" "}
+              {tx("start.manual.noteBefore")}{" "}
               <Link
                 href="/workspace/connect"
                 className="underline hover:text-foreground"
               >
                 /workspace/connect
               </Link>
-              .
+              {tx("start.manual.noteAfter")}
             </p>
           </div>
         </details>
@@ -250,28 +248,33 @@ claude mcp add --transport http huozi https://cloud.huozi.app/mcp \\
             href="/docs"
             className="flex-1 rounded-lg border border-border p-5 hover:border-foreground/30 transition-colors"
           >
-            <h3 className="font-semibold mb-1 text-sm">MCP reference</h3>
+            <h3 className="font-semibold mb-1 text-sm">
+              {tx("start.footer.mcp.title")}
+            </h3>
             <p className="text-xs text-muted-foreground">
-              All <code className="font-mono">huozi_*</code> tools, JSON-RPC
-              shape, real-time events.
+              {tx("start.footer.mcp.desc")}
             </p>
           </Link>
           <Link
             href="/cloud"
             className="flex-1 rounded-lg border border-border p-5 hover:border-foreground/30 transition-colors"
           >
-            <h3 className="font-semibold mb-1 text-sm">About Cloud</h3>
+            <h3 className="font-semibold mb-1 text-sm">
+              {tx("start.footer.cloud.title")}
+            </h3>
             <p className="text-xs text-muted-foreground">
-              Why Agents need a shared drive with commit history.
+              {tx("start.footer.cloud.desc")}
             </p>
           </Link>
           <Link
             href="/edge"
             className="flex-1 rounded-lg border border-border p-5 hover:border-foreground/30 transition-colors"
           >
-            <h3 className="font-semibold mb-1 text-sm">Self-host (Edge)</h3>
+            <h3 className="font-semibold mb-1 text-sm">
+              {tx("start.footer.edge.title")}
+            </h3>
             <p className="text-xs text-muted-foreground">
-              Same drive, deployed on your own Cloudflare / Vercel. MIT.
+              {tx("start.footer.edge.desc")}
             </p>
           </Link>
         </div>

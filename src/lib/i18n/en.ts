@@ -197,48 +197,61 @@ export const en = {
   "install.copyButton": "Copy to Install",
   "install.copied": "Copied!",
 
-  // Get started
-  "start.title": "Get Started",
-  "start.subtitle": "Choose your preferred way to start publishing with Huozi.",
-  "start.method1.title": "Conversational Install",
-  "start.method1.desc": "Copy the following and paste into Claude Code or any AI Agent. The agent will guide you through registration, verification, and configuration.",
-  "start.method1.flow": "Flow:",
-  "start.method1.step1": "Agent asks for your email, calls the signup API",
-  "start.method1.step2": "Check your email, tell the Agent the verification code",
-  "start.method1.step3": "After verification, Agent asks for your workspace slug",
-  "start.method1.step4": "Workspace created + API Key generated — ready to use",
-  "start.method2.title": "OpenClaw / ClawHub",
-  "start.method3.title": "Claude Code (MCP)",
-  "start.rawApi": "Show raw API examples (for scripts & direct integration)",
-  "start.apiRef": "API Reference",
-  "start.apiRefLink.desc": "Complete API documentation with all endpoints, parameters, and examples.",
-  "start.apiDocAgentLink.desc": "Optimized API reference for AI agents — paste into your agent's context.",
-  "start.endpoint": "Endpoint",
-  "start.method": "Method",
-  "start.description": "Description",
-  "start.auth": "Auth",
-  "start.footer": "Huozi — Markdown & HTML publishing for the agent era.",
+  // /start — install guide
+  "start.meta.title": "Get started — huozi Cloud",
+  "start.meta.description":
+    "One command or one prompt. Give it to any Agent. Click one link. Done.",
+  "start.hero.title": "Get started",
+  "start.hero.subtitle":
+    "One prompt, one click, done. Works with any MCP-capable Agent.",
 
-  "start.method2.desc": "Install the Huozi skill from ClawHub and publish Markdown or HTML directly from OpenClaw.",
-  "start.method2.installSkill": "Install Skill",
-  "start.method2.orCli": "Or via OpenClaw CLI:",
-  "start.method2.configure": "Configure",
-  "start.method2.configureDesc": "Set your API key as an environment variable:",
-  "start.method2.usage": "Usage",
-  "start.method2.usageDesc": "Once installed, just tell your agent:",
-  "start.method2.usagePrompt": "Publish this markdown to huozi",
+  "start.fastest.title": "Fastest · one command",
+  "start.fastest.badge": "Node ≥ 18",
+  "start.fastest.desc1":
+    "Runs the same OAuth device flow as below. Auto-detects your client (Claude Code, Cursor, OpenClaw), opens a browser for authorization, and writes the MCP config into the right place.",
+  "start.fastest.desc2Before": "Tell your Agent",
+  "start.fastest.tellAgent": "run npx huozi-mcp and help me authorize",
+  "start.fastest.desc2After": "— the Agent does the rest.",
 
-  "start.method3.desc": "Add Huozi as a Claude Code MCP server. Publish Markdown and HTML directly from your conversations.",
-  "start.method3.installMcp": "Install MCP Server",
-  "start.method3.configureKey": "Configure API Key",
-  "start.method3.configureKeyDesc": "Add your API key to the MCP server environment:",
-  "start.method3.usageThen": "Then in Claude Code, just say:",
-  "start.method3.usagePrompt": "Publish this document to Huozi",
+  "start.prompt.title": "1 · Or, copy this prompt into your Agent",
+  "start.prompt.badge": "Agent-readable",
+  "start.prompt.desc":
+    "Works in Claude Code, Cursor, OpenClaw, or any Agent that can make HTTP calls. The Agent reads the steps and executes them; your only job is to click one Authorize link in the browser.",
+  "start.prompt.langNote":
+    "(Kept in English — every LLM reads it natively.)",
 
-  "start.rawApi.signup": "Sign up",
-  "start.rawApi.verify": "Verify",
-  "start.rawApi.setup": "Setup workspace",
-  "start.rawApi.publish": "Publish",
+  "start.authorize.title": "2 · The Agent prints a link — click Authorize",
+  "start.authorize.example":
+    "→ Open https://huozi.app/device?code=ABCD-1234 and click Authorize.",
+  "start.authorize.desc":
+    "Open the link in any browser. If you're not signed in to huozi.app, do a one-time email OTP first. Then you'll see which Agent is asking, which workspace it will access, and a single Authorize button. Click it. Close the tab.",
+
+  "start.done.title": "3 · Agent auto-connects · you're done",
+  "start.done.descBefore":
+    "Within a few seconds the Agent catches the key, registers the MCP server, and reports",
+  "start.done.connectedPhrase": "✓ Connected to workspace …",
+  "start.done.descAfter":
+    ". From now on every Agent request can read and write in your huozi workspace.",
+  "start.done.manageBefore":
+    "Manage connections, browse files, and revoke at any time from",
+  "start.done.manageAfter": ".",
+
+  "start.manual.summary": "No Agent? Do it by hand",
+  "start.manual.desc":
+    "The same flow is plain HTTP — you can run the curl commands yourself:",
+  "start.manual.noteBefore":
+    "Already signed in at huozi.app? You can also mint a ready-made config snippet for Cursor / OpenClaw directly at",
+  "start.manual.noteAfter": ".",
+
+  "start.footer.mcp.title": "MCP reference",
+  "start.footer.mcp.desc":
+    "All huozi_* tools, JSON-RPC shape, real-time events.",
+  "start.footer.cloud.title": "About Cloud",
+  "start.footer.cloud.desc":
+    "Why Agents need a shared drive with commit history.",
+  "start.footer.edge.title": "Self-host (Edge)",
+  "start.footer.edge.desc":
+    "Same drive, deployed on your own Cloudflare / Vercel. MIT.",
 
   // Connect-Agent page
   "connect.back": "← Workspace",
