@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   DataEditor,
   GridCellKind,
@@ -22,13 +22,31 @@ export interface CsvGridProps {
   content: string;
   /** Delimiter. Defaults to "," — pass "\t" for TSV. */
   delim?: string;
-  /** Max grid height in pixels. Defaults to 720. */
+  /** Absolute fallback cap in pixels. Used before viewport is measured and as a hard ceiling. */
   maxHeight?: number;
 }
 
 const ROW_HEIGHT = 32;
 const HEADER_HEIGHT = 36;
-const DEFAULT_COL_WIDTH = 160;
+const MIN_COL_WIDTH = 100;
+const MAX_COL_WIDTH = 480;
+const CHAR_PX = 7;
+const COL_PADDING_PX = 24;
+const VIEWPORT_CHROME_PX = 180;
+const WIDTH_SAMPLE_ROWS = 100;
+
+function measureColWidth(head: string, body: string[][], col: number): number {
+  let longest = head.length;
+  const sampleSize = Math.min(body.length, WIDTH_SAMPLE_ROWS);
+  for (let i = 0; i < sampleSize; i++) {
+    const len = (body[i]?.[col] ?? "").length;
+    if (len > longest) longest = len;
+  }
+  return Math.max(
+    MIN_COL_WIDTH,
+    Math.min(MAX_COL_WIDTH, longest * CHAR_PX + COL_PADDING_PX),
+  );
+}
 
 export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps) {
   const { header, rows, numericCols } = useMemo(() => {
@@ -50,6 +68,20 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
   const [sort, setSort] = useState<{ col: number; dir: "asc" | "desc" } | null>(
     null,
   );
+
+  const [widths, setWidths] = useState<number[]>([]);
+  useEffect(() => {
+    setWidths(header.map((h, i) => measureColWidth(h, rows, i)));
+  }, [header, rows]);
+
+  const [viewportCap, setViewportCap] = useState<number | null>(null);
+  useEffect(() => {
+    const update = () =>
+      setViewportCap(Math.max(320, window.innerHeight - VIEWPORT_CHROME_PX));
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return rows;
@@ -89,10 +121,20 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
       return {
         title: (h || `col ${i + 1}`) + arrow,
         id: `c${i}`,
-        width: DEFAULT_COL_WIDTH,
+        width: widths[i] ?? MIN_COL_WIDTH,
       };
     });
-  }, [header, sort]);
+  }, [header, sort, widths]);
+
+  const onColumnResize = useCallback<
+    NonNullable<DataEditorProps["onColumnResize"]>
+  >((_col, newSize, colIndex) => {
+    setWidths((prev) => {
+      const next = prev.slice();
+      next[colIndex] = newSize;
+      return next;
+    });
+  }, []);
 
   const getCellContent = useCallback(
     ([col, row]: Item): GridCell => {
@@ -101,7 +143,8 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
         kind: GridCellKind.Text,
         data: value,
         displayData: value,
-        allowOverlay: false,
+        allowOverlay: true,
+        readonly: true,
         contentAlign: numericCols[col] ? "right" : "left",
         themeOverride: numericCols[col]
           ? { fontFamily: "var(--font-mono, ui-monospace, monospace)" }
@@ -129,6 +172,9 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
       headerFontStyle: "600 12px",
       cellHorizontalPadding: 10,
       headerIconSize: 14,
+      accentColor: "#c4594a",
+      accentLight: "rgba(196, 89, 74, 0.14)",
+      accentFg: "#faf8f3",
     }),
     [],
   );
@@ -141,8 +187,9 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
     );
   }
 
+  const effectiveCap = viewportCap ?? maxHeight;
   const gridHeight = Math.min(
-    maxHeight,
+    effectiveCap,
     sorted.length * ROW_HEIGHT + HEADER_HEIGHT + 2,
   );
 
@@ -177,6 +224,8 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
           smoothScrollX
           smoothScrollY
           onHeaderClicked={onHeaderClicked}
+          onColumnResize={onColumnResize}
+          freezeColumns={1}
           getCellsForSelection={true}
           keybindings={{ copy: true }}
           theme={theme}
