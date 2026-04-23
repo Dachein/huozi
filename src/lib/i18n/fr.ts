@@ -205,13 +205,15 @@ export const fr = {
   "start.hero.subtitle":
     "Une invite, un clic, terminé. Fonctionne avec n'importe quel Agent compatible MCP.",
 
-  "start.fastest.title": "Le plus rapide · une commande",
-  "start.fastest.badge": "Node ≥ 18",
-  "start.fastest.desc1":
-    "Exécute le même flux OAuth device que ci-dessous. Détecte automatiquement votre client (Claude Code / Cursor / OpenClaw), ouvre un navigateur pour l'autorisation, puis écrit la configuration MCP au bon endroit.",
-  "start.fastest.desc2Before": "Dites à votre Agent :",
-  "start.fastest.tellAgent": "exécute npx huozi-mcp et aide-moi à autoriser",
-  "start.fastest.desc2After": "— l'Agent fait le reste.",
+  "start.conversation.title": "Confiez à votre Agent",
+  "start.conversation.badge": "chat · ~60 secondes",
+  "start.conversation.desc":
+    "Collez ceci dans n'importe quel Agent compatible MCP (Claude Code, Cursor, OpenClaw, ou tout autre ayant un accès web). Il lit le protocole d'installation depuis cette page, puis vous pose 2–3 questions dans le chat : inscription, connexion navigateur, ou collage d'un token existant. Aucun terminal requis.",
+
+  "start.terminal.title": "Ou, depuis un terminal",
+  "start.terminal.badge": "Node ≥ 18",
+  "start.terminal.desc":
+    "Alternative pour développeurs. Exécute le même flux OAuth de manière interactive et écrit la configuration MCP. Pour humains au shell — le CLI refuse les entrées non-TTY, donc les Agents doivent piloter directement la machine d'états HTTP.",
 
   "start.prompt.title": "1 · Ou, collez cette invite dans votre Agent",
   "start.prompt.badge": "Lisible par l'Agent",

@@ -116,28 +116,49 @@ export default async function StartPage() {
         </p>
       </div>
 
-      {/* 0 · npx one-liner — fastest path for anyone with Node ≥18 */}
-      <section className="mb-12">
+      {/* 0 · Conversational install — the primary path for normal users.
+              They paste a short human-readable message into their Agent;
+              the Agent WebFetches this very page, reads the agentPrompt
+              section below, and drives the /api/agent/* state machine. */}
+      <section className="mb-10">
         <div className="flex items-baseline justify-between gap-3 mb-3">
           <h2 className="font-serif text-lg font-bold">
-            {tx("start.fastest.title")}
+            {tx("start.conversation.title")}
           </h2>
           <span className="text-[11px] uppercase tracking-wider text-accent">
-            {tx("start.fastest.badge")}
+            {tx("start.conversation.badge")}
           </span>
         </div>
+        <p className="mb-3 text-sm text-muted-foreground leading-relaxed">
+          {tx("start.conversation.desc")}
+        </p>
         <div className="relative rounded-xl border-2 border-accent/40 bg-muted/20">
-          <pre className="p-5 pr-14 text-sm leading-relaxed font-mono">
+          <pre className="p-5 pr-14 text-base leading-relaxed font-mono whitespace-pre-wrap">
+            <code>Install huozi from huozi.app/start.</code>
+          </pre>
+          <CopyButton text="Install huozi from huozi.app/start." />
+        </div>
+      </section>
+
+      {/* 0b · Secondary — terminal one-liner for the dev path. Purposely
+              less visually heavy than the conversational block above. */}
+      <section className="mb-12">
+        <div className="flex items-baseline justify-between gap-3 mb-2">
+          <h2 className="font-serif text-sm font-medium text-muted-foreground">
+            {tx("start.terminal.title")}
+          </h2>
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            {tx("start.terminal.badge")}
+          </span>
+        </div>
+        <div className="relative rounded-lg border border-border bg-muted/30">
+          <pre className="p-3 pr-12 text-sm leading-relaxed font-mono">
             <code>npx huozi-mcp</code>
           </pre>
           <CopyButton text="npx huozi-mcp" />
         </div>
-        <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
-          {tx("start.fastest.desc1")} {tx("start.fastest.desc2Before")}{" "}
-          <span className="font-mono text-foreground">
-            &ldquo;{tx("start.fastest.tellAgent")}&rdquo;
-          </span>{" "}
-          {tx("start.fastest.desc2After")}
+        <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+          {tx("start.terminal.desc")}
         </p>
       </section>
 

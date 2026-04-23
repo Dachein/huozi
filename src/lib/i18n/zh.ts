@@ -205,13 +205,15 @@ export const zh = {
   "start.hero.subtitle":
     "一段提示词、一次点击，搞定。适用于任何支持 MCP 的 Agent。",
 
-  "start.fastest.title": "最快 · 一行命令",
-  "start.fastest.badge": "Node ≥ 18",
-  "start.fastest.desc1":
-    "走的是和下方相同的 OAuth 设备流程，自动检测客户端（Claude Code / Cursor / OpenClaw），打开浏览器授权，然后把 MCP 配置写到对应位置。",
-  "start.fastest.desc2Before": "对 Agent 说",
-  "start.fastest.tellAgent": "跑 npx huozi-mcp，帮我完成授权",
-  "start.fastest.desc2After": "—— 剩下的 Agent 自己处理。",
+  "start.conversation.title": "让你的 Agent 装",
+  "start.conversation.badge": "对话 · 约 60 秒",
+  "start.conversation.desc":
+    "把这句话贴给任意支持 MCP 的 Agent（Claude Code、Cursor、OpenClaw，或任何能联网的）。它会从本页读取安装协议，然后在对话里问你 2-3 个问题：注册、浏览器登录、或者粘已有 token。全程不用打开终端。",
+
+  "start.terminal.title": "或者，从终端",
+  "start.terminal.badge": "Node ≥ 18",
+  "start.terminal.desc":
+    "开发者友好的选项。交互式走完同样的 OAuth 流程并帮你写好 MCP 配置。给在 shell 里的人用 —— CLI 不接受非 TTY 输入，Agent 应该走 HTTP 状态机那条。",
 
   "start.prompt.title": "1 · 或者，把这段提示词贴给 Agent",
   "start.prompt.badge": "Agent 可读",

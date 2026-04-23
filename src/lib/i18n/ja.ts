@@ -205,13 +205,15 @@ export const ja = {
   "start.hero.subtitle":
     "プロンプト 1 つ、クリック 1 回で完了。MCP 対応の任意の Agent で動作。",
 
-  "start.fastest.title": "最速 · 一行コマンド",
-  "start.fastest.badge": "Node ≥ 18",
-  "start.fastest.desc1":
-    "下記と同じ OAuth デバイスフローを実行します。クライアント（Claude Code / Cursor / OpenClaw）を自動検出し、ブラウザを開いて認証を求め、MCP 設定を適切な場所に書き込みます。",
-  "start.fastest.desc2Before": "Agent に伝えてください：",
-  "start.fastest.tellAgent": "npx huozi-mcp を実行して認証を手伝って",
-  "start.fastest.desc2After": "—— あとは Agent が処理します。",
+  "start.conversation.title": "Agent に任せる",
+  "start.conversation.badge": "チャット · 約 60 秒",
+  "start.conversation.desc":
+    "MCP 対応の任意の Agent（Claude Code、Cursor、OpenClaw、ほか web アクセス可能なもの）にこの一言を貼ってください。このページからインストール手順を読み取り、チャットで 2〜3 の質問をします：新規登録、ブラウザログイン、トークン貼り付け。ターミナル不要。",
+
+  "start.terminal.title": "または、ターミナルから",
+  "start.terminal.badge": "Node ≥ 18",
+  "start.terminal.desc":
+    "開発者向けの代替手段。同じ OAuth フローを対話的に実行し、MCP 設定を書き込みます。シェルで作業する人向け —— CLI は非 TTY の入力を拒否するので、Agent は HTTP ステートマシンを直接叩くべきです。",
 
   "start.prompt.title": "1 · または、このプロンプトを Agent に貼り付け",
   "start.prompt.badge": "Agent 可読",
