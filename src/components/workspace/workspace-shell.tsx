@@ -69,29 +69,23 @@ export function WorkspaceShell({
 
   return (
     <div className="flex flex-col lg:flex-row flex-1 min-h-0">
-      {/* Mobile top strip (hamburger) — hidden on lg+ */}
+      {/* Mobile top strip (hamburger) — hidden on lg+.
+          Exit / language now live in the AppHeader's UserMenu, so this
+          strip only carries the tree toggle + current path. */}
       <div className="lg:hidden sticky top-0 z-30 border-b border-border/50 bg-background/95 backdrop-blur">
-        <div className="flex items-center justify-between px-4 py-2">
+        <div className="flex items-center gap-3 px-4 py-2">
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}
-            className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted/60"
+            className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted/60 shrink-0"
             aria-label="Open file tree"
           >
             <span className="text-xs">☰</span>
             <span className="text-xs">Files</span>
           </button>
-          <div className="text-xs text-muted-foreground truncate max-w-[55%] font-mono">
+          <div className="text-xs text-muted-foreground truncate font-mono flex-1 min-w-0">
             {currentPath ?? "workspace"}
           </div>
-          <form method="POST" action="/api/app/disconnect" className="shrink-0">
-            <button
-              type="submit"
-              className="text-xs text-muted-foreground hover:text-foreground underline"
-            >
-              Exit
-            </button>
-          </form>
         </div>
       </div>
 
@@ -114,25 +108,16 @@ export function WorkspaceShell({
           className={`absolute inset-0 bg-foreground/30 backdrop-blur-sm transition-opacity ${drawerOpen ? "opacity-100" : "opacity-0"}`}
           onClick={() => setDrawerOpen(false)}
         />
-        {/* Panel */}
+        {/* Panel — TreeHeader doubles as the drawer header via onClose,
+            so we don't get two redundant "Files / Workspace" rows. */}
         <aside
           className={`absolute inset-y-0 left-0 w-[84%] max-w-sm bg-background border-r border-border shadow-xl flex flex-col transition-transform ${drawerOpen ? "translate-x-0" : "-translate-x-full"}`}
         >
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
-            <span className="text-sm font-medium">
-              <span className="text-accent font-serif mr-1">云</span>
-              Files
-            </span>
-            <button
-              type="button"
-              onClick={() => setDrawerOpen(false)}
-              className="text-lg text-muted-foreground hover:text-foreground"
-              aria-label="Close file tree"
-            >
-              ×
-            </button>
-          </div>
-          <TreeHeader numFiles={numFiles} truncated={truncated} />
+          <TreeHeader
+            numFiles={numFiles}
+            truncated={truncated}
+            onClose={() => setDrawerOpen(false)}
+          />
           {recent && recent.length > 0 && (
             <RecentPanel initial={recent} currentPath={currentPath ?? null} />
           )}
@@ -151,21 +136,36 @@ export function WorkspaceShell({
 function TreeHeader({
   numFiles,
   truncated,
+  onClose,
 }: {
   numFiles: number;
   truncated: boolean;
+  /** When provided, renders a close X (used in the mobile drawer). */
+  onClose?: () => void;
 }) {
   return (
-    <div className="border-b border-border/50 px-3 py-2 flex items-center justify-between">
+    <div className="border-b border-border/50 px-3 py-2 flex items-center justify-between gap-3">
       <Link
         href="/workspace"
-        className="text-xs font-medium hover:text-accent transition-colors"
+        className="text-xs font-medium hover:text-accent transition-colors truncate"
       >
         <span className="text-accent font-serif">云</span> Workspace
       </Link>
-      <div className="text-[10px] text-muted-foreground">
-        {numFiles} file{numFiles === 1 ? "" : "s"}
-        {truncated ? " +" : ""}
+      <div className="flex items-center gap-2 shrink-0">
+        <div className="text-[10px] text-muted-foreground">
+          {numFiles} file{numFiles === 1 ? "" : "s"}
+          {truncated ? " +" : ""}
+        </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close file tree"
+            className="-mr-1 text-base text-muted-foreground hover:text-foreground leading-none w-6 h-6 flex items-center justify-center"
+          >
+            ×
+          </button>
+        )}
       </div>
     </div>
   );

@@ -71,8 +71,43 @@ export const en = {
   "ws.status.never": "—",
   "ws.status.now": "just now",
   "ws.status.activeKeys": "active keys",
+  "ws.status.lastActivity": "last activity",
   "ws.status.manage": "Manage",
-  "ws.status.connectNew": "Connect Agent",
+  "ws.status.connectNew": "New Connection",
+
+  // Key-expiry labels (sliding-window TTL).  {n} is interpolated.
+  "ws.expiry.never": "never expires",
+  "ws.expiry.expired": "expired",
+  "ws.expiry.inDays": "expires in {n} days",
+  "ws.expiry.inHours": "expires in {n} hours",
+  "ws.expiry.inMinutes": "expires in {n} min",
+  "ws.expiry.hint": "Sliding window — each successful request resets the timer.",
+
+  // TTL preset labels
+  "ws.ttl.1d": "1 day",
+  "ws.ttl.7d": "7 days",
+  "ws.ttl.30d": "30 days",
+  "ws.ttl.180d": "180 days",
+  "ws.ttl.never": "Never",
+
+  // Per-key actions
+  "ws.action.copy": "Copy",
+  "ws.action.copied": "Copied",
+  "ws.action.revoke": "Revoke",
+  "ws.action.revoking": "Revoking…",
+  "ws.action.confirmRevoke": "Revoke \"{label}\"? Agents using this key will stop working immediately. This cannot be undone.",
+
+  // /workspace — filled-state intro + help cards + footer
+  "ws.filled.intro": "Pick a file from the tree to view it. Markdown and HTML render the same way they appear on huozi.app published pages. Agents with access to this workspace can edit files at any time — open a file and watch the history tab.",
+  "ws.filled.browse.title": "Browse",
+  "ws.filled.browse.desc": "Use the tree (☰ on mobile). Folders remember their expand state.",
+  "ws.filled.history.title": "History",
+  "ws.filled.history.desc": "Every file has a History link showing every commit that touched it.",
+  "ws.filled.search.title": "Search",
+  "ws.filled.search.desc": "Filter files by name using the search box above the tree.",
+  "ws.filled.footer.about": "About huozi Cloud",
+  "ws.filled.footer.apiDocs": "API docs",
+
 
   "ws.onboard.heading": "Let's make something",
   "ws.onboard.subheading": "Copy a scenario below, paste into your Agent, and watch the first file land here in real time. Pick the format that fits what you want to make — the Agent handles the rest.",
@@ -204,4 +239,54 @@ export const en = {
   "start.rawApi.verify": "Verify",
   "start.rawApi.setup": "Setup workspace",
   "start.rawApi.publish": "Publish",
+
+  // Connect-Agent page
+  "connect.back": "← Workspace",
+  "connect.title": "Connect an Agent",
+  "connect.desc":
+    "Three steps: pick your agent, paste one snippet, make a request. We'll detect the first call and confirm the connection. Each agent gets its own key — revoke any time without affecting the others.",
+
+  "connect.step1": "1 · Pick your agent",
+  "connect.step2": "2 · Paste this into {title}",
+  "connect.step3": "3 · Confirm connection",
+
+  "connect.agent.claude-code.tagline": "Terminal, one command.",
+  "connect.agent.claude-code.blurb":
+    "Run this in any shell. Claude Code registers huozi as a remote MCP server — available in every project.",
+  "connect.agent.cursor.tagline": "Drop into mcp.json.",
+  "connect.agent.cursor.blurb":
+    "Add this block to ~/.cursor/mcp.json (or the project-level .cursor/mcp.json), then reload Cursor.",
+  "connect.agent.openclaw.tagline": "Edit openclaw.json.",
+  "connect.agent.openclaw.blurb":
+    "Add this block to ~/.openclaw/openclaw.json under mcp.servers. Restart OpenClaw to pick it up.",
+
+  "connect.label.title": "Label this key (shown in Connected Agents)",
+  "connect.generate": "Generate key for {title}",
+  "connect.generating": "Generating…",
+  "connect.copy": "Copy",
+  "connect.copied": "Copied",
+  "connect.generateFirst": "Generate a key first",
+
+  "connect.rawKey.show": "Show raw API key",
+  "connect.rawKey.note":
+    "We never store the plaintext — copy it now. Lost keys can be revoked and replaced from the workspace page.",
+
+  "connect.waiting.title": "Waiting for {title} to connect…",
+  "connect.waiting.desc":
+    "Paste the snippet above, then make any request — we'll detect the first call automatically.",
+
+  "connect.done.title": "{title} connected",
+  "connect.done.detected": "First tool call detected at",
+  "connect.done.note":
+    "You can close this page — the agent will keep using the key until you revoke it.",
+  "connect.done.goto": "Go to workspace →",
+  "connect.done.another": "Connect another agent",
+
+  "connect.footer.back": "← Back to workspace",
+  "connect.footer.start": "Let the agent install itself (OAuth device flow) →",
+  "connect.footer.docs": "API docs",
+
+  "connect.terminal.title": "Prefer the terminal? One command:",
+  "connect.terminal.desc":
+    "Works in Claude Code, Cursor, OpenClaw — or any agent with a shell. Runs the same OAuth flow and writes the MCP config for you.",
 } as const;

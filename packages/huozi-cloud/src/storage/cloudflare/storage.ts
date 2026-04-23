@@ -19,11 +19,15 @@ import type {
   BatchWriteResult,
   CommitPathEntry,
   CommitRecord,
+  DeletePrefixResult,
+  DeleteResult,
   FileRecord,
   ListCommitsOptions,
   ListCommitsResult,
   ListEntry,
   ListOptions,
+  RenamePrefixResult,
+  RenameResult,
   StorageBackend,
   WriteResult,
 } from '../types.js'
@@ -332,5 +336,111 @@ export class CloudflareStorage implements StorageBackend {
       paths_json: string
     }>()
     return results
+  }
+
+  // ── Delete / rename (thin DO proxies) ────────────────────────────────
+
+  async deleteFile(args: {
+    workspaceId: string
+    path: string
+    author: Author
+    message?: string
+    signal?: AbortSignal
+  }): Promise<DeleteResult> {
+    const stub = this.workspaceStub(args.workspaceId)
+    const res = await stub.fetch('https://workspace/delete-file', {
+      method: 'POST',
+      body: JSON.stringify({
+        method: 'delete-file',
+        workspaceId: args.workspaceId,
+        path: args.path,
+        author: args.author,
+        message: args.message,
+      }),
+      headers: { 'content-type': 'application/json' },
+    })
+    if (!res.ok) {
+      throw new Error(`workspace DO delete-file failed: ${res.status}`)
+    }
+    return (await res.json()) as DeleteResult
+  }
+
+  async deletePrefix(args: {
+    workspaceId: string
+    prefix: string
+    author: Author
+    message?: string
+    signal?: AbortSignal
+  }): Promise<DeletePrefixResult> {
+    const stub = this.workspaceStub(args.workspaceId)
+    const res = await stub.fetch('https://workspace/delete-prefix', {
+      method: 'POST',
+      body: JSON.stringify({
+        method: 'delete-prefix',
+        workspaceId: args.workspaceId,
+        prefix: args.prefix,
+        author: args.author,
+        message: args.message,
+      }),
+      headers: { 'content-type': 'application/json' },
+    })
+    if (!res.ok) {
+      throw new Error(`workspace DO delete-prefix failed: ${res.status}`)
+    }
+    return (await res.json()) as DeletePrefixResult
+  }
+
+  async renamePath(args: {
+    workspaceId: string
+    from: string
+    to: string
+    author: Author
+    message?: string
+    signal?: AbortSignal
+  }): Promise<RenameResult> {
+    const stub = this.workspaceStub(args.workspaceId)
+    const res = await stub.fetch('https://workspace/rename-path', {
+      method: 'POST',
+      body: JSON.stringify({
+        method: 'rename-path',
+        workspaceId: args.workspaceId,
+        from: args.from,
+        to: args.to,
+        author: args.author,
+        message: args.message,
+      }),
+      headers: { 'content-type': 'application/json' },
+    })
+    if (!res.ok) {
+      throw new Error(`workspace DO rename-path failed: ${res.status}`)
+    }
+    return (await res.json()) as RenameResult
+  }
+
+  async renamePrefix(args: {
+    workspaceId: string
+    fromPrefix: string
+    toPrefix: string
+    author: Author
+    message?: string
+    signal?: AbortSignal
+  }): Promise<RenamePrefixResult> {
+    const stub = this.workspaceStub(args.workspaceId)
+    const res = await stub.fetch('https://workspace/rename-prefix', {
+      method: 'POST',
+      body: JSON.stringify({
+        method: 'rename-prefix',
+        workspaceId: args.workspaceId,
+        fromPrefix: args.fromPrefix,
+        toPrefix: args.toPrefix,
+        author: args.author,
+        message: args.message,
+      }),
+      headers: { 'content-type': 'application/json' },
+    })
+    if (!res.ok) {
+      throw new Error(`workspace DO rename-prefix failed: ${res.status}`)
+    }
+    return (await res.json()) as RenamePrefixResult
   }
 }

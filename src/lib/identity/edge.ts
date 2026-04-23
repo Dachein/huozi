@@ -20,8 +20,8 @@
  *          -d '{"workspace_id":"ws_default","principal_id":"admin",
  *               "principal_type":"user","name":"Admin · browser"}'
  *   3. Deployer visits `/connect` and pastes the returned key.
- *   4. From then on the `/workspace/keys` + `/workspace/connect`
- *      UI mints additional keys for Agents normally.
+ *   4. From then on the `/workspace/connect` UI mints additional keys
+ *      for Agents normally; manage them inline from `/workspace`.
  */
 
 import { cookies } from "next/headers";

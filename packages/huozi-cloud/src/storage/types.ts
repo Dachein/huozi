@@ -143,6 +143,65 @@ export interface StorageBackend {
   ): Promise<ListCommitsResult>
 
   /**
+   * Delete a single file. Idempotent — deleting a non-existent path
+   * returns `{ ok: false, error: 'not_found' }` rather than throwing.
+   *
+   * Produces a commit with one `operation: 'delete'` entry. The R2 blob
+   * is NOT removed (content-addressed, may be referenced by other paths
+   * or by history). We simply drop the D1 `files_current` row.
+   */
+  deleteFile(args: {
+    workspaceId: string
+    path: string
+    author: Author
+    message?: string
+    signal?: AbortSignal
+  }): Promise<DeleteResult>
+
+  /**
+   * Delete every file under `prefix`. All deletions get one commit.
+   * Safe for `prefix = 'blog/'` etc.; rejects empty prefix to avoid
+   * "delete everything" footguns.
+   */
+  deletePrefix(args: {
+    workspaceId: string
+    prefix: string
+    author: Author
+    message?: string
+    signal?: AbortSignal
+  }): Promise<DeletePrefixResult>
+
+  /**
+   * Rename / move a single file. Content-addressed — no R2 I/O; only
+   * the D1 path mapping changes.
+   *
+   * Encoded in history as one commit with a `delete` entry for the old
+   * path and a `create` entry for the new path (same blob_sha on both).
+   * UIs can detect the pair and render "renamed old → new".
+   */
+  renamePath(args: {
+    workspaceId: string
+    from: string
+    to: string
+    author: Author
+    message?: string
+    signal?: AbortSignal
+  }): Promise<RenameResult>
+
+  /**
+   * Rename every file under `fromPrefix` to sit under `toPrefix`.
+   * `/foo/` → `/bar/` rewrites `/foo/x` to `/bar/x` for all x.
+   */
+  renamePrefix(args: {
+    workspaceId: string
+    fromPrefix: string
+    toPrefix: string
+    author: Author
+    message?: string
+    signal?: AbortSignal
+  }): Promise<RenamePrefixResult>
+
+  /**
    * Pre-filter candidate paths that *might* contain the given literal
    * substring.
    *
@@ -260,3 +319,58 @@ export interface ListCommitsResult {
   has_more: boolean
   next_before?: string
 }
+
+// ───── Delete / rename result types ──────────────────────────────────────
+
+/** Result of `deleteFile`. */
+export type DeleteResult =
+  | {
+      ok: true
+      commit_sha: string
+      path: string
+      deleted_blob_sha: string
+    }
+  | { ok: false; error: 'not_found' | 'invalid_path'; message?: string }
+
+/** Result of `deletePrefix`. */
+export type DeletePrefixResult =
+  | {
+      ok: true
+      commit_sha: string | null // null if prefix matched zero files
+      prefix: string
+      deleted_paths: string[]
+    }
+  | { ok: false; error: 'invalid_prefix'; message?: string }
+
+/** Result of `renamePath`. */
+export type RenameResult =
+  | {
+      ok: true
+      commit_sha: string
+      from: string
+      to: string
+      blob_sha: string
+    }
+  | {
+      ok: false
+      error:
+        | 'not_found'
+        | 'invalid_path'
+        | 'target_exists'
+      message?: string
+    }
+
+/** Result of `renamePrefix`. */
+export type RenamePrefixResult =
+  | {
+      ok: true
+      commit_sha: string | null
+      from_prefix: string
+      to_prefix: string
+      moved_paths: Array<{ from: string; to: string }>
+    }
+  | {
+      ok: false
+      error: 'invalid_prefix' | 'target_exists'
+      message?: string
+    }

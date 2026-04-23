@@ -71,8 +71,43 @@ export const zh = {
   "ws.status.never": "—",
   "ws.status.now": "刚刚",
   "ws.status.activeKeys": "把有效 key",
+  "ws.status.lastActivity": "最近活动",
   "ws.status.manage": "管理",
-  "ws.status.connectNew": "接入 Agent",
+  "ws.status.connectNew": "新建连接",
+
+  // Key-expiry labels (sliding-window TTL)
+  "ws.expiry.never": "永不过期",
+  "ws.expiry.expired": "已过期",
+  "ws.expiry.inDays": "{n} 天后到期",
+  "ws.expiry.inHours": "{n} 小时后到期",
+  "ws.expiry.inMinutes": "{n} 分钟后到期",
+  "ws.expiry.hint": "滑动窗口——每次成功请求都重置倒计时。",
+
+  // TTL preset labels
+  "ws.ttl.1d": "1 天",
+  "ws.ttl.7d": "7 天",
+  "ws.ttl.30d": "30 天",
+  "ws.ttl.180d": "180 天",
+  "ws.ttl.never": "永不",
+
+  // Per-key actions
+  "ws.action.copy": "复制",
+  "ws.action.copied": "已复制",
+  "ws.action.revoke": "撤销",
+  "ws.action.revoking": "撤销中…",
+  "ws.action.confirmRevoke": "撤销「{label}」？使用此 key 的 Agent 会立刻停工。此操作不可撤销。",
+
+  // /workspace 非空态介绍 + 帮助卡片 + 页脚
+  "ws.filled.intro": "从左侧树中选一个文件查看。Markdown 与 HTML 的渲染效果与 huozi.app 公开页面一致。拥有该云盘访问权限的 Agent 随时可以编辑文件 —— 打开文件即可在历史标签中看到变更。",
+  "ws.filled.browse.title": "浏览",
+  "ws.filled.browse.desc": "使用左侧文件树（移动端点 ☰）。文件夹会记住展开状态。",
+  "ws.filled.history.title": "历史",
+  "ws.filled.history.desc": "每个文件都有历史记录，展示所有相关提交。",
+  "ws.filled.search.title": "搜索",
+  "ws.filled.search.desc": "通过文件树上方的搜索框按名称过滤文件。",
+  "ws.filled.footer.about": "关于 huozi Cloud",
+  "ws.filled.footer.apiDocs": "API 文档",
+
 
   "ws.onboard.heading": "开始造点东西",
   "ws.onboard.subheading": "复制下面一段场景话术，粘给你的 Agent，第一份文件就会实时出现在这里。选你想创造的文件类型 —— 剩下交给 Agent。",
@@ -207,4 +242,54 @@ export const zh = {
   "start.rawApi.verify": "验证",
   "start.rawApi.setup": "创建工作空间",
   "start.rawApi.publish": "发布",
+
+  // Connect-Agent 页面
+  "connect.back": "← 工作区",
+  "connect.title": "连接 Agent",
+  "connect.desc":
+    "三步：选 agent → 贴一段配置 → 发一次请求。我们会检测到首次调用并自动确认连接。每个 agent 一把独立的 key，随时吊销不影响其他。",
+
+  "connect.step1": "1 · 选择 Agent",
+  "connect.step2": "2 · 贴到 {title}",
+  "connect.step3": "3 · 确认连接",
+
+  "connect.agent.claude-code.tagline": "终端一行命令",
+  "connect.agent.claude-code.blurb":
+    "在任意 shell 里跑。Claude Code 会把 huozi 注册成远程 MCP server —— 在所有项目中都可用。",
+  "connect.agent.cursor.tagline": "贴进 mcp.json",
+  "connect.agent.cursor.blurb":
+    "加到 ~/.cursor/mcp.json（或项目级 .cursor/mcp.json），然后重启 Cursor。",
+  "connect.agent.openclaw.tagline": "改 openclaw.json",
+  "connect.agent.openclaw.blurb":
+    "加到 ~/.openclaw/openclaw.json 的 mcp.servers 下，重启 OpenClaw 生效。",
+
+  "connect.label.title": "给这把 key 起个名（在 Connected Agents 里显示）",
+  "connect.generate": "为 {title} 生成 key",
+  "connect.generating": "生成中…",
+  "connect.copy": "复制",
+  "connect.copied": "已复制",
+  "connect.generateFirst": "先生成 key",
+
+  "connect.rawKey.show": "显示原始 API key",
+  "connect.rawKey.note":
+    "我们不存明文 —— 现在就复制。丢了可在 workspace 页面吊销并重新发一把。",
+
+  "connect.waiting.title": "等待 {title} 连接…",
+  "connect.waiting.desc":
+    "贴完上面的配置后，随便发一次请求 —— 我们会自动检测首次调用。",
+
+  "connect.done.title": "{title} 已连接",
+  "connect.done.detected": "首次工具调用于",
+  "connect.done.note":
+    "你可以关掉这个页面了 —— agent 会一直用这把 key，直到你手动吊销。",
+  "connect.done.goto": "前往工作区 →",
+  "connect.done.another": "连接另一个 agent",
+
+  "connect.footer.back": "← 返回工作区",
+  "connect.footer.start": "让 Agent 自己装（OAuth 设备流）→",
+  "connect.footer.docs": "API 文档",
+
+  "connect.terminal.title": "更喜欢终端？一行命令：",
+  "connect.terminal.desc":
+    "适用于 Claude Code、Cursor、OpenClaw —— 或任何带 shell 的 agent。跑的是同样的 OAuth 流程，自动帮你写好 MCP 配置。",
 } as const;

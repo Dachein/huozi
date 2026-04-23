@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useT } from "@/lib/i18n/context";
 
 interface Props {
   keyId: string;
@@ -9,14 +10,14 @@ interface Props {
 }
 
 export function RevokeKeyButton({ keyId, label }: Props) {
+  const t = useT();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleRevoke() {
-    const ok = window.confirm(
-      `Revoke "${label}"? Agents using this key will stop working immediately. This cannot be undone.`,
-    );
+    const prompt = t("ws.action.confirmRevoke").replace("{label}", label);
+    const ok = window.confirm(prompt);
     if (!ok) return;
 
     setBusy(true);
@@ -50,9 +51,9 @@ export function RevokeKeyButton({ keyId, label }: Props) {
         type="button"
         onClick={handleRevoke}
         disabled={busy}
-        className="text-xs rounded border border-red-500/40 text-red-500 px-2 py-1 hover:bg-red-500/5 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="text-xs rounded border border-red-500/50 text-red-500 px-2 py-1 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
-        {busy ? "Revoking..." : "Revoke"}
+        {busy ? t("ws.action.revoking") : t("ws.action.revoke")}
       </button>
       {error && <span className="text-xs text-red-500">{error}</span>}
     </span>

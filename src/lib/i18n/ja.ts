@@ -71,8 +71,43 @@ export const ja = {
   "ws.status.never": "—",
   "ws.status.now": "たった今",
   "ws.status.activeKeys": "有効なキー",
+  "ws.status.lastActivity": "最終アクティビティ",
   "ws.status.manage": "管理",
-  "ws.status.connectNew": "Agent を接続",
+  "ws.status.connectNew": "新規接続",
+
+  // キー期限ラベル (sliding-window TTL)
+  "ws.expiry.never": "期限なし",
+  "ws.expiry.expired": "期限切れ",
+  "ws.expiry.inDays": "{n} 日後に期限切れ",
+  "ws.expiry.inHours": "{n} 時間後に期限切れ",
+  "ws.expiry.inMinutes": "あと {n} 分で期限切れ",
+  "ws.expiry.hint": "スライディングウィンドウ — リクエストごとに期限がリセットされます。",
+
+  // TTL プリセットラベル
+  "ws.ttl.1d": "1 日",
+  "ws.ttl.7d": "7 日",
+  "ws.ttl.30d": "30 日",
+  "ws.ttl.180d": "180 日",
+  "ws.ttl.never": "なし",
+
+  // キーごとの操作
+  "ws.action.copy": "コピー",
+  "ws.action.copied": "コピー済み",
+  "ws.action.revoke": "取り消す",
+  "ws.action.revoking": "取り消し中…",
+  "ws.action.confirmRevoke": "「{label}」を取り消しますか？このキーを使用している Agent は即座に停止します。元に戻せません。",
+
+  // /workspace 入力済み状態の紹介 + ヘルプカード + フッター
+  "ws.filled.intro": "左側のツリーからファイルを選んで表示します。Markdown と HTML は huozi.app 公開ページと同じようにレンダリングされます。このワークスペースにアクセスできる Agent はいつでもファイルを編集可能 —— ファイルを開くと変更が履歴タブに表示されます。",
+  "ws.filled.browse.title": "閲覧",
+  "ws.filled.browse.desc": "ツリー（モバイルでは ☰）を使用。フォルダは展開状態を記憶します。",
+  "ws.filled.history.title": "履歴",
+  "ws.filled.history.desc": "すべてのファイルに履歴リンクがあり、そのファイルに触れたすべてのコミットを表示します。",
+  "ws.filled.search.title": "検索",
+  "ws.filled.search.desc": "ツリー上部の検索ボックスで名前を絞り込みます。",
+  "ws.filled.footer.about": "huozi Cloud について",
+  "ws.filled.footer.apiDocs": "API ドキュメント",
+
 
   "ws.onboard.heading": "何か作ってみよう",
   "ws.onboard.subheading": "下のシナリオをコピーして Agent に貼り、最初のファイルがここにリアルタイムで現れるのを見てみましょう。作りたい形式を選んで — あとは Agent に任せます。",
@@ -204,4 +239,54 @@ export const ja = {
   "start.rawApi.verify": "認証",
   "start.rawApi.setup": "ワークスペース作成",
   "start.rawApi.publish": "公開",
+
+  // Connect-Agent ページ
+  "connect.back": "← ワークスペース",
+  "connect.title": "Agent を接続",
+  "connect.desc":
+    "3 ステップ：Agent を選ぶ → スニペットを貼る → リクエストを送る。初回呼び出しを自動検出して接続を確認します。Agent ごとに独立した鍵、いつでも取り消し可能。",
+
+  "connect.step1": "1 · Agent を選ぶ",
+  "connect.step2": "2 · {title} に貼り付け",
+  "connect.step3": "3 · 接続を確認",
+
+  "connect.agent.claude-code.tagline": "ターミナルで一行",
+  "connect.agent.claude-code.blurb":
+    "任意のシェルで実行。Claude Code は huozi をリモート MCP サーバーとして登録 —— すべてのプロジェクトで使用可能に。",
+  "connect.agent.cursor.tagline": "mcp.json に追加",
+  "connect.agent.cursor.blurb":
+    "~/.cursor/mcp.json（またはプロジェクトの .cursor/mcp.json）に追加し、Cursor を再読み込み。",
+  "connect.agent.openclaw.tagline": "openclaw.json を編集",
+  "connect.agent.openclaw.blurb":
+    "~/.openclaw/openclaw.json の mcp.servers 以下に追加し、OpenClaw を再起動。",
+
+  "connect.label.title": "この鍵にラベル（Connected Agents に表示）",
+  "connect.generate": "{title} 用の鍵を生成",
+  "connect.generating": "生成中…",
+  "connect.copy": "コピー",
+  "connect.copied": "コピー済み",
+  "connect.generateFirst": "先に鍵を生成してください",
+
+  "connect.rawKey.show": "生の API 鍵を表示",
+  "connect.rawKey.note":
+    "平文は保存しません —— 今すぐコピーしてください。紛失した場合は workspace ページから取り消し・再発行できます。",
+
+  "connect.waiting.title": "{title} からの接続を待機中…",
+  "connect.waiting.desc":
+    "上のスニペットを貼り付けてから、任意のリクエストを送ってください —— 初回呼び出しを自動検出します。",
+
+  "connect.done.title": "{title} 接続完了",
+  "connect.done.detected": "初回ツール呼び出し時刻：",
+  "connect.done.note":
+    "このページは閉じて構いません —— 取り消すまで Agent は鍵を使い続けます。",
+  "connect.done.goto": "ワークスペースへ →",
+  "connect.done.another": "別の Agent を接続",
+
+  "connect.footer.back": "← ワークスペースに戻る",
+  "connect.footer.start": "Agent に自分でインストールさせる（OAuth デバイスフロー）→",
+  "connect.footer.docs": "API ドキュメント",
+
+  "connect.terminal.title": "ターミナル派？一行で完結：",
+  "connect.terminal.desc":
+    "Claude Code、Cursor、OpenClaw —— シェルを持つ任意の Agent で動きます。同じ OAuth フローを実行し、MCP 設定を自動で書き込みます。",
 } as const;

@@ -22,6 +22,7 @@ import {
   handleListKeys,
   handleMintKey,
   handleRevokeKey,
+  handleUpdateKeyTtl,
   type AdminEnv,
 } from '../storage/cloudflare/admin.js'
 import {
@@ -61,6 +62,57 @@ import type { ToolUseContext } from '../types.js'
 // Re-export for wrangler DO binding.
 export { HuoziWorkspaceDO } from '../storage/cloudflare/workspace-do.js'
 export { HuoziSessionDO } from '../storage/cloudflare/session-do.js'
+
+/**
+ * Server-level context delivered to Agents via MCP `initialize` response.
+ *
+ * Intentionally terse — Hosts typically splice this into the Agent's
+ * system prompt, so every token costs on every turn. We cover only the
+ * non-obvious things an Agent *can't* infer from tool descriptions alone:
+ * how folders work, what's missing, and the Claude Code parity contract.
+ */
+const HUOZI_INSTRUCTIONS = `You're working against a huozi workspace — an Agent-native cloud drive
+accessed via this MCP server. Its tool dialect is bit-exact with Claude
+Code's built-in Read / Edit / Write / Glob / Grep, so your existing
+Claude Code muscle memory applies.
+
+WORKSPACE MODEL
+  - Flat, content-addressed file store. Every path is relative to the
+    workspace root. No drives, no symlinks, no hidden OS files.
+  - Folders are IMPLICIT: a folder exists iff some file lives under it.
+    Writing "blog/post.md" creates the "blog/" folder as a side effect.
+    Use huozi_mkdir only when you need to reserve an empty folder name;
+    it writes a hidden ".huozi-keep" marker.
+  - Every huozi_write / huozi_edit / huozi_batch_edit / huozi_rm /
+    huozi_mv produces a commit. History is queryable via huozi_history.
+
+FOLDER-LEVEL CONVENTIONS
+  - Before writing new files into an existing folder, huozi_read the
+    folder's README.md if one exists — it typically documents file-name
+    and layout conventions for that area.
+  - For folder-scoped history, pass a prefix to huozi_history (e.g.
+    file_path: "blog/"). There is no per-folder log file; commits are
+    the log.
+
+WHAT IS NOT SUPPORTED (don't try to work around these — tell the user)
+  - No Bash, no shell. This is a cloud surface, not a local machine.
+  - No binary file editing beyond what huozi_write accepts.
+
+READ SEMANTICS
+  - huozi_read caches per-session: a second read of an unchanged file
+    returns file_unchanged (zero bytes). Prefer re-reading over guessing.
+  - Paths are case-sensitive. Always use forward slashes.
+
+SHARE SEMANTICS
+  - huozi_share produces a LIVE public URL (huozi.app/p/<slug>) that
+    tracks the current bytes of the file. Edits go live immediately.
+    No snapshot mode.
+
+WHEN IN DOUBT
+  - Use huozi_glob with a pattern to survey the tree before writing.
+  - Prefer minimal, targeted edits to broad rewrites.
+  - The Web UI is read-only by design — all writes must come through
+    this MCP surface.`
 
 interface JsonRpcRequest {
   jsonrpc: '2.0'
@@ -166,6 +218,14 @@ const handler: ExportedHandler<HuoziCloudflareBindings> = {
         throw r
       }
     }
+    if (url.pathname === '/admin/update-key-ttl') {
+      try {
+        return await handleUpdateKeyTtl(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
     if (url.pathname === '/admin/device-authorize') {
       try {
         return await handleDeviceAuthorize(request, env as AdminEnv)
@@ -261,11 +321,16 @@ async function handleMcp(
   })
 
   if (rpc.method === 'initialize') {
-    // Minimal initialize response so MCP clients are satisfied.
+    // `instructions` is an MCP-spec field that well-behaved Hosts (Claude
+    // Code, Cursor, ClawHub) surface to the Agent as server-level system
+    // context. We use it to preempt the obvious "missing tool" confusions
+    // by spelling out huozi's opinions about folders, deletion, and parity
+    // with Claude Code's file-tool dialect.
     return rpcOk(reqId, {
       protocolVersion: '2025-06-18',
       capabilities: { tools: {} },
       serverInfo: { name: 'huozi-cloud', version: '0.1.0' },
+      instructions: HUOZI_INSTRUCTIONS,
     })
   }
 
@@ -274,10 +339,12 @@ async function handleMcp(
       registry.tools.map(async (t) => ({
         name: t.name,
         description: await t.prompt(),
-        inputSchema: zodToJsonSchema(t.inputSchema, {
-          target: 'openApi3',
-          $refStrategy: 'none',
-        }) as Record<string, unknown>,
+        inputSchema: toDraft2020Schema(
+          zodToJsonSchema(t.inputSchema, {
+            target: 'openApi3',
+            $refStrategy: 'none',
+          }) as Record<string, unknown>,
+        ),
       })),
     )
     return rpcOk(reqId, { tools })
@@ -395,3 +462,46 @@ async function handleMcp(
 }
 
 export default handler
+
+/**
+ * Normalize a zod-to-json-schema (OpenAPI-3 / draft-7-flavoured) output to
+ * JSON Schema draft 2020-12, which Anthropic's Messages API enforces on
+ * MCP tool `inputSchema`.
+ *
+ * Only one known incompatibility appears with our current zod schemas:
+ *   draft-7:    { "minimum": 0, "exclusiveMinimum": true }
+ *   draft-2020: { "exclusiveMinimum": 0 }
+ *
+ * Same for exclusiveMaximum. We walk the tree and rewrite in place.
+ * Other 2020-12 divergences ($ref semantics, `type: ["X","null"]` vs
+ * `nullable`) don't appear in our schemas because we use `$refStrategy:
+ * 'none'` and don't emit nullable fields.
+ */
+function toDraft2020Schema(node: unknown): Record<string, unknown> {
+  return walk(node) as Record<string, unknown>
+}
+
+function walk(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(walk)
+  if (node === null || typeof node !== 'object') return node
+  const obj = node as Record<string, unknown>
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(obj)) {
+    out[k] = walk(v)
+  }
+  // Fix draft-7 exclusive{Minimum,Maximum}: boolean pairing.
+  if (out.exclusiveMinimum === true && typeof out.minimum === 'number') {
+    out.exclusiveMinimum = out.minimum
+    delete out.minimum
+  } else if (out.exclusiveMinimum === false) {
+    // draft-7 "false" is just equivalent to not-exclusive; drop it.
+    delete out.exclusiveMinimum
+  }
+  if (out.exclusiveMaximum === true && typeof out.maximum === 'number') {
+    out.exclusiveMaximum = out.maximum
+    delete out.maximum
+  } else if (out.exclusiveMaximum === false) {
+    delete out.exclusiveMaximum
+  }
+  return out
+}

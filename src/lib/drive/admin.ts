@@ -62,7 +62,49 @@ export interface ListedKey {
   created_at: number;
   expires_at: number | null;
   last_used_at: number | null;
+  ttl_seconds: number | null;
   name: string | null;
+}
+
+/** Canonical TTL presets shown in the UI. `null` = never expires. */
+export const TTL_PRESETS: ReadonlyArray<{
+  seconds: number | null;
+  labelKey: string;
+}> = [
+  { seconds: 1 * 86400, labelKey: "1d" },
+  { seconds: 7 * 86400, labelKey: "7d" },
+  { seconds: 30 * 86400, labelKey: "30d" },
+  { seconds: 180 * 86400, labelKey: "180d" },
+  { seconds: null, labelKey: "never" },
+];
+
+export async function cloudAdminUpdateKeyTtl(
+  keyId: string,
+  ttlSeconds: number | null,
+): Promise<{
+  ok: true;
+  key_id: string;
+  ttl_seconds: number | null;
+  expires_at: number | null;
+}> {
+  const res = await fetch(`${CLOUD_URL}/admin/update-key-ttl`, {
+    method: "POST",
+    headers: {
+      "X-Admin-Secret": adminSecret(),
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ key_id: keyId, ttl_seconds: ttlSeconds }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "?");
+    throw new Error(`update-key-ttl failed: ${res.status} ${body}`);
+  }
+  return (await res.json()) as {
+    ok: true;
+    key_id: string;
+    ttl_seconds: number | null;
+    expires_at: number | null;
+  };
 }
 
 export async function cloudAdminListKeys(

@@ -69,11 +69,34 @@ export function FileActionsMenu(props: FileActionsMenuProps) {
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={`inline-flex items-center justify-center rounded-md border border-transparent
-                   w-7 h-7 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60
-                   ${open ? "bg-muted/60 text-foreground" : ""}`}
+        className={`group inline-flex items-center gap-1.5 rounded-md border px-2 py-1.5 h-8
+                   text-xs font-medium transition-colors
+                   ${
+                     open
+                       ? "border-foreground/40 bg-muted text-foreground"
+                       : "border-border text-muted-foreground hover:border-foreground/40 hover:bg-muted/60 hover:text-foreground"
+                   }`}
       >
-        ⋯
+        <span className="text-base leading-none -mt-0.5" aria-hidden>
+          ⋯
+        </span>
+        <span className="hidden sm:inline">Actions</span>
+        <svg
+          viewBox="0 0 12 12"
+          width="9"
+          height="9"
+          className={`opacity-60 transition-transform ${open ? "rotate-180" : ""}`}
+          aria-hidden="true"
+        >
+          <path
+            d="M2 4 L6 8 L10 4"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       </button>
       <PublishDialog
         path={path}

@@ -18,11 +18,15 @@ import type {
   BatchWriteResult,
   CommitPathEntry,
   CommitRecord,
+  DeletePrefixResult,
+  DeleteResult,
   FileRecord,
   ListCommitsOptions,
   ListCommitsResult,
   ListEntry,
   ListOptions,
+  RenamePrefixResult,
+  RenameResult,
   StorageBackend,
   WriteResult,
 } from './types.js'
@@ -371,6 +375,290 @@ export class InMemoryStorage implements StorageBackend {
     this.commits.clear()
     this.tipCommit.clear()
     this.commitCounter = 0
+  }
+
+  // ── Delete / rename ──────────────────────────────────────────────────
+
+  async deleteFile(args: {
+    workspaceId: string
+    path: string
+    author: Author
+    message?: string
+    signal?: AbortSignal
+  }): Promise<DeleteResult> {
+    return this.runSerialized(args.workspaceId, async () => {
+      const key = this.key(args.workspaceId, args.path)
+      const existing = this.files.get(key)
+      if (!existing) {
+        return { ok: false as const, error: 'not_found' as const }
+      }
+
+      this.files.delete(key)
+
+      const commit_sha = this.nextCommitSha()
+      const parent_sha = this.tipCommit.get(args.workspaceId) ?? null
+      this.appendCommit({
+        commit_sha,
+        parent_sha,
+        workspaceId: args.workspaceId,
+        author: args.author,
+        timestamp: Date.now(),
+        message: args.message ?? `delete: ${args.path}`,
+        paths: [
+          {
+            path: args.path,
+            operation: 'delete',
+            before_blob_sha: existing.blob_sha,
+            after_blob_sha: null,
+            additions: 0,
+            deletions: 0,
+          },
+        ],
+      })
+
+      return {
+        ok: true as const,
+        commit_sha,
+        path: args.path,
+        deleted_blob_sha: existing.blob_sha,
+      }
+    })
+  }
+
+  async deletePrefix(args: {
+    workspaceId: string
+    prefix: string
+    author: Author
+    message?: string
+    signal?: AbortSignal
+  }): Promise<DeletePrefixResult> {
+    if (!args.prefix || args.prefix === '/') {
+      return { ok: false as const, error: 'invalid_prefix' as const, message: 'prefix cannot be empty or root' }
+    }
+    return this.runSerialized(args.workspaceId, async () => {
+      // Match both `<prefix>/...` and the exact path (in case prefix IS a file).
+      const normalizedPrefix = args.prefix.endsWith('/')
+        ? args.prefix
+        : args.prefix + '/'
+
+      const toDelete: FileRecord[] = []
+      for (const [key, record] of this.files) {
+        if (record.workspaceId !== args.workspaceId) continue
+        if (
+          record.path === args.prefix ||
+          record.path.startsWith(normalizedPrefix)
+        ) {
+          toDelete.push(record)
+        }
+        // keep `key` referenced to satisfy linter noise
+        void key
+      }
+
+      if (toDelete.length === 0) {
+        return {
+          ok: true as const,
+          commit_sha: null,
+          prefix: args.prefix,
+          deleted_paths: [],
+        }
+      }
+
+      const entries: CommitPathEntry[] = []
+      for (const rec of toDelete) {
+        this.files.delete(this.key(args.workspaceId, rec.path))
+        entries.push({
+          path: rec.path,
+          operation: 'delete',
+          before_blob_sha: rec.blob_sha,
+          after_blob_sha: null,
+          additions: 0,
+          deletions: 0,
+        })
+      }
+
+      const commit_sha = this.nextCommitSha()
+      const parent_sha = this.tipCommit.get(args.workspaceId) ?? null
+      this.appendCommit({
+        commit_sha,
+        parent_sha,
+        workspaceId: args.workspaceId,
+        author: args.author,
+        timestamp: Date.now(),
+        message:
+          args.message ?? `delete ${toDelete.length} files under ${args.prefix}`,
+        paths: entries,
+      })
+
+      return {
+        ok: true as const,
+        commit_sha,
+        prefix: args.prefix,
+        deleted_paths: toDelete.map((r) => r.path),
+      }
+    })
+  }
+
+  async renamePath(args: {
+    workspaceId: string
+    from: string
+    to: string
+    author: Author
+    message?: string
+    signal?: AbortSignal
+  }): Promise<RenameResult> {
+    return this.runSerialized(args.workspaceId, async () => {
+      const fromKey = this.key(args.workspaceId, args.from)
+      const toKey = this.key(args.workspaceId, args.to)
+      const existing = this.files.get(fromKey)
+      if (!existing) {
+        return { ok: false as const, error: 'not_found' as const }
+      }
+      if (this.files.has(toKey)) {
+        return { ok: false as const, error: 'target_exists' as const }
+      }
+      const moved: FileRecord = { ...existing, path: args.to, mtime: Date.now() }
+      this.files.delete(fromKey)
+      this.files.set(toKey, moved)
+
+      const commit_sha = this.nextCommitSha()
+      const parent_sha = this.tipCommit.get(args.workspaceId) ?? null
+      // Encode a rename as paired delete(old) + create(new) with same
+      // blob_sha. UIs can detect the pair.
+      this.appendCommit({
+        commit_sha,
+        parent_sha,
+        workspaceId: args.workspaceId,
+        author: args.author,
+        timestamp: moved.mtime,
+        message: args.message ?? `rename ${args.from} → ${args.to}`,
+        paths: [
+          {
+            path: args.from,
+            operation: 'delete',
+            before_blob_sha: existing.blob_sha,
+            after_blob_sha: null,
+            additions: 0,
+            deletions: 0,
+          },
+          {
+            path: args.to,
+            operation: 'create',
+            before_blob_sha: null,
+            after_blob_sha: existing.blob_sha,
+            additions: 0,
+            deletions: 0,
+          },
+        ],
+      })
+
+      return {
+        ok: true as const,
+        commit_sha,
+        from: args.from,
+        to: args.to,
+        blob_sha: existing.blob_sha,
+      }
+    })
+  }
+
+  async renamePrefix(args: {
+    workspaceId: string
+    fromPrefix: string
+    toPrefix: string
+    author: Author
+    message?: string
+    signal?: AbortSignal
+  }): Promise<RenamePrefixResult> {
+    if (!args.fromPrefix || args.fromPrefix === '/') {
+      return { ok: false as const, error: 'invalid_prefix' as const, message: 'fromPrefix cannot be empty or root' }
+    }
+    const fromPrefix = args.fromPrefix.endsWith('/')
+      ? args.fromPrefix
+      : args.fromPrefix + '/'
+    const toPrefix = args.toPrefix.endsWith('/')
+      ? args.toPrefix
+      : args.toPrefix + '/'
+
+    return this.runSerialized(args.workspaceId, async () => {
+      const toMove: FileRecord[] = []
+      for (const record of this.files.values()) {
+        if (record.workspaceId !== args.workspaceId) continue
+        if (record.path.startsWith(fromPrefix)) toMove.push(record)
+      }
+
+      // Check target collisions before doing anything.
+      for (const rec of toMove) {
+        const newPath = toPrefix + rec.path.slice(fromPrefix.length)
+        if (this.files.has(this.key(args.workspaceId, newPath))) {
+          return {
+            ok: false as const,
+            error: 'target_exists' as const,
+            message: `${newPath} already exists`,
+          }
+        }
+      }
+
+      if (toMove.length === 0) {
+        return {
+          ok: true as const,
+          commit_sha: null,
+          from_prefix: args.fromPrefix,
+          to_prefix: args.toPrefix,
+          moved_paths: [],
+        }
+      }
+
+      const entries: CommitPathEntry[] = []
+      const pairs: Array<{ from: string; to: string }> = []
+      const now = Date.now()
+      for (const rec of toMove) {
+        const newPath = toPrefix + rec.path.slice(fromPrefix.length)
+        this.files.delete(this.key(args.workspaceId, rec.path))
+        this.files.set(this.key(args.workspaceId, newPath), {
+          ...rec,
+          path: newPath,
+          mtime: now,
+        })
+        entries.push({
+          path: rec.path,
+          operation: 'delete',
+          before_blob_sha: rec.blob_sha,
+          after_blob_sha: null,
+          additions: 0,
+          deletions: 0,
+        })
+        entries.push({
+          path: newPath,
+          operation: 'create',
+          before_blob_sha: null,
+          after_blob_sha: rec.blob_sha,
+          additions: 0,
+          deletions: 0,
+        })
+        pairs.push({ from: rec.path, to: newPath })
+      }
+
+      const commit_sha = this.nextCommitSha()
+      const parent_sha = this.tipCommit.get(args.workspaceId) ?? null
+      this.appendCommit({
+        commit_sha,
+        parent_sha,
+        workspaceId: args.workspaceId,
+        author: args.author,
+        timestamp: now,
+        message:
+          args.message ?? `rename ${toMove.length} files: ${args.fromPrefix} → ${args.toPrefix}`,
+        paths: entries,
+      })
+
+      return {
+        ok: true as const,
+        commit_sha,
+        from_prefix: args.fromPrefix,
+        to_prefix: args.toPrefix,
+        moved_paths: pairs,
+      }
+    })
   }
 }
 

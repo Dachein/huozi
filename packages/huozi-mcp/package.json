@@ -1,0 +1,33 @@
+{
+  "name": "huozi-mcp",
+  "version": "0.1.0",
+  "description": "Connect huozi.app to Claude Code, Cursor, or OpenClaw — one command, OAuth device flow writes the MCP config for you.",
+  "type": "module",
+  "bin": {
+    "huozi-mcp": "./bin.mjs"
+  },
+  "main": "./bin.mjs",
+  "files": [
+    "bin.mjs"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "huozi",
+    "mcp",
+    "claude-code",
+    "cursor",
+    "openclaw",
+    "installer",
+    "oauth",
+    "device-flow"
+  ],
+  "author": "Dachein",
+  "license": "MIT",
+  "homepage": "https://huozi.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/huozi-app/huozi"
+  }
+}

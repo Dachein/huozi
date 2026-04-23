@@ -71,8 +71,43 @@ export const fr = {
   "ws.status.never": "—",
   "ws.status.now": "à l'instant",
   "ws.status.activeKeys": "clés actives",
+  "ws.status.lastActivity": "dernière activité",
   "ws.status.manage": "Gérer",
-  "ws.status.connectNew": "Connecter un agent",
+  "ws.status.connectNew": "Nouvelle connexion",
+
+  // Étiquettes d'expiration de clé (TTL à fenêtre glissante)
+  "ws.expiry.never": "n'expire jamais",
+  "ws.expiry.expired": "expirée",
+  "ws.expiry.inDays": "expire dans {n} jours",
+  "ws.expiry.inHours": "expire dans {n} heures",
+  "ws.expiry.inMinutes": "expire dans {n} min",
+  "ws.expiry.hint": "Fenêtre glissante — chaque requête réinitialise le compteur.",
+
+  // Préréglages TTL
+  "ws.ttl.1d": "1 jour",
+  "ws.ttl.7d": "7 jours",
+  "ws.ttl.30d": "30 jours",
+  "ws.ttl.180d": "180 jours",
+  "ws.ttl.never": "Jamais",
+
+  // Actions par clé
+  "ws.action.copy": "Copier",
+  "ws.action.copied": "Copié",
+  "ws.action.revoke": "Révoquer",
+  "ws.action.revoking": "Révocation…",
+  "ws.action.confirmRevoke": "Révoquer « {label} » ? Les Agents utilisant cette clé s'arrêteront immédiatement. Cette action est irréversible.",
+
+  // /workspace — état rempli, intro + cartes d'aide + pied de page
+  "ws.filled.intro": "Sélectionnez un fichier dans l'arbre à gauche pour le voir. Markdown et HTML s'affichent de la même façon que sur les pages publiées huozi.app. Les Agents ayant accès à ce workspace peuvent modifier les fichiers à tout moment — ouvrez un fichier et regardez l'onglet historique.",
+  "ws.filled.browse.title": "Parcourir",
+  "ws.filled.browse.desc": "Utilisez l'arbre (☰ sur mobile). Les dossiers se souviennent de leur état ouvert.",
+  "ws.filled.history.title": "Historique",
+  "ws.filled.history.desc": "Chaque fichier a un lien Historique listant tous les commits qui l'ont modifié.",
+  "ws.filled.search.title": "Rechercher",
+  "ws.filled.search.desc": "Filtrez par nom dans la barre au-dessus de l'arbre.",
+  "ws.filled.footer.about": "À propos de huozi Cloud",
+  "ws.filled.footer.apiDocs": "Référence API",
+
 
   "ws.onboard.heading": "Créons quelque chose",
   "ws.onboard.subheading": "Copiez un scénario ci-dessous, collez-le dans votre agent, et regardez le premier fichier apparaître ici en temps réel. Choisissez le format qui vous convient — l'agent s'occupe du reste.",
@@ -204,4 +239,54 @@ export const fr = {
   "start.rawApi.verify": "Vérification",
   "start.rawApi.setup": "Créer l'espace",
   "start.rawApi.publish": "Publier",
+
+  // Page Connect-Agent
+  "connect.back": "← Espace de travail",
+  "connect.title": "Connecter un Agent",
+  "connect.desc":
+    "Trois étapes : choisissez votre agent, collez un extrait, envoyez une requête. Nous détectons le premier appel et confirmons la connexion. Chaque agent a sa propre clé — révocable à tout moment sans affecter les autres.",
+
+  "connect.step1": "1 · Choisissez votre agent",
+  "connect.step2": "2 · Collez dans {title}",
+  "connect.step3": "3 · Confirmer la connexion",
+
+  "connect.agent.claude-code.tagline": "Terminal, une commande.",
+  "connect.agent.claude-code.blurb":
+    "Exécutez dans n'importe quel shell. Claude Code enregistre huozi comme serveur MCP distant — disponible dans tous les projets.",
+  "connect.agent.cursor.tagline": "À ajouter dans mcp.json.",
+  "connect.agent.cursor.blurb":
+    "Ajoutez ce bloc à ~/.cursor/mcp.json (ou au .cursor/mcp.json du projet), puis rechargez Cursor.",
+  "connect.agent.openclaw.tagline": "Modifier openclaw.json.",
+  "connect.agent.openclaw.blurb":
+    "Ajoutez ce bloc à ~/.openclaw/openclaw.json sous mcp.servers. Redémarrez OpenClaw pour l'activer.",
+
+  "connect.label.title": "Étiquetez cette clé (affichée dans Connected Agents)",
+  "connect.generate": "Générer une clé pour {title}",
+  "connect.generating": "Génération…",
+  "connect.copy": "Copier",
+  "connect.copied": "Copié",
+  "connect.generateFirst": "Générez d'abord une clé",
+
+  "connect.rawKey.show": "Afficher la clé API brute",
+  "connect.rawKey.note":
+    "Le texte en clair n'est jamais stocké — copiez-la maintenant. Les clés perdues peuvent être révoquées et remplacées depuis la page workspace.",
+
+  "connect.waiting.title": "En attente de la connexion de {title}…",
+  "connect.waiting.desc":
+    "Collez l'extrait ci-dessus, puis envoyez une requête — nous détecterons automatiquement le premier appel.",
+
+  "connect.done.title": "{title} connecté",
+  "connect.done.detected": "Premier appel d'outil détecté à",
+  "connect.done.note":
+    "Vous pouvez fermer cette page — l'agent continuera à utiliser la clé jusqu'à révocation.",
+  "connect.done.goto": "Aller à l'espace de travail →",
+  "connect.done.another": "Connecter un autre agent",
+
+  "connect.footer.back": "← Retour à l'espace de travail",
+  "connect.footer.start": "Laisser l'agent s'installer lui-même (OAuth device flow) →",
+  "connect.footer.docs": "Documentation API",
+
+  "connect.terminal.title": "Vous préférez le terminal ? Une commande :",
+  "connect.terminal.desc":
+    "Fonctionne dans Claude Code, Cursor, OpenClaw — ou n'importe quel agent avec un shell. Exécute le même flux OAuth et écrit la configuration MCP pour vous.",
 } as const;

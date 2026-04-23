@@ -46,11 +46,21 @@ export default async function SharesPage() {
     <div className="flex flex-col min-h-screen">
       <main className="flex-1">
         <div className="mx-auto max-w-3xl px-6 py-12">
+          {/* Top-of-page "← Workspace" return link.  Same pattern as
+              /workspace/connect — primary escape hatch at the top. */}
+          <Link
+            href="/workspace"
+            className="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-accent hover:text-foreground transition-colors mb-6"
+          >
+            <span aria-hidden>←</span>
+            <span>Workspace</span>
+            <span className="text-border mx-0.5">·</span>
+            <code className="rounded bg-muted px-1 font-mono normal-case">
+              {ws.slug}
+            </code>
+          </Link>
+
           <div className="mb-8">
-            <p className="text-xs uppercase tracking-wider text-accent mb-2">
-              Workspace ·{" "}
-              <code className="rounded bg-muted px-1 font-mono">{ws.slug}</code>
-            </p>
             <h1 className="font-serif text-3xl font-bold tracking-wide">
               Shares
             </h1>
@@ -152,13 +162,6 @@ export default async function SharesPage() {
               className="hover:text-foreground transition-colors"
             >
               ← Back to workspace
-            </Link>
-            <span className="text-border">·</span>
-            <Link
-              href="/workspace/keys"
-              className="hover:text-foreground transition-colors"
-            >
-              API keys
             </Link>
             <span className="text-border">·</span>
             <Link

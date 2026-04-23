@@ -2,16 +2,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ConnectAgent } from "@/components/workspace/connect-agent";
-import { getLocale } from "@/lib/i18n/server";
+import { CopyButton } from "@/components/copy-button";
 import { getIdentity } from "@/lib/identity";
+import { getLocale } from "@/lib/i18n/server";
+import { t } from "@/lib/i18n";
+
+const ONE_LINER = "npx huozi-mcp";
 
 export const metadata: Metadata = {
   title: "Connect an Agent — huozi Cloud",
-  description: "Generate a workspace API key for Claude Code, Cursor, or Claude Desktop.",
+  description:
+    "Generate a workspace API key for Claude Code, Cursor, or OpenClaw — paste one snippet, done.",
 };
 
 export default async function ConnectAgentPage() {
-  const locale = await getLocale();
   const identity = await getIdentity();
   const principal = await identity.getPrincipal();
 
@@ -24,22 +28,50 @@ export default async function ConnectAgentPage() {
     redirect("/onboard");
   }
 
+  const locale = await getLocale();
+  const tx = (key: string) => t(locale, key);
+
   return (
     <div className="flex flex-col min-h-screen">
       <main className="flex-1">
         <div className="mx-auto max-w-2xl px-6 py-12">
+          {/* Top-of-page "← Workspace" return link.  The breadcrumb
+              doubles as the primary escape hatch back to /workspace,
+              replacing the old bottom-of-page "Back to workspace" that
+              users had to scroll to find. */}
+          <Link
+            href="/workspace"
+            className="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-accent hover:text-foreground transition-colors mb-6"
+          >
+            <span>{tx("connect.back")}</span>
+            <span className="text-border mx-0.5">·</span>
+            <code className="rounded bg-muted px-1 font-mono normal-case">
+              {ws.slug}
+            </code>
+          </Link>
+
           <div className="mb-8">
-            <p className="text-xs uppercase tracking-wider text-accent mb-2">
-              Workspace ·{" "}
-              <code className="rounded bg-muted px-1 font-mono">{ws.slug}</code>
-            </p>
             <h1 className="font-serif text-3xl font-bold tracking-wide">
-              Connect an Agent
+              {tx("connect.title")}
             </h1>
             <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-              Each Agent (Claude Code, Cursor, Claude Desktop…) gets its own API
-              key. Keys are independent — you can revoke one without affecting
-              the others.
+              {tx("connect.desc")}
+            </p>
+          </div>
+
+          {/* One-liner terminal alternative — same OAuth device flow, no GUI */}
+          <div className="mb-8 rounded-lg border border-border/60 bg-muted/30 p-4">
+            <div className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground mb-2">
+              {tx("connect.terminal.title")}
+            </div>
+            <div className="relative">
+              <pre className="rounded-md border border-border bg-background px-3 py-2 pr-12 font-mono text-sm overflow-x-auto">
+                <code>{ONE_LINER}</code>
+              </pre>
+              <CopyButton text={ONE_LINER} />
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+              {tx("connect.terminal.desc")}
             </p>
           </div>
 
@@ -50,21 +82,21 @@ export default async function ConnectAgentPage() {
               href="/workspace"
               className="hover:text-foreground transition-colors"
             >
-              ← Back to workspace
+              {tx("connect.footer.back")}
             </Link>
             <span className="text-border">·</span>
             <Link
-              href="/workspace/keys"
+              href="/start"
               className="hover:text-foreground transition-colors"
             >
-              Manage existing keys
+              {tx("connect.footer.start")}
             </Link>
             <span className="text-border">·</span>
             <Link
               href="/docs"
               className="hover:text-foreground transition-colors"
             >
-              API docs
+              {tx("connect.footer.docs")}
             </Link>
           </div>
         </div>

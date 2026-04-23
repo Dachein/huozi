@@ -10,7 +10,7 @@ import {
 } from "@/components/workspace/status-summary";
 import { OnboardingPrompts } from "@/components/workspace/onboarding-prompts";
 import { getLocale } from "@/lib/i18n/server";
-import { t, type Locale } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 import { getIdentity } from "@/lib/identity";
 import {
   cloudAdminListKeys,
@@ -42,9 +42,10 @@ export default async function CloudWorkspacePage() {
     redirect("/api/app/session/refresh?next=/workspace");
   }
 
-  const [globRes, recentRes] = await Promise.all([
+  const [globRes, recentRes, connections] = await Promise.all([
     cloudGlob(key, "**/*"),
     cloudRecent(key, 20),
+    loadConnectionsForStatusSummary(key),
   ]);
   const data: GlobData = globRes.ok
     ? globRes.data
@@ -52,6 +53,7 @@ export default async function CloudWorkspacePage() {
   const recent = recentRes.ok ? recentRes.entries : [];
 
   const isEmpty = data.numFiles === 0;
+  const _ = (k: string) => t(locale, k);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -61,110 +63,87 @@ export default async function CloudWorkspacePage() {
         truncated={data.truncated}
         recent={recent}
       >
-        {isEmpty ? (
-          <EmptyWorkspace
-            locale={locale}
-            currentKey={key}
-            error={globRes.ok ? null : globRes.message}
+        <div className="space-y-8">
+          {/* Agent connection status — shown in both empty and filled states.
+              It's the user's answer to "who is plugged into this workspace
+              right now?" and that question matters regardless of whether
+              there are files yet. */}
+          <StatusSummary
+            connections={connections.rows}
+            labels={{
+              title: _("ws.status.title"),
+              connectedAgents: _("ws.status.connectedAgents"),
+              browserSession: _("ws.status.browserSession"),
+              never: _("ws.status.never"),
+              now: _("ws.status.now"),
+              activeKeys: _("ws.status.activeKeys"),
+              manage: _("ws.status.manage"),
+              connectNew: _("ws.status.connectNew"),
+            }}
           />
-        ) : (
-          <FilledWorkspace />
-        )}
+
+          {!globRes.ok && (
+            <div className="rounded-lg border border-red-500/40 bg-red-500/5 px-4 py-3 text-sm">
+              <strong>Couldn&rsquo;t list files:</strong>{" "}
+              <span className="text-muted-foreground">{globRes.message}</span>
+            </div>
+          )}
+
+          {isEmpty ? (
+            <OnboardingPrompts
+              heading={_("ws.onboard.heading")}
+              subheading={_("ws.onboard.subheading")}
+              cards={[
+                {
+                  badge: _("ws.onboard.md.badge"),
+                  glyph: "文",
+                  title: _("ws.onboard.md.title"),
+                  scenario: _("ws.onboard.md.scenario"),
+                  prompt: _("ws.onboard.md.prompt"),
+                  copyLabel: _("ws.onboard.copy"),
+                  copiedLabel: _("ws.onboard.copied"),
+                },
+                {
+                  badge: _("ws.onboard.csv.badge"),
+                  glyph: "表",
+                  title: _("ws.onboard.csv.title"),
+                  scenario: _("ws.onboard.csv.scenario"),
+                  prompt: _("ws.onboard.csv.prompt"),
+                  copyLabel: _("ws.onboard.copy"),
+                  copiedLabel: _("ws.onboard.copied"),
+                },
+                {
+                  badge: _("ws.onboard.html.badge"),
+                  glyph: "界",
+                  title: _("ws.onboard.html.title"),
+                  scenario: _("ws.onboard.html.scenario"),
+                  prompt: _("ws.onboard.html.prompt"),
+                  copyLabel: _("ws.onboard.copy"),
+                  copiedLabel: _("ws.onboard.copied"),
+                },
+              ]}
+            />
+          ) : (
+            <FilledWorkspace
+              intro={_("ws.filled.intro")}
+              browseTitle={_("ws.filled.browse.title")}
+              browseDesc={_("ws.filled.browse.desc")}
+              historyTitle={_("ws.filled.history.title")}
+              historyDesc={_("ws.filled.history.desc")}
+              searchTitle={_("ws.filled.search.title")}
+              searchDesc={_("ws.filled.search.desc")}
+              aboutLabel={_("ws.filled.footer.about")}
+              apiDocsLabel={_("ws.filled.footer.apiDocs")}
+            />
+          )}
+        </div>
       </WorkspaceShell>
       <CloudLiveEvents mode="workspace" />
     </div>
   );
 }
 
-/* ── Empty state ──────────────────────────────────────────────────── */
-
-/**
- * Empty-state pane shown when the user has zero commits in the
- * workspace. Pulls a light telemetry snapshot (connected keys +
- * last-used) from the identity + drive layers and renders two
- * stacked widgets:
- *
- *   1. StatusSummary       — who's connected, when they last worked
- *   2. OnboardingPrompts   — three copyable scenario prompts the user
- *                             feeds to their Agent to create the first
- *                             md / csv / html file
- *
- * Everything below is i18n'd — same surface in zh/en/ja/fr.
- */
-async function EmptyWorkspace({
-  locale,
-  currentKey,
-  error,
-}: {
-  locale: Locale;
-  currentKey: string;
-  error: string | null;
-}) {
-  const _ = (k: string) => t(locale, k);
-
-  const connections = await loadConnectionsForStatusSummary(currentKey);
-
-  return (
-    <div className="space-y-8">
-      <StatusSummary
-        workspaceName={connections.workspaceName}
-        workspaceSlug={connections.workspaceSlug}
-        connections={connections.rows}
-        labels={{
-          title: _("ws.status.title"),
-          connectedAgents: _("ws.status.connectedAgents"),
-          browserSession: _("ws.status.browserSession"),
-          never: _("ws.status.never"),
-          now: _("ws.status.now"),
-          activeKeys: _("ws.status.activeKeys"),
-          manage: _("ws.status.manage"),
-          connectNew: _("ws.status.connectNew"),
-        }}
-      />
-
-      {error && (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/5 px-4 py-3 text-sm">
-          <strong>Couldn&rsquo;t list files:</strong>{" "}
-          <span className="text-muted-foreground">{error}</span>
-        </div>
-      )}
-
-      <OnboardingPrompts
-        heading={_("ws.onboard.heading")}
-        subheading={_("ws.onboard.subheading")}
-        cards={[
-          {
-            badge: _("ws.onboard.md.badge"),
-            glyph: "文",
-            title: _("ws.onboard.md.title"),
-            scenario: _("ws.onboard.md.scenario"),
-            prompt: _("ws.onboard.md.prompt"),
-            copyLabel: _("ws.onboard.copy"),
-            copiedLabel: _("ws.onboard.copied"),
-          },
-          {
-            badge: _("ws.onboard.csv.badge"),
-            glyph: "表",
-            title: _("ws.onboard.csv.title"),
-            scenario: _("ws.onboard.csv.scenario"),
-            prompt: _("ws.onboard.csv.prompt"),
-            copyLabel: _("ws.onboard.copy"),
-            copiedLabel: _("ws.onboard.copied"),
-          },
-          {
-            badge: _("ws.onboard.html.badge"),
-            glyph: "界",
-            title: _("ws.onboard.html.title"),
-            scenario: _("ws.onboard.html.scenario"),
-            prompt: _("ws.onboard.html.prompt"),
-            copyLabel: _("ws.onboard.copy"),
-            copiedLabel: _("ws.onboard.copied"),
-          },
-        ]}
-      />
-    </div>
-  );
-}
+/* ── Connection status loader ─────────────────────────────────────── */
 
 /**
  * Pulls everything StatusSummary needs:
@@ -226,12 +205,19 @@ async function loadConnectionsForStatusSummary(currentKey: string): Promise<{
       : parseKeyName(k.name);
 
     return {
+      // React key / stable identifier. Prefer Supabase row id so
+      // revoke/refresh flows line up, fall back to key_id when the
+      // row is Worker-only.
+      id: supa?.id ?? k.key_id,
+      keyId: k.key_id,
       label,
       agentKind,
       isCurrentSession: k.key_id === sessionKeyId,
       lastUsedAt: k.last_used_at ?? null,
       createdAt: k.created_at,
       revoked: false,
+      ttlSeconds: k.ttl_seconds ?? null,
+      expiresAt: k.expires_at ?? null,
     };
   });
 
@@ -292,58 +278,38 @@ function pickCurrentSessionKeyId(
 
 /* ── Non-empty state (unchanged from before) ──────────────────────── */
 
-function FilledWorkspace() {
-  return (
-    <div className="space-y-6">
-      <header className="flex items-baseline justify-between">
-        <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-wide">
-          <span className="text-accent">云</span> Workspace
-        </h1>
-      </header>
+interface FilledWorkspaceProps {
+  intro: string;
+  browseTitle: string;
+  browseDesc: string;
+  historyTitle: string;
+  historyDesc: string;
+  searchTitle: string;
+  searchDesc: string;
+  aboutLabel: string;
+  apiDocsLabel: string;
+}
 
-      <p className="text-sm text-muted-foreground">
-        Pick a file from the tree to view it. Markdown and HTML render the
-        same way they appear on huozi.app published pages. Agents with
-        access to this workspace can edit files at any time — open a file
-        and watch the history tab.
+function FilledWorkspace(props: FilledWorkspaceProps) {
+  return (
+    <div className="space-y-5">
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        {props.intro}
       </p>
 
       <div className="grid sm:grid-cols-3 gap-3">
-        <HelpCard
-          title="Browse"
-          desc="Use the tree (☰ on mobile). Folders remember their expand state."
-        />
-        <HelpCard
-          title="History"
-          desc="Every file has a History link showing every commit that touched it."
-        />
-        <HelpCard
-          title="Search"
-          desc="Filter files by name using the search box above the tree."
-        />
+        <HelpCard title={props.browseTitle} desc={props.browseDesc} />
+        <HelpCard title={props.historyTitle} desc={props.historyDesc} />
+        <HelpCard title={props.searchTitle} desc={props.searchDesc} />
       </div>
 
-      <div className="mt-8 pt-6 border-t border-border/50 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+      <div className="pt-2 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
         <Link href="/cloud" className="hover:text-foreground transition-colors">
-          About huozi Cloud
+          {props.aboutLabel}
         </Link>
         <span className="text-border">·</span>
         <Link href="/docs" className="hover:text-foreground transition-colors">
-          API docs
-        </Link>
-        <span className="text-border">·</span>
-        <Link
-          href="/workspace/connect"
-          className="hover:text-foreground transition-colors"
-        >
-          Connect Agent
-        </Link>
-        <span className="text-border">·</span>
-        <Link
-          href="/workspace/keys"
-          className="hover:text-foreground transition-colors"
-        >
-          Keys
+          {props.apiDocsLabel}
         </Link>
       </div>
     </div>

@@ -21,6 +21,10 @@ import {
   createReadTool,
   createWriteTool,
 } from '../index.js'
+import { createListTreeTool } from '../tools/ListTreeTool.js'
+import { createMkdirTool } from '../tools/MkdirTool.js'
+import { createMvTool } from '../tools/MvTool.js'
+import { createRmTool } from '../tools/RmTool.js'
 import { createShareTool, type ShareToolDeps } from '../tools/ShareTool.js'
 import type { StorageBackend } from '../storage/types.js'
 import type { Tool } from '../types.js'
@@ -49,8 +53,12 @@ export function createHuoziToolRegistry(
     createWriteTool({ storage }),
     createGlobTool({ storage }),
     createGrepTool({ storage }),
+    createListTreeTool({ storage }),
     createBatchEditTool({ storage }),
     createHistoryTool({ storage }),
+    createMkdirTool({ storage }),
+    createRmTool({ storage }),
+    createMvTool({ storage }),
   ]
   if (shareDeps) {
     tools.push(createShareTool(shareDeps))

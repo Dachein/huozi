@@ -102,6 +102,49 @@ export {
 } from './tools/GrepTool.js'
 export type { GrepInput, GrepOutput, GrepToolDeps } from './tools/GrepTool.js'
 
+// Tools — ListTree (huozi extension)
+export {
+  createListTreeTool,
+  LIST_TREE_TOOL_NAME,
+  listTreeInputSchema,
+  listTreeOutputSchema,
+} from './tools/ListTreeTool.js'
+export type {
+  ListTreeInput,
+  ListTreeOutput,
+  ListTreeToolDeps,
+} from './tools/ListTreeTool.js'
+
+// Tools — Mkdir / Rm / Mv (huozi extensions for folder semantics)
+export {
+  createMkdirTool,
+  KEEP_FILENAME,
+  MKDIR_TOOL_NAME,
+  mkdirInputSchema,
+  mkdirOutputSchema,
+} from './tools/MkdirTool.js'
+export type {
+  MkdirInput,
+  MkdirOutput,
+  MkdirToolDeps,
+} from './tools/MkdirTool.js'
+
+export {
+  createRmTool,
+  RM_TOOL_NAME,
+  rmInputSchema,
+  rmOutputSchema,
+} from './tools/RmTool.js'
+export type { RmInput, RmOutput, RmToolDeps } from './tools/RmTool.js'
+
+export {
+  createMvTool,
+  MV_TOOL_NAME,
+  mvInputSchema,
+  mvOutputSchema,
+} from './tools/MvTool.js'
+export type { MvInput, MvOutput, MvToolDeps } from './tools/MvTool.js'
+
 // Tools — Batch Edit (huozi extension)
 export {
   BATCH_EDIT_TOOL_NAME,

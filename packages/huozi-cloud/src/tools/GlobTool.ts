@@ -26,6 +26,12 @@ const GLOB_DEFAULT_LIMIT = 100
 export const globInputSchema = z.object({
   pattern: z.string(),
   path: z.string().optional(),
+  include_hidden: z
+    .boolean()
+    .optional()
+    .describe(
+      'Include files starting with "." (e.g. `.huozi-keep` folder markers). Default false.',
+    ),
 })
 
 export type GlobInput = z.infer<typeof globInputSchema>
@@ -96,9 +102,16 @@ export function createGlobTool(deps: GlobToolDeps): Tool<GlobInput, GlobOutput> 
       // Glob pattern is interpreted relative to the prefix (workspace or scope
       // root). Strip prefix from each candidate before matching.
       const regex = globToRegex(input.pattern)
+      const includeHidden = input.include_hidden ?? false
       const matched: Array<{ path: string; mtime: number }> = []
       for (const entry of entries) {
         const relative = prefix ? entry.path.slice(prefix.length) : entry.path
+        // Filter leaf name hidden-dotfile unless opted in. Agents almost
+        // never want `.huozi-keep` markers cluttering glob results.
+        if (!includeHidden) {
+          const leaf = relative.split('/').pop() ?? relative
+          if (leaf.startsWith('.')) continue
+        }
         if (regex.test(relative)) {
           matched.push({ path: entry.path, mtime: entry.mtime })
         }

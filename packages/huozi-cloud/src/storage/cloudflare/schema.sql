@@ -53,6 +53,13 @@ CREATE INDEX IF NOT EXISTS idx_commit_paths_ws_path
 
 -- API keys with optional scope. Bearer tokens are SHA-256-hashed on the
 -- write-side; lookup compares by `key_hash`.
+-- Sliding-window expiration model.
+-- - `ttl_seconds` = how long of *inactivity* kills the key. NULL means
+--   "never expires" (the legacy default — all keys pre-migration sit at
+--   NULL and keep working forever, matching prior behaviour).
+-- - `expires_at` is the effective deadline. On every successful auth we
+--   bump BOTH `last_used_at = now` AND `expires_at = now + ttl_seconds`
+--   (when ttl_seconds is non-null) so idle keys decay naturally.
 CREATE TABLE IF NOT EXISTS api_keys (
   key_id         TEXT PRIMARY KEY,
   key_hash       TEXT NOT NULL UNIQUE,
@@ -63,6 +70,7 @@ CREATE TABLE IF NOT EXISTS api_keys (
   created_at     INTEGER NOT NULL,
   expires_at     INTEGER,
   last_used_at   INTEGER,
+  ttl_seconds    INTEGER,
   name           TEXT
 );
 

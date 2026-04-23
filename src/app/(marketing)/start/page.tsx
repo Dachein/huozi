@@ -22,7 +22,17 @@ export const metadata: Metadata = {
  *   - POST /auth/token         → polled by Agent; returns api_key on auth
  */
 
-const agentPrompt = `Install huozi Cloud via its device-authorization flow. Follow these four steps literally — do not improvise or skip.
+const agentPrompt = `Install huozi Cloud. If Node ≥18 is available, prefer the one-liner:
+
+  npx huozi-mcp
+
+It runs the full OAuth device flow, auto-detects your client (Claude Code,
+Cursor, OpenClaw), opens a browser for authorization, and writes the MCP
+config. Tell the human the verification URL it prints; they click Authorize;
+you're done.
+
+If \`npx\` is not available, follow the four-step device flow below literally
+— do not improvise or skip.
 
 STEP 1 — Request a device code.
 Run in Bash:
@@ -74,7 +84,7 @@ You can now ask me to read, write, or edit files in your huozi workspace."
 Security rules:
   - Never print api_key, device_code, or key_id to the human.
   - Do not persist them outside the MCP config your client owns.
-  - The human revokes access at any time via huozi.app/workspace/keys.`;
+  - The human revokes access at any time from the Connected Agents panel on huozi.app/workspace.`;
 
 export default function StartPage() {
   return (
@@ -88,11 +98,36 @@ export default function StartPage() {
         </p>
       </div>
 
-      {/* 1 · The prompt */}
+      {/* 0 · npx one-liner — fastest path for anyone with Node ≥18 */}
+      <section className="mb-12">
+        <div className="flex items-baseline justify-between gap-3 mb-3">
+          <h2 className="font-serif text-lg font-bold">
+            Fastest · one command
+          </h2>
+          <span className="text-[11px] uppercase tracking-wider text-accent">
+            Node ≥ 18
+          </span>
+        </div>
+        <div className="relative rounded-xl border-2 border-accent/40 bg-muted/20">
+          <pre className="p-5 pr-14 text-sm leading-relaxed font-mono">
+            <code>npx huozi-mcp</code>
+          </pre>
+          <CopyButton text="npx huozi-mcp" />
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
+          Runs the same OAuth device flow as below. Auto-detects your client
+          (Claude Code, Cursor, OpenClaw), opens a browser for authorization,
+          and writes the MCP config into the right place. Tell your Agent
+          <span className="font-mono text-foreground"> &ldquo;run npx huozi-mcp and help me authorize&rdquo;</span>{" "}
+          — the Agent does the rest.
+        </p>
+      </section>
+
+      {/* 1 · The prompt — for Agents that prefer to run the flow themselves */}
       <section className="mb-14">
         <div className="flex items-baseline justify-between gap-3 mb-3">
           <h2 className="font-serif text-lg font-bold">
-            1 · Copy this prompt, paste into your Agent
+            1 · Or, copy this prompt into your Agent
           </h2>
           <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
             Agent-readable
@@ -145,12 +180,12 @@ export default function StartPage() {
           huozi workspace.
         </p>
         <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-          Manage the connection at{" "}
+          Manage the connection from the Connected Agents panel on{" "}
           <Link
-            href="/workspace/keys"
+            href="/workspace"
             className="underline hover:text-foreground"
           >
-            /workspace/keys
+            /workspace
           </Link>{" "}
           — revoke any time. Browse and publish files at{" "}
           <Link

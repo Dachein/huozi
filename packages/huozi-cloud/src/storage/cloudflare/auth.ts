@@ -28,6 +28,11 @@ interface CacheEntry {
   principal: McpPrincipal
   /** Token's `expires_at` from DB (may be null — use Infinity for never). */
   expiresAt: number
+  /**
+   * Sliding-window length in seconds. `null` = key never expires and we
+   * skip the expires_at bump entirely.
+   */
+  ttlSeconds: number | null
   /** Our cache TTL — when to force a re-check against D1. */
   refreshAfter: number
 }
@@ -72,19 +77,18 @@ export async function resolveBearer(
       authCache.delete(keyHash)
       return { ok: false, failure: { status: 401, message: 'token expired' } }
     }
-    // Best-effort last_used_at touch (don't block).
-    void env.DB.prepare(
-      'UPDATE api_keys SET last_used_at = ? WHERE key_hash = ?',
-    )
-      .bind(now, keyHash)
-      .run()
-      .catch(() => {})
+    // Best-effort last_used_at + sliding-window expires_at touch.
+    // If ttl_seconds is null (never-expires keys), we leave expires_at alone.
+    // Otherwise we push the deadline forward — that's the whole point of
+    // the sliding-window model.
+    void bumpActivity(env, keyHash, cached.ttlSeconds, now)
     return { ok: true, principal: cached.principal }
   }
 
   // Cold path: D1 lookup.
   const row = await env.DB.prepare(
-    `SELECT workspace_id, scope_path, principal_type, principal_id, expires_at
+    `SELECT workspace_id, scope_path, principal_type, principal_id,
+            expires_at, ttl_seconds
      FROM api_keys WHERE key_hash = ?`,
   )
     .bind(keyHash)
@@ -94,6 +98,7 @@ export async function resolveBearer(
       principal_type: string
       principal_id: string
       expires_at: number | null
+      ttl_seconds: number | null
     }>()
 
   if (!row) {
@@ -131,18 +136,48 @@ export async function resolveBearer(
   authCache.set(keyHash, {
     principal,
     expiresAt: row.expires_at ?? Infinity,
+    ttlSeconds: row.ttl_seconds,
     refreshAfter: now + AUTH_CACHE_TTL_MS,
   })
 
-  // Best-effort last_used_at touch.
-  void env.DB.prepare(
-    'UPDATE api_keys SET last_used_at = ? WHERE key_hash = ?',
-  )
-    .bind(now, keyHash)
-    .run()
-    .catch(() => {})
+  // Best-effort sliding-window bump.
+  void bumpActivity(env, keyHash, row.ttl_seconds, now)
 
   return { ok: true, principal }
+}
+
+/**
+ * Touch `last_used_at` (always) and slide `expires_at` forward (only for
+ * keys with a non-null ttl). Fire-and-forget — we never block the request
+ * path on this write.
+ *
+ * Atomic at the row level so a concurrent revoke can't race and reinstate
+ * the key.
+ */
+async function bumpActivity(
+  env: HuoziCloudflareBindings,
+  keyHash: string,
+  ttlSeconds: number | null,
+  now: number,
+): Promise<void> {
+  try {
+    if (ttlSeconds === null) {
+      await env.DB.prepare(
+        'UPDATE api_keys SET last_used_at = ? WHERE key_hash = ?',
+      )
+        .bind(now, keyHash)
+        .run()
+    } else {
+      const expiresAt = now + ttlSeconds * 1000
+      await env.DB.prepare(
+        'UPDATE api_keys SET last_used_at = ?, expires_at = ? WHERE key_hash = ?',
+      )
+        .bind(now, expiresAt, keyHash)
+        .run()
+    }
+  } catch {
+    // Swallow — best-effort by design.
+  }
 }
 
 /**

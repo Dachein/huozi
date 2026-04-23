@@ -166,12 +166,12 @@ export function DeviceAuthorizeForm({
           <p>
             By authorizing, a workspace-scoped API key is minted for this
             Agent and delivered back to its local session. You can revoke
-            the key any time from{" "}
+            the key any time from the Connected Agents panel on{" "}
             <Link
-              href="/workspace/keys"
+              href="/workspace"
               className="underline hover:text-foreground"
             >
-              /workspace/keys
+              /workspace
             </Link>
             .
           </p>

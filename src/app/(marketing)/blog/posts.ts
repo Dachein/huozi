@@ -13,6 +13,32 @@ export type Post = {
 
 export const posts: Post[] = [
   {
+    slug: "office-for-agent",
+    date: "2026-04-23",
+    meta: {
+      zh: {
+        title: "为 Agent 设计 Office：拆开 Excel 的三层",
+        excerpt:
+          "Excel 把 DOM、计算、数据存储缝在一个文件里。Agent 时代应该把它们拆开 —— HTML 负责呈现，Python 负责计算，Agent 只管值。到什么规模才值得从 CSV 换成数据库？",
+      },
+      en: {
+        title: "Office for Agent: Unbundling Excel's Three Layers",
+        excerpt:
+          "Excel stitches DOM, computation, and storage into one file. In the Agent era we should unbundle them — HTML renders, Python computes, the Agent manages values. And when does CSV stop being enough?",
+      },
+      ja: {
+        title: "Agent 向けの Office を設計する：Excel の三層を解きほぐす",
+        excerpt:
+          "Excel は DOM・計算・データ保存を 1 つのファイルに縫い合わせている。Agent 時代にはそれを解きほぐすべきだ —— HTML で描画、Python で計算、Agent は値だけを見る。CSV とデータベースの境界線はどこに？",
+      },
+      fr: {
+        title: "Office pour Agent : démonter les trois couches d'Excel",
+        excerpt:
+          "Excel colle DOM, calcul et stockage dans un seul fichier. À l'ère des Agents, il faut les séparer — HTML pour le rendu, Python pour le calcul, l'Agent gère les valeurs. Quand passer du CSV à une vraie base de données ?",
+      },
+    },
+  },
+  {
     slug: "mcp-design-principles",
     date: "2026-04-23",
     meta: {

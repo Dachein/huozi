@@ -10,7 +10,11 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getIdentity } from "@/lib/identity";
-import { cloudAdminRevokeKey } from "@/lib/drive/admin";
+import {
+  cloudAdminListKeys,
+  cloudAdminRevokeKey,
+  slugToWorkspaceId,
+} from "@/lib/drive/admin";
 
 interface RevokeBody {
   key_id?: string;
@@ -35,7 +39,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // Authorization: the principal must own the workspace this key belongs to.
-  const owns = await identity.ownsConnection(keyId);
+  // Supabase-first, Worker D1 fallback — mirrors the update-ttl route.
+  // See the longer comment there for context on why both paths exist.
+  let owns = await identity.ownsConnection(keyId);
+  if (!owns) {
+    const ws = await identity.getPrimaryWorkspace();
+    if (ws) {
+      try {
+        const keys = await cloudAdminListKeys(slugToWorkspaceId(ws.slug));
+        owns = keys.some((k) => k.key_id === keyId);
+      } catch {
+        // fall through — owns stays false
+      }
+    }
+  }
   if (!owns) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
