@@ -88,7 +88,7 @@ export async function resolveBearer(
   // Cold path: D1 lookup.
   const row = await env.DB.prepare(
     `SELECT workspace_id, scope_path, principal_type, principal_id,
-            expires_at, ttl_seconds
+            expires_at, ttl_seconds, key_id, last_used_at, name
      FROM api_keys WHERE key_hash = ?`,
   )
     .bind(keyHash)
@@ -99,6 +99,9 @@ export async function resolveBearer(
       principal_id: string
       expires_at: number | null
       ttl_seconds: number | null
+      key_id: string
+      last_used_at: number | null
+      name: string | null
     }>()
 
   if (!row) {
@@ -143,7 +146,62 @@ export async function resolveBearer(
   // Best-effort sliding-window bump.
   void bumpActivity(env, keyHash, row.ttl_seconds, now)
 
+  // If this key has never been used before, broadcast a connection event
+  // so any /workspace browser session gets a real-time "new agent online"
+  // signal. We only detect this on the cold path (cache miss), which is
+  // fine because first-use is ALWAYS a cold path — the cache can't hold
+  // an entry we've never authenticated.
+  if (row.last_used_at === null) {
+    void notifyConnectionUsed(env, {
+      type: 'connection',
+      action: 'first_used',
+      workspace_id: row.workspace_id,
+      key_id: row.key_id,
+      principal_id: row.principal_id,
+      principal_type: principalType,
+      name: row.name,
+      timestamp: now,
+    })
+  }
+
   return { ok: true, principal }
+}
+
+interface ConnectionEvent {
+  type: 'connection'
+  action: 'first_used'
+  workspace_id: string
+  key_id: string
+  principal_id: string
+  principal_type: 'user' | 'agent' | 'system'
+  name: string | null
+  timestamp: number
+}
+
+/**
+ * Fire-and-forget: push a connection event through the workspace's DO so
+ * any active WebSocket (browser /workspace page) picks it up. We never
+ * block the auth path on this — if the DO is cold or the fetch fails we
+ * silently drop the event.
+ */
+async function notifyConnectionUsed(
+  env: HuoziCloudflareBindings,
+  event: ConnectionEvent,
+): Promise<void> {
+  try {
+    const stub = env.WORKSPACE_DO.get(
+      env.WORKSPACE_DO.idFromName(event.workspace_id),
+    )
+    await stub.fetch(
+      new Request('http://do.internal/events/connection', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(event),
+      }),
+    )
+  } catch {
+    // Best-effort by design.
+  }
 }
 
 /**

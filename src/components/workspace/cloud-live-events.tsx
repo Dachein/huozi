@@ -47,6 +47,20 @@ export interface CommitEvent {
 /** DOM event name other components can subscribe to for live commit events. */
 export const HUOZI_LIVE_COMMIT_EVENT = "huozi-live-commit";
 
+/** DOM event name for "a new Agent just used its key for the first time". */
+export const HUOZI_LIVE_CONNECTION_EVENT = "huozi-live-connection";
+
+export interface ConnectionEvent {
+  type: "connection";
+  action: "first_used";
+  workspace_id: string;
+  key_id: string;
+  principal_id: string;
+  principal_type: "user" | "agent" | "system";
+  name: string | null;
+  timestamp: number;
+}
+
 interface HelloEvent {
   type: "hello";
   workspace_id: string;
@@ -55,7 +69,7 @@ interface HelloEvent {
   ts: number;
 }
 
-type ServerEvent = CommitEvent | HelloEvent | { type: string };
+type ServerEvent = CommitEvent | ConnectionEvent | HelloEvent | { type: string };
 
 export type LiveMode = "workspace" | "file" | "history";
 
@@ -161,6 +175,24 @@ export function CloudLiveEvents({ mode, watchPath }: CloudLiveEventsProps) {
         }
         if (event.type === "hello") {
           setStatus("online");
+          return;
+        }
+        if (event.type === "connection") {
+          // A new Agent just authenticated for the first time — refresh
+          // the server components so StatusSummary reflects it, and fan
+          // out via the DOM bus so any interested subscriber (future
+          // toast, notification badge) can hook in.
+          const conn = event as ConnectionEvent;
+          try {
+            window.dispatchEvent(
+              new CustomEvent<ConnectionEvent>(HUOZI_LIVE_CONNECTION_EVENT, {
+                detail: conn,
+              }),
+            );
+          } catch {
+            /* ignore */
+          }
+          refreshRef.current();
           return;
         }
         if (event.type !== "commit") return;

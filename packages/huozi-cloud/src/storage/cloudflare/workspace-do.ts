@@ -186,6 +186,23 @@ export class HuoziWorkspaceDO {
       return this.acceptUpgrade(request)
     }
 
+    // Fire-and-forget connection broadcast from auth.ts. Unlike commits,
+    // connection events aren't scope-filtered — they're workspace-wide
+    // "a new agent just showed up" signals, sent to every live socket.
+    const url = new URL(request.url)
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/events/connection'
+    ) {
+      try {
+        const event = (await request.json()) as Record<string, unknown>
+        this.broadcastConnection(event)
+      } catch {
+        /* swallow */
+      }
+      return new Response('ok')
+    }
+
     if (request.method !== 'POST') {
       return new Response('method not allowed', { status: 405 })
     }
@@ -297,6 +314,28 @@ export class HuoziWorkspaceDO {
 
   async webSocketError(_ws: WebSocket, _err: unknown): Promise<void> {
     // Hibernation API will clean up on its own.
+  }
+
+  /**
+   * Broadcast a connection event (e.g. first-use of a newly-minted key)
+   * to every WebSocket in the workspace. No scope filtering — connection
+   * events are workspace-wide status signals, not path-sensitive.
+   */
+  private broadcastConnection(event: Record<string, unknown>): void {
+    let sockets: WebSocket[]
+    try {
+      sockets = this.state.getWebSockets()
+    } catch {
+      return
+    }
+    const payload = JSON.stringify(event)
+    for (const ws of sockets) {
+      try {
+        ws.send(payload)
+      } catch {
+        // Broken socket — hibernation API cleans up via webSocketError.
+      }
+    }
   }
 
   /**
