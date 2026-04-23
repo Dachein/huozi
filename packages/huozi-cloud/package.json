@@ -16,9 +16,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "mcp:stdio": "node dist/mcp/stdio.js",
-    "cf:dev": "wrangler dev",
-    "cf:deploy": "wrangler deploy",
-    "cf:migrate": "wrangler d1 execute huozi-db --file src/storage/cloudflare/schema.sql --remote"
+    "cf:dev": "wrangler dev --config wrangler.toml",
+    "cf:deploy": "wrangler deploy --config wrangler.toml",
+    "cf:migrate": "wrangler d1 execute huozi-db --file src/storage/cloudflare/schema.sql --remote --config wrangler.toml"
   },
   "keywords": [
     "mcp",
