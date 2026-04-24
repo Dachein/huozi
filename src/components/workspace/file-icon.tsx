@@ -1,20 +1,21 @@
 /**
  * File-tree icons.
  *
- * Four representational SVGs in a unified muted palette, tuned for the
+ * Five representational SVGs in a unified muted palette, tuned for the
  * warm-paper page background:
- *   - Markdown   → page-with-text-lines,    slate blue
- *   - CSV / TSV  → small grid (header + 3),  olive sage
- *   - HTML       → 3-bar chart,              warm ochre
- *   - .huozi-keep → tabbed folder shape,     warm neutral
+ *   - Markdown    → page-with-text-lines,         slate blue
+ *   - CSV / TSV   → small grid (header + 3),       olive sage
+ *   - HTML        → 3-bar chart,                   warm ochre
+ *   - Folder      → closed / open variants,        warm neutral
+ *   - .huozi-keep → reuses the closed folder shape (it *is* a folder)
  *
  * All share stroke-width 1.2 for outlines and a faint same-hue fill
  * (~8% opacity). Other extensions fall back to a single-letter
  * monospace badge.
  *
- * Folders in the file tree still render the chevron (it doubles as
- * an open/closed indicator); the FolderIcon is reserved for
- * .huozi-keep marker files in the Recent panel.
+ * Tree directories swap between FolderClosedIcon and FolderOpenIcon
+ * on expand/collapse — no chevron needed; the icon itself carries
+ * the state.
  */
 
 const SIZE = 14;
@@ -58,12 +59,10 @@ export function FileIcon({ name, isDir, open }: FileIconProps) {
   if (isDir) {
     return (
       <span
-        className={`inline-flex items-center justify-center w-4 text-xs text-muted-foreground transition-transform ${
-          open ? "rotate-90" : ""
-        }`}
+        className="inline-flex items-center justify-center w-4"
         aria-hidden="true"
       >
-        ▸
+        {open ? <FolderOpenIcon /> : <FolderClosedIcon />}
       </span>
     );
   }
@@ -71,7 +70,7 @@ export function FileIcon({ name, isDir, open }: FileIconProps) {
   const base = name.split("/").pop() ?? name;
   const ext = (base.split(".").pop() ?? "").toLowerCase();
   let icon: React.ReactNode = null;
-  if (base === FOLDER_MARKER) icon = <FolderIcon />;
+  if (base === FOLDER_MARKER) icon = <FolderClosedIcon />;
   else if (ext === "md" || ext === "mdx") icon = <MarkdownIcon />;
   else if (ext === "csv" || ext === "tsv") icon = <CsvIcon />;
   else if (ext === "html" || ext === "htm") icon = <HtmlIcon />;
@@ -166,14 +165,42 @@ function CsvIcon() {
   );
 }
 
-/** Folder — tabbed folder shape, used for .huozi-keep marker files. */
-function FolderIcon() {
+/** Closed folder — tabbed silhouette. Default for collapsed dirs +
+ *  .huozi-keep marker files. */
+function FolderClosedIcon() {
   const c = COLOR.folder;
   const wash = `${c}14`;
   return (
     <IconBox>
       <path
         d="M2 5 a1 1 0 0 1 1 -1 H6.5 L8 5.5 H13 a1 1 0 0 1 1 1 V12.5 a1 1 0 0 1 -1 1 H3 a1 1 0 0 1 -1 -1 Z"
+        fill={wash}
+        stroke={c}
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+    </IconBox>
+  );
+}
+
+/** Open folder — back panel + slanted front flap, the standard
+ *  manila-folder-being-opened pose. */
+function FolderOpenIcon() {
+  const c = COLOR.folder;
+  const wash = `${c}14`;
+  return (
+    <IconBox>
+      {/* Back panel: full folder silhouette, slightly receded behind the front. */}
+      <path
+        d="M2 5 a1 1 0 0 1 1 -1 H6.5 L8 5.5 H13 a1 1 0 0 1 1 1 V8.5 H2 Z"
+        fill={wash}
+        stroke={c}
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      {/* Front flap: slanted trapezoid sitting in front, suggesting the folder is open. */}
+      <path
+        d="M3 8 H14 L12.5 13.5 a0.5 0.5 0 0 1 -0.5 0.5 H3.5 a0.5 0.5 0 0 1 -0.5 -0.5 Z"
         fill={wash}
         stroke={c}
         strokeWidth="1.2"
