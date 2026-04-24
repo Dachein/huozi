@@ -335,6 +335,28 @@ async function handleCode(
     agent_kind: "other",
   });
 
+  // Self-probe with the freshly-minted key so the Worker's auth layer
+  // fires its first-use detection path immediately: `last_used_at` gets
+  // populated and the WorkspaceDO broadcasts `connection:first_used` to
+  // any open /workspace browser session. Without this the UI stays
+  // stale until the human's Agent happens to make its first real call.
+  try {
+    await fetch("https://cloud.huozi.app/mcp", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${minted.api_key}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/list",
+      }),
+    });
+  } catch {
+    // best-effort — next real Agent call will trigger the event
+  }
+
   await updateSession(row.id, {
     state: "completed",
     user_id: userId,
