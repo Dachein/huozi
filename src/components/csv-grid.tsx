@@ -175,6 +175,21 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
       accentColor: "#c4594a",
       accentLight: "rgba(196, 89, 74, 0.14)",
       accentFg: "#faf8f3",
+      // Warm-cream palette to blend with the page (--background #faf8f3 +
+      // --muted #f3efe6 + --border #ddd4c2). Pure-white default felt
+      // jarring against the paper-grain backdrop.
+      bgCell: "#faf8f3",
+      bgCellMedium: "#f6f2e9",
+      bgHeader: "#f3efe6",
+      bgHeaderHovered: "#ece6d6",
+      bgHeaderHasFocus: "#ece6d6",
+      borderColor: "#ddd4c2",
+      horizontalBorderColor: "#e4dccb",
+      textDark: "#2d2519",
+      textMedium: "#6b5d4b",
+      textLight: "#8b7d68",
+      textHeader: "#2d2519",
+      textGroupHeader: "#2d2519",
     }),
     [],
   );
