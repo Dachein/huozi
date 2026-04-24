@@ -256,6 +256,13 @@ export const en = {
   "edge.footer.docs": "MCP reference",
   "edge.footer.compare": "Compare with Cloud",
 
+  // Marketing footer — column groupings
+  "footer.tagline": "An Agent-native cloud drive.",
+  "footer.col.product": "Product",
+  "footer.col.resources": "Resources",
+  "footer.col.source": "Source",
+  "footer.legal": "MIT licensed · Built on Cloudflare",
+
   // /workspace — empty-state status + onboarding
   "ws.status.title": "Your workspace",
   "ws.status.connectedAgents": "Connected Agents",

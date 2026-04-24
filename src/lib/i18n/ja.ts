@@ -256,6 +256,13 @@ export const ja = {
   "edge.footer.docs": "MCP リファレンス",
   "edge.footer.compare": "Cloud と比較",
 
+  // マーケティングフッター — グルーピング
+  "footer.tagline": "Agent ネイティブのクラウドドライブ。",
+  "footer.col.product": "プロダクト",
+  "footer.col.resources": "リソース",
+  "footer.col.source": "ソース",
+  "footer.legal": "MIT ライセンス · Cloudflare 上で構築",
+
   // /workspace — 空状態オンボーディング
   "ws.status.title": "あなたのワークスペース",
   "ws.status.connectedAgents": "接続中の Agent",

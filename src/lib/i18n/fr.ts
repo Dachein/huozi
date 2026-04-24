@@ -256,6 +256,13 @@ export const fr = {
   "edge.footer.docs": "Référence MCP",
   "edge.footer.compare": "Comparer avec Cloud",
 
+  // Pied de page marketing — groupes
+  "footer.tagline": "Un disque cloud natif pour les agents.",
+  "footer.col.product": "Produit",
+  "footer.col.resources": "Ressources",
+  "footer.col.source": "Source",
+  "footer.legal": "Licence MIT · Bâti sur Cloudflare",
+
   // /workspace — onboarding d'état vide
   "ws.status.title": "Votre workspace",
   "ws.status.connectedAgents": "Agents connectés",

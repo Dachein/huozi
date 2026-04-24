@@ -255,6 +255,13 @@ export const zh = {
   "edge.footer.docs": "MCP 参考",
   "edge.footer.compare": "对比 Cloud",
 
+  // 营销页脚 —— 分组
+  "footer.tagline": "为 Agent 而造的云盘。",
+  "footer.col.product": "产品",
+  "footer.col.resources": "资源",
+  "footer.col.source": "源码",
+  "footer.legal": "MIT 开源 · 跑在 Cloudflare 上",
+
   // /workspace — 空态引导
   "ws.status.title": "你的云盘",
   "ws.status.connectedAgents": "已连接 Agent",
