@@ -269,14 +269,20 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
       );
 
   const selectedRow = gridSel.current?.cell[1];
+  // onVisibleRegionChanged may not fire before the user's first click; if
+  // we have no region yet, accept any selected row and render relative
+  // to row 0. Once a region is known, gate on it so scrolled-out rows
+  // don't leave a dangling handle.
+  const hasVisible = visible.height > 0;
   const handleVisible =
     selectedRow !== undefined &&
-    selectedRow >= visible.y &&
-    selectedRow < visible.y + visible.height;
+    (!hasVisible ||
+      (selectedRow >= visible.y &&
+        selectedRow < visible.y + visible.height));
   const handleTop = handleVisible
     ? HEADER_HEIGHT +
-      (selectedRow - visible.y) * ROW_HEIGHT +
-      visible.ty +
+      (selectedRow - (hasVisible ? visible.y : 0)) * ROW_HEIGHT +
+      (hasVisible ? visible.ty : 0) +
       (ROW_HEIGHT - HANDLE_SIZE) / 2
     : 0;
 
@@ -336,15 +342,24 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
         {handleVisible && (
           <button
             type="button"
-            onClick={() => setDetailRowIndex(selectedRow!)}
+            onMouseDown={(e) => {
+              // Prevent glide's canvas from swallowing the click and
+              // re-selecting the underlying cell.
+              e.stopPropagation();
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setDetailRowIndex(selectedRow!);
+            }}
             aria-label={t("csv.rowDetail.open")}
             title={t("csv.rowDetail.open")}
-            className="absolute z-10 flex items-center justify-center rounded border border-border bg-background/95 text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground transition-colors"
+            className="pointer-events-auto absolute flex items-center justify-center rounded border border-border bg-background text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground transition-colors"
             style={{
               top: handleTop,
               left: 4,
               width: HANDLE_SIZE,
               height: HANDLE_SIZE,
+              zIndex: 30,
             }}
           >
             <HandleIcon />
