@@ -429,8 +429,10 @@ async function handleMcp(
 
     // Record "last action" metadata on the key row so /workspace's
     // StatusSummary can show "Last action: huozi_write · blog/post.md"
-    // instead of just a timestamp. Fire-and-forget.
-    void touchAction(
+    // instead of just a timestamp. Awaited (not `void`): without this,
+    // the Worker terminates before the D1 UPDATE resolves and the
+    // column stays null. Cost is one ~1 ms DB write per tools/call.
+    await touchAction(
       env,
       authRes.keyHash,
       params.name,
