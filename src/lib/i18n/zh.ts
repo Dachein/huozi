@@ -269,6 +269,16 @@ export const zh = {
   "recent.op.edited": "编辑",
   "recent.op.deleted": "删除",
 
+  // 云盘 · 侧边栏标题（可点的"首页"链接）
+  "ws.shell.title": "Workspace",
+  "ws.shell.subtitle": "管理 · 搜索",
+  "ws.stats.files": "文件",
+  "ws.stats.recent": "最近编辑",
+  "ws.stats.agents": "Agent",
+  "ws.search.title": "在云盘中搜索",
+  "ws.search.placeholder": "输入文件名或路径…",
+  "ws.search.noMatch": "没有匹配的文件。",
+
   // /workspace — 空态引导
   "ws.status.title": "你的云盘",
   "ws.status.connectedAgents": "已连接 Agent",

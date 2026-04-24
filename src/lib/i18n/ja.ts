@@ -270,6 +270,16 @@ export const ja = {
   "recent.op.edited": "編集",
   "recent.op.deleted": "削除",
 
+  // ワークスペース · サイドバー見出し（クリックでホームへ）
+  "ws.shell.title": "Workspace",
+  "ws.shell.subtitle": "管理 · 検索",
+  "ws.stats.files": "ファイル",
+  "ws.stats.recent": "最近の編集",
+  "ws.stats.agents": "Agent",
+  "ws.search.title": "ワークスペース内を検索",
+  "ws.search.placeholder": "ファイル名やパスを入力…",
+  "ws.search.noMatch": "一致するファイルがありません。",
+
   // /workspace — 空状態オンボーディング
   "ws.status.title": "あなたのワークスペース",
   "ws.status.connectedAgents": "接続中の Agent",

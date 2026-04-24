@@ -270,6 +270,16 @@ export const en = {
   "recent.op.edited": "edited",
   "recent.op.deleted": "deleted",
 
+  // Workspace · sidebar title (the clickable "home" link)
+  "ws.shell.title": "Workspace",
+  "ws.shell.subtitle": "Manage · Search",
+  "ws.stats.files": "Files",
+  "ws.stats.recent": "Recent edits",
+  "ws.stats.agents": "Agents",
+  "ws.search.title": "Search the workspace",
+  "ws.search.placeholder": "Type a file name or path…",
+  "ws.search.noMatch": "No files match.",
+
   // /workspace — empty-state status + onboarding
   "ws.status.title": "Your workspace",
   "ws.status.connectedAgents": "Connected Agents",

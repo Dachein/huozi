@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FileTree } from "./file-tree";
 import { RecentPanel } from "./recent-panel";
+import { useT } from "@/lib/i18n/context";
 import type { RecentEntry } from "@/lib/drive/mcp-client";
 
 export interface WorkspaceShellProps {
@@ -143,13 +144,23 @@ function TreeHeader({
   /** When provided, renders a close X (used in the mobile drawer). */
   onClose?: () => void;
 }) {
+  const t = useT();
   return (
-    <div className="border-b border-border/50 px-3 py-2 flex items-center justify-between gap-3">
+    <div className="border-b border-border/50 px-3 py-2.5 flex items-center justify-between gap-3">
       <Link
         href="/workspace"
-        className="text-xs font-medium hover:text-accent transition-colors truncate"
+        title={`${t("ws.shell.title")} · ${t("ws.shell.subtitle")}`}
+        className="group flex items-center gap-2 min-w-0 hover:text-accent transition-colors"
       >
-        <span className="text-accent font-serif">云</span> Workspace
+        <WorkspaceHomeIcon />
+        <span className="flex flex-col min-w-0 leading-tight">
+          <span className="text-xs font-semibold truncate">
+            {t("ws.shell.title")}
+          </span>
+          <span className="text-[10px] text-muted-foreground group-hover:text-accent/80 truncate">
+            {t("ws.shell.subtitle")}
+          </span>
+        </span>
       </Link>
       <div className="flex items-center gap-2 shrink-0">
         <div className="text-[10px] text-muted-foreground">
@@ -168,5 +179,53 @@ function TreeHeader({
         )}
       </div>
     </div>
+  );
+}
+
+/** A small "stacked papers + magnifier" mark — same warm-paper line
+ *  weight as the file-type icons. Doubles as a home / manage hint. */
+function WorkspaceHomeIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="16"
+      height="16"
+      fill="none"
+      aria-hidden="true"
+      className="shrink-0 text-accent"
+    >
+      {/* back panel */}
+      <rect
+        x="2.5"
+        y="3"
+        width="9"
+        height="8"
+        rx="1.2"
+        stroke="currentColor"
+        strokeWidth="1.2"
+      />
+      {/* front panel offset */}
+      <rect
+        x="4.5"
+        y="5"
+        width="9"
+        height="8"
+        rx="1.2"
+        fill="rgba(196,89,74,0.10)"
+        stroke="currentColor"
+        strokeWidth="1.2"
+      />
+      {/* small magnifier inside the front panel */}
+      <circle cx="8.4" cy="8.6" r="1.4" stroke="currentColor" strokeWidth="1.1" />
+      <line
+        x1="9.5"
+        y1="9.7"
+        x2="11.2"
+        y2="11.4"
+        stroke="currentColor"
+        strokeWidth="1.1"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }

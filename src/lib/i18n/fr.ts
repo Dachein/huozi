@@ -270,6 +270,16 @@ export const fr = {
   "recent.op.edited": "modifié",
   "recent.op.deleted": "supprimé",
 
+  // Workspace · titre latéral (lien cliquable vers l'accueil)
+  "ws.shell.title": "Workspace",
+  "ws.shell.subtitle": "Gérer · Rechercher",
+  "ws.stats.files": "Fichiers",
+  "ws.stats.recent": "Modifs récentes",
+  "ws.stats.agents": "Agents",
+  "ws.search.title": "Rechercher dans le workspace",
+  "ws.search.placeholder": "Tapez un nom de fichier ou chemin…",
+  "ws.search.noMatch": "Aucun fichier ne correspond.",
+
   // /workspace — onboarding d'état vide
   "ws.status.title": "Votre workspace",
   "ws.status.connectedAgents": "Agents connectés",

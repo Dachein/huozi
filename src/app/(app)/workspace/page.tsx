@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace/workspace-shell";
@@ -9,6 +8,8 @@ import {
   type StatusSummaryConnection,
 } from "@/components/workspace/status-summary";
 import { OnboardingPrompts } from "@/components/workspace/onboarding-prompts";
+import { WorkspaceStats } from "@/components/workspace/workspace-stats";
+import { WorkspaceSearch } from "@/components/workspace/workspace-search";
 import { getLocale } from "@/lib/i18n/server";
 import { t } from "@/lib/i18n";
 import { getIdentity } from "@/lib/identity";
@@ -55,6 +56,12 @@ export default async function CloudWorkspacePage() {
   const isEmpty = data.numFiles === 0;
   const _ = (k: string) => t(locale, k);
 
+  // Stats: edits in the last 24 h based on the recent feed (we already
+  // pull the top 20). Connected-agent count comes from the same row set
+  // StatusSummary uses.
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  const recent24h = recent.filter((r) => r.timestamp >= cutoff).length;
+
   return (
     <div className="flex flex-col min-h-screen">
       <WorkspaceShell
@@ -64,6 +71,22 @@ export default async function CloudWorkspacePage() {
         recent={recent}
       >
         <div className="space-y-8">
+          {/* Stats strip — three quick numbers so the workspace home leads
+              with state instead of explanatory copy. Only meaningful once
+              the workspace has files. */}
+          {!isEmpty && (
+            <WorkspaceStats
+              files={data.numFiles}
+              recent24h={recent24h}
+              agents={connections.rows.length}
+              labels={{
+                files: _("ws.stats.files"),
+                recent: _("ws.stats.recent"),
+                agents: _("ws.stats.agents"),
+              }}
+            />
+          )}
+
           {/* Agent connection status — shown in both empty and filled states.
               It's the user's answer to "who is plugged into this workspace
               right now?" and that question matters regardless of whether
@@ -124,17 +147,7 @@ export default async function CloudWorkspacePage() {
               ]}
             />
           ) : (
-            <FilledWorkspace
-              intro={_("ws.filled.intro")}
-              browseTitle={_("ws.filled.browse.title")}
-              browseDesc={_("ws.filled.browse.desc")}
-              historyTitle={_("ws.filled.history.title")}
-              historyDesc={_("ws.filled.history.desc")}
-              searchTitle={_("ws.filled.search.title")}
-              searchDesc={_("ws.filled.search.desc")}
-              aboutLabel={_("ws.filled.footer.about")}
-              apiDocsLabel={_("ws.filled.footer.apiDocs")}
-            />
+            <WorkspaceSearch paths={data.filenames} />
           )}
         </div>
       </WorkspaceShell>
@@ -276,51 +289,3 @@ function pickCurrentSessionKeyId(
   return best?.key_id ?? null;
 }
 
-/* ── Non-empty state (unchanged from before) ──────────────────────── */
-
-interface FilledWorkspaceProps {
-  intro: string;
-  browseTitle: string;
-  browseDesc: string;
-  historyTitle: string;
-  historyDesc: string;
-  searchTitle: string;
-  searchDesc: string;
-  aboutLabel: string;
-  apiDocsLabel: string;
-}
-
-function FilledWorkspace(props: FilledWorkspaceProps) {
-  return (
-    <div className="space-y-5">
-      <p className="text-sm text-muted-foreground leading-relaxed">
-        {props.intro}
-      </p>
-
-      <div className="grid sm:grid-cols-3 gap-3">
-        <HelpCard title={props.browseTitle} desc={props.browseDesc} />
-        <HelpCard title={props.historyTitle} desc={props.historyDesc} />
-        <HelpCard title={props.searchTitle} desc={props.searchDesc} />
-      </div>
-
-      <div className="pt-2 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-        <Link href="/cloud" className="hover:text-foreground transition-colors">
-          {props.aboutLabel}
-        </Link>
-        <span className="text-border">·</span>
-        <Link href="/docs" className="hover:text-foreground transition-colors">
-          {props.apiDocsLabel}
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-function HelpCard({ title, desc }: { title: string; desc: string }) {
-  return (
-    <div className="rounded-lg border border-border p-4">
-      <div className="text-sm font-semibold mb-1">{title}</div>
-      <div className="text-xs text-muted-foreground">{desc}</div>
-    </div>
-  );
-}
