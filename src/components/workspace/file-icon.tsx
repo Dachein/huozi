@@ -101,17 +101,7 @@ function OfficeTile({ bg, letter }: { bg: string; letter: string }) {
       role="img"
       aria-hidden="true"
     >
-      {/* Body */}
-      <rect x="0.5" y="0.5" width="15" height="15" rx="2.5" fill={bg} />
-      {/* Subtle top highlight band — gives the tile a Office-like depth. */}
-      <rect
-        x="0.5"
-        y="0.5"
-        width="15"
-        height="4"
-        rx="2.5"
-        fill="rgba(255,255,255,0.18)"
-      />
+      <rect x="0.5" y="0.5" width="15" height="15" rx="3" fill={bg} />
       <text
         x="8"
         y="11.5"
