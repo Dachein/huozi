@@ -281,7 +281,7 @@ export const zh = {
 
   // 发布 / 分享弹窗 —— 有效期
   "share.expiry.label": "链接有效期",
-  "share.expiry.hint": "过期后链接返回 not found。选"永不"即不过期。",
+  "share.expiry.hint": "过期后链接返回 not found。选「永不」即不过期。",
   "share.expiry.30m": "30 分钟",
   "share.expiry.6h": "6 小时",
   "share.expiry.24h": "24 小时",
