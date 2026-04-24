@@ -21,7 +21,13 @@ export interface AuthFailure {
 }
 
 export type AuthResult =
-  | { ok: true; principal: McpPrincipal }
+  | {
+      ok: true
+      principal: McpPrincipal
+      /** SHA-256(token) — exposed so the worker can write per-key metadata
+       *  (e.g. last_action_tool / last_action_target) without re-hashing. */
+      keyHash: string
+    }
   | { ok: false; failure: AuthFailure }
 
 interface CacheEntry {
@@ -82,7 +88,7 @@ export async function resolveBearer(
     // Otherwise we push the deadline forward — that's the whole point of
     // the sliding-window model.
     void bumpActivity(env, keyHash, cached.ttlSeconds, now)
-    return { ok: true, principal: cached.principal }
+    return { ok: true, principal: cached.principal, keyHash }
   }
 
   // Cold path: D1 lookup.
@@ -164,7 +170,33 @@ export async function resolveBearer(
     })
   }
 
-  return { ok: true, principal }
+  return { ok: true, principal, keyHash }
+}
+
+/**
+ * Record "what did this key just do?" on the api_keys row. Called by the
+ * worker after a successful tools/call dispatch so the Web UI can render
+ * a friendly "last action" line beside each connection. Fire-and-forget;
+ * failures are swallowed because this is metadata, not correctness.
+ */
+export async function touchAction(
+  env: HuoziCloudflareBindings,
+  keyHash: string,
+  tool: string,
+  target: string | null,
+): Promise<void> {
+  try {
+    // Cap target length — some patterns / file paths can be long, and we
+    // only surface this as a UI hint anyway.
+    const safeTarget = target ? target.slice(0, 160) : null
+    await env.DB.prepare(
+      'UPDATE api_keys SET last_action_tool = ?, last_action_target = ? WHERE key_hash = ?',
+    )
+      .bind(tool, safeTarget, keyHash)
+      .run()
+  } catch {
+    /* best-effort */
+  }
 }
 
 interface ConnectionEvent {

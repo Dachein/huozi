@@ -61,17 +61,23 @@ CREATE INDEX IF NOT EXISTS idx_commit_paths_ws_path
 --   bump BOTH `last_used_at = now` AND `expires_at = now + ttl_seconds`
 --   (when ttl_seconds is non-null) so idle keys decay naturally.
 CREATE TABLE IF NOT EXISTS api_keys (
-  key_id         TEXT PRIMARY KEY,
-  key_hash       TEXT NOT NULL UNIQUE,
-  workspace_id   TEXT NOT NULL,
-  scope_path     TEXT,
-  principal_type TEXT NOT NULL,
-  principal_id   TEXT NOT NULL,
-  created_at     INTEGER NOT NULL,
-  expires_at     INTEGER,
-  last_used_at   INTEGER,
-  ttl_seconds    INTEGER,
-  name           TEXT
+  key_id             TEXT PRIMARY KEY,
+  key_hash           TEXT NOT NULL UNIQUE,
+  workspace_id       TEXT NOT NULL,
+  scope_path         TEXT,
+  principal_type     TEXT NOT NULL,
+  principal_id       TEXT NOT NULL,
+  created_at         INTEGER NOT NULL,
+  expires_at         INTEGER,
+  last_used_at       INTEGER,
+  ttl_seconds        INTEGER,
+  name               TEXT,
+  -- "What did this Agent last actually DO?" Populated only on tools/call,
+  -- so an idle key that just pings with tools/list keeps last_used_at
+  -- fresh while last_action_* stays blank. Gives the Web UI a richer
+  -- "last action" line than a bare timestamp.
+  last_action_tool   TEXT,
+  last_action_target TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_api_keys_ws ON api_keys (workspace_id);

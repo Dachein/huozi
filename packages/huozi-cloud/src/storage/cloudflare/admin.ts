@@ -263,6 +263,12 @@ export interface ListedKey {
   last_used_at: number | null
   ttl_seconds: number | null
   name: string | null
+  /** Last tool the key called (e.g. "huozi_write"). Null if never used or
+   *  if the key has only done tools/list / initialize pings. */
+  last_action_tool: string | null
+  /** Best-effort summary of what the last action operated on — file_path,
+   *  glob pattern, or "path (+N more)" for batch edits. Capped to 160 chars. */
+  last_action_target: string | null
 }
 
 export async function handleListKeys(
@@ -282,7 +288,8 @@ export async function handleListKeys(
 
   const { results } = await env.DB.prepare(
     `SELECT key_id, workspace_id, scope_path, principal_type, principal_id,
-            created_at, expires_at, last_used_at, ttl_seconds, name
+            created_at, expires_at, last_used_at, ttl_seconds, name,
+            last_action_tool, last_action_target
      FROM api_keys
      WHERE workspace_id = ?
      ORDER BY created_at DESC`,

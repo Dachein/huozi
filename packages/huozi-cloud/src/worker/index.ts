@@ -17,7 +17,7 @@
 
 import { createHuoziToolRegistry } from '../mcp/tools.js'
 import { CloudflareStorage } from '../storage/cloudflare/storage.js'
-import { resolveBearer } from '../storage/cloudflare/auth.js'
+import { resolveBearer, touchAction } from '../storage/cloudflare/auth.js'
 import {
   handleListKeys,
   handleMintKey,
@@ -427,6 +427,16 @@ async function handleMcp(
       }
     }
 
+    // Record "last action" metadata on the key row so /workspace's
+    // StatusSummary can show "Last action: huozi_write · blog/post.md"
+    // instead of just a timestamp. Fire-and-forget.
+    void touchAction(
+      env,
+      authRes.keyHash,
+      params.name,
+      extractTarget(params.name, scoped.args),
+    )
+
     if (result.kind === 'error') {
       return rpcOk(reqId, {
         isError: true,
@@ -459,6 +469,36 @@ async function handleMcp(
   }
 
   return rpcError(reqId, -32601, `method not found: ${rpc.method}`)
+}
+
+/**
+ * Pick the most informative "target" string out of tool arguments so the
+ * Web UI can render e.g. `huozi_write · blog/post.md` instead of just
+ * `huozi_write`. Best-effort — unrecognized shapes return null.
+ */
+function extractTarget(
+  toolName: string,
+  args: Record<string, unknown>,
+): string | null {
+  // Direct path-like fields shared by read / write / edit / history / share
+  if (typeof args.file_path === 'string' && args.file_path.length > 0) {
+    return args.file_path
+  }
+  if (typeof args.path === 'string' && args.path.length > 0) return args.path
+  // Pattern-based tools (glob / grep)
+  if (typeof args.pattern === 'string' && args.pattern.length > 0) {
+    return args.pattern
+  }
+  // Batch edit — first file plus a "(+N more)" hint
+  if (Array.isArray(args.edits) && args.edits.length > 0) {
+    const first = args.edits[0] as { file_path?: unknown } | undefined
+    const fp = first && typeof first.file_path === 'string' ? first.file_path : null
+    if (fp) {
+      return args.edits.length > 1 ? `${fp} (+${args.edits.length - 1})` : fp
+    }
+  }
+  void toolName
+  return null
 }
 
 export default handler

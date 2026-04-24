@@ -17,6 +17,11 @@ export interface StatusSummaryConnection {
   isCurrentSession: boolean;
   /** ms timestamp, or null if never used. */
   lastUsedAt: number | null;
+  /** Last tool this key called via tools/call ("huozi_write" etc.). Null
+   *  when the key has only done lightweight traffic (tools/list, pings). */
+  lastActionTool: string | null;
+  /** File path / pattern the last action operated on. */
+  lastActionTarget: string | null;
   /** ms timestamp. */
   createdAt: number;
   revoked: boolean;
@@ -152,11 +157,17 @@ function ConnectionRow({
         className="w-full flex items-center gap-3 text-sm text-left px-2.5 py-2"
       >
         <span
-          className={`shrink-0 ${
+          className={`shrink-0 relative ${
             conn.lastUsedAt !== null ? "text-accent" : "text-muted-foreground"
           }`}
         >
           <AgentLogo kind={conn.agentKind} size={18} />
+          {/* Presence dot in the lower-right corner of the agent logo —
+              tiny enough to not clutter the row, but gives an at-a-glance
+              sense of online / recent / idle / cold without expanding. */}
+          <span className="absolute -bottom-0.5 -right-0.5">
+            <PresenceDot bucket={presenceBucket(conn.lastUsedAt)} />
+          </span>
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate font-medium text-foreground">
@@ -198,6 +209,7 @@ function ConnectionRow({
                      animate-in fade-in slide-in-from-top-1 duration-150"
         >
           <div className="ml-7 space-y-2.5">
+            <LastActionLine conn={conn} nowLabel={nowLabel} />
             <div className="flex items-center gap-2 flex-wrap">
               <KeyTtlSelect
                 keyId={conn.keyId}
@@ -223,6 +235,7 @@ function ConnectionRow({
                 {conn.keyId}
               </code>
               <CopyButton value={conn.keyId} />
+              <CheckStatusButton keyId={conn.keyId} />
               <RevokeKeyButton keyId={conn.keyId} label={conn.label} />
             </div>
           </div>
@@ -251,6 +264,157 @@ function CopyButton({ value }: { value: string }) {
                  text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
     >
       {copied ? t("ws.action.copied") : t("ws.action.copy")}
+    </button>
+  );
+}
+
+/**
+ * "Last action" row shown inside the expanded connection detail.
+ * Three states the Agent can be in:
+ *   - Never called any tool           → "No actions yet"
+ *   - Called only tools/list pings    → "Pinged · <relative time>" (no action fields)
+ *   - Called a real tool              → "huozi_write · blog/post.md · <relative time>"
+ */
+function LastActionLine({
+  conn,
+  nowLabel,
+}: {
+  conn: StatusSummaryConnection;
+  nowLabel: string;
+}) {
+  const freshness = presenceBucket(conn.lastUsedAt);
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap text-xs">
+      <PresenceDot bucket={freshness} />
+      {conn.lastUsedAt === null ? (
+        <span className="text-muted-foreground italic">No activity yet</span>
+      ) : conn.lastActionTool ? (
+        <>
+          <code className="font-mono text-foreground">
+            {conn.lastActionTool}
+          </code>
+          {conn.lastActionTarget && (
+            <>
+              <span className="text-muted-foreground">·</span>
+              <code
+                className="font-mono text-muted-foreground truncate max-w-[260px]"
+                title={conn.lastActionTarget}
+              >
+                {conn.lastActionTarget}
+              </code>
+            </>
+          )}
+          <span className="text-muted-foreground">·</span>
+          <span className="text-muted-foreground tabular-nums">
+            {formatRelative(conn.lastUsedAt, nowLabel)}
+          </span>
+        </>
+      ) : (
+        <span className="text-muted-foreground">
+          Authenticated · {formatRelative(conn.lastUsedAt, nowLabel)}{" "}
+          <span className="text-muted-foreground/70">(no tool call yet)</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
+type Presence = "active" | "recent" | "idle" | "cold";
+
+function presenceBucket(lastUsedAt: number | null): Presence {
+  if (lastUsedAt === null) return "cold";
+  const elapsed = Date.now() - lastUsedAt;
+  if (elapsed < 30_000) return "active";
+  if (elapsed < 5 * 60_000) return "recent";
+  return "idle";
+}
+
+function PresenceDot({ bucket }: { bucket: Presence }) {
+  const map: Record<Presence, { cls: string; title: string }> = {
+    active: {
+      cls: "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]",
+      title: "Active — last request < 30s ago",
+    },
+    recent: {
+      cls: "bg-amber-500",
+      title: "Recently active — last request < 5 min ago",
+    },
+    idle: {
+      cls: "bg-muted-foreground/60",
+      title: "Idle — no activity in the last 5 min",
+    },
+    cold: {
+      cls: "bg-border",
+      title: "Never seen — key was minted but has made no requests yet",
+    },
+  };
+  const { cls, title } = map[bucket];
+  return (
+    <span
+      className={`inline-block w-2 h-2 rounded-full shrink-0 ${cls}`}
+      title={title}
+      aria-label={title}
+    />
+  );
+}
+
+/**
+ * "Check status" — re-fetches the status endpoint for this key and shows
+ * the result inline. Since MCP is pull-based for HTTP-streamable clients,
+ * this is a PASSIVE presence poll (reads last_used_at from the Worker),
+ * not an active ping. Still useful: if the Agent just made a request
+ * between now and the last page render, the pill colour will update.
+ */
+function CheckStatusButton({ keyId }: { keyId: string }) {
+  const router = typeof window !== "undefined" ? null : null;
+  const [state, setState] = useState<"idle" | "checking" | "done">("idle");
+  const [result, setResult] = useState<string | null>(null);
+  void router;
+
+  async function check() {
+    setState("checking");
+    setResult(null);
+    try {
+      const res = await fetch(
+        `/api/app/connections/status?key_id=${encodeURIComponent(keyId)}`,
+        { cache: "no-store" },
+      );
+      const body = (await res.json()) as {
+        last_used_at?: number | null;
+      };
+      const bucket = presenceBucket(body.last_used_at ?? null);
+      const labels: Record<Presence, string> = {
+        active: "Active",
+        recent: "Recent",
+        idle: "Idle",
+        cold: "Never used",
+      };
+      setResult(labels[bucket]);
+      setState("done");
+      setTimeout(() => setState("idle"), 2500);
+    } catch {
+      setResult("Error");
+      setState("done");
+      setTimeout(() => setState("idle"), 2500);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={check}
+      disabled={state === "checking"}
+      className="text-xs rounded border border-border px-2 py-1
+                 text-muted-foreground hover:text-foreground hover:border-foreground/40
+                 disabled:opacity-50 transition-colors whitespace-nowrap"
+      title="Check the Agent's current presence"
+    >
+      {state === "checking"
+        ? "Checking…"
+        : state === "done"
+          ? result
+          : "Check"}
     </button>
   );
 }

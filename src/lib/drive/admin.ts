@@ -64,6 +64,10 @@ export interface ListedKey {
   last_used_at: number | null;
   ttl_seconds: number | null;
   name: string | null;
+  /** Last tool this key invoked via tools/call (e.g. "huozi_write"). */
+  last_action_tool: string | null;
+  /** File path / pattern hint from the last tool call. */
+  last_action_target: string | null;
 }
 
 /** Canonical TTL presets shown in the UI. `null` = never expires. */

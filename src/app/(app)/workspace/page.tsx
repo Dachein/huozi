@@ -227,6 +227,8 @@ async function loadConnectionsForStatusSummary(currentKey: string): Promise<{
       agentKind,
       isCurrentSession: k.key_id === sessionKeyId,
       lastUsedAt: k.last_used_at ?? null,
+      lastActionTool: k.last_action_tool ?? null,
+      lastActionTarget: k.last_action_target ?? null,
       createdAt: k.created_at,
       revoked: false,
       ttlSeconds: k.ttl_seconds ?? null,
