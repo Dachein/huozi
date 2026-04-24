@@ -121,11 +121,7 @@ export default async function CloudPage() {
                 {signedIn ? _("cloud.cta.open") : _("cloud.cta.signIn")} →
               </Link>
               <Link
-                href={
-                  signedIn
-                    ? "/workspace/connect"
-                    : "/login?redirect=/workspace/connect"
-                }
+                href="/start"
                 className="rounded-full border border-border px-6 py-2.5 text-sm font-medium hover:border-foreground/30 transition-colors"
               >
                 {_("cloud.cta.connectAgent")} →
