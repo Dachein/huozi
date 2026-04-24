@@ -1,17 +1,20 @@
 /**
  * File-tree icons.
  *
- * Three flagship file types get representational SVGs in a unified
- * muted palette tuned for the warm-paper page background:
- *   - Markdown  → page-with-text-lines, slate blue
- *   - CSV / TSV → small grid (header row + 3 columns), olive sage
- *   - HTML      → 3-bar chart, warm ochre
+ * Four representational SVGs in a unified muted palette, tuned for the
+ * warm-paper page background:
+ *   - Markdown   → page-with-text-lines,    slate blue
+ *   - CSV / TSV  → small grid (header + 3),  olive sage
+ *   - HTML       → 3-bar chart,              warm ochre
+ *   - .huozi-keep → tabbed folder shape,     warm neutral
  *
- * All three share stroke-width 1.2 for outlines and a faint same-hue
- * fill (~8% opacity) to give weight without going tile-bright. Other
- * extensions fall back to a single-letter monospace badge.
+ * All share stroke-width 1.2 for outlines and a faint same-hue fill
+ * (~8% opacity). Other extensions fall back to a single-letter
+ * monospace badge.
  *
- * Folders render the existing chevron, rotated by the parent when open.
+ * Folders in the file tree still render the chevron (it doubles as
+ * an open/closed indicator); the FolderIcon is reserved for
+ * .huozi-keep marker files in the Recent panel.
  */
 
 const SIZE = 14;
@@ -20,7 +23,10 @@ const COLOR = {
   md: "#4a6b8c",
   csv: "#6b8459",
   html: "#b88454",
+  folder: "#7a6a4f",
 } as const;
+
+const FOLDER_MARKER = ".huozi-keep";
 
 interface FallbackSpec {
   char: string;
@@ -62,9 +68,11 @@ export function FileIcon({ name, isDir, open }: FileIconProps) {
     );
   }
 
-  const ext = (name.split(".").pop() ?? "").toLowerCase();
+  const base = name.split("/").pop() ?? name;
+  const ext = (base.split(".").pop() ?? "").toLowerCase();
   let icon: React.ReactNode = null;
-  if (ext === "md" || ext === "mdx") icon = <MarkdownIcon />;
+  if (base === FOLDER_MARKER) icon = <FolderIcon />;
+  else if (ext === "md" || ext === "mdx") icon = <MarkdownIcon />;
   else if (ext === "csv" || ext === "tsv") icon = <CsvIcon />;
   else if (ext === "html" || ext === "htm") icon = <HtmlIcon />;
 
@@ -154,6 +162,23 @@ function CsvIcon() {
       <line x1="10" y1="3" x2="10" y2="13" stroke={c} strokeWidth="1" />
       {/* mid-row divider */}
       <line x1="2" y1="9.75" x2="14" y2="9.75" stroke={c} strokeWidth="1" />
+    </IconBox>
+  );
+}
+
+/** Folder — tabbed folder shape, used for .huozi-keep marker files. */
+function FolderIcon() {
+  const c = COLOR.folder;
+  const wash = `${c}14`;
+  return (
+    <IconBox>
+      <path
+        d="M2 5 a1 1 0 0 1 1 -1 H6.5 L8 5.5 H13 a1 1 0 0 1 1 1 V12.5 a1 1 0 0 1 -1 1 H3 a1 1 0 0 1 -1 -1 Z"
+        fill={wash}
+        stroke={c}
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
     </IconBox>
   );
 }

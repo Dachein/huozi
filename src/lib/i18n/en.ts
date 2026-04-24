@@ -264,6 +264,12 @@ export const en = {
   "footer.legal": "MIT licensed · Built on Cloudflare",
   "nav.language": "Language",
 
+  // Workspace · Recent panel
+  "recent.title": "Recent",
+  "recent.op.new": "new",
+  "recent.op.edited": "edited",
+  "recent.op.deleted": "deleted",
+
   // /workspace — empty-state status + onboarding
   "ws.status.title": "Your workspace",
   "ws.status.connectedAgents": "Connected Agents",

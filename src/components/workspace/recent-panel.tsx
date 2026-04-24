@@ -18,6 +18,8 @@ import {
   HUOZI_LIVE_COMMIT_EVENT,
   type CommitEvent,
 } from "./cloud-live-events";
+import { FileIcon } from "@/components/workspace/file-icon";
+import { useT } from "@/lib/i18n/context";
 import type { RecentEntry } from "@/lib/drive/mcp-client";
 
 const DISPLAY_LIMIT = 10;
@@ -33,6 +35,7 @@ interface LiveEntry extends RecentEntry {
 }
 
 export function RecentPanel({ initial, currentPath }: RecentPanelProps) {
+  const t = useT();
   const [entries, setEntries] = useState<LiveEntry[]>(initial);
 
   useEffect(() => {
@@ -73,7 +76,7 @@ export function RecentPanel({ initial, currentPath }: RecentPanelProps) {
     <div className="border-b border-border/50">
       <div className="px-3 py-2 flex items-center justify-between">
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-          Recent
+          {t("recent.title")}
         </div>
         <div className="text-[10px] text-muted-foreground/70">
           {entries.length > DISPLAY_LIMIT
@@ -83,7 +86,11 @@ export function RecentPanel({ initial, currentPath }: RecentPanelProps) {
       </div>
       <ul className="px-1 pb-2 space-y-0.5 max-h-64 overflow-y-auto">
         {entries.slice(0, DISPLAY_LIMIT).map((e) => (
-          <RecentRow key={e.path + ":" + e.commit_sha} entry={e} current={e.path === currentPath} />
+          <RecentRow
+            key={e.path + ":" + e.commit_sha}
+            entry={e}
+            current={e.path === currentPath}
+          />
         ))}
       </ul>
     </div>
@@ -97,6 +104,7 @@ function RecentRow({
   entry: LiveEntry;
   current: boolean;
 }) {
+  const t = useT();
   const [flashing, setFlashing] = useState(false);
   const lastTag = useRef<number | undefined>(undefined);
 
@@ -104,8 +112,8 @@ function RecentRow({
     if (entry.freshTag && entry.freshTag !== lastTag.current) {
       lastTag.current = entry.freshTag;
       setFlashing(true);
-      const t = setTimeout(() => setFlashing(false), 1200);
-      return () => clearTimeout(t);
+      const tm = setTimeout(() => setFlashing(false), 1200);
+      return () => clearTimeout(tm);
     }
   }, [entry.freshTag]);
 
@@ -114,10 +122,10 @@ function RecentRow({
     ? entry.path.slice(0, entry.path.lastIndexOf("/"))
     : "";
 
-  const opLabel = shortOp(entry.operation, entry.in_batch);
+  const opLabel = opText(entry.operation, entry.in_batch, t);
   const opColor =
     entry.operation === "create"
-      ? "text-emerald-500"
+      ? "text-emerald-600"
       : entry.operation === "delete"
         ? "text-red-500"
         : "text-accent";
@@ -131,18 +139,17 @@ function RecentRow({
                    ${flashing ? "ring-1 ring-accent/60 bg-accent/10 animate-pulse" : ""}`}
         title={`${entry.path} — ${entry.message}`}
       >
-        <span className={`font-mono text-[9px] shrink-0 w-[26px] text-right ${opColor}`}>
-          {opLabel}
+        <span className="shrink-0 self-start mt-0.5">
+          <FileIcon name={base} isDir={false} />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate font-mono">{base}</span>
-          {parent && (
-            <span className="block truncate text-[10px] text-muted-foreground/70">
-              {parent}/
-            </span>
-          )}
+          <span className="block truncate text-[10px] text-muted-foreground/70">
+            <span className={`mr-1 ${opColor}`}>[{opLabel}]</span>
+            {parent && <span>{parent}/</span>}
+          </span>
         </span>
-        <span className="shrink-0 text-[10px] text-muted-foreground/80 tabular-nums">
+        <span className="shrink-0 text-[10px] text-muted-foreground/80 tabular-nums self-start mt-0.5">
           {formatRelative(entry.timestamp)}
         </span>
       </Link>
@@ -150,17 +157,21 @@ function RecentRow({
   );
 }
 
-function shortOp(op: string, inBatch: number): string {
+function opText(
+  op: string,
+  inBatch: number,
+  t: (key: string) => string,
+): string {
   if (inBatch > 1) return `×${inBatch}`;
   switch (op) {
     case "create":
-      return "new";
+      return t("recent.op.new");
     case "update":
-      return "upd";
+      return t("recent.op.edited");
     case "delete":
-      return "del";
+      return t("recent.op.deleted");
     default:
-      return op.slice(0, 3);
+      return op;
   }
 }
 

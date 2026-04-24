@@ -263,6 +263,12 @@ export const zh = {
   "footer.legal": "MIT 开源 · 跑在 Cloudflare 上",
   "nav.language": "语言",
 
+  // 云盘 · Recent 面板
+  "recent.title": "最近",
+  "recent.op.new": "新建",
+  "recent.op.edited": "编辑",
+  "recent.op.deleted": "删除",
+
   // /workspace — 空态引导
   "ws.status.title": "你的云盘",
   "ws.status.connectedAgents": "已连接 Agent",

@@ -264,6 +264,12 @@ export const fr = {
   "footer.legal": "Licence MIT · Bâti sur Cloudflare",
   "nav.language": "Langue",
 
+  // Workspace · panneau Récent
+  "recent.title": "Récent",
+  "recent.op.new": "nouveau",
+  "recent.op.edited": "modifié",
+  "recent.op.deleted": "supprimé",
+
   // /workspace — onboarding d'état vide
   "ws.status.title": "Votre workspace",
   "ws.status.connectedAgents": "Agents connectés",

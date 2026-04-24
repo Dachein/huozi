@@ -264,6 +264,12 @@ export const ja = {
   "footer.legal": "MIT ライセンス · Cloudflare 上で構築",
   "nav.language": "言語",
 
+  // ワークスペース · 最近パネル
+  "recent.title": "最近",
+  "recent.op.new": "新規",
+  "recent.op.edited": "編集",
+  "recent.op.deleted": "削除",
+
   // /workspace — 空状態オンボーディング
   "ws.status.title": "あなたのワークスペース",
   "ws.status.connectedAgents": "接続中の Agent",
