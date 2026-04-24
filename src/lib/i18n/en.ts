@@ -555,4 +555,11 @@ export const en = {
   "connect.terminal.title": "Prefer the terminal? One command:",
   "connect.terminal.desc":
     "Works in Claude Code, Cursor, OpenClaw — or any agent with a shell. Runs the same OAuth flow and writes the MCP config for you.",
+
+  // CSV · row detail
+  "csv.rowDetail.title": "Row details",
+  "csv.rowDetail.open": "Open row details",
+  "csv.rowDetail.close": "Close",
+  "csv.rowDetail.rowOf": "Row {n} of {total}",
+  "csv.rowDetail.empty": "—",
 } as const;

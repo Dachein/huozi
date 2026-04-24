@@ -552,4 +552,11 @@ export const zh = {
   "connect.terminal.title": "更喜欢终端？一行命令：",
   "connect.terminal.desc":
     "适用于 Claude Code、Cursor、OpenClaw —— 或任何带 shell 的 agent。跑的是同样的 OAuth 流程，自动帮你写好 MCP 配置。",
+
+  // CSV · 行详情
+  "csv.rowDetail.title": "行详情",
+  "csv.rowDetail.open": "查看此行详情",
+  "csv.rowDetail.close": "关闭",
+  "csv.rowDetail.rowOf": "第 {n} 行 / 共 {total} 行",
+  "csv.rowDetail.empty": "—",
 } as const;

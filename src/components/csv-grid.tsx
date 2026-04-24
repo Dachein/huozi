@@ -4,10 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DataEditor,
   GridCellKind,
+  emptyGridSelection,
   type DataEditorProps,
   type GridCell,
   type GridColumn,
+  type GridSelection,
   type Item,
+  type Rectangle,
   type Theme,
 } from "@glideapps/glide-data-grid";
 import "@glideapps/glide-data-grid/dist/index.css";
@@ -16,6 +19,7 @@ import {
   inferNumericColumns,
   isNumeric,
 } from "@/lib/csv/parse";
+import { useT } from "@/lib/i18n/context";
 
 export interface CsvGridProps {
   /** Raw file content. */
@@ -34,6 +38,7 @@ const CHAR_PX = 7;
 const COL_PADDING_PX = 24;
 const VIEWPORT_CHROME_PX = 180;
 const WIDTH_SAMPLE_ROWS = 100;
+const HANDLE_SIZE = 22;
 
 function measureColWidth(head: string, body: string[][], col: number): number {
   let longest = head.length;
@@ -49,6 +54,8 @@ function measureColWidth(head: string, body: string[][], col: number): number {
 }
 
 export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps) {
+  const t = useT();
+
   const { header, rows, numericCols } = useMemo(() => {
     const all = parseDelimited(content, delim);
     if (all.length === 0) {
@@ -128,6 +135,26 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
     return copy;
   }, [filtered, sort, numericCols]);
 
+  // Controlled cell selection — lets us anchor the row-handle to whichever
+  // row the user just clicked. Reset whenever the displayed rows shift
+  // (filter/sort), because the numeric index we stored points into the old
+  // `sorted` array.
+  const [gridSel, setGridSel] = useState<GridSelection>(emptyGridSelection);
+  const [detailRowIndex, setDetailRowIndex] = useState<number | null>(null);
+  const [visible, setVisible] = useState<{
+    y: number;
+    height: number;
+    ty: number;
+  }>({ y: 0, height: 0, ty: 0 });
+
+  // Selection is stored as a numeric index into `sorted`; invalidate it
+  // whenever the visible row order changes so the handle and modal don't
+  // dangle on the wrong row.
+  const resetRowFocus = useCallback(() => {
+    setGridSel(emptyGridSelection);
+    setDetailRowIndex(null);
+  }, []);
+
   const columns = useMemo<GridColumn[]>(() => {
     return header.map((h, i) => {
       const active = sort?.col === i;
@@ -170,12 +197,27 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
 
   const onHeaderClicked = useCallback<
     NonNullable<DataEditorProps["onHeaderClicked"]>
-  >((col) => {
-    setSort((prev) => {
-      if (!prev || prev.col !== col) return { col, dir: "asc" };
-      if (prev.dir === "asc") return { col, dir: "desc" };
-      return null;
-    });
+  >(
+    (col) => {
+      setSort((prev) => {
+        if (!prev || prev.col !== col) return { col, dir: "asc" };
+        if (prev.dir === "asc") return { col, dir: "desc" };
+        return null;
+      });
+      resetRowFocus();
+    },
+    [resetRowFocus],
+  );
+
+  const onVisibleRegionChanged = useCallback(
+    (range: Rectangle, _tx: number, ty: number) => {
+      setVisible({ y: range.y, height: range.height, ty });
+    },
+    [],
+  );
+
+  const onGridSelectionChange = useCallback((sel: GridSelection) => {
+    setGridSel(sel);
   }, []);
 
   const theme = useMemo<Partial<Theme>>(
@@ -226,6 +268,18 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
         sorted.length * ROW_HEIGHT + HEADER_HEIGHT + 2,
       );
 
+  const selectedRow = gridSel.current?.cell[1];
+  const handleVisible =
+    selectedRow !== undefined &&
+    selectedRow >= visible.y &&
+    selectedRow < visible.y + visible.height;
+  const handleTop = handleVisible
+    ? HEADER_HEIGHT +
+      (selectedRow - visible.y) * ROW_HEIGHT +
+      visible.ty +
+      (ROW_HEIGHT - HANDLE_SIZE) / 2
+    : 0;
+
   const grid = (
     <div className={fullscreen ? "flex flex-col h-full" : "space-y-2"}>
       <div className="flex items-center gap-2 text-xs">
@@ -233,7 +287,10 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
           type="text"
           placeholder="Filter…"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            resetRowFocus();
+          }}
           className="flex-1 min-w-0 rounded border border-border bg-background px-2 py-1 outline-none focus:border-foreground/40"
         />
         <span className="text-muted-foreground whitespace-nowrap">
@@ -252,7 +309,7 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
       </div>
 
       <div
-        className={`${fullscreen ? "flex-1 min-h-0" : ""} rounded-lg border border-border overflow-hidden`}
+        className={`${fullscreen ? "flex-1 min-h-0" : ""} relative rounded-lg border border-border overflow-hidden`}
         style={fullscreen ? undefined : { height: gridHeight }}
       >
         <DataEditor
@@ -267,21 +324,159 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
           smoothScrollY
           onHeaderClicked={onHeaderClicked}
           onColumnResize={onColumnResize}
+          gridSelection={gridSel}
+          onGridSelectionChange={onGridSelectionChange}
+          onVisibleRegionChanged={onVisibleRegionChanged}
           freezeColumns={1}
           getCellsForSelection={true}
           keybindings={{ copy: true }}
           theme={theme}
           rowMarkers="none"
         />
+        {handleVisible && (
+          <button
+            type="button"
+            onClick={() => setDetailRowIndex(selectedRow!)}
+            aria-label={t("csv.rowDetail.open")}
+            title={t("csv.rowDetail.open")}
+            className="absolute z-10 flex items-center justify-center rounded border border-border bg-background/95 text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground transition-colors"
+            style={{
+              top: handleTop,
+              left: 4,
+              width: HANDLE_SIZE,
+              height: HANDLE_SIZE,
+            }}
+          >
+            <HandleIcon />
+          </button>
+        )}
       </div>
     </div>
   );
 
-  if (!fullscreen) return grid;
+  const detailValues =
+    detailRowIndex !== null ? sorted[detailRowIndex] : undefined;
+
+  const modal = detailValues ? (
+    <RowDetailModal
+      header={header}
+      values={detailValues}
+      numericCols={numericCols}
+      rowNumber={detailRowIndex! + 1}
+      totalRows={sorted.length}
+      onClose={() => setDetailRowIndex(null)}
+    />
+  ) : null;
+
+  if (!fullscreen) {
+    return (
+      <>
+        {grid}
+        {modal}
+      </>
+    );
+  }
 
   return (
-    <div className="fixed inset-0 z-50 bg-background flex flex-col p-4 sm:p-6">
-      {grid}
+    <>
+      <div className="fixed inset-0 z-50 bg-background flex flex-col p-4 sm:p-6">
+        {grid}
+      </div>
+      {modal}
+    </>
+  );
+}
+
+interface RowDetailModalProps {
+  header: string[];
+  values: string[];
+  numericCols: boolean[];
+  rowNumber: number;
+  totalRows: number;
+  onClose: () => void;
+}
+
+function RowDetailModal({
+  header,
+  values,
+  numericCols,
+  rowNumber,
+  totalRows,
+  onClose,
+}: RowDetailModalProps) {
+  const t = useT();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const subtitle = t("csv.rowDetail.rowOf")
+    .replace("{n}", rowNumber.toLocaleString())
+    .replace("{total}", totalRows.toLocaleString());
+  const emptyPlaceholder = t("csv.rowDetail.empty");
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-[60] flex items-center justify-center px-4"
+    >
+      <div
+        className="absolute inset-0 bg-foreground/30 backdrop-blur-sm animate-in fade-in duration-150"
+        onClick={onClose}
+      />
+      <div
+        ref={panelRef}
+        className="relative w-full max-w-lg max-h-[80vh] overflow-y-auto rounded-lg border border-border bg-background shadow-xl p-6
+                   animate-in fade-in zoom-in-95 duration-150"
+      >
+        <div className="flex items-start justify-between mb-4 gap-4">
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold">
+              {t("csv.rowDetail.title")}
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t("csv.rowDetail.close")}
+            className="text-muted-foreground hover:text-foreground shrink-0"
+          >
+            <CloseIcon />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {header.map((name, i) => {
+            const value = values[i] ?? "";
+            const isEmpty = value.length === 0;
+            return (
+              <div key={i}>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                  {name || `col ${i + 1}`}
+                </div>
+                <div
+                  className={`mt-1 text-sm break-words whitespace-pre-wrap ${
+                    isEmpty
+                      ? "text-muted-foreground"
+                      : numericCols[i]
+                        ? "font-mono"
+                        : ""
+                  }`}
+                >
+                  {isEmpty ? emptyPlaceholder : value}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -309,6 +504,44 @@ function CollapseIcon() {
         strokeWidth="1.4"
         strokeLinecap="round"
         strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function HandleIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="12"
+      height="12"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <circle cx="6" cy="4" r="1.1" />
+      <circle cx="10" cy="4" r="1.1" />
+      <circle cx="6" cy="8" r="1.1" />
+      <circle cx="10" cy="8" r="1.1" />
+      <circle cx="6" cy="12" r="1.1" />
+      <circle cx="10" cy="12" r="1.1" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="16"
+      height="16"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d="M4 4 L12 12 M12 4 L4 12"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
       />
     </svg>
   );
