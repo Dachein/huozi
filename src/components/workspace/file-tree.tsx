@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, useEffect, useCallback } from "react";
+import { FileIcon } from "@/components/workspace/file-icon";
 
 export interface FileTreeProps {
   /** Workspace-relative paths, e.g. "funds/fund-A/report.md" */
@@ -90,30 +91,6 @@ function saveExpanded(s: Set<string>): void {
   } catch {
     // ignore
   }
-}
-
-/** Icon character by extension. Intentionally monospace-safe (no emoji for consistent width). */
-function fileIcon(name: string, isDir: boolean): { char: string; cls: string } {
-  if (isDir) return { char: "▸", cls: "text-muted-foreground" };
-  const ext = (name.split(".").pop() ?? "").toLowerCase();
-  if (["md", "mdx"].includes(ext))
-    return { char: "M", cls: "text-blue-500" };
-  if (["html", "htm"].includes(ext))
-    return { char: "H", cls: "text-orange-500" };
-  if (["csv", "tsv"].includes(ext))
-    return { char: "T", cls: "text-green-500" };
-  if (ext === "json") return { char: "J", cls: "text-yellow-500" };
-  if (
-    ["ts", "tsx", "js", "jsx", "mjs", "cjs"].includes(ext)
-  )
-    return { char: "⟨⟩", cls: "text-purple-500" };
-  if (["py", "rb", "go", "rs", "java", "swift", "kt", "c", "cpp", "h"].includes(ext))
-    return { char: "⟨⟩", cls: "text-purple-500" };
-  if (["png", "jpg", "jpeg", "gif", "webp", "svg", "ico"].includes(ext))
-    return { char: "I", cls: "text-pink-500" };
-  if (["pdf"].includes(ext))
-    return { char: "P", cls: "text-red-500" };
-  return { char: "·", cls: "text-muted-foreground" };
 }
 
 export function FileTree({ paths, currentPath, onNavigate }: FileTreeProps) {
@@ -272,7 +249,6 @@ function TreeNode({
   onNavigate,
 }: TreeNodeProps) {
   const open = isOpen(node.path);
-  const icon = fileIcon(node.name, node.isDir);
   const selected = !node.isDir && currentPath === node.path;
   const paddingLeft = 8 + depth * 14;
 
@@ -285,9 +261,7 @@ function TreeNode({
           className="w-full flex items-center gap-1.5 text-left py-1.5 rounded hover:bg-muted/60 transition-colors"
           style={{ paddingLeft, paddingRight: 8 }}
         >
-          <span className={`text-xs w-4 text-center ${icon.cls} transition-transform ${open ? "rotate-90" : ""}`}>
-            {icon.char}
-          </span>
+          <FileIcon name={node.name} isDir open={open} />
           <span className="text-sm text-muted-foreground truncate">
             {node.name}
           </span>
@@ -315,9 +289,7 @@ function TreeNode({
         className={`flex items-center gap-1.5 py-1.5 rounded transition-colors ${selected ? "bg-accent/10 text-accent" : "hover:bg-muted/60"}`}
         style={{ paddingLeft, paddingRight: 8 }}
       >
-        <span className={`text-[10px] w-4 text-center font-mono font-bold ${icon.cls}`}>
-          {icon.char}
-        </span>
+        <FileIcon name={node.name} isDir={false} />
         <span className="text-sm font-mono truncate">{node.name}</span>
       </Link>
     </li>
