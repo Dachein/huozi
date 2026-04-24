@@ -262,6 +262,7 @@ export const en = {
   "footer.col.resources": "Resources",
   "footer.col.source": "Source",
   "footer.legal": "MIT licensed · Built on Cloudflare",
+  "nav.language": "Language",
 
   // /workspace — empty-state status + onboarding
   "ws.status.title": "Your workspace",

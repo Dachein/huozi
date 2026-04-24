@@ -261,6 +261,7 @@ export const zh = {
   "footer.col.resources": "资源",
   "footer.col.source": "源码",
   "footer.legal": "MIT 开源 · 跑在 Cloudflare 上",
+  "nav.language": "语言",
 
   // /workspace — 空态引导
   "ws.status.title": "你的云盘",

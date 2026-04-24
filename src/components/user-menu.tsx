@@ -17,23 +17,10 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { useLocale } from "@/lib/i18n/context";
-import { COOKIE_NAME, type Locale, LOCALES } from "@/lib/i18n";
+import { usePathname } from "next/navigation";
+import { LocaleGrid } from "@/components/locale-grid";
 import { isEdge } from "@/lib/edition";
 import type { Principal, Workspace } from "@/lib/identity";
-
-interface LocaleInfo {
-  glyph: string;
-  native: string;
-}
-
-const INFO: Record<Locale, LocaleInfo> = {
-  zh: { glyph: "中", native: "中文" },
-  en: { glyph: "A", native: "English" },
-  ja: { glyph: "あ", native: "日本語" },
-  fr: { glyph: "F", native: "Français" },
-};
 
 export interface UserMenuProps {
   principal: Principal;
@@ -41,8 +28,6 @@ export interface UserMenuProps {
 }
 
 export function UserMenu({ principal, workspace }: UserMenuProps) {
-  const currentLocale = useLocale();
-  const router = useRouter();
   const pathname = usePathname() ?? "";
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -73,12 +58,6 @@ export function UserMenu({ principal, workspace }: UserMenuProps) {
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
-
-  function chooseLocale(loc: Locale) {
-    document.cookie = `${COOKIE_NAME}=${loc};path=/;max-age=${60 * 60 * 24 * 365};samesite=lax`;
-    setOpen(false);
-    router.refresh();
-  }
 
   const exitLabel = isEdge() ? "Disconnect" : "Exit";
   const exitTitle = isEdge()
@@ -167,39 +146,7 @@ export function UserMenu({ principal, workspace }: UserMenuProps) {
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
               Language
             </div>
-            <div className="flex gap-1">
-              {LOCALES.map((loc) => {
-                const active = loc === currentLocale;
-                const rowInfo = INFO[loc];
-                return (
-                  <button
-                    key={loc}
-                    type="button"
-                    onClick={() => chooseLocale(loc)}
-                    title={rowInfo.native}
-                    aria-label={rowInfo.native}
-                    aria-pressed={active}
-                    className={`flex-1 flex flex-col items-center gap-0.5 rounded-md px-2 py-1.5 transition-colors
-                               ${
-                                 active
-                                   ? "bg-muted text-foreground"
-                                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                               }`}
-                  >
-                    <span
-                      className={`font-serif text-base leading-none ${
-                        active ? "text-accent" : ""
-                      }`}
-                    >
-                      {rowInfo.glyph}
-                    </span>
-                    <span className="text-[10px] truncate max-w-full">
-                      {rowInfo.native}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            <LocaleGrid onPick={() => setOpen(false)} />
           </div>
 
           {/* Workspace section — Files is the primary view; Shares is

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { LocaleSwitcher } from "@/components/locale-switcher";
+import { LocaleGrid } from "@/components/locale-grid";
 import { t, type Locale } from "@/lib/i18n";
 
 export function MarketingHeader({ locale }: { locale: Locale }) {
@@ -100,7 +101,10 @@ export function MarketingHeader({ locale }: { locale: Locale }) {
               </Link>
             ))}
             <div className="mt-3 pt-3 border-t border-border/40">
-              <LocaleSwitcher placement="down" />
+              <div className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground/80 mb-2">
+                {_("nav.language")}
+              </div>
+              <LocaleGrid onPick={() => setOpen(false)} />
             </div>
           </nav>
         </div>

@@ -262,6 +262,7 @@ export const ja = {
   "footer.col.resources": "リソース",
   "footer.col.source": "ソース",
   "footer.legal": "MIT ライセンス · Cloudflare 上で構築",
+  "nav.language": "言語",
 
   // /workspace — 空状態オンボーディング
   "ws.status.title": "あなたのワークスペース",
