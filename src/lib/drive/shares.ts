@@ -37,6 +37,8 @@ export interface CreateShareInput {
   file_path: string
   slug?: string
   passcode?: string
+  /** TTL in seconds; omit / null / 0 = never expires. */
+  expires_in_seconds?: number | null
 }
 
 interface ErrorResponse {
@@ -124,6 +126,7 @@ export async function createShare(
       commit_sha: string
       has_passcode: boolean
       created_at: number
+      expires_at: number | null
     }
   | { ok: false; error?: string; message: string; status: number }
 > {
@@ -155,6 +158,7 @@ export async function createShare(
       commit_sha: string
       has_passcode: boolean
       created_at: number
+      expires_at: number | null
     }
   } catch (err) {
     return {
@@ -173,6 +177,7 @@ export interface OwnerShareRow {
   has_passcode: boolean
   created_at: number
   revoked_at: number | null
+  expires_at: number | null
   view_count: number
 }
 

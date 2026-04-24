@@ -280,6 +280,17 @@ export const fr = {
   "ws.search.placeholder": "Tapez un nom de fichier ou chemin…",
   "ws.search.noMatch": "Aucun fichier ne correspond.",
 
+  // Dialogue de partage — expiration
+  "share.expiry.label": "Le lien expire dans",
+  "share.expiry.hint": "Les liens expirés renvoient introuvable. Choisissez « Jamais » pour un lien permanent.",
+  "share.expiry.30m": "30 min",
+  "share.expiry.6h": "6 heures",
+  "share.expiry.24h": "24 heures",
+  "share.expiry.1mo": "1 mois",
+  "share.expiry.never": "Jamais",
+  "share.expiry.expiresAt": "Expire {when}",
+  "share.expiry.permanent": "Sans expiration",
+
   // /workspace — onboarding d'état vide
   "ws.status.title": "Votre workspace",
   "ws.status.connectedAgents": "Agents connectés",

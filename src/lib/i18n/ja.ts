@@ -280,6 +280,17 @@ export const ja = {
   "ws.search.placeholder": "ファイル名やパスを入力…",
   "ws.search.noMatch": "一致するファイルがありません。",
 
+  // 共有ダイアログ — 有効期限
+  "share.expiry.label": "リンクの有効期限",
+  "share.expiry.hint": "期限切れのリンクは not found を返します。「無期限」で永続 URL に。",
+  "share.expiry.30m": "30 分",
+  "share.expiry.6h": "6 時間",
+  "share.expiry.24h": "24 時間",
+  "share.expiry.1mo": "1 か月",
+  "share.expiry.never": "無期限",
+  "share.expiry.expiresAt": "{when} に期限切れ",
+  "share.expiry.permanent": "期限なし",
+
   // /workspace — 空状態オンボーディング
   "ws.status.title": "あなたのワークスペース",
   "ws.status.connectedAgents": "接続中の Agent",

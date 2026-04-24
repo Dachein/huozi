@@ -150,7 +150,9 @@ CREATE INDEX IF NOT EXISTS idx_device_grants_status
 -- (or any commit referencing it) exists.
 --
 -- `passcode_hash` NULL = fully public. Non-null = 6-digit SHA-256 gate.
--- No expiry in v1. Owners can revoke via `revoked_at`.
+-- `expires_at` NULL = never expires. Non-null = epoch-ms deadline; reads
+-- after that point treat the share as gone (same surface as revoke).
+-- Owners can revoke early via `revoked_at`.
 CREATE TABLE IF NOT EXISTS shares (
   slug          TEXT PRIMARY KEY,
   workspace_id  TEXT NOT NULL,
@@ -160,6 +162,7 @@ CREATE TABLE IF NOT EXISTS shares (
   passcode_hash TEXT,
   created_at    INTEGER NOT NULL,
   revoked_at    INTEGER,
+  expires_at    INTEGER,
   view_count    INTEGER NOT NULL DEFAULT 0,
   /* The user-facing principal who issued the share (for audit; RLS lives at
      the Worker boundary via api_keys). */

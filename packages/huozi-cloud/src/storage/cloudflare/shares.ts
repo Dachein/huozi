@@ -69,8 +69,20 @@ interface ShareRow {
   passcode_hash: string | null
   created_at: number
   revoked_at: number | null
+  expires_at: number | null
   view_count: number
   created_by: string
+}
+
+/** Upper bound on TTL in seconds. 10 years; callers pass a discrete choice. */
+const MAX_TTL_SECONDS = 10 * 365 * 24 * 60 * 60
+
+function normalizeTtlSeconds(raw: unknown): number | null | 'invalid' {
+  if (raw === undefined || raw === null) return null
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return 'invalid'
+  if (raw <= 0) return null
+  if (raw > MAX_TTL_SECONDS) return 'invalid'
+  return Math.floor(raw)
 }
 
 // ── Internal helpers ────────────────────────────────────────────────────
@@ -205,6 +217,8 @@ export interface CreateShareInput {
   slug?: string
   /** Optional 6-digit passcode. */
   passcode?: string
+  /** Optional TTL in seconds. Omit / null / 0 = never expires. */
+  expires_in_seconds?: number | null
 }
 
 export interface CreateSharePrincipal {
@@ -222,6 +236,7 @@ export type CreateShareResult =
       commit_sha: string | null
       has_passcode: boolean
       created_at: number
+      expires_at: number | null
     }
   | {
       ok: false
@@ -229,6 +244,7 @@ export type CreateShareResult =
         | 'invalid_file_path'
         | 'invalid_slug'
         | 'invalid_passcode'
+        | 'invalid_ttl'
         | 'file_not_found'
         | 'slug_taken'
         | 'insert_failed'
@@ -279,6 +295,16 @@ export async function createShareRow(
     passcodeHash = await sha256Hex(pc)
   }
 
+  // Validate TTL. undefined / null / 0 → never expires.
+  const ttl = normalizeTtlSeconds(input.expires_in_seconds)
+  if (ttl === 'invalid') {
+    return {
+      ok: false,
+      error: 'invalid_ttl',
+      message: `expires_in_seconds must be a positive number ≤ ${MAX_TTL_SECONDS}.`,
+    }
+  }
+
   // Resolve slug: user-supplied (strict validation, returns slug_taken
   // on collision) OR auto-generated (retry a few times on collision).
   let slug: string
@@ -311,11 +337,12 @@ export async function createShareRow(
   }
 
   const now = Date.now()
+  const expiresAt = ttl === null ? null : now + ttl * 1000
   try {
     await env.DB.prepare(
       `INSERT INTO shares
-       (slug, workspace_id, file_path, blob_sha, commit_sha, passcode_hash, created_at, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       (slug, workspace_id, file_path, blob_sha, commit_sha, passcode_hash, created_at, expires_at, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
       .bind(
         slug,
@@ -325,6 +352,7 @@ export async function createShareRow(
         current.commit_sha ?? '',
         passcodeHash,
         now,
+        expiresAt,
         principal.principalId,
       )
       .run()
@@ -345,6 +373,7 @@ export async function createShareRow(
     commit_sha: current.commit_sha ?? null,
     has_passcode: passcodeHash !== null,
     created_at: now,
+    expires_at: expiresAt,
   }
 }
 
@@ -354,6 +383,7 @@ interface CreateShareBody {
   file_path?: string
   slug?: string
   passcode?: string
+  expires_in_seconds?: number | null
 }
 
 export async function handleCreateShare(
@@ -390,6 +420,7 @@ export async function handleCreateShare(
       file_path: body.file_path ?? '',
       slug: body.slug,
       passcode: body.passcode,
+      expires_in_seconds: body.expires_in_seconds,
     },
   )
 
@@ -432,9 +463,12 @@ export async function handleGetShare(
     return Response.json({ error: 'bad_slug' }, { status: 400 })
   }
   const row = await env.DB.prepare(
-    `SELECT * FROM shares WHERE slug = ? AND revoked_at IS NULL`,
+    `SELECT * FROM shares
+     WHERE slug = ?
+       AND revoked_at IS NULL
+       AND (expires_at IS NULL OR expires_at > ?)`,
   )
-    .bind(slug)
+    .bind(slug, Date.now())
     .first<ShareRow>()
   if (!row) {
     return Response.json({ error: 'not_found' }, { status: 404 })
@@ -510,9 +544,12 @@ export async function handleUnlockShare(
   }
 
   const row = await env.DB.prepare(
-    `SELECT * FROM shares WHERE slug = ? AND revoked_at IS NULL`,
+    `SELECT * FROM shares
+     WHERE slug = ?
+       AND revoked_at IS NULL
+       AND (expires_at IS NULL OR expires_at > ?)`,
   )
-    .bind(slug)
+    .bind(slug, Date.now())
     .first<ShareRow>()
   if (!row) {
     return Response.json({ error: 'not_found' }, { status: 404 })
@@ -584,7 +621,7 @@ export async function handleListShares(
   }
   const { results } = await env.DB.prepare(
     `SELECT slug, file_path, blob_sha, commit_sha, passcode_hash, created_at,
-            revoked_at, view_count
+            revoked_at, expires_at, view_count
      FROM shares
      WHERE workspace_id = ?
      ORDER BY created_at DESC
@@ -602,6 +639,7 @@ export async function handleListShares(
     has_passcode: r.passcode_hash !== null,
     created_at: r.created_at,
     revoked_at: r.revoked_at,
+    expires_at: r.expires_at,
     view_count: r.view_count,
   }))
   return Response.json({ ok: true, shares: mapped })

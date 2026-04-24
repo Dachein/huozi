@@ -323,7 +323,12 @@ type Presence = "active" | "recent" | "idle" | "cold";
 function presenceBucket(lastUsedAt: number | null): Presence {
   if (lastUsedAt === null) return "cold";
   const elapsed = Date.now() - lastUsedAt;
-  if (elapsed < 30_000) return "active";
+  // Thresholds tuned so the dot matches a user's intuitive sense of
+  // "are they here right now?" — an Agent that made any request in the
+  // last 3 minutes is probably still in a working session; past 5
+  // minutes it feels genuinely idle. The amber gap (3–5 min) softens
+  // the transition rather than flipping green→gray abruptly.
+  if (elapsed < 3 * 60_000) return "active";
   if (elapsed < 5 * 60_000) return "recent";
   return "idle";
 }
@@ -332,11 +337,11 @@ function PresenceDot({ bucket }: { bucket: Presence }) {
   const map: Record<Presence, { cls: string; title: string }> = {
     active: {
       cls: "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]",
-      title: "Active — last request < 30s ago",
+      title: "Active — last request < 3 min ago",
     },
     recent: {
       cls: "bg-amber-500",
-      title: "Recently active — last request < 5 min ago",
+      title: "Recently active — last request 3–5 min ago",
     },
     idle: {
       cls: "bg-muted-foreground/60",

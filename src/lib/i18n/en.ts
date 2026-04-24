@@ -280,6 +280,17 @@ export const en = {
   "ws.search.placeholder": "Type a file name or path…",
   "ws.search.noMatch": "No files match.",
 
+  // Publish / share dialog — TTL picker
+  "share.expiry.label": "Link expires in",
+  "share.expiry.hint": "Expired links return not found. Choose 'Never' for a permanent URL.",
+  "share.expiry.30m": "30 min",
+  "share.expiry.6h": "6 hours",
+  "share.expiry.24h": "24 hours",
+  "share.expiry.1mo": "1 month",
+  "share.expiry.never": "Never",
+  "share.expiry.expiresAt": "Expires {when}",
+  "share.expiry.permanent": "Never expires",
+
   // /workspace — empty-state status + onboarding
   "ws.status.title": "Your workspace",
   "ws.status.connectedAgents": "Connected Agents",

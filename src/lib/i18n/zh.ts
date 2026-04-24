@@ -279,6 +279,17 @@ export const zh = {
   "ws.search.placeholder": "输入文件名或路径…",
   "ws.search.noMatch": "没有匹配的文件。",
 
+  // 发布 / 分享弹窗 —— 有效期
+  "share.expiry.label": "链接有效期",
+  "share.expiry.hint": "过期后链接返回 not found。选"永不"即不过期。",
+  "share.expiry.30m": "30 分钟",
+  "share.expiry.6h": "6 小时",
+  "share.expiry.24h": "24 小时",
+  "share.expiry.1mo": "1 个月",
+  "share.expiry.never": "永不",
+  "share.expiry.expiresAt": "{when} 过期",
+  "share.expiry.permanent": "永不过期",
+
   // /workspace — 空态引导
   "ws.status.title": "你的云盘",
   "ws.status.connectedAgents": "已连接 Agent",
