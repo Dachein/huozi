@@ -122,6 +122,14 @@ function RecentRow({
     ? entry.path.slice(0, entry.path.lastIndexOf("/"))
     : "";
 
+  // .huozi-keep is the hidden marker huozi_mkdir writes to reserve an
+  // empty folder. Show the parent path *as* the row title so the user
+  // sees "xiaoji" (or "layer1/layer2") instead of the implementation
+  // detail. The folder icon still applies.
+  const isFolderMarker = base === ".huozi-keep";
+  const titleText = isFolderMarker ? parent || base : base;
+  const parentText = isFolderMarker ? "" : parent;
+
   const opLabel = opText(entry.operation, entry.in_batch, t);
   const opColor =
     entry.operation === "create"
@@ -143,10 +151,10 @@ function RecentRow({
           <FileIcon name={base} isDir={false} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-mono">{base}</span>
+          <span className="block truncate font-mono">{titleText}</span>
           <span className="block truncate text-[10px] text-muted-foreground/70">
             <span className={`mr-1 ${opColor}`}>[{opLabel}]</span>
-            {parent && <span>{parent}/</span>}
+            {parentText && <span>{parentText}/</span>}
           </span>
         </span>
         <span className="shrink-0 text-[10px] text-muted-foreground/80 tabular-nums self-start mt-0.5">
