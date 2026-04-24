@@ -13,11 +13,17 @@ export function buildInstallMcpNext(
   /** Optional — omit when the token was pasted (path 2/3) and we don't
    *  have a cheap way to resolve the workspace slug server-side. */
   workspace_slug: string | null,
+  opts?: {
+    /** Signup path only: one-time Supabase magic link that drops the
+     *  user straight into /workspace with no extra email OTP. */
+    workspace_url?: string;
+  },
 ): InstallMcpNext {
   return {
     action: "install_mcp",
     api_key,
     workspace_slug: workspace_slug ?? "",
+    workspace_url: opts?.workspace_url,
     commands: {
       "claude-code": `claude mcp add --transport http huozi ${CLOUD_MCP_URL} \\
   -H "Authorization: Bearer ${api_key}" \\
@@ -56,8 +62,20 @@ curl -X POST ${CLOUD_MCP_URL} \\
   -H "Content-Type: application/json" \\
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`,
     },
-    message: workspace_slug
-      ? `Workspace "${workspace_slug}" is ready. Copy the snippet for your client into its MCP config, then restart the client. You can rename the workspace later at https://huozi.app/workspace.`
-      : `API key accepted. Copy the snippet for your client into its MCP config, then restart the client. Manage the connection at https://huozi.app/workspace.`,
+    message: buildMessage(workspace_slug, opts?.workspace_url),
   };
+}
+
+function buildMessage(
+  workspace_slug: string | null,
+  workspace_url?: string,
+): string {
+  const base = workspace_slug
+    ? `Workspace "${workspace_slug}" is ready.`
+    : `API key accepted.`;
+  const install = `Copy the snippet for your client into its MCP config, then restart the client.`;
+  const browser = workspace_url
+    ? `Open this one-time link to enter your workspace in a browser — no second login needed: ${workspace_url} (valid ~1 hour, single-use).`
+    : `Manage the connection at https://huozi.app/workspace.`;
+  return `${base} ${install} ${browser}`;
 }

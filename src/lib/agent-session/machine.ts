@@ -343,10 +343,30 @@ async function handleCode(
     api_key_id: minted.key_id,
   });
 
+  // Best-effort one-time magic link so the user can land in /workspace
+  // without a second email-OTP round-trip. Only generated on this signup
+  // path — paths 2/3 already have their own session / key. A failure
+  // here is non-fatal: we just drop the link from the response.
+  let workspace_url: string | undefined;
+  try {
+    const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
+      type: "magiclink",
+      email: row.email,
+      options: { redirectTo: "https://huozi.app/workspace" },
+    });
+    if (!linkErr && linkData?.properties?.action_link) {
+      workspace_url = linkData.properties.action_link;
+    }
+  } catch {
+    /* best-effort; omit the link on any Supabase hiccup */
+  }
+
   return {
     ok: true,
     session_id: row.id,
-    next: buildInstallMcpNext(minted.api_key, workspace_slug),
+    next: buildInstallMcpNext(minted.api_key, workspace_slug, {
+      workspace_url,
+    }),
   };
 }
 

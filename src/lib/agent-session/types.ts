@@ -53,6 +53,17 @@ export interface InstallMcpNext {
   action: "install_mcp";
   api_key: string;
   workspace_slug: string;
+  /**
+   * One-time magic link that drops the user straight into /workspace in
+   * a browser — no second email-OTP round-trip needed. Only set on the
+   * signup path (choice=1); omitted for choice=2 (device flow) and
+   * choice=3 (paste token) because in those cases the user either
+   * already has a browser session or never asked for one.
+   *
+   * Supabase-issued, single-use, 1-hour TTL. The Agent MAY surface this
+   * to the user; it MUST NOT store or log it.
+   */
+  workspace_url?: string;
   /** Per-client install instructions (command or config body). */
   commands: {
     "claude-code": string;
