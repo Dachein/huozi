@@ -35,7 +35,6 @@ export type ShareResponse = ShareContent | LockedShare
 
 export interface CreateShareInput {
   file_path: string
-  slug?: string
   passcode?: string
   /** TTL in seconds; omit / null / 0 = never expires. */
   expires_in_seconds?: number | null

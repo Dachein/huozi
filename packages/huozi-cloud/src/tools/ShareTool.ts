@@ -9,8 +9,9 @@
  *     file_path, not a frozen snapshot. Later edits to the file show
  *     up on the URL automatically. Deleting the file makes the URL
  *     return file_no_longer_exists.
- *   - `slug` is optional. If provided, it must be 3–40 lowercase
- *     alphanumerics-or-hyphens. If omitted, a 10-char slug is generated.
+ *   - Slug is ALWAYS server-generated — a 10-char random string. The
+ *     custom-slug path was removed so Web and Agent surfaces produce
+ *     identical URL shapes.
  *   - `passcode` is optional. If provided, it must be exactly 6 digits.
  *     Visitors without the passcode see a locked shell; with it, they
  *     see the file.
@@ -32,16 +33,18 @@ export const SHARE_TOOL_NAME = 'huozi_share'
 
 export const shareInputSchema = z.object({
   file_path: z.string().describe('Path of the file to publish'),
-  slug: z
-    .string()
-    .optional()
-    .describe(
-      'Optional custom slug (3–40 chars, lowercase a-z/0-9/hyphens). Omit to auto-generate.',
-    ),
   passcode: z
     .string()
     .optional()
     .describe('Optional 6-digit passcode. Omit for a fully public share.'),
+  expires_in_seconds: z
+    .number()
+    .positive()
+    .int()
+    .optional()
+    .describe(
+      'Optional TTL in seconds. Link becomes not-found after this many seconds. Omit for a permanent link.',
+    ),
 })
 
 export type ShareInput = z.infer<typeof shareInputSchema>
@@ -56,17 +59,19 @@ export const shareOutputSchema = z.object({
   blob_sha: z.string(),
   commit_sha: z.string().nullable(),
   created_at: z.number(),
+  expires_at: z.number().nullable(),
 })
 
 export type ShareOutput = z.infer<typeof shareOutputSchema>
 
 function sharePrompt(): string {
-  return `Publish a file as a public huozi.app/p/<slug> URL.
+  return `Publish a file as a public huozi.app/p/<random> URL.
 
 Usage:
 - Input \`file_path\` is required — the file must exist in the current workspace.
-- Optional \`slug\`: 3–40 chars, lowercase a-z / 0-9 / hyphens (not leading or trailing). Omit to auto-generate a 10-char slug.
 - Optional \`passcode\`: exactly 6 digits. Visitors need to enter it to see the file.
+- Optional \`expires_in_seconds\`: positive integer. After that many seconds the link returns not-found. Omit for a permanent link.
+- Slugs are always server-generated (10-char random). There is no custom-slug option — the URL shape is uniform across Web and Agent callers.
 - Live-mode: the URL tracks the file. Editing the file updates what visitors see. Deleting the file returns \`file_no_longer_exists\`.
 - To remove a share, call the owner revoke endpoint or use the /workspace/shares page.`
 }
@@ -132,8 +137,8 @@ export function createShareTool(
         },
         {
           file_path: input.file_path,
-          slug: input.slug,
           passcode: input.passcode,
+          expires_in_seconds: input.expires_in_seconds,
         },
       )
 
@@ -143,11 +148,11 @@ export function createShareTool(
           errorCode:
             res.error === 'file_not_found'
               ? ERR.FILE_NOT_FOUND
-              : res.error === 'slug_taken'
-                ? ERR.CONFLICT
-                : res.error === 'invalid_slug' || res.error === 'invalid_file_path' || res.error === 'invalid_passcode'
-                  ? ERR.INVALID_URI
-                  : ERR.INTERNAL,
+              : res.error === 'invalid_file_path' ||
+                  res.error === 'invalid_passcode' ||
+                  res.error === 'invalid_ttl'
+                ? ERR.INVALID_URI
+                : ERR.INTERNAL,
           message: res.message
             ? `${res.error}: ${res.message}`
             : res.error,
@@ -172,6 +177,7 @@ export function createShareTool(
           blob_sha: res.blob_sha,
           commit_sha: res.commit_sha,
           created_at: res.created_at,
+          expires_at: res.expires_at,
         },
       }
     },

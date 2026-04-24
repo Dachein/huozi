@@ -46,14 +46,6 @@ function generateSlug(len = 10): string {
   return s
 }
 
-function normalizeCustomSlug(raw: unknown): string | null {
-  if (typeof raw !== 'string') return null
-  const s = raw.trim().toLowerCase()
-  if (!s) return null
-  if (!SLUG_RE.test(s)) return null
-  return s
-}
-
 function validPasscode(raw: unknown): string | null {
   if (typeof raw !== 'string') return null
   if (!/^\d{6}$/.test(raw)) return null
@@ -213,8 +205,6 @@ async function buildShareContent(
 export interface CreateShareInput {
   /** File path as the caller sees it (scope-relative if scoped). */
   file_path: string
-  /** Optional user-supplied slug. Leave empty to auto-generate. */
-  slug?: string
   /** Optional 6-digit passcode. */
   passcode?: string
   /** Optional TTL in seconds. Omit / null / 0 = never expires. */
@@ -242,11 +232,9 @@ export type CreateShareResult =
       ok: false
       error:
         | 'invalid_file_path'
-        | 'invalid_slug'
         | 'invalid_passcode'
         | 'invalid_ttl'
         | 'file_not_found'
-        | 'slug_taken'
         | 'insert_failed'
       message?: string
     }
@@ -305,35 +293,16 @@ export async function createShareRow(
     }
   }
 
-  // Resolve slug: user-supplied (strict validation, returns slug_taken
-  // on collision) OR auto-generated (retry a few times on collision).
-  let slug: string
-  if (input.slug !== undefined && input.slug !== null && input.slug !== '') {
-    const custom = normalizeCustomSlug(input.slug)
-    if (!custom) {
-      return {
-        ok: false,
-        error: 'invalid_slug',
-        message:
-          'slug must be 3–40 chars, lowercase a-z, 0-9 or hyphen, not starting or ending with hyphen.',
-      }
-    }
+  // Slugs are always server-generated now. 10-char random alphabet
+  // gives ~8e14 combinations — collisions are astronomically rare, but
+  // we keep the retry loop so a lucky duplicate doesn't fail the insert.
+  let slug = generateSlug()
+  for (let attempt = 0; attempt < 4; attempt++) {
     const existing = await env.DB.prepare('SELECT slug FROM shares WHERE slug = ?')
-      .bind(custom)
+      .bind(slug)
       .first()
-    if (existing) {
-      return { ok: false, error: 'slug_taken', message: custom }
-    }
-    slug = custom
-  } else {
+    if (!existing) break
     slug = generateSlug()
-    for (let attempt = 0; attempt < 4; attempt++) {
-      const existing = await env.DB.prepare('SELECT slug FROM shares WHERE slug = ?')
-        .bind(slug)
-        .first()
-      if (!existing) break
-      slug = generateSlug()
-    }
   }
 
   const now = Date.now()
@@ -381,7 +350,6 @@ export async function createShareRow(
 
 interface CreateShareBody {
   file_path?: string
-  slug?: string
   passcode?: string
   expires_in_seconds?: number | null
 }
@@ -418,7 +386,6 @@ export async function handleCreateShare(
     },
     {
       file_path: body.file_path ?? '',
-      slug: body.slug,
       passcode: body.passcode,
       expires_in_seconds: body.expires_in_seconds,
     },
@@ -428,11 +395,9 @@ export async function handleCreateShare(
     const status =
       res.error === 'file_not_found'
         ? 404
-        : res.error === 'slug_taken'
-          ? 409
-          : res.error === 'insert_failed'
-            ? 500
-            : 400
+        : res.error === 'insert_failed'
+          ? 500
+          : 400
     return Response.json(
       { error: res.error, message: res.message },
       { status },

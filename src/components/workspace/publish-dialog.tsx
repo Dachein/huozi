@@ -3,12 +3,17 @@
 /**
  * Two-step "Share this file" modal, triggered from the file view menu:
  *
- *   Step 1 — choose URL + passcode:
- *               Custom slug (optional)  [my-research_______]
+ *   Step 1 — choose protection + expiry:
  *               ( ) Public   (•) 6-digit passcode [______]
+ *               Link expires in: (30m | 6h | 24h | 1mo | never)
  *   Step 2 — success:
- *               https://huozi.app/p/<slug>    [Copy]
- *               passcode: 424242               (if set)
+ *               https://huozi.app/p/<random-slug>    [Copy]
+ *               passcode: 424242                      (if set)
+ *
+ * URL slugs are always server-generated (10 random chars) — we removed
+ * the custom-slug option so Web and Agent surfaces produce the same
+ * one-shape URLs. Agent callers may still pass `slug` to the worker
+ * (deprecated path) but the UI no longer offers it.
  *
  * Shares are LIVE: the URL always serves the current bytes of the file.
  * Edits after publish are reflected immediately; delete the file and the
@@ -46,8 +51,6 @@ const TTL_SECONDS: Record<TtlChoice, number | null> = {
 const TTL_ORDER: TtlChoice[] = ["30m", "6h", "24h", "1mo", "never"];
 const DEFAULT_TTL: TtlChoice = "6h";
 
-const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/;
-
 function randomPasscode(): string {
   const buf = new Uint32Array(1);
   crypto.getRandomValues(buf);
@@ -71,7 +74,6 @@ function formatExpiryRelative(
 export function PublishDialog({ path, open, onClose }: PublishDialogProps) {
   const t = useT();
   const [step, setStep] = useState<Step>("choose");
-  const [slug, setSlug] = useState("");
   const [protect, setProtect] = useState(false);
   const [passcode, setPasscode] = useState(() => randomPasscode());
   const [ttl, setTtl] = useState<TtlChoice>(DEFAULT_TTL);
@@ -85,7 +87,6 @@ export function PublishDialog({ path, open, onClose }: PublishDialogProps) {
   useEffect(() => {
     if (open) {
       setStep("choose");
-      setSlug("");
       setProtect(false);
       setPasscode(randomPasscode());
       setTtl(DEFAULT_TTL);
@@ -107,22 +108,17 @@ export function PublishDialog({ path, open, onClose }: PublishDialogProps) {
 
   if (!open) return null;
 
-  const trimmedSlug = slug.trim().toLowerCase();
-  const slugInvalid = trimmedSlug.length > 0 && !SLUG_RE.test(trimmedSlug);
-
   async function handlePublish() {
     setSubmitting(true);
     setError(null);
     try {
       const body: {
         file_path: string;
-        slug?: string;
         passcode?: string;
         expires_in_seconds?: number | null;
       } = {
         file_path: path,
       };
-      if (trimmedSlug) body.slug = trimmedSlug;
       if (protect) body.passcode = passcode;
       const ttlSec = TTL_SECONDS[ttl];
       if (ttlSec !== null) body.expires_in_seconds = ttlSec;
@@ -140,18 +136,7 @@ export function PublishDialog({ path, open, onClose }: PublishDialogProps) {
         error?: string;
       };
       if (!res.ok || !data.ok || !data.slug) {
-        if (data.error === "slug_taken" || res.status === 409) {
-          setError(
-            `"${trimmedSlug}" is already taken. Pick a different slug.`,
-          );
-        } else if (data.error === "invalid_slug") {
-          setError(
-            data.message ||
-              "Slug must be 3–40 lowercase letters/digits with hyphens allowed in the middle.",
-          );
-        } else {
-          setError(data.message || data.error || `HTTP ${res.status}`);
-        }
+        setError(data.message || data.error || `HTTP ${res.status}`);
         setSubmitting(false);
         return;
       }
@@ -223,45 +208,9 @@ export function PublishDialog({ path, open, onClose }: PublishDialogProps) {
           <div className="space-y-4">
             <p className="text-xs text-muted-foreground leading-relaxed">
               Makes this file readable at{" "}
-              <span className="font-mono">huozi.app/p/&lt;slug&gt;</span>. The
+              <span className="font-mono">huozi.app/p/&lt;random&gt;</span>. The
               link always shows the latest version — edits go live immediately.
             </p>
-
-            <div>
-              <label
-                htmlFor="slug"
-                className="block text-xs font-medium mb-1"
-              >
-                Custom slug{" "}
-                <span className="font-normal text-muted-foreground">
-                  (optional)
-                </span>
-              </label>
-              <div className="flex items-center rounded-md border border-border bg-muted focus-within:border-foreground/40">
-                <span className="pl-3 pr-1 text-xs text-muted-foreground font-mono select-none">
-                  /p/
-                </span>
-                <input
-                  id="slug"
-                  type="text"
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={slug}
-                  onChange={(e) => setSlug(e.target.value)}
-                  placeholder="my-research"
-                  className="flex-1 bg-transparent px-1 py-2 text-sm font-mono focus:outline-none"
-                />
-              </div>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                3–40 chars, lowercase + digits + hyphens. Leave empty for a
-                random slug.
-              </p>
-              {slugInvalid && (
-                <p className="mt-1 text-[11px] text-red-500">
-                  Use lowercase letters, digits, and hyphens (not at the edges).
-                </p>
-              )}
-            </div>
 
             <div className="space-y-2">
               <label className="flex items-start gap-2 text-sm cursor-pointer">
@@ -373,11 +322,7 @@ export function PublishDialog({ path, open, onClose }: PublishDialogProps) {
               <button
                 type="button"
                 onClick={handlePublish}
-                disabled={
-                  submitting ||
-                  slugInvalid ||
-                  (protect && passcode.length !== 6)
-                }
+                disabled={submitting || (protect && passcode.length !== 6)}
                 className="flex-1 rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {submitting ? "Sharing…" : "Share"}

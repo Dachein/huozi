@@ -3,8 +3,11 @@
  * workspace. Reads the HttpOnly API-key cookie, forwards to huozi-cloud's
  * /shares endpoint.
  *
- * Body: { file_path: string; slug?: string; passcode?: string }
- * Returns: { ok: true, slug, file_path, has_passcode, ... }
+ * Body: { file_path: string; passcode?: string; expires_in_seconds?: number }
+ * Returns: { ok: true, slug, file_path, has_passcode, expires_at, ... }
+ *
+ * Slugs are always server-generated — the UI and MCP tool both surface
+ * the same random-slug convention.
  */
 
 import { cookies } from "next/headers";
@@ -14,12 +17,10 @@ import { HUOZI_CLOUD_KEY_COOKIE } from "@/lib/drive/mcp-client";
 
 interface Body {
   file_path?: string;
-  slug?: string;
   passcode?: string;
   expires_in_seconds?: number | null;
 }
 
-const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/;
 const MAX_TTL_SECONDS = 10 * 365 * 24 * 60 * 60;
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -45,17 +46,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 400 },
     );
   }
-  const slug = (body.slug ?? "").trim().toLowerCase();
-  if (slug && !SLUG_RE.test(slug)) {
-    return NextResponse.json(
-      {
-        error: "invalid_slug",
-        message:
-          "Slug must be 3–40 lowercase letters/digits, with hyphens allowed in the middle.",
-      },
-      { status: 400 },
-    );
-  }
 
   // Validate optional TTL. undefined / null / 0 means never expires.
   let expiresIn: number | null = null;
@@ -75,22 +65,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const res = await createShare(key, {
     file_path: filePath,
-    ...(slug ? { slug } : {}),
     ...(passcode ? { passcode } : {}),
     ...(expiresIn !== null ? { expires_in_seconds: expiresIn } : {}),
   });
   if (!res.ok) {
-    // Map Worker errors to useful HTTP statuses so the UI can react.
     const status =
-      res.error === "slug_taken"
-        ? 409
-        : res.error === "invalid_slug" ||
-            res.error === "invalid_passcode" ||
-            res.error === "invalid_ttl"
-          ? 400
-          : res.error === "file_not_found"
-            ? 404
-            : res.status || 502;
+      res.error === "invalid_passcode" || res.error === "invalid_ttl"
+        ? 400
+        : res.error === "file_not_found"
+          ? 404
+          : res.status || 502;
     return NextResponse.json(
       { error: res.error ?? "create_failed", message: res.message },
       { status },
