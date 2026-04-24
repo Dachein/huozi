@@ -2,21 +2,24 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { CopyButton } from "@/components/copy-button";
 import { getLocale } from "@/lib/i18n/server";
+import { t } from "@/lib/i18n";
 
-export const metadata: Metadata = {
-  title: "huozi Edge — Self-host the Agent drive",
-  description:
-    "Open-source, single-deployer edition of huozi. Deploy in one click to Cloudflare or Vercel. No Supabase, no accounts, MIT licensed.",
-  openGraph: {
-    title: "huozi Edge — Self-host the Agent drive",
-    description:
-      "Deploy the same Agent-native cloud drive to your own account. MIT licensed.",
-    siteName: "活字 Huozi",
-  },
-  twitter: {
-    card: "summary_large_image",
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  const _ = (key: string) => t(locale, key);
+  return {
+    title: _("edge.meta.title"),
+    description: _("edge.meta.description"),
+    openGraph: {
+      title: _("edge.meta.title"),
+      description: _("edge.meta.description"),
+      siteName: "活字 Huozi",
+    },
+    twitter: {
+      card: "summary_large_image",
+    },
+  };
+}
 
 function Code({ code }: { code: string }) {
   return (
@@ -31,6 +34,7 @@ function Code({ code }: { code: string }) {
 
 export default async function EdgePage() {
   const locale = await getLocale();
+  const _ = (key: string) => t(locale, key);
   const isCJK = locale === "zh" || locale === "ja";
 
   return (
@@ -50,7 +54,7 @@ export default async function EdgePage() {
         <div className="relative z-10 text-center max-w-3xl">
           <div className="mb-6 flex items-center justify-center gap-3">
             <span className="inline-flex items-center rounded-full bg-accent/15 text-accent px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wider">
-              Open Source · MIT
+              {_("edge.badge.openSource")}
             </span>
             <span className="text-xs text-muted-foreground">
               github.com/Dachein/huozi
@@ -67,11 +71,10 @@ export default async function EdgePage() {
             <span className="text-accent">源</span> huozi Edge
           </h1>
           <p className="mt-6 text-lg sm:text-xl text-muted-foreground leading-relaxed animate-ink-reveal delay-200">
-            The same Agent drive, on your own infrastructure.
+            {_("edge.hero.tagline1")}
             <br />
             <span className="text-sm sm:text-base">
-              No Supabase. No email login. One deployer, one workspace,
-              one domain you own.
+              {_("edge.hero.tagline2")}
             </span>
           </p>
 
@@ -88,7 +91,7 @@ export default async function EdgePage() {
               rel="noopener noreferrer"
               className="rounded-full bg-[#f48120] px-6 py-2.5 text-sm font-medium text-white hover:opacity-90 transition-opacity"
             >
-              Deploy to Cloudflare →
+              {_("edge.cta.deployCF")} →
             </a>
             <a
               href="https://vercel.com/new/clone?repository-url=https://github.com/Dachein/huozi"
@@ -96,7 +99,7 @@ export default async function EdgePage() {
               rel="noopener noreferrer"
               className="rounded-full bg-[#171717] px-6 py-2.5 text-sm font-medium text-white hover:bg-[#333] transition-colors"
             >
-              Deploy to Vercel →
+              {_("edge.cta.deployVercel")} →
             </a>
             <a
               href="https://github.com/Dachein/huozi"
@@ -104,7 +107,7 @@ export default async function EdgePage() {
               rel="noopener noreferrer"
               className="rounded-full border border-border px-5 py-2.5 text-sm font-medium hover:border-foreground/30 transition-colors"
             >
-              View on GitHub
+              {_("edge.cta.github")}
             </a>
           </div>
         </div>
@@ -113,27 +116,20 @@ export default async function EdgePage() {
       {/* Why Edge */}
       <section className="mx-auto max-w-3xl px-6 py-12">
         <h2 className="font-serif text-2xl sm:text-3xl font-bold tracking-wide mb-4">
-          Same drive, yours to run
+          {_("edge.same.title")}
         </h2>
         <p className="text-muted-foreground leading-relaxed">
-          Edge ships the <strong className="text-foreground">exact same</strong>{" "}
-          MCP surface, Claude Code compatibility, live sync, commit history,
-          and public share URLs as Cloud — just without the hosted account
-          system. You hold <code className="font-mono text-xs bg-muted px-1 rounded">HUOZI_ADMIN_SECRET</code>,
-          you deploy to your own Cloudflare or Vercel, and anyone you hand a
-          pasted API key to can connect an Agent.
+          {_("edge.same.body1")}
         </p>
         <p className="mt-4 text-muted-foreground leading-relaxed">
-          Because both editions are one codebase guarded by{" "}
-          <code className="font-mono text-xs bg-muted px-1 rounded">HUOZI_EDITION</code>,
-          every bug fix and feature lands in both at the same time.
+          {_("edge.same.body2")}
         </p>
       </section>
 
       {/* Comparison */}
       <section className="mx-auto max-w-3xl px-6 py-12">
         <h2 className="font-serif text-xl font-bold tracking-wide mb-4">
-          Cloud vs Edge
+          {_("edge.compare.title")}
         </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm border border-border rounded-lg">
@@ -141,44 +137,21 @@ export default async function EdgePage() {
               <tr>
                 <th className="text-left px-4 py-2.5 font-medium border-b border-border bg-muted"></th>
                 <th className="text-left px-4 py-2.5 font-medium border-b border-border bg-muted">
-                  Cloud
+                  {_("edge.compare.col.cloud")}
                 </th>
                 <th className="text-left px-4 py-2.5 font-medium border-b border-border bg-muted">
-                  Edge
+                  {_("edge.compare.col.edge")}
                 </th>
               </tr>
             </thead>
             <tbody className="text-xs">
-              <tr>
-                <Td label>Who operates it</Td>
-                <Td>huozi.app</Td>
-                <Td>You</Td>
-              </tr>
-              <tr>
-                <Td label>Auth</Td>
-                <Td>Email OTP (Supabase)</Td>
-                <Td>Admin secret + paste-key</Td>
-              </tr>
-              <tr>
-                <Td label>Users per instance</Td>
-                <Td>Many</Td>
-                <Td>One deployer</Td>
-              </tr>
-              <tr>
-                <Td label>Workspaces per user</Td>
-                <Td>One (expandable)</Td>
-                <Td>One fixed workspace</Td>
-              </tr>
-              <tr>
-                <Td label>Cost</Td>
-                <Td>Pay huozi.app</Td>
-                <Td>Pay Cloudflare / Vercel (often $0)</Td>
-              </tr>
-              <tr>
-                <Td label>License</Td>
-                <Td>Proprietary service</Td>
-                <Td>MIT</Td>
-              </tr>
+              {[1, 2, 3, 4, 5, 6].map((n) => (
+                <tr key={n}>
+                  <Td label>{_(`edge.compare.r${n}.label`)}</Td>
+                  <Td>{_(`edge.compare.r${n}.cloud`)}</Td>
+                  <Td>{_(`edge.compare.r${n}.edge`)}</Td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -187,19 +160,16 @@ export default async function EdgePage() {
       {/* Bootstrap */}
       <section className="mx-auto max-w-3xl px-6 py-12" id="bootstrap">
         <h2 className="font-serif text-xl font-bold tracking-wide mb-4">
-          Bootstrap in 3 steps
+          {_("edge.bootstrap.title")}
         </h2>
         <ol className="space-y-6 text-sm">
           <li>
             <div className="flex items-baseline gap-3 mb-2">
               <span className="font-mono text-xs text-muted-foreground">01</span>
-              <h3 className="font-medium">Deploy + set secrets</h3>
+              <h3 className="font-medium">{_("edge.bootstrap.s1.title")}</h3>
             </div>
             <p className="text-muted-foreground mb-3 ml-8 leading-relaxed">
-              One-click deploy, then set a strong{" "}
-              <code className="font-mono text-xs bg-muted px-1 rounded">HUOZI_ADMIN_SECRET</code>
-              {" "}and{" "}
-              <code className="font-mono text-xs bg-muted px-1 rounded">HUOZI_EDITION=edge</code>.
+              {_("edge.bootstrap.s1.body")}
             </p>
             <div className="ml-8">
               <Code
@@ -213,11 +183,10 @@ export HUOZI_EDITION=edge
           <li>
             <div className="flex items-baseline gap-3 mb-2">
               <span className="font-mono text-xs text-muted-foreground">02</span>
-              <h3 className="font-medium">Mint the admin key</h3>
+              <h3 className="font-medium">{_("edge.bootstrap.s2.title")}</h3>
             </div>
             <p className="text-muted-foreground mb-3 ml-8 leading-relaxed">
-              Call the worker&rsquo;s admin endpoint once to mint your first
-              API key. You&rsquo;ll paste it into the web UI in step 3.
+              {_("edge.bootstrap.s2.body")}
             </p>
             <div className="ml-8">
               <Code
@@ -233,13 +202,10 @@ export HUOZI_EDITION=edge
           <li>
             <div className="flex items-baseline gap-3 mb-2">
               <span className="font-mono text-xs text-muted-foreground">03</span>
-              <h3 className="font-medium">Paste key, start writing</h3>
+              <h3 className="font-medium">{_("edge.bootstrap.s3.title")}</h3>
             </div>
             <p className="text-muted-foreground ml-8 leading-relaxed">
-              Visit <code className="font-mono text-xs bg-muted px-1 rounded">https://&lt;your-domain&gt;/connect</code>,
-              paste the returned <code className="font-mono text-xs bg-muted px-1 rounded">hz_…</code>
-              {" "}key, and you&rsquo;re in. Connect Claude Code / Cursor /
-              Desktop from the Keys page just like on Cloud.
+              {_("edge.bootstrap.s3.body")}
             </p>
           </li>
         </ol>
@@ -254,19 +220,19 @@ export HUOZI_EDITION=edge
             rel="noopener noreferrer"
             className="rounded-md border border-border px-5 py-2 text-sm font-medium hover:bg-muted transition-colors"
           >
-            GitHub repo
+            {_("edge.footer.repo")}
           </a>
           <Link
             href="/docs"
             className="rounded-md border border-border px-5 py-2 text-sm font-medium hover:bg-muted transition-colors"
           >
-            MCP reference
+            {_("edge.footer.docs")}
           </Link>
           <Link
             href="/cloud"
             className="rounded-md border border-border px-5 py-2 text-sm font-medium hover:bg-muted transition-colors"
           >
-            Compare with Cloud →
+            {_("edge.footer.compare")} →
           </Link>
         </div>
       </section>

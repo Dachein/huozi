@@ -5,20 +5,22 @@ import { getLocale } from "@/lib/i18n/server";
 import { t } from "@/lib/i18n";
 import { getIdentity } from "@/lib/identity";
 
-export const metadata: Metadata = {
-  title: "huozi Cloud — An Agent-Native Hard Drive",
-  description:
-    "A cloud workspace for Agents. Speaks Claude Code's file-tool dialect. Bring your own Agent — Claude Code, Cursor, Codex, or your own — and mount it anywhere.",
-  openGraph: {
-    title: "huozi Cloud — An Agent-Native Hard Drive",
-    description:
-      "A cloud workspace for Agents. Speaks Claude Code's file-tool dialect.",
-    siteName: "活字 Huozi",
-  },
-  twitter: {
-    card: "summary_large_image",
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  const _ = (key: string) => t(locale, key);
+  return {
+    title: _("cloud.meta.title"),
+    description: _("cloud.meta.description"),
+    openGraph: {
+      title: _("cloud.meta.title"),
+      description: _("cloud.meta.description"),
+      siteName: "活字 Huozi",
+    },
+    twitter: {
+      card: "summary_large_image",
+    },
+  };
+}
 
 function CodeBlock({ code, lang }: { code: string; lang?: string }) {
   return (
@@ -31,13 +33,18 @@ function CodeBlock({ code, lang }: { code: string; lang?: string }) {
   );
 }
 
-function Status({ kind }: { kind: "shipping" | "coming" | "preview" }) {
-  const map = {
-    shipping: { text: "Shipping", cls: "bg-accent/15 text-accent" },
-    coming: { text: "Coming soon", cls: "bg-muted-foreground/15 text-muted-foreground" },
-    preview: { text: "Preview", cls: "bg-muted-foreground/15 text-muted-foreground" },
-  };
-  const { text, cls } = map[kind];
+function Status({
+  kind,
+  text,
+}: {
+  kind: "shipping" | "coming" | "preview";
+  text: string;
+}) {
+  const cls = {
+    shipping: "bg-accent/15 text-accent",
+    coming: "bg-muted-foreground/15 text-muted-foreground",
+    preview: "bg-muted-foreground/15 text-muted-foreground",
+  }[kind];
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wider ${cls}`}>
       {text}
@@ -77,7 +84,7 @@ export default async function CloudPage() {
 
           <div className="relative z-10 text-center max-w-3xl">
             <div className="mb-6 flex items-center justify-center gap-3">
-              <Status kind="preview" />
+              <Status kind="preview" text={_("cloud.status.preview")} />
               <span className="text-xs text-muted-foreground">
                 cloud.huozi.app
               </span>
@@ -130,18 +137,13 @@ export default async function CloudPage() {
         {/* The metaphor */}
         <section className="mx-auto max-w-3xl px-6 py-12">
           <h2 className="font-serif text-2xl sm:text-3xl font-bold tracking-wide mb-4">
-            The external hard drive, for Agents
+            {_("cloud.metaphor.title")}
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            A USB drive works anywhere because it speaks one standard interface.
-            You plug it in, and any computer reads it. Any OS, any era.
+            {_("cloud.metaphor.body1")}
           </p>
           <p className="mt-4 text-muted-foreground leading-relaxed">
-            We wanted the same for Agents. <strong className="text-foreground">huozi
-            Cloud</strong> is a mountable cloud workspace that speaks the exact file-tool
-            dialect Claude Code uses today — which means every Agent already
-            trained on that dialect (Claude Code itself, Cursor, Codex, custom
-            ones) can work in it with <em>zero modifications</em>.
+            {_("cloud.metaphor.body2")}
           </p>
 
           <div className="mt-8 overflow-hidden rounded-lg border border-border">
@@ -149,17 +151,19 @@ export default async function CloudPage() {
               <thead className="bg-muted">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium">
-                    Physical hard drive
+                    {_("cloud.compare.physical")}
                   </th>
-                  <th className="px-4 py-3 text-left font-medium">huozi Cloud</th>
+                  <th className="px-4 py-3 text-left font-medium">
+                    {_("cloud.compare.huozi")}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                <Row a="USB / SATA protocol" b="MCP + Claude Code tool dialect" />
-                <Row a="Drive letter / mount" b="Workspace URI" />
-                <Row a="Directory permissions" b="Scope (per-API-key prefix)" />
-                <Row a="Filesystem journal" b="Git-backed commit log" />
-                <Row a="Mounted on any machine" b="Accessed by any Agent" />
+                <Row a={_("cloud.compare.r1a")} b={_("cloud.compare.r1b")} />
+                <Row a={_("cloud.compare.r2a")} b={_("cloud.compare.r2b")} />
+                <Row a={_("cloud.compare.r3a")} b={_("cloud.compare.r3b")} />
+                <Row a={_("cloud.compare.r4a")} b={_("cloud.compare.r4b")} />
+                <Row a={_("cloud.compare.r5a")} b={_("cloud.compare.r5b")} />
               </tbody>
             </table>
           </div>
@@ -169,90 +173,105 @@ export default async function CloudPage() {
         <section className="mx-auto max-w-3xl px-6 py-12">
           <div className="flex items-center gap-3 mb-6">
             <h2 className="font-serif text-2xl sm:text-3xl font-bold tracking-wide">
-              What&rsquo;s alive today
+              {_("cloud.shipped.title")}
             </h2>
-            <Status kind="shipping" />
+            <Status kind="shipping" text={_("cloud.status.shipping")} />
           </div>
 
           <p className="text-muted-foreground leading-relaxed mb-8">
-            Seven MCP tools, exposed at{" "}
+            {_("cloud.shipped.intro1")}
             <code className="rounded bg-muted px-1.5 py-0.5 text-foreground">
               https://cloud.huozi.app/mcp
             </code>
-            . Five are bit-exact mirrors of Claude Code; two are cloud-native
-            extensions.
+            {_("cloud.shipped.intro2")}
           </p>
 
           <div className="grid sm:grid-cols-2 gap-4">
             <ToolCard
               name="huozi_read"
-              desc="Line-paged read, cat -n output, file_unchanged cache, base64 or signed-URL binary return."
+              desc={_("cloud.tools.read.desc")}
               ccMirror
+              ccMirrorLabel={_("cloud.tools.ccMirror")}
+              extensionLabel={_("cloud.tools.extension")}
             />
             <ToolCard
               name="huozi_edit"
-              desc="Exact string replacement. Read-before-Edit enforced. blob_sha staleness. structuredPatch output."
+              desc={_("cloud.tools.edit.desc")}
               ccMirror
+              ccMirrorLabel={_("cloud.tools.ccMirror")}
+              extensionLabel={_("cloud.tools.extension")}
             />
             <ToolCard
               name="huozi_write"
-              desc="Create or overwrite. LF-forced. create/update distinction on result."
+              desc={_("cloud.tools.write.desc")}
               ccMirror
+              ccMirrorLabel={_("cloud.tools.ccMirror")}
+              extensionLabel={_("cloud.tools.extension")}
             />
             <ToolCard
               name="huozi_glob"
-              desc="Glob pattern matching. mtime-desc ordering. 100-file truncation."
+              desc={_("cloud.tools.glob.desc")}
               ccMirror
+              ccMirrorLabel={_("cloud.tools.ccMirror")}
+              extensionLabel={_("cloud.tools.extension")}
             />
             <ToolCard
               name="huozi_grep"
-              desc="Regex search. content / files_with_matches / count modes. -A/-B/-C context. type filter."
+              desc={_("cloud.tools.grep.desc")}
               ccMirror
+              ccMirrorLabel={_("cloud.tools.ccMirror")}
+              extensionLabel={_("cloud.tools.extension")}
             />
             <ToolCard
               name="huozi_batch_edit"
-              desc="Atomic N-file edit. all_or_nothing + single commit_sha. Per-file results."
+              desc={_("cloud.tools.batch.desc")}
               extension
+              ccMirrorLabel={_("cloud.tools.ccMirror")}
+              extensionLabel={_("cloud.tools.extension")}
             />
             <ToolCard
               name="huozi_history"
-              desc="Query a file's commit trail. operation classification (create / edit / write / batch). Pagination."
+              desc={_("cloud.tools.history.desc")}
               extension
+              ccMirrorLabel={_("cloud.tools.ccMirror")}
+              extensionLabel={_("cloud.tools.extension")}
             />
           </div>
 
           <div className="mt-10">
-            <h3 className="text-lg font-semibold mb-4">Under the hood</h3>
+            <h3 className="text-lg font-semibold mb-4">
+              {_("cloud.underHood.title")}
+            </h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>
-                <strong className="text-foreground">Cloudflare Workers</strong>{" "}
-                as the serverless MCP endpoint (JSON-RPC 2.0 over HTTP).
+                <strong className="text-foreground">
+                  {_("cloud.underHood.b1.label")}
+                </strong>
+                {_("cloud.underHood.b1.desc")}
               </li>
               <li>
-                <strong className="text-foreground">R2</strong> stores blobs
-                addressed by Git-compatible SHA-1 (same algorithm as real
-                Git&rsquo;s <code className="rounded bg-muted px-1.5 py-0.5 text-foreground">blob &lt;size&gt;\0&lt;content&gt;</code>).
+                <strong className="text-foreground">
+                  {_("cloud.underHood.b2.label")}
+                </strong>
+                {_("cloud.underHood.b2.desc")}
               </li>
               <li>
-                <strong className="text-foreground">D1</strong> holds{" "}
-                <code className="rounded bg-muted px-1.5 py-0.5 text-foreground">
-                  files_current
-                </code>{" "}
-                index, commit chain, per-path audit rows, and API keys.
+                <strong className="text-foreground">
+                  {_("cloud.underHood.b3.label")}
+                </strong>
+                {_("cloud.underHood.b3.desc")}
               </li>
               <li>
-                <strong className="text-foreground">Durable Objects</strong>{" "}
-                serialize the write-side critical section (one DO per
-                workspace) and persist per-session{" "}
-                <code className="rounded bg-muted px-1.5 py-0.5 text-foreground">
-                  ReadFileState
-                </code>{" "}
-                across requests (one DO per &#123;workspace, principal&#125;).
+                <strong className="text-foreground">
+                  {_("cloud.underHood.b4.label")}
+                </strong>
+                {_("cloud.underHood.b4.desc")}
               </li>
               <li>
-                <strong className="text-foreground">Bearer auth</strong>: a
-                token hashes to an api_keys row; that row binds the call to a
-                workspace, principal, and optional scope prefix.
+                <strong className="text-foreground">
+                  {_("cloud.underHood.b5.label")}
+                </strong>
+                {_("cloud.underHood.b5.desc")}
               </li>
             </ul>
           </div>
@@ -261,40 +280,18 @@ export default async function CloudPage() {
         {/* Design principles */}
         <section className="mx-auto max-w-3xl px-6 py-12 border-t border-border/50">
           <h2 className="font-serif text-2xl sm:text-3xl font-bold tracking-wide mb-6">
-            Design principles
+            {_("cloud.principles.title")}
           </h2>
 
           <ol className="space-y-6">
-            <Principle
-              n={1}
-              title="CC-dialect bit-exact"
-              body="Every Agent trained on Claude Code's tool surface should work here with zero code changes. Field names, defaults, error codes, even load-bearing error strings are preserved. Wherever we deviate from CC — we do it with a reason on the record."
-            />
-            <Principle
-              n={2}
-              title="Git is the truth; everything else is cache"
-              body="The commit log is the source of ground truth. D1 indices, Durable Object state, in-Worker caches — all are reconstructible from the Git history. This simplifies recovery, debugging, and backup."
-            />
-            <Principle
-              n={3}
-              title="Workspace = mount point"
-              body="No shared global namespace. A workspace is a closed box with its own ACL, its own history, its own backup boundary. Users create workspaces; Agents live within one."
-            />
-            <Principle
-              n={4}
-              title="Revert-only, forever"
-              body="No force-push. No history rewrite. No admin override. Every 'undo' creates a new commit that cancels the old one. The audit trail is immutable. This is non-negotiable for compliance-grade use cases."
-            />
-            <Principle
-              n={5}
-              title="All-or-nothing batches"
-              body="Writing 10 files as one logical change should produce one commit, not ten. huozi_batch_edit validates staleness across the whole batch before writing anything — partial failures abort the entire commit."
-            />
-            <Principle
-              n={6}
-              title="Strict matching, no whitespace fallback"
-              body="Claude Code's Edit tool fails hard when old_string doesn't match exactly. The official MCP filesystem server, by contrast, silently falls back to whitespace-tolerant matching — and quietly edits the wrong location under concurrent writes. We side with CC. Strict fail, explicit re-read."
-            />
+            {[1, 2, 3, 4, 5, 6].map((n) => (
+              <Principle
+                key={n}
+                n={n}
+                title={_(`cloud.principles.${n}.title`)}
+                body={_(`cloud.principles.${n}.body`)}
+              />
+            ))}
           </ol>
         </section>
 
@@ -302,44 +299,19 @@ export default async function CloudPage() {
         <section className="mx-auto max-w-3xl px-6 py-12 border-t border-border/50">
           <div className="flex items-center gap-3 mb-6">
             <h2 className="font-serif text-2xl sm:text-3xl font-bold tracking-wide">
-              On the roadmap
+              {_("cloud.roadmap.title")}
             </h2>
-            <Status kind="coming" />
+            <Status kind="coming" text={_("cloud.status.coming")} />
           </div>
 
           <div className="grid sm:grid-cols-2 gap-4">
-            <Roadmap
-              label="Scope enforcement"
-              desc="API-key-bound subdirectory sandboxing. An Agent scoped to funds/fund-A/ physically cannot read funds/fund-B/."
-            />
-            <Roadmap
-              label="Secret scanner"
-              desc="Inline scan at write time. ~20 built-in rules (AWS / OpenAI / GitHub / JWT / private keys) + placeholder allowlist."
-            />
-            <Roadmap
-              label="Production-grade Grep"
-              desc="D1 FTS5 trigram index for fast regex; stream-scan fallback for multiline / complex patterns; 5 MB / 50 MB / 10 s safety caps."
-            />
-            <Roadmap
-              label="Real Git commit hashes"
-              desc="isomorphic-git on Cloudflare Worker. Commit SHA equals what local Git would produce."
-            />
-            <Roadmap
-              label="Notebook editing"
-              desc="huozi_notebook_edit tool for .ipynb cells. Until then, notebooks are read-only."
-            />
-            <Roadmap
-              label="Revert tool"
-              desc="huozi_revert by commit_sha or message_uuid. New commit cancels old; history preserved."
-            />
-            <Roadmap
-              label="Multi-workspace search"
-              desc="Organization concept layered above workspaces. Lets a fund manager search across all their funds at once."
-            />
-            <Roadmap
-              label="Live subscribers"
-              desc="WebSocket push from WorkspaceDO. When Agent A commits, Agent B gets a changed-files notification in real time."
-            />
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+              <Roadmap
+                key={n}
+                label={_(`cloud.roadmap.${n}.label`)}
+                desc={_(`cloud.roadmap.${n}.desc`)}
+              />
+            ))}
           </div>
         </section>
 
@@ -349,15 +321,14 @@ export default async function CloudPage() {
           className="mx-auto max-w-3xl px-6 py-12 border-t border-border/50"
         >
           <h2 className="font-serif text-2xl sm:text-3xl font-bold tracking-wide mb-6">
-            Try it
+            {_("cloud.try.title")}
           </h2>
           <p className="text-muted-foreground leading-relaxed mb-6">
-            Private beta. Get in touch for a Bearer token bound to your
-            workspace. Once you have one, pick your Agent:
+            {_("cloud.try.intro")}
           </p>
 
           <h3 className="text-sm font-semibold uppercase text-muted-foreground mb-3 mt-8">
-            Claude Code
+            {_("cloud.try.h.claudeCode")}
           </h3>
           <CodeBlock
             code={`claude mcp add huozi-cloud -- \\
@@ -366,7 +337,7 @@ export default async function CloudPage() {
           />
 
           <h3 className="text-sm font-semibold uppercase text-muted-foreground mb-3 mt-8">
-            Claude Desktop
+            {_("cloud.try.h.claudeDesktop")}
           </h3>
           <CodeBlock
             code={`// ~/Library/Application Support/Claude/claude_desktop_config.json
@@ -385,7 +356,7 @@ export default async function CloudPage() {
           />
 
           <h3 className="text-sm font-semibold uppercase text-muted-foreground mb-3 mt-8">
-            Raw HTTP
+            {_("cloud.try.h.rawHttp")}
           </h3>
           <CodeBlock
             code={`curl -X POST https://cloud.huozi.app/mcp \\
@@ -398,26 +369,17 @@ export default async function CloudPage() {
         {/* Who it's for */}
         <section className="mx-auto max-w-3xl px-6 py-12 border-t border-border/50">
           <h2 className="font-serif text-2xl sm:text-3xl font-bold tracking-wide mb-6">
-            Who it&rsquo;s for
+            {_("cloud.who.title")}
           </h2>
 
           <div className="space-y-6">
-            <Persona
-              title="Agents doing real work"
-              body="Anything you&rsquo;d trust with Read/Edit/Write on your laptop — research agents, code agents, report writers — can now do it across machines, across sessions, with every change audited."
-            />
-            <Persona
-              title="Teams running many Agents"
-              body="One workspace, multiple Agents, multiple humans. The staleness model keeps concurrent writers honest. The commit log shows who did what."
-            />
-            <Persona
-              title="Compliance-sensitive workflows"
-              body="Financial research, legal memos, regulated documentation. Immutable history, per-file audit, optional subdirectory scoping for analyst-level access."
-            />
-            <Persona
-              title="Multi-device work"
-              body="Start on your laptop. Continue on your iPad. Review on your phone. Your Agent&rsquo;s state — what it read, what it edited — follows you."
-            />
+            {[1, 2, 3, 4].map((n) => (
+              <Persona
+                key={n}
+                title={_(`cloud.who.${n}.title`)}
+                body={_(`cloud.who.${n}.body`)}
+              />
+            ))}
           </div>
         </section>
 
@@ -430,7 +392,7 @@ export default async function CloudPage() {
                 <span className="text-accent">云</span> Cloud
               </p>
               <p className="mt-2 text-xs text-muted-foreground">
-                A workspace for Agents. Built on Cloudflare.
+                {_("cloud.footer.tagline")}
               </p>
             </div>
             <div className="flex gap-4 text-xs text-muted-foreground">
@@ -441,7 +403,7 @@ export default async function CloudPage() {
                 href="/start"
                 className="hover:text-foreground transition-colors"
               >
-                Publish (MD/HTML)
+                {_("cloud.footer.publish")}
               </Link>
             </div>
           </div>
@@ -466,11 +428,15 @@ function ToolCard({
   desc,
   ccMirror,
   extension,
+  ccMirrorLabel,
+  extensionLabel,
 }: {
   name: string;
   desc: string;
   ccMirror?: boolean;
   extension?: boolean;
+  ccMirrorLabel: string;
+  extensionLabel: string;
 }) {
   return (
     <div className="rounded-lg border border-border p-5 hover:border-foreground/20 transition-colors">
@@ -478,12 +444,12 @@ function ToolCard({
         <code className="font-mono text-sm font-semibold">{name}</code>
         {ccMirror && (
           <span className="text-[10px] uppercase tracking-wider text-accent">
-            CC-mirror
+            {ccMirrorLabel}
           </span>
         )}
         {extension && (
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            huozi-ext
+            {extensionLabel}
           </span>
         )}
       </div>
