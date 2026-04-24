@@ -157,17 +157,11 @@ function ConnectionRow({
         className="w-full flex items-center gap-3 text-sm text-left px-2.5 py-2"
       >
         <span
-          className={`shrink-0 relative ${
+          className={`shrink-0 ${
             conn.lastUsedAt !== null ? "text-accent" : "text-muted-foreground"
           }`}
         >
           <AgentLogo kind={conn.agentKind} size={18} />
-          {/* Presence dot in the lower-right corner of the agent logo —
-              tiny enough to not clutter the row, but gives an at-a-glance
-              sense of online / recent / idle / cold without expanding. */}
-          <span className="absolute -bottom-0.5 -right-0.5">
-            <PresenceDot bucket={presenceBucket(conn.lastUsedAt)} />
-          </span>
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate font-medium text-foreground">
@@ -179,6 +173,10 @@ function ConnectionRow({
             </span>
           )}
         </span>
+        {/* Presence dot moved to end-of-row (sits next to the relative
+            timestamp instead of overlapping the agent logo). Cleaner
+            reading order: "who · when · how alive". */}
+        <PresenceDot bucket={presenceBucket(conn.lastUsedAt)} />
         <span className="text-xs text-muted-foreground whitespace-nowrap tabular-nums">
           {conn.lastUsedAt === null
             ? neverLabel
