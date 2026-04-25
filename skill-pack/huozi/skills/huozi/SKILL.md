@@ -90,7 +90,39 @@ curl -s -X POST https://huozi.app/api/v1/pages \
 - Set `content_type` to `"html"` (defaults to `"markdown"` if omitted)
 - Same slug = upsert, versioning, and access tokens work identically to Markdown pages
 
-### Recommended HTML Structure
+### HTML Format Templates — start here
+
+When generating HTML, use one of the **5 huozi standard formats**. Each ships as a self-contained, single-file scaffold the agent fills with content. Don't hand-roll layout CSS unless the user explicitly needs something outside these 5.
+
+| `--format` | Aspect / use case | One-liner |
+|---|---|---|
+| `deck`   | 16:9 horizontal slide  | Pitch decks, presentations on big screens |
+| `story`  | 9:16 vertical slide    | Mobile stories, reels, vertical social posts |
+| `paper`  | A4 print sheet         | Reports, letters, printable PDFs |
+| `mobile` | Long scroll, mobile-first | Articles read on phones, narrow-viewport optimized |
+| `page`   | Long scroll, desktop-first | Landing pages, long-form essays with sticky TOC |
+
+**Templates live at `templates/{format}.html`** next to this SKILL.md.
+
+#### Choosing a format
+
+If the user **didn't specify** a format and the intent isn't obvious from context, **ask via AskUserQuestion** before generating. Don't guess silently. Suggested question:
+
+> 用什么格式发布? Pick one of the 5 huozi templates: `deck` (16:9 slide) · `story` (9:16 vertical) · `paper` (A4 print) · `mobile` (long page, phone-first) · `page` (long page, desktop-first)
+
+If the intent **is** obvious (e.g. "做一份周报 PDF" → `paper`, "做个 pitch deck" → `deck`), proceed without asking.
+
+#### Workflow
+
+1. Read the matching template: `templates/{format}.html`
+2. Fill in the placeholder content — keep all the CSS in `<style>` untouched, only edit content inside `<body>`
+3. Set `content_type: "html"` and POST to the publishing endpoint
+
+#### Beyond the 5 (companion skills)
+
+For wireframes, prototypes, animations, device frames, Mermaid diagrams, etc., recommend installing companion skills (see `REFERENCES.md`). The 5 huozi templates cover the common ~80%; companion skills cover the rest. Don't try to reproduce them inline.
+
+### Custom HTML Structure (fallback when the 5 templates don't fit)
 
 Always use a full document structure. The platform parses `<head>` for metadata and styles, and renders `<body>` content directly.
 
