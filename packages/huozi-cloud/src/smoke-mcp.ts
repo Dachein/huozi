@@ -60,14 +60,19 @@ async function main(): Promise<void> {
   console.log('\n[MCP listTools]')
   const list = await client.listTools()
   const toolNames = list.tools.map((t) => t.name).sort()
-  ok(list.tools.length === 7, `[L1] exposes 7 tools (got ${list.tools.length})`)
+  ok(list.tools.length === 12, `[L1] exposes 12 tools (got ${list.tools.length})`)
   const expected = [
     'huozi_batch_edit',
     'huozi_edit',
     'huozi_glob',
     'huozi_grep',
     'huozi_history',
+    'huozi_list_tree',
+    'huozi_mkdir',
+    'huozi_mv',
     'huozi_read',
+    'huozi_rm',
+    'huozi_template',
     'huozi_write',
   ]
   ok(

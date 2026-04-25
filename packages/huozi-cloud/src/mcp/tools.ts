@@ -26,6 +26,7 @@ import { createMkdirTool } from '../tools/MkdirTool.js'
 import { createMvTool } from '../tools/MvTool.js'
 import { createRmTool } from '../tools/RmTool.js'
 import { createShareTool, type ShareToolDeps } from '../tools/ShareTool.js'
+import { createTemplateTool } from '../tools/TemplateTool/index.js'
 import type { StorageBackend } from '../storage/types.js'
 import type { Tool } from '../types.js'
 
@@ -59,6 +60,7 @@ export function createHuoziToolRegistry(
     createMkdirTool({ storage }),
     createRmTool({ storage }),
     createMvTool({ storage }),
+    createTemplateTool(),
   ]
   if (shareDeps) {
     tools.push(createShareTool(shareDeps))

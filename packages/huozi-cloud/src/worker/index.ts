@@ -108,6 +108,21 @@ SHARE SEMANTICS
     tracks the current bytes of the file. Edits go live immediately.
     No snapshot mode.
 
+PUBLISHING HTML — use a "版" template
+  - Before writing an HTML file the user wants to publish, fetch a layout
+    scaffold via huozi_template({ format }). 5 standard formats:
+      deck   — 16:9 horizontal slide (pitch decks, presentations)
+      story  — 9:16 vertical slide (mobile stories, reels)
+      paper  — A4 print sheet (reports, letters, printable PDFs)
+      mobile — long scroll, mobile-first (phone-read articles)
+      page   — long scroll, desktop-first (landing pages, essays w/ TOC)
+  - If the user has not picked a format and intent is not obvious from
+    context, ASK which of the 5 they want before generating. Don't guess.
+  - The returned body is a complete <!doctype html> with all CSS inlined
+    and pure-CSS scaling (no JS). Fill the placeholder content inside
+    <body>; leave the <style> block untouched. Then huozi_write the
+    result and huozi_share it.
+
 WHEN IN DOUBT
   - Use huozi_glob with a pattern to survey the tree before writing.
   - Prefer minimal, targeted edits to broad rewrites.
