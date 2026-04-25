@@ -51,6 +51,56 @@ export const fr = {
   // Home · fonctionnalités partagées
   "home.shared.label": "Partagé entre les deux",
 
+  // Home · trois angles (印 / 版 / 盘). Les onglets changent les cartes
+  // et le bloc de code sur place — pas de navigation.
+  "home.persp.label": "Trois angles",
+
+  // 印 · MCP — le caractère comme interface
+  "home.persp.mcp.tab": "MCP",
+  "home.persp.mcp.subtitle":
+    "Le dialecte de Claude Code, huozi le parle aussi.",
+  "home.persp.mcp.card1.title": "Dialecte bit-exact de CC",
+  "home.persp.mcp.card1.desc":
+    "Read / Edit / Write / Glob / Grep — noms de champs, codes d'erreur, comportement de staleness — tout en miroir parfait avec Claude Code. Tout Agent entraîné sur CC fonctionne sans modification.",
+  "home.persp.mcp.card2.title": "Sept outils MCP",
+  "home.persp.mcp.card2.desc":
+    "Cinq miroirs de CC, deux extensions cloud : huozi_batch_edit valide une douzaine de fichiers atomiquement, huozi_history parcourt la chaîne de commits.",
+  "home.persp.mcp.card3.title": "Montage depuis tout client",
+  "home.persp.mcp.card3.desc":
+    "Claude Code, Cursor, Desktop, OpenClaw — chaque client MCP se connecte en une ligne. Ou en HTTP brut via curl.",
+  "home.persp.mcp.code.title": "Une ligne, monter les outils",
+
+  // 版 · STYLE — des octets qui se rendent avec grâce
+  "home.persp.style.tab": "STYLE",
+  "home.persp.style.subtitle":
+    "Des octets qui se rendent avec grâce — Markdown, CSV, et cinq mises en page intégrées, choisies en une phrase.",
+  "home.persp.style.card1.title": "Markdown · prose et notes",
+  "home.persp.style.card1.desc":
+    "Rapports, notes de recherche, docs techniques — titres, citations, code, listes rendus en qualité d'impression par défaut. Pas de thème à choisir, pas de style à régler.",
+  "home.persp.style.card2.title": "CSV · des tableaux qui marchent vraiment",
+  "home.persp.style.card2.desc":
+    "100 colonnes ? Aucun souci. Triable, en-têtes figés, clic sur cellule pour un tiroir de ligne. Les fichiers qu'Excel n'ouvre pas, huozi les ouvre.",
+  "home.persp.style.card3.title": "Mises en page · 5 gabarits intégrés",
+  "home.persp.style.card3.desc":
+    "deck (slide 16:9) / story (vertical 9:16) / paper (impression A4) / mobile (page longue) / page (longue page bureau) — l'Agent en choisit une en une phrase. Auto-redimensionnable, zéro dépendance, HTML mono-fichier, prêt à publier.",
+  "home.persp.style.code.title": "Une phrase, la bonne forme",
+
+  // 盘 · CLOUD — des octets dans le cloud, partagés entre Agents
+  "home.persp.cloud.tab": "CLOUD",
+  "home.persp.cloud.subtitle":
+    "Les octets vivent dans le cloud, pas sur un portable — partagés entre Agents, déployables en ligne.",
+  "home.persp.cloud.card1.title": "Workspace cloud",
+  "home.persp.cloud.card1.desc":
+    "Les Agents tournent sur Workers, les octets vivent dans R2 / D1. Changez de portable, d'Agent, d'IDE — l'état suit le workspace, pas la machine.",
+  "home.persp.cloud.card2.title": "Collaboration multi-Agent",
+  "home.persp.cloud.card2.desc":
+    "Un workspace, plusieurs Agents, plusieurs humains. Les écritures sont sérialisées dans un Durable Object pour des commits atomiques ; le log montre qui a fait quoi.",
+  "home.persp.cloud.card3.title": "Partage public · Edge auto-hébergé",
+  "home.persp.cloud.card3.desc":
+    "Publiez tout fichier vers une URL huozi.app, code à 6 chiffres optionnel. Ou auto-hébergez Edge sur votre Cloudflare / Vercel — même disque, licence MIT.",
+  "home.persp.cloud.code.title": "Dans le cloud, partagé entre Agents",
+
+
   // Home CTA band
   "home.install.title": "Démarrer en 60 secondes",
 

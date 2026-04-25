@@ -51,6 +51,55 @@ export const ja = {
   // Home · 共通機能
   "home.shared.label": "両方で共有",
 
+  // Home · 3つの視点（印 / 版 / 盘）—— タブ切替で下のカードとコードブロックがその場で変わる
+  "home.persp.label": "3つの視点",
+
+  // 印 · MCP —— 字模即接口
+  "home.persp.mcp.tab": "MCP",
+  "home.persp.mcp.subtitle":
+    "Claude Codeが話す方言を、huoziもそのまま話す。",
+  "home.persp.mcp.card1.title": "CCとビット単位で同じ方言",
+  "home.persp.mcp.card1.desc":
+    "Read / Edit / Write / Glob / Grep — フィールド名、エラーコード、staleness 動作までCCと一対一。CC学習済みのAgentが、コード変更ゼロで動く。",
+  "home.persp.mcp.card2.title": "7つのMCPツール",
+  "home.persp.mcp.card2.desc":
+    "5つはCCミラー、2つはクラウド拡張。huozi_batch_editで十数ファイルを原子的にコミット、huozi_historyで各ファイルのコミット連鎖を辿る。",
+  "home.persp.mcp.card3.title": "任意のクライアントからマウント",
+  "home.persp.mcp.card3.desc":
+    "Claude Code、Cursor、Desktop、OpenClaw — MCP対応クライアントなら一行で接続。生のHTTP curlでもOK。",
+  "home.persp.mcp.code.title": "一行でツールをマウント",
+
+  // 版 · STYLE —— 美しく描画されるバイト
+  "home.persp.style.tab": "STYLE",
+  "home.persp.style.subtitle":
+    "美しく描画されるバイト —— Markdown、CSV、加えて5つの公式レイアウトが一言で揃う。",
+  "home.persp.style.card1.title": "Markdown · 文章とノート",
+  "home.persp.style.card1.desc":
+    "週報、リサーチメモ、技術ドキュメント — 見出し、引用、コード、リストが印刷品質のtypographyで既定描画。テーマ選択もスタイル調整も不要。",
+  "home.persp.style.card2.title": "CSV · 本当に使える表",
+  "home.persp.style.card2.desc":
+    "100列でも詰まらない。ソート可能、ヘッダ固定、セルをクリックで行ドロワー展開。Excelで開けないファイルも、huoziなら開ける。",
+  "home.persp.style.card3.title": "版式 · 5つの公式テンプレート",
+  "home.persp.style.card3.desc":
+    "deck（16:9スライド）/ story（9:16縦型）/ paper（A4印刷）/ mobile（モバイル長尺）/ page（デスクトップ長尺）—— Agentが一言で選択。自動スケール、依存ゼロ、単一ファイルHTML、即公開可。",
+  "home.persp.style.code.title": "一言で、正しい版型へ",
+
+  // 盘 · CLOUD —— ローカルではなくクラウドに住む
+  "home.persp.cloud.tab": "CLOUD",
+  "home.persp.cloud.subtitle":
+    "バイトはローカルではなくクラウドに住む —— Agent間で共有、オンラインデプロイ可。",
+  "home.persp.cloud.card1.title": "クラウドワークスペース",
+  "home.persp.cloud.card1.desc":
+    "AgentはWorker上で走り、ファイルはR2 / D1に。PC、Agent、IDEを変えても状態はworkspaceに付いてくる — マシンに縛られない。",
+  "home.persp.cloud.card2.title": "マルチAgent協業",
+  "home.persp.cloud.card2.desc":
+    "1つのworkspaceに複数のAgent、複数の人。書き込みはDurable Objectに直列化されて原子コミット。誰が何をしたかログで一目瞭然。",
+  "home.persp.cloud.card3.title": "公開共有 · Edge自前ホスト",
+  "home.persp.cloud.card3.desc":
+    "任意ファイルをhuozi.appの公開URLに一発公開、6桁パスコードも可。同じドライブを自分のCloudflare / Vercelに自前ホスト、MITライセンス。",
+  "home.persp.cloud.code.title": "クラウドで、Agent間で共有",
+
+
   // Home CTA band
   "home.install.title": "60秒で開始",
 

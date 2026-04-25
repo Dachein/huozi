@@ -51,6 +51,54 @@ export const zh = {
   // Home · 共享特性
   "home.shared.label": "两版共享",
 
+  // Home · 三个角度（印 / 版 / 盘）—— Tab 切换，下方卡片与代码块就地变化
+  "home.persp.label": "三个角度",
+
+  // 印 · MCP —— 字模即接口
+  "home.persp.mcp.tab": "MCP",
+  "home.persp.mcp.subtitle": "Claude Code 用什么方言，huozi 就讲什么方言。",
+  "home.persp.mcp.card1.title": "和 CC 逐字节一致",
+  "home.persp.mcp.card1.desc":
+    "Agent 已经训过的 Read / Edit / Write / Glob / Grep —— 字段名、错误码、staleness 行为，huozi 一比一复制。零代码改动直接换平台。",
+  "home.persp.mcp.card2.title": "七个 MCP 工具",
+  "home.persp.mcp.card2.desc":
+    "五个是 CC 镜像，两个云上扩展：huozi_batch_edit 一次原子提交十几个文件，huozi_history 翻每个文件的提交链。",
+  "home.persp.mcp.card3.title": "任意客户端可挂载",
+  "home.persp.mcp.card3.desc":
+    "Claude Code、Cursor、Desktop、OpenClaw —— 任何讲 MCP 的客户端粘一行就接好。也可以裸 HTTP curl。",
+  "home.persp.mcp.code.title": "一行命令，挂上工具",
+
+  // 版 · STYLE —— 写得对，看得美
+  "home.persp.style.tab": "STYLE",
+  "home.persp.style.subtitle":
+    "写得对，看得美 —— Markdown、CSV，外加五套官方版式，一句话出对样子。",
+  "home.persp.style.card1.title": "Markdown · 文章与笔记",
+  "home.persp.style.card1.desc":
+    "周报、研究笔记、技术文档 —— 标题、引用、代码、列表按印刷级 typography 默认渲染，不挑主题、不调样式。",
+  "home.persp.style.card2.title": "CSV · 真正能用的表格",
+  "home.persp.style.card2.desc":
+    "100 列也不卡。可排序、表头可冻结、点单元格抽屉展开整行。Excel 打不开的，huozi 打得开。",
+  "home.persp.style.card3.title": "版式 · 五套官方模板",
+  "home.persp.style.card3.desc":
+    "deck（16:9 幻灯）/ story（9:16 竖屏）/ paper（A4 打印）/ mobile（移动长页）/ page（桌面长页）—— Agent 一句话挑一个，自缩放、零依赖、单文件 HTML 直接发布。",
+  "home.persp.style.code.title": "一句话，出对版式",
+
+  // 盘 · CLOUD —— 不在本地，跨 Agent 共享
+  "home.persp.cloud.tab": "CLOUD",
+  "home.persp.cloud.subtitle":
+    "字节住在云端，不在某一台电脑上 —— 多 Agent 共享，可在线部署。",
+  "home.persp.cloud.card1.title": "云上工作空间",
+  "home.persp.cloud.card1.desc":
+    "Agent 跑在 Worker 上，文件存在 R2 / D1。换电脑、换 Agent、换 IDE，状态跟着 workspace 走 —— 不绑死本机。",
+  "home.persp.cloud.card2.title": "多 Agent 协作",
+  "home.persp.cloud.card2.desc":
+    "一个 workspace、多个 Agent、多个真人。串行化进 Durable Object 做原子写；提交日志谁干了什么一清二楚。",
+  "home.persp.cloud.card3.title": "公开分享 / 自部署 Edge",
+  "home.persp.cloud.card3.desc":
+    "任意文件一键发布到 huozi.app 公开 URL，可加 6 位口令。也可一键 Edge 部署到自己的 Cloudflare / Vercel，MIT 开源。",
+  "home.persp.cloud.code.title": "在云端，跨 Agent 共享",
+
+
   // Home CTA band
   "home.install.title": "60 秒上手",
 

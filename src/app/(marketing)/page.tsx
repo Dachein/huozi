@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getLocale } from "@/lib/i18n/server";
 import { t } from "@/lib/i18n";
+import { HomePerspectives } from "@/components/home/perspectives";
 
 export default async function HomePage() {
   const locale = await getLocale();
@@ -133,65 +134,9 @@ export default async function HomePage() {
         </p>
       </section>
 
-      {/* Shared features — apply to both editions. */}
-      <section className="mx-auto max-w-4xl px-6 py-16">
-        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground text-center mb-8 font-serif">
-          {_("home.shared.label")}
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <FeatureCard
-            icon={_("home.feat1.icon")}
-            title={_("home.feat1.title")}
-            desc={_("home.feat1.desc")}
-          />
-          <FeatureCard
-            icon={_("home.feat2.icon")}
-            title={_("home.feat2.title")}
-            desc={_("home.feat2.desc")}
-          />
-          <FeatureCard
-            icon={_("home.feat3.icon")}
-            title={_("home.feat3.title")}
-            desc={_("home.feat3.desc")}
-          />
-        </div>
-      </section>
-
-      {/* Code example */}
-      <section className="mx-auto max-w-3xl px-6 pb-16">
-        <p className="text-sm font-medium text-muted-foreground mb-4 text-center font-serif tracking-wider">
-          {_("home.code.title")}
-        </p>
-        <pre className="rounded-xl border border-border bg-muted/50 p-6 text-sm overflow-x-auto font-mono leading-relaxed">
-          <code>{`# Mount the workspace in Claude Code:
-claude mcp add --transport http huozi https://cloud.huozi.app/mcp \\
-  -H "Authorization: Bearer hz_your_key"
-
-# Then ask the Agent to create a file:
-#   > write a README.md explaining the project
-#
-# It lands in your workspace, live-synced to the Web UI at
-# huozi.app/workspace — with full commit history.`}</code>
-        </pre>
-      </section>
+      {/* Three perspectives — 印 (MCP) / 版 (STYLE) / 盘 (CLOUD).
+          Tab pills swap the eyebrow, three cards, and code block in place. */}
+      <HomePerspectives />
     </>
-  );
-}
-
-function FeatureCard({
-  icon,
-  title,
-  desc,
-}: {
-  icon: string;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <div className="rounded-xl border border-border/60 bg-muted/30 p-7 transition-all hover:border-border hover:shadow-sm">
-      <div className="font-serif text-2xl text-accent mb-3">{icon}</div>
-      <h3 className="font-serif text-base font-bold mb-2">{title}</h3>
-      <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
-    </div>
   );
 }

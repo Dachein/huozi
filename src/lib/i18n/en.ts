@@ -51,6 +51,56 @@ export const en = {
   // Home · shared features section
   "home.shared.label": "Shared across both",
 
+  // Home · three perspectives (印 / 版 / 盘). Tab pills swap the cards
+  // and code block below in-place — no navigation.
+  "home.persp.label": "Three perspectives",
+
+  // 印 · MCP — type as interface
+  "home.persp.mcp.tab": "MCP",
+  "home.persp.mcp.subtitle":
+    "Whatever dialect Claude Code speaks, huozi speaks too.",
+  "home.persp.mcp.card1.title": "Bit-exact CC dialect",
+  "home.persp.mcp.card1.desc":
+    "Read / Edit / Write / Glob / Grep — field names, error codes, staleness behavior — all one-to-one with Claude Code. Drop in any CC-trained Agent, no code changes.",
+  "home.persp.mcp.card2.title": "Seven MCP tools",
+  "home.persp.mcp.card2.desc":
+    "Five mirror Claude Code; two are cloud-native extensions: huozi_batch_edit commits a dozen files atomically, huozi_history walks any file's commit chain.",
+  "home.persp.mcp.card3.title": "Mount from any client",
+  "home.persp.mcp.card3.desc":
+    "Claude Code, Cursor, Desktop, OpenClaw — every MCP client connects with one line. Or talk to it as raw HTTP via curl.",
+  "home.persp.mcp.code.title": "One line, mount the tools",
+
+  // 版 · STYLE — bytes that render gracefully
+  "home.persp.style.tab": "STYLE",
+  "home.persp.style.subtitle":
+    "Bytes that render gracefully — Markdown, CSV, and five built-in layouts picked in one sentence.",
+  "home.persp.style.card1.title": "Markdown · prose & notes",
+  "home.persp.style.card1.desc":
+    "Weekly reviews, research notes, technical docs — headings, quotes, code, lists rendered at print quality by default. No theme picking, no style tweaking.",
+  "home.persp.style.card2.title": "CSV · tables that actually work",
+  "home.persp.style.card2.desc":
+    "100 columns? No problem. Sortable, frozen headers, click any cell for a row drawer. Files Excel can't open, huozi can.",
+  "home.persp.style.card3.title": "Layouts · 5 built-in scaffolds",
+  "home.persp.style.card3.desc":
+    "deck (16:9 slide) / story (9:16 vertical) / paper (A4 print) / mobile (long page) / page (desktop long page) — the Agent picks one in a sentence. Self-scaling, zero-dep, single-file HTML, ready to publish.",
+  "home.persp.style.code.title": "One sentence, the right shape",
+
+  // 盘 · CLOUD — bytes in the cloud, shared across Agents
+  "home.persp.cloud.tab": "CLOUD",
+  "home.persp.cloud.subtitle":
+    "Bytes live in the cloud, not on a laptop — shared across Agents, deployable online.",
+  "home.persp.cloud.card1.title": "Cloud workspace",
+  "home.persp.cloud.card1.desc":
+    "Agents run on Workers, bytes live in R2 / D1. Switch laptops, switch Agents, switch IDEs — state follows the workspace, not the machine.",
+  "home.persp.cloud.card2.title": "Multi-Agent collaboration",
+  "home.persp.cloud.card2.desc":
+    "One workspace, many Agents, many humans. Writes serialize into a Durable Object for atomic commits; the log shows exactly who did what.",
+  "home.persp.cloud.card3.title": "Public share · self-host Edge",
+  "home.persp.cloud.card3.desc":
+    "Publish any file to a huozi.app share URL, optional 6-digit passcode. Or self-host Edge on your own Cloudflare / Vercel — same drive, MIT licensed.",
+  "home.persp.cloud.code.title": "In the cloud, shared by Agents",
+
+
   // Home CTA band
   "home.install.title": "Get started in 60 seconds",
 
