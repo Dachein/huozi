@@ -1,8 +1,0 @@
-{
-  "name": "huozi",
-  "description": "Publish Markdown and HTML to huozi.app. Ships 5 standard format templates (deck, story, paper, mobile, page) so the agent picks the right scaffold for slides, vertical reels, A4 docs, mobile pages, and desktop long-form pages.",
-  "author": {
-    "name": "huozi.app",
-    "email": "team@huozi.app"
-  }
-}

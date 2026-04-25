@@ -4,9 +4,7 @@
  * Each is a self-contained, single-file HTML scaffold the agent fills with
  * content before publishing via huozi_share. Inlined here as `const` strings
  * so they ship with the Worker bundle — no runtime asset loading required.
- *
- * Source of truth lives at /skill-pack/huozi/skills/huozi/templates/*.html
- * in the repo. Keep these in sync if you edit either side.
+ * This file is the canonical source; edits land here directly.
  *
  * Design constraints:
  *   - Pure CSS (no JS) — the publish surface strips <script>.
