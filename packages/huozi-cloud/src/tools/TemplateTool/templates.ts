@@ -12,6 +12,17 @@
  *   - Class names prefixed `huozi-{format}-` to avoid global CSS collision.
  *   - Container queries (cqw / cqh) for self-scaling slide stages instead
  *     of JS-driven transform: scale().
+ *
+ * Multi-page (deck / story / paper) framework:
+ *   - Each page unit has an id (`s1`, `s2` for slides; `p1`, `p2` for paper).
+ *   - A right-side fixed `.pages-menu` <nav> lists `<a href="#sN">` links
+ *     1:1 with the page units. Same screen position across all 3 formats.
+ *   - deck/story use scroll-snap (x/y) for swipe + key navigation. paper uses
+ *     plain smooth-scroll anchor jumps (A4 pages can exceed viewport).
+ *   - No current-page highlight: tracking the user's scroll position needs
+ *     IntersectionObserver, which the sanitizer strips. Position feedback
+ *     comes from the scroll itself.
+ *   - Print: pages-menu is hidden in @media print.
  */
 
 export const TEMPLATE_FORMATS = [
@@ -52,10 +63,28 @@ const DECK_HTML = `<!doctype html>
   margin:0;
   background:#000;
   min-height:100vh;
-  display:grid;
-  place-items:center;
   font-family:var(--font-sans);
   -webkit-font-smoothing:antialiased;
+  position:relative;
+}
+.huozi-deck .slides{
+  display:flex;
+  flex-direction:row;
+  height:100vh;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scroll-snap-type:x mandatory;
+  scroll-behavior:smooth;
+  scrollbar-width:none;
+}
+.huozi-deck .slides::-webkit-scrollbar{display:none}
+.huozi-deck .slide{
+  flex:0 0 100vw;
+  height:100vh;
+  scroll-snap-align:start;
+  scroll-snap-stop:always;
+  display:grid;
+  place-items:center;
 }
 .huozi-deck .stage{
   aspect-ratio:16/9;
@@ -72,6 +101,7 @@ const DECK_HTML = `<!doctype html>
   display:flex;
   flex-direction:column;
   justify-content:center;
+  position:relative;
 }
 .huozi-deck .stage h1{font-size:5.5cqw; margin:0 0 .4em; letter-spacing:-.02em; line-height:1.1}
 .huozi-deck .stage h2{font-size:3.4cqw; margin:0 0 .5em; color:var(--color-accent); font-weight:600}
@@ -82,19 +112,67 @@ const DECK_HTML = `<!doctype html>
 .huozi-deck .stage code{font-family:var(--font-mono); background:var(--color-border); padding:.1em .3em; border-radius:.2em; font-size:.9em}
 .huozi-deck .stage .muted{color:var(--color-muted)}
 .huozi-deck .stage .footer{position:absolute; bottom:3cqh; right:6cqw; font-size:1.4cqw; color:var(--color-muted)}
+.huozi-deck .pages-menu{
+  position:fixed;
+  right:14px;
+  top:50%;
+  transform:translateY(-50%);
+  z-index:50;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  padding:10px 8px;
+  background:rgba(0,0,0,.45);
+  -webkit-backdrop-filter:blur(6px);
+  backdrop-filter:blur(6px);
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.08);
+}
+.huozi-deck .pages-menu a{
+  display:block;
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:rgba(255,255,255,.4);
+  transition:background .15s ease, transform .15s ease;
+}
+.huozi-deck .pages-menu a:hover{background:rgba(255,255,255,.95); transform:scale(1.3)}
 @media print{
-  .huozi-deck{background:#fff; min-height:auto; display:block}
-  .huozi-deck .stage{width:100%; height:100vh; aspect-ratio:auto; page-break-after:always}
+  .huozi-deck{background:#fff; min-height:auto}
+  .huozi-deck .slides{display:block; height:auto; overflow:visible}
+  .huozi-deck .slide{width:100%; height:100vh; display:block; page-break-after:always}
+  .huozi-deck .stage{width:100%; height:100vh; aspect-ratio:auto}
+  .huozi-deck .pages-menu{display:none}
   @page{size:landscape; margin:0}
 }
 </style>
 </head>
 <body>
+<!--
+  Multi-page contract:
+    - Each slide = a <section class="slide" id="sN"><div class="stage">...</div></section>
+    - Each .pages-menu <a href="#sN"></a> mirrors a slide id 1:1
+    - To add a slide: append a <section class="slide" id="sN+1"> AND a matching <a href="#sN+1">
+-->
 <div class="huozi-deck">
-  <section class="stage">
-    <h1>标题占位</h1>
-    <p class="muted">副标题或日期</p>
-  </section>
+  <div class="slides">
+    <section class="slide" id="s1">
+      <div class="stage">
+        <h1>标题占位</h1>
+        <p class="muted">副标题或日期</p>
+      </div>
+    </section>
+    <section class="slide" id="s2">
+      <div class="stage">
+        <h2>第二页占位</h2>
+        <p>横向 swipe / 滚动 / 方向键 / 点右侧菜单都能切换。</p>
+      </div>
+    </section>
+  </div>
+  <nav class="pages-menu" aria-label="Slides">
+    <a href="#s1" aria-label="Slide 1"></a>
+    <a href="#s2" aria-label="Slide 2"></a>
+  </nav>
 </div>
 </body>
 </html>
@@ -118,10 +196,28 @@ const STORY_HTML = `<!doctype html>
   margin:0;
   background:#000;
   min-height:100vh;
-  display:grid;
-  place-items:center;
   font-family:var(--font-sans);
   -webkit-font-smoothing:antialiased;
+  position:relative;
+}
+.huozi-story .slides{
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+  overflow-x:hidden;
+  overflow-y:auto;
+  scroll-snap-type:y mandatory;
+  scroll-behavior:smooth;
+  scrollbar-width:none;
+}
+.huozi-story .slides::-webkit-scrollbar{display:none}
+.huozi-story .slide{
+  flex:0 0 100vh;
+  height:100vh;
+  scroll-snap-align:start;
+  scroll-snap-stop:always;
+  display:grid;
+  place-items:center;
 }
 .huozi-story .stage{
   aspect-ratio:9/16;
@@ -148,15 +244,60 @@ const STORY_HTML = `<!doctype html>
 .huozi-story .stage .muted{color:var(--color-muted)}
 .huozi-story .stage .pill{display:inline-block; padding:.4em .9em; border:1px solid var(--color-border); border-radius:999px; font-size:.85em; color:var(--color-muted); margin-bottom:1em}
 .huozi-story .stage .footer{position:absolute; bottom:5cqh; left:7cqw; right:7cqw; font-size:3cqw; color:var(--color-muted); text-align:center}
+.huozi-story .pages-menu{
+  position:fixed;
+  right:14px;
+  top:50%;
+  transform:translateY(-50%);
+  z-index:50;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  padding:10px 8px;
+  background:rgba(0,0,0,.45);
+  -webkit-backdrop-filter:blur(6px);
+  backdrop-filter:blur(6px);
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.08);
+}
+.huozi-story .pages-menu a{
+  display:block;
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:rgba(255,255,255,.4);
+  transition:background .15s ease, transform .15s ease;
+}
+.huozi-story .pages-menu a:hover{background:rgba(255,255,255,.95); transform:scale(1.3)}
 </style>
 </head>
 <body>
+<!--
+  Multi-page contract:
+    - Each slide = a <section class="slide" id="sN"><div class="stage">...</div></section>
+    - Each .pages-menu <a href="#sN"></a> mirrors a slide id 1:1
+    - To add a slide: append a <section class="slide" id="sN+1"> AND a matching <a href="#sN+1">
+-->
 <div class="huozi-story">
-  <section class="stage">
-    <span class="pill">标签</span>
-    <h1>竖屏大标题</h1>
-    <p class="muted">一句副文本</p>
-  </section>
+  <div class="slides">
+    <section class="slide" id="s1">
+      <div class="stage">
+        <span class="pill">标签</span>
+        <h1>竖屏大标题</h1>
+        <p class="muted">一句副文本</p>
+      </div>
+    </section>
+    <section class="slide" id="s2">
+      <div class="stage">
+        <h2>第二屏</h2>
+        <p>纵向 swipe / 滚动 / 方向键 / 点右侧菜单都能切换。</p>
+      </div>
+    </section>
+  </div>
+  <nav class="pages-menu" aria-label="Slides">
+    <a href="#s1" aria-label="Slide 1"></a>
+    <a href="#s2" aria-label="Slide 2"></a>
+  </nav>
 </div>
 </body>
 </html>
@@ -186,6 +327,7 @@ const PAPER_HTML = `<!doctype html>
   color:var(--color-fg);
   -webkit-font-smoothing:antialiased;
   padding:32px 16px;
+  scroll-behavior:smooth;
 }
 .huozi-paper .page{
   width:210mm;
@@ -198,6 +340,7 @@ const PAPER_HTML = `<!doctype html>
   font-size:11pt;
   line-height:1.65;
   box-sizing:border-box;
+  scroll-margin-top:24px;
 }
 .huozi-paper .page + .page{margin-top:24px}
 .huozi-paper h1{font-size:22pt; margin:0 0 .4em; letter-spacing:-.01em; line-height:1.2; font-weight:700}
@@ -213,22 +356,99 @@ const PAPER_HTML = `<!doctype html>
 .huozi-paper table{width:100%; border-collapse:collapse; margin:0 0 1em}
 .huozi-paper th,.huozi-paper td{border-bottom:1px solid var(--color-border); padding:.5em .6em; text-align:left}
 .huozi-paper th{font-weight:600}
+.huozi-paper .pages-menu{
+  position:fixed;
+  right:14px;
+  top:50%;
+  transform:translateY(-50%);
+  z-index:50;
+  max-height:70vh;
+  overflow-y:auto;
+  padding:10px 12px;
+  background:rgba(255,255,255,.92);
+  -webkit-backdrop-filter:blur(6px);
+  backdrop-filter:blur(6px);
+  border:1px solid var(--color-border);
+  border-radius:8px;
+  box-shadow:0 4px 14px rgba(0,0,0,.06);
+  font-family:var(--font-sans);
+  font-size:11px;
+  line-height:1.4;
+  max-width:180px;
+}
+.huozi-paper .pages-menu-title{
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:var(--color-muted);
+  margin:0 0 .6em;
+  padding:0 4px;
+}
+.huozi-paper .pages-menu ol{
+  list-style:none;
+  padding:0;
+  margin:0;
+  counter-reset:page-num;
+}
+.huozi-paper .pages-menu li{
+  counter-increment:page-num;
+  margin:0;
+}
+.huozi-paper .pages-menu a{
+  display:flex;
+  gap:8px;
+  padding:4px 6px;
+  color:var(--color-muted);
+  text-decoration:none;
+  border-radius:4px;
+  transition:background .12s ease, color .12s ease;
+}
+.huozi-paper .pages-menu a::before{
+  content:counter(page-num);
+  font-variant-numeric:tabular-nums;
+  color:var(--color-border);
+  flex:0 0 auto;
+  width:1.4em;
+  text-align:right;
+}
+.huozi-paper .pages-menu a:hover{background:#f4f4f5; color:var(--color-fg)}
 @page{size:A4; margin:0}
 @media print{
   .huozi-paper{background:#fff; padding:0}
   .huozi-paper .page{box-shadow:none; margin:0; width:210mm; min-height:297mm; page-break-after:always}
+  .huozi-paper .pages-menu{display:none}
+}
+@media (max-width:760px){
+  .huozi-paper .pages-menu{display:none}
 }
 </style>
 </head>
 <body>
+<!--
+  Multi-page contract:
+    - Each page = an <article class="page" id="pN">…</article>
+    - Each .pages-menu <a href="#pN">页面标题</a> mirrors a page id 1:1, label is the page's chapter title
+    - Pages can be longer than viewport (A4 portrait); no scroll-snap, just smooth anchor jumps
+-->
 <div class="huozi-paper">
-  <article class="page">
+  <article class="page" id="p1">
     <h1>文档标题</h1>
     <p class="meta">作者 · 日期</p>
     <hr>
     <h2>章节</h2>
     <p>正文段落…</p>
   </article>
+  <article class="page" id="p2">
+    <h2>第二页</h2>
+    <p>新增页：复制一个 <code>&lt;article class="page" id="pN"&gt;…&lt;/article&gt;</code>，并在右侧 <code>.pages-menu</code> 加一项 <code>&lt;a href="#pN"&gt;页面标题&lt;/a&gt;</code>。</p>
+  </article>
+  <nav class="pages-menu" aria-label="目录">
+    <p class="pages-menu-title">目录</p>
+    <ol>
+      <li><a href="#p1">封面</a></li>
+      <li><a href="#p2">第二页</a></li>
+    </ol>
+  </nav>
 </div>
 </body>
 </html>
