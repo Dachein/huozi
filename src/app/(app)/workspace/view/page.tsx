@@ -7,6 +7,12 @@ import { FileRenderer } from "@/components/workspace/file-renderer";
 import { CloudLiveEvents } from "@/components/workspace/cloud-live-events";
 import { LiveUpdateBanner } from "@/components/workspace/live-update-banner";
 import { FileActionsMenu } from "@/components/workspace/file-actions-menu";
+import { FullscreenProvider } from "@/components/workspace/fullscreen-context";
+import { FullscreenToggleButton } from "@/components/workspace/fullscreen-toggle-button";
+import {
+  FullscreenContent,
+  type FullscreenMode,
+} from "@/components/workspace/fullscreen-content";
 import { getLocale } from "@/lib/i18n/server";
 import {
   cloudGlob,
@@ -133,81 +139,95 @@ async function FileView({
     : "";
   const ext = (path.split(".").pop() ?? "").toLowerCase();
   const canRender = ["md", "mdx", "html", "htm", "json", "csv", "tsv"].includes(ext);
+  const fullscreenMode: FullscreenMode = wantRaw
+    ? null
+    : ext === "md" || ext === "mdx"
+      ? "reader"
+      : ext === "html" || ext === "htm"
+        ? "raw"
+        : ext === "csv" || ext === "tsv"
+          ? "grid"
+          : null;
 
   const fileInfo = readRes.ok ? readRes.data.file : null;
 
   return (
-    <div className="space-y-6">
-      <LiveUpdateBanner watchPath={path} />
-      {/* Path + actions */}
-      <div>
-        <Breadcrumb parentPath={parentPath} />
-        <div className="flex items-center gap-2">
-          <h1 className="font-mono text-base sm:text-lg break-all min-w-0 flex-1">
-            {fileName}
-          </h1>
-          <FileActionsMenu
-            path={path}
-            wantRaw={wantRaw}
-            offset={offset}
-            limit={limit}
-            canRender={canRender}
-            totalLines={fileInfo?.totalLines ?? null}
-            size={fileInfo?.size ?? null}
-            mimeType={fileInfo?.mimeType ?? null}
-            blobSha={fileInfo?.blob_sha ?? null}
-          />
-        </div>
-      </div>
-
-      {/* Auto-pagination banner */}
-      {didAutoPaginate && (
-        <div className="rounded-lg border border-accent/40 bg-accent/5 px-4 py-3 text-xs text-muted-foreground">
-          <strong className="text-foreground">Large file — showing a page.</strong>{" "}
-          This file exceeds the default inline-read size (256 KB). The viewer
-          auto-requested the first {limit} lines. Use the page controls below
-          to navigate.
-        </div>
-      )}
-
-      {/* Error */}
-      {!readRes.ok && (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/5 px-4 py-3 text-sm">
-          <strong>Error {readRes.errorCode}:</strong>{" "}
-          <span className="text-muted-foreground">{readRes.message}</span>
-        </div>
-      )}
-
-      {/* Content */}
-      {readRes.ok && (
-        <>
-          <FileBody
-            data={readRes.data}
-            path={path}
-            wantRaw={wantRaw}
-            paginated={paginated}
-          />
-          {readRes.ok && paginated && readRes.data.type === "text" && (
-            <Pagination
+    <FullscreenProvider>
+      <div className="space-y-6">
+        <LiveUpdateBanner watchPath={path} />
+        {/* Path + actions */}
+        <div>
+          <Breadcrumb parentPath={parentPath} />
+          <div className="flex items-center gap-2">
+            <h1 className="font-mono text-base sm:text-lg break-all min-w-0 flex-1">
+              {fileName}
+            </h1>
+            <FullscreenToggleButton enabled={fullscreenMode !== null} />
+            <FileActionsMenu
               path={path}
               wantRaw={wantRaw}
-              offset={offset ?? 1}
-              limit={limit ?? DEFAULT_PAGE_LINES}
-              totalLines={readRes.data.file.totalLines ?? 0}
-              numLines={readRes.data.file.numLines ?? 0}
+              offset={offset}
+              limit={limit}
+              canRender={canRender}
+              totalLines={fileInfo?.totalLines ?? null}
+              size={fileInfo?.size ?? null}
+              mimeType={fileInfo?.mimeType ?? null}
+              blobSha={fileInfo?.blob_sha ?? null}
             />
-          )}
-        </>
-      )}
+          </div>
+        </div>
 
-      {/* Read-only-by-design hint */}
-      <div className="rounded-lg border border-dashed border-border p-4 text-xs text-muted-foreground">
-        <strong className="text-foreground">Need to modify this file?</strong>{" "}
-        Ask your connected Agent (Claude Code, Cursor, Claude Desktop, or any
-        MCP client). huozi Cloud&rsquo;s Web UI is read-only by design — all
-        writes flow through a single audited commit path via MCP.
+        {/* Auto-pagination banner */}
+        {didAutoPaginate && (
+          <div className="rounded-lg border border-accent/40 bg-accent/5 px-4 py-3 text-xs text-muted-foreground">
+            <strong className="text-foreground">Large file — showing a page.</strong>{" "}
+            This file exceeds the default inline-read size (256 KB). The viewer
+            auto-requested the first {limit} lines. Use the page controls below
+            to navigate.
+          </div>
+        )}
+
+        {/* Error */}
+        {!readRes.ok && (
+          <div className="rounded-lg border border-red-500/40 bg-red-500/5 px-4 py-3 text-sm">
+            <strong>Error {readRes.errorCode}:</strong>{" "}
+            <span className="text-muted-foreground">{readRes.message}</span>
+          </div>
+        )}
+
+        {/* Content */}
+        {readRes.ok && (
+          <>
+            <FullscreenContent mode={fullscreenMode}>
+              <FileBody
+                data={readRes.data}
+                path={path}
+                wantRaw={wantRaw}
+                paginated={paginated}
+              />
+            </FullscreenContent>
+            {readRes.ok && paginated && readRes.data.type === "text" && (
+              <Pagination
+                path={path}
+                wantRaw={wantRaw}
+                offset={offset ?? 1}
+                limit={limit ?? DEFAULT_PAGE_LINES}
+                totalLines={readRes.data.file.totalLines ?? 0}
+                numLines={readRes.data.file.numLines ?? 0}
+              />
+            )}
+          </>
+        )}
+
+        {/* Read-only-by-design hint */}
+        <div className="rounded-lg border border-dashed border-border p-4 text-xs text-muted-foreground">
+          <strong className="text-foreground">Need to modify this file?</strong>{" "}
+          Ask your connected Agent (Claude Code, Cursor, Claude Desktop, or any
+          MCP client). huozi Cloud&rsquo;s Web UI is read-only by design — all
+          writes flow through a single audited commit path via MCP.
+        </div>
       </div>
-    </div>
+    </FullscreenProvider>
   );
 }
 

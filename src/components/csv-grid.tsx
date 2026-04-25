@@ -20,6 +20,7 @@ import {
   isNumeric,
 } from "@/lib/csv/parse";
 import { useT } from "@/lib/i18n/context";
+import { useFullscreen } from "@/components/workspace/fullscreen-context";
 
 export interface CsvGridProps {
   /** Raw file content. */
@@ -90,19 +91,7 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
     return () => window.removeEventListener("resize", update);
   }, []);
 
-  const [fullscreen, setFullscreen] = useState(false);
-  useEffect(() => {
-    if (!fullscreen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setFullscreen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
-  }, [fullscreen]);
+  const { fullscreen } = useFullscreen();
 
   const filtered = useMemo(() => {
     if (!query.trim()) return rows;
@@ -303,15 +292,6 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
           {sorted.length.toLocaleString()} / {rows.length.toLocaleString()} row
           {rows.length === 1 ? "" : "s"}
         </span>
-        <button
-          type="button"
-          onClick={() => setFullscreen((v) => !v)}
-          aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-          title={fullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
-          className="inline-flex items-center justify-center w-7 h-7 rounded border border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors"
-        >
-          {fullscreen ? <CollapseIcon /> : <ExpandIcon />}
-        </button>
       </div>
 
       <div
@@ -383,20 +363,9 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
     />
   ) : null;
 
-  if (!fullscreen) {
-    return (
-      <>
-        {grid}
-        {modal}
-      </>
-    );
-  }
-
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-background flex flex-col p-4 sm:p-6">
-        {grid}
-      </div>
+      {grid}
       {modal}
     </>
   );
@@ -493,34 +462,6 @@ function RowDetailModal({
         </div>
       </div>
     </div>
-  );
-}
-
-function ExpandIcon() {
-  return (
-    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" aria-hidden="true">
-      <path
-        d="M3 6 V3 H6 M10 3 H13 V6 M13 10 V13 H10 M6 13 H3 V10"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function CollapseIcon() {
-  return (
-    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" aria-hidden="true">
-      <path
-        d="M6 3 V6 H3 M10 6 V3 M10 6 H13 M13 10 H10 V13 M3 10 H6 V13"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
   );
 }
 
