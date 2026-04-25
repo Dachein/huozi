@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{
+  --color-bg:#ffffff;
+  --color-fg:#1a1a1a;
+  --color-muted:#666666;
+  --color-accent:#000000;
+  --color-border:#d4d4d8;
+  --font-serif:Georgia,"Times New Roman","Songti SC","SimSun",ui-serif,serif;
+  --font-sans:ui-sans-serif,system-ui,-apple-system,"PingFang SC","Hiragino Sans GB",sans-serif;
+  --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+.huozi-paper{
+  margin:0;
+  background:#e5e5e5;
+  min-height:100vh;
+  font-family:var(--font-serif);
+  color:var(--color-fg);
+  -webkit-font-smoothing:antialiased;
+  padding:32px 16px;
+}
+.huozi-paper .page{
+  width:210mm;
+  max-width:100%;
+  min-height:297mm;
+  margin:0 auto;
+  background:var(--color-bg);
+  padding:25mm 22mm;
+  box-shadow:0 4px 24px rgba(0,0,0,.08);
+  font-size:11pt;
+  line-height:1.65;
+  box-sizing:border-box;
+}
+.huozi-paper .page + .page{margin-top:24px}
+.huozi-paper h1{font-size:22pt; margin:0 0 .4em; letter-spacing:-.01em; line-height:1.2; font-weight:700}
+.huozi-paper h2{font-size:15pt; margin:1.4em 0 .4em; font-weight:600}
+.huozi-paper h3{font-size:12pt; margin:1.1em 0 .3em; font-weight:600}
+.huozi-paper p{margin:0 0 .8em; text-align:justify; hyphens:auto}
+.huozi-paper ul,.huozi-paper ol{margin:0 0 .8em; padding-left:1.4em}
+.huozi-paper li{margin-bottom:.25em}
+.huozi-paper code{font-family:var(--font-mono); background:#f4f4f5; padding:.1em .3em; border-radius:.2em; font-size:.92em}
+.huozi-paper hr{border:0; border-top:1px solid var(--color-border); margin:1.6em 0}
+.huozi-paper .muted{color:var(--color-muted)}
+.huozi-paper .meta{font-family:var(--font-sans); color:var(--color-muted); font-size:10pt; margin-bottom:1.5em}
+.huozi-paper table{width:100%; border-collapse:collapse; margin:0 0 1em}
+.huozi-paper th,.huozi-paper td{border-bottom:1px solid var(--color-border); padding:.5em .6em; text-align:left}
+.huozi-paper th{font-weight:600}
+@page{size:A4; margin:0}
+@media print{
+  .huozi-paper{background:#fff; padding:0}
+  .huozi-paper .page{box-shadow:none; margin:0; width:210mm; min-height:297mm; page-break-after:always}
+}
+</style>
+</head>
+<body>
+<div class="huozi-paper">
+  <article class="page">
+    <h1>huozi 项目说明</h1>
+    <p class="meta">Dachein · 2026-04-25</p>
+    <hr>
+    <h2>背景</h2>
+    <p>huozi 是一个为 AI agent 设计的内容发布平台。Agent 通过 MCP 协议生成 Markdown 或 HTML 后调用 <code>huozi_share</code>，几秒内得到一个公开 URL。整个发布管线无需人工介入。</p>
+    <h2>核心能力</h2>
+    <ul>
+      <li><strong>5 种标准排版</strong> — deck（16:9）、story（9:16）、paper（A4）、mobile（移动长文）、page（桌面长页）。</li>
+      <li><strong>统一 MCP 接口</strong> — Agent 通过 <code>huozi_template</code> 拉取骨架，<code>huozi_share</code> 发布，无需自建前端。</li>
+      <li><strong>双 edition</strong> — Cloud 由 huozi.app 托管，Edge 可自托管在 Cloudflare Workers 上。</li>
+    </ul>
+    <h2>架构概览</h2>
+    <table>
+      <thead><tr><th>层</th><th>组件</th><th>职责</th></tr></thead>
+      <tbody>
+        <tr><td>Worker</td><td>huozi-cloud</td><td>MCP 入口、文件 IO</td></tr>
+        <tr><td>存储</td><td>R2 + D1 + DO</td><td>对象、元数据、并发协调</td></tr>
+        <tr><td>前端</td><td>Next.js</td><td>huozi.app 发布页</td></tr>
+      </tbody>
+    </table>
+    <hr>
+    <p class="muted">本文档由 huozi <code>paper</code> template 生成，原样可打印为 A4。</p>
+  </article>
+</div>
+</body>
+</html>
