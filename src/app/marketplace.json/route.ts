@@ -7,26 +7,24 @@
  *   /plugin marketplace add https://huozi.app/marketplace.json
  *   /plugin install huozi@huozi
  *
- * Source bytes live at skill-pack/.claude-plugin/marketplace.json — read
- * once at build time and baked into the static response.
+ * Bytes are baked into the bundle by scripts/bundle-skill-pack.mjs —
+ * the Cloudflare Worker runtime has no fs, so we cannot read files
+ * from disk per-request. Re-run the bundler after editing the source
+ * file at skill-pack/.claude-plugin/marketplace.json.
  */
 
-import fs from "node:fs";
-import path from "node:path";
+import { SKILL_PACK } from '@/lib/skill-pack-bundle'
 
-const BODY = fs.readFileSync(
-  path.join(process.cwd(), "skill-pack", ".claude-plugin", "marketplace.json"),
-  "utf-8",
-);
+const ENTRY = SKILL_PACK['marketplace.json']
 
-export const dynamic = "force-static";
+export const dynamic = 'force-static'
 
 export async function GET(): Promise<Response> {
-  return new Response(BODY, {
+  return new Response(ENTRY.body, {
     status: 200,
     headers: {
-      "content-type": "application/json; charset=utf-8",
-      "cache-control": "public, max-age=300, s-maxage=3600",
+      'content-type': ENTRY.type,
+      'cache-control': 'public, max-age=300, s-maxage=3600',
     },
-  });
+  })
 }
