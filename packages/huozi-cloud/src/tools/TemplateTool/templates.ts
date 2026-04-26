@@ -49,6 +49,7 @@ const DECK_HTML = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="huozi:viewport" content="aspect-ratio:16/9">
 <style>
 :root{
   --color-bg:#ffffff;
@@ -62,15 +63,22 @@ const DECK_HTML = `<!doctype html>
 .huozi-deck{
   margin:0;
   background:#000;
-  min-height:100vh;
+  width:100vw;
+  height:100vh;
   font-family:var(--font-sans);
   -webkit-font-smoothing:antialiased;
   position:relative;
+  /* Container queries scope slide sizing (cqh/cqw) to .huozi-deck.
+     transform makes .huozi-deck the containing block for fixed children
+     (the menu) so the menu floats at .huozi-deck's edge — viewport edge
+     in published view, embed edge in workspace inline preview. */
+  container-type:size;
+  transform:translateZ(0);
 }
 .huozi-deck .slides{
   display:flex;
   flex-direction:row;
-  height:100vh;
+  height:100cqh;
   overflow-x:auto;
   overflow-y:hidden;
   scroll-snap-type:x mandatory;
@@ -79,8 +87,8 @@ const DECK_HTML = `<!doctype html>
 }
 .huozi-deck .slides::-webkit-scrollbar{display:none}
 .huozi-deck .slide{
-  flex:0 0 100vw;
-  height:100vh;
+  flex:0 0 100cqw;
+  height:100cqh;
   scroll-snap-align:start;
   scroll-snap-stop:always;
   display:grid;
@@ -88,8 +96,8 @@ const DECK_HTML = `<!doctype html>
 }
 .huozi-deck .stage{
   aspect-ratio:16/9;
-  width:min(100vw, calc(100vh * 16 / 9));
-  height:min(100vh, calc(100vw * 9 / 16));
+  width:min(100cqw, calc(100cqh * 16 / 9));
+  height:min(100cqh, calc(100cqw * 9 / 16));
   background:var(--color-bg);
   color:var(--color-fg);
   container-type:size;
@@ -138,7 +146,7 @@ const DECK_HTML = `<!doctype html>
 }
 .huozi-deck .pages-menu a:hover{background:rgba(255,255,255,.95); transform:scale(1.3)}
 @media print{
-  .huozi-deck{background:#fff; min-height:auto}
+  .huozi-deck{background:#fff; width:auto; height:auto; min-height:auto; transform:none; container-type:normal}
   .huozi-deck .slides{display:block; height:auto; overflow:visible}
   .huozi-deck .slide{width:100%; height:100vh; display:block; page-break-after:always}
   .huozi-deck .stage{width:100%; height:100vh; aspect-ratio:auto}
@@ -183,6 +191,7 @@ const STORY_HTML = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="huozi:viewport" content="aspect-ratio:9/16; max-width:360px">
 <style>
 :root{
   --color-bg:#0f0f10;
@@ -195,15 +204,19 @@ const STORY_HTML = `<!doctype html>
 .huozi-story{
   margin:0;
   background:#000;
-  min-height:100vh;
+  width:100vw;
+  height:100vh;
   font-family:var(--font-sans);
   -webkit-font-smoothing:antialiased;
   position:relative;
+  /* See deck for container/transform rationale. */
+  container-type:size;
+  transform:translateZ(0);
 }
 .huozi-story .slides{
   display:flex;
   flex-direction:column;
-  height:100vh;
+  height:100cqh;
   overflow-x:hidden;
   overflow-y:auto;
   scroll-snap-type:y mandatory;
@@ -212,8 +225,8 @@ const STORY_HTML = `<!doctype html>
 }
 .huozi-story .slides::-webkit-scrollbar{display:none}
 .huozi-story .slide{
-  flex:0 0 100vh;
-  height:100vh;
+  flex:0 0 100cqh;
+  height:100cqh;
   scroll-snap-align:start;
   scroll-snap-stop:always;
   display:grid;
@@ -221,8 +234,8 @@ const STORY_HTML = `<!doctype html>
 }
 .huozi-story .stage{
   aspect-ratio:9/16;
-  width:min(100vw, calc(100vh * 9 / 16));
-  height:min(100vh, calc(100vw * 16 / 9));
+  width:min(100cqw, calc(100cqh * 9 / 16));
+  height:min(100cqh, calc(100cqw * 16 / 9));
   background:var(--color-bg);
   color:var(--color-fg);
   container-type:size;
@@ -308,6 +321,7 @@ const PAPER_HTML = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="huozi:viewport" content="max-height:80vh">
 <style>
 :root{
   --color-bg:#ffffff;
@@ -322,12 +336,15 @@ const PAPER_HTML = `<!doctype html>
 .huozi-paper{
   margin:0;
   background:#e5e5e5;
-  min-height:100vh;
   font-family:var(--font-serif);
   color:var(--color-fg);
   -webkit-font-smoothing:antialiased;
   padding:32px 16px;
   scroll-behavior:smooth;
+  /* inline-size container so the @container queries below can hide the
+     fixed-position menu in narrow embeds (e.g. workspace inline preview)
+     without affecting the published full-window view. */
+  container-type:inline-size;
 }
 .huozi-paper .page{
   width:210mm;
@@ -414,11 +431,14 @@ const PAPER_HTML = `<!doctype html>
 .huozi-paper .pages-menu a:hover{background:#f4f4f5; color:var(--color-fg)}
 @page{size:A4; margin:0}
 @media print{
-  .huozi-paper{background:#fff; padding:0}
+  .huozi-paper{background:#fff; padding:0; container-type:normal}
   .huozi-paper .page{box-shadow:none; margin:0; width:210mm; min-height:297mm; page-break-after:always}
   .huozi-paper .pages-menu{display:none}
 }
 @media (max-width:760px){
+  .huozi-paper .pages-menu{display:none}
+}
+@container (max-width:1000px){
   .huozi-paper .pages-menu{display:none}
 }
 </style>

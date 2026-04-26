@@ -45,18 +45,22 @@ export async function FileRenderer({ path, content, raw }: FileRendererProps) {
   }
 
   // HTML — sanitize + chart processing, same as publish flow.
-  // Rendered inside an iframe so vh / vw inside the published HTML reference
-  // the iframe's box (not the workspace viewport). Required for the
-  // paginated formats (deck / story / paper) which size slides via vh / vw.
+  // Rendered inline (no iframe). The wrapper applies a per-format display
+  // box (read from `<meta name="huozi:viewport">` when present, else
+  // sniffed from the .huozi-{format} class), and overrides the template
+  // root class so it fills that box. Inside the template, slide layout
+  // uses container queries (cqh/cqw) which scope to the template root —
+  // so the same bytes look correct in published view (root = 100vw×100vh),
+  // workspace inline preview (root = sized wrapper), and Fullscreen
+  // (FullscreenContent overrides the wrapper to viewport).
   if (ext === "html" || ext === "htm") {
     const { html } = processHtmlDirect(processChartComponents(content));
-    const layout = detectHtmlLayout(html);
+    const layout = pickHtmlLayout(content);
     return (
-      <iframe
-        srcDoc={html}
-        title="HTML preview"
-        className={`block border border-border rounded-lg bg-background ${layout.className}`}
+      <div
+        className={`huozi-html-host block ${layout.className}`}
         style={layout.style}
+        dangerouslySetInnerHTML={{ __html: html }}
       />
     );
   }
@@ -98,32 +102,91 @@ interface HtmlLayout {
 }
 
 /**
- * Sniff which huozi format an HTML file uses (by class name on the body
- * wrapper) and pick an iframe size that mirrors the published viewing
- * experience.
+ * Pick the inline-preview wrapper sizing for a published HTML file.
  *
- *   deck  (16:9) → full width, aspect-ratio locked
- *   story (9:16) → narrow column centered, aspect-ratio locked
- *   paper (A4)  → full width, fixed scrollable height
- *   other       → streaming long-form: full width, fixed scrollable height
+ * Priority:
+ *   1. `<meta name="huozi:viewport" content="aspect-ratio:16/9; max-width:360px; max-height:80vh">`
+ *      Custom HTML authors can opt in to format-aware sizing by adding this
+ *      meta. Recognized keys: aspect-ratio, max-width, max-height.
+ *   2. Fallback: sniff the .huozi-{deck,story,paper} class on the body root
+ *      so the standard 5 templates work without authoring meta.
+ *   3. Otherwise: a sensible scrollable box (mobile / page / unknown).
  *
- * In fullscreen the FullscreenContent shell overrides these via
- * `!w-full !h-full !aspect-auto` so the iframe truly fills the viewport.
+ * The wrapper className also forces the template root (.huozi-deck etc.)
+ * to fill the wrapper via Tailwind arbitrary variants. The template root
+ * defaults to 100vw × 100vh (correct for published view) — these
+ * overrides scope it to the workspace embed.
  */
-function detectHtmlLayout(html: string): HtmlLayout {
-  if (/class="[^"]*\bhuozi-deck\b/.test(html)) {
-    return { className: "w-full", style: { aspectRatio: "16 / 9" } };
+function pickHtmlLayout(rawContent: string): HtmlLayout {
+  const meta = parseHuoziViewport(rawContent);
+  const format = detectHuoziFormat(rawContent);
+
+  const style: React.CSSProperties = { width: "100%" };
+  let cls = "";
+
+  // Apply meta hints first (explicit > sniff).
+  if (meta?.["aspect-ratio"]) style.aspectRatio = meta["aspect-ratio"];
+  if (meta?.["max-width"]) {
+    style.maxWidth = meta["max-width"];
+    style.marginLeft = "auto";
+    style.marginRight = "auto";
   }
-  if (/class="[^"]*\bhuozi-story\b/.test(html)) {
-    return {
-      className: "mx-auto",
-      style: { width: "min(360px, 100%)", aspectRatio: "9 / 16" },
-    };
+  if (meta?.["max-height"]) {
+    style.height = meta["max-height"];
+    style.overflowY = "auto";
   }
-  if (/class="[^"]*\bhuozi-paper\b/.test(html)) {
-    return { className: "w-full", style: { height: "min(80vh, 800px)" } };
+
+  // Format-specific overrides: force the template root to fill the wrapper.
+  if (format === "deck") {
+    if (!meta?.["aspect-ratio"]) style.aspectRatio = "16 / 9";
+    cls =
+      "[&_.huozi-deck]:!w-full [&_.huozi-deck]:!h-full [&_.huozi-deck]:!min-h-0";
+  } else if (format === "story") {
+    if (!meta?.["aspect-ratio"]) style.aspectRatio = "9 / 16";
+    if (!meta?.["max-width"]) {
+      style.maxWidth = "360px";
+      style.marginLeft = "auto";
+      style.marginRight = "auto";
+    }
+    cls =
+      "[&_.huozi-story]:!w-full [&_.huozi-story]:!h-full [&_.huozi-story]:!min-h-0";
+  } else if (format === "paper") {
+    if (!meta?.["max-height"]) {
+      style.height = "min(80vh, 800px)";
+      style.overflowY = "auto";
+    }
+    // Paper grows to content; wrapper provides the scroll box.
+    cls = "[&_.huozi-paper]:!min-h-0";
+  } else if (!meta?.["aspect-ratio"] && !meta?.["max-height"]) {
+    // Unknown HTML, no meta → a sensible scrollable box.
+    style.height = "min(80vh, 600px)";
+    style.overflowY = "auto";
   }
-  return { className: "w-full", style: { height: "min(80vh, 600px)" } };
+
+  return { className: cls, style };
+}
+
+function parseHuoziViewport(html: string): Record<string, string> | null {
+  const m = html.match(
+    /<meta\s+name=["']huozi:viewport["']\s+content=["']([^"']+)["']/i,
+  );
+  if (!m) return null;
+  const out: Record<string, string> = {};
+  for (const part of m[1].split(";")) {
+    const idx = part.indexOf(":");
+    if (idx < 0) continue;
+    const k = part.slice(0, idx).trim();
+    const v = part.slice(idx + 1).trim();
+    if (k && v) out[k] = v;
+  }
+  return out;
+}
+
+function detectHuoziFormat(html: string): "deck" | "story" | "paper" | "other" {
+  if (/class=["'][^"']*\bhuozi-deck\b/.test(html)) return "deck";
+  if (/class=["'][^"']*\bhuozi-story\b/.test(html)) return "story";
+  if (/class=["'][^"']*\bhuozi-paper\b/.test(html)) return "paper";
+  return "other";
 }
 
 function SourceBlock({

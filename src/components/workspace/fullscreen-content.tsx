@@ -50,15 +50,19 @@ export function FullscreenContent({
   }
 
   // raw — HTML controls its own layout, no padding so 100vh works.
-  // The descendant-iframe overrides force the iframe (which has aspect-ratio
-  // and fixed-height styling for the inline preview) to fill the viewport in
-  // fullscreen mode.
+  // The .huozi-html-host wrapper from FileRenderer carries inline-preview
+  // sizing (aspect-ratio, max-width, fixed height). In fullscreen we strip
+  // those constraints so the wrapper fills the viewport, and the template
+  // root inside it (which the wrapper already forces to !w-full !h-full)
+  // grows to fill the wrapper too.
   return (
     <div
       className="fixed inset-0 z-50 bg-background overflow-auto
-                 [&_iframe]:!w-full [&_iframe]:!h-full
-                 [&_iframe]:!max-w-none [&_iframe]:![aspect-ratio:auto]
-                 [&_iframe]:!border-0 [&_iframe]:!rounded-none"
+                 [&_.huozi-html-host]:!w-full [&_.huozi-html-host]:!h-full
+                 [&_.huozi-html-host]:!max-w-none [&_.huozi-html-host]:!max-h-none
+                 [&_.huozi-html-host]:![aspect-ratio:auto]
+                 [&_.huozi-html-host]:!overflow-visible
+                 [&_.huozi-html-host]:!m-0"
     >
       {closeButton}
       {children}
