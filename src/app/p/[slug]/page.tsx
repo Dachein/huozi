@@ -92,7 +92,7 @@ export default async function SharedPage({ params }: { params: Params }) {
   let prerenderedHtml: string | undefined;
   let rawText: string | undefined;
   let pages: PageEntry[] = [];
-  let outlineVariant: "dots" | "list" = "list";
+  let pageUnit: "page" | "slide" | "sheet" = "page";
   if (!locked) {
     // share.text is the raw file content
     rawText = share.text;
@@ -103,7 +103,7 @@ export default async function SharedPage({ params }: { params: Params }) {
       if (e === "html" || e === "htm") {
         pages = extractPages(rawText);
         const fmt = detectHuoziFormat(rawText);
-        outlineVariant = fmt === "deck" || fmt === "story" ? "dots" : "list";
+        pageUnit = fmt === "deck" || fmt === "story" ? "slide" : "page";
       }
     }
   }
@@ -136,7 +136,7 @@ export default async function SharedPage({ params }: { params: Params }) {
             rawText={rawText}
             mimeType={(share as { mime_type?: string }).mime_type}
             pages={pages}
-            outlineVariant={outlineVariant}
+            pageUnit={pageUnit}
           />
         </div>
       </main>

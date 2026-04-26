@@ -13,6 +13,8 @@ import {
   FullscreenContent,
   type FullscreenMode,
 } from "@/components/workspace/fullscreen-content";
+import { PageOutlineMenu } from "@/components/workspace/page-outline-menu";
+import { extractPages } from "@/lib/html/extract-pages";
 import { getLocale } from "@/lib/i18n/server";
 import {
   cloudGlob,
@@ -151,6 +153,25 @@ async function FileView({
 
   const fileInfo = readRes.ok ? readRes.data.file : null;
 
+  // For paginated HTML files, extract the page outline so the header can
+  // render a "{N} pages ▾" dropdown. Empty array for everything else.
+  const pages =
+    !wantRaw &&
+    (ext === "html" || ext === "htm") &&
+    readRes.ok &&
+    readRes.data.type === "text" &&
+    readRes.data.file.content
+      ? extractPages(readRes.data.file.content)
+      : [];
+  const pageUnit: "slide" | "page" =
+    /huozi-(deck|story)/.test(
+      readRes.ok && readRes.data.type === "text"
+        ? (readRes.data.file.content ?? "")
+        : "",
+    )
+      ? "slide"
+      : "page";
+
   return (
     <FullscreenProvider>
       <div className="space-y-6">
@@ -162,6 +183,7 @@ async function FileView({
             <h1 className="font-mono text-base sm:text-lg break-all min-w-0 flex-1">
               {fileName}
             </h1>
+            <PageOutlineMenu pages={pages} unit={pageUnit} />
             <FullscreenToggleButton enabled={fullscreenMode !== null} />
             <FileActionsMenu
               path={path}

@@ -1,9 +1,7 @@
 import { renderMarkdown } from "@/lib/markdown/renderer";
 import { processHtmlDirect } from "@/lib/html/sanitizer";
 import { processChartComponents } from "@/lib/html/chart-components";
-import { extractPages } from "@/lib/html/extract-pages";
 import { CsvGrid } from "@/components/csv-grid";
-import { PageOutline } from "@/components/workspace/page-outline";
 
 /**
  * Renders a file's content based on its extension.
@@ -58,18 +56,12 @@ export async function FileRenderer({ path, content, raw }: FileRendererProps) {
   if (ext === "html" || ext === "htm") {
     const { html } = processHtmlDirect(processChartComponents(content));
     const layout = pickHtmlLayout(content);
-    const pages = extractPages(html);
-    const format = detectHuoziFormat(content);
-    const variant = format === "deck" || format === "story" ? "dots" : "list";
     return (
-      <>
-        <div
-          className={`huozi-html-host block ${layout.className}`}
-          style={layout.style}
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
-        <PageOutline pages={pages} variant={variant} />
-      </>
+      <div
+        className={`huozi-html-host block ${layout.className}`}
+        style={layout.style}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
     );
   }
 

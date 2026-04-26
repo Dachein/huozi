@@ -15,7 +15,7 @@
 import { useState } from "react";
 import { PasscodeForm } from "./passcode-form";
 import { CsvGrid } from "@/components/csv-grid";
-import { PageOutline } from "@/components/workspace/page-outline";
+import { PageOutlineMenu } from "@/components/workspace/page-outline-menu";
 import type { PageEntry } from "@/lib/html/extract-pages";
 import type { ShareContent } from "@/lib/drive/shares";
 
@@ -30,7 +30,8 @@ interface ShareViewerProps {
   mimeType?: string;
   /** Outline entries extracted from the raw HTML (paginated formats). */
   pages?: PageEntry[];
-  outlineVariant?: "dots" | "list";
+  /** Singular noun shown in the outline label. "page" / "slide" / "sheet". */
+  pageUnit?: "page" | "slide" | "sheet";
 }
 
 type Kind = "csv" | "tsv" | "prose" | "source";
@@ -85,19 +86,27 @@ export function ShareViewer(props: ShareViewerProps) {
 
   return (
     <>
-      <div className="mb-4 flex items-center justify-between text-xs">
-        <div className="text-muted-foreground font-mono truncate max-w-[60%]">
+      <div className="mb-4 flex items-center justify-between gap-2 text-xs">
+        <div className="text-muted-foreground font-mono truncate min-w-0 flex-1">
           {props.filePath}
         </div>
-        {props.rawText && kind !== "source" && (
-          <button
-            type="button"
-            onClick={() => setShowSource((v) => !v)}
-            className="rounded border border-border px-2 py-1 hover:border-foreground/40"
-          >
-            {showSource ? "Rendered" : "Source"}
-          </button>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {props.pages && props.pages.length > 1 && (
+            <PageOutlineMenu
+              pages={props.pages}
+              unit={props.pageUnit ?? "page"}
+            />
+          )}
+          {props.rawText && kind !== "source" && (
+            <button
+              type="button"
+              onClick={() => setShowSource((v) => !v)}
+              className="rounded border border-border px-2 py-1 h-8 hover:border-foreground/40"
+            >
+              {showSource ? "Rendered" : "Source"}
+            </button>
+          )}
+        </div>
       </div>
       {showSource && props.rawText ? (
         <SourceBlock content={props.rawText} />
@@ -111,18 +120,10 @@ export function ShareViewer(props: ShareViewerProps) {
           <EmptyHint />
         )
       ) : kind === "prose" && props.prerenderedHtml ? (
-        <>
-          <article
-            className="prose prose-sm sm:prose-base max-w-none break-words"
-            dangerouslySetInnerHTML={{ __html: props.prerenderedHtml }}
-          />
-          {props.pages && props.pages.length > 1 && (
-            <PageOutline
-              pages={props.pages}
-              variant={props.outlineVariant ?? "list"}
-            />
-          )}
-        </>
+        <article
+          className="prose prose-sm sm:prose-base max-w-none break-words"
+          dangerouslySetInnerHTML={{ __html: props.prerenderedHtml }}
+        />
       ) : props.rawText ? (
         <SourceBlock content={props.rawText} />
       ) : (
