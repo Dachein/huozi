@@ -50,8 +50,16 @@ export function FullscreenContent({
   }
 
   // raw — HTML controls its own layout, no padding so 100vh works.
+  // The descendant-iframe overrides force the iframe (which has aspect-ratio
+  // and fixed-height styling for the inline preview) to fill the viewport in
+  // fullscreen mode.
   return (
-    <div className="fixed inset-0 z-50 bg-background overflow-auto">
+    <div
+      className="fixed inset-0 z-50 bg-background overflow-auto
+                 [&_iframe]:!w-full [&_iframe]:!h-full
+                 [&_iframe]:!max-w-none [&_iframe]:![aspect-ratio:auto]
+                 [&_iframe]:!border-0 [&_iframe]:!rounded-none"
+    >
       {closeButton}
       {children}
     </div>

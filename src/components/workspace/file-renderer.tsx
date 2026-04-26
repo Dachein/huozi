@@ -45,13 +45,18 @@ export async function FileRenderer({ path, content, raw }: FileRendererProps) {
   }
 
   // HTML — sanitize + chart processing, same as publish flow.
+  // Rendered inside an iframe so vh / vw inside the published HTML reference
+  // the iframe's box (not the workspace viewport). Required for the
+  // paginated formats (deck / story / paper) which size slides via vh / vw.
   if (ext === "html" || ext === "htm") {
     const { html } = processHtmlDirect(processChartComponents(content));
+    const layout = detectHtmlLayout(html);
     return (
-      <div
-        className="rendered-html max-w-none"
-        // Same sanitizer as publish; safe.
-        dangerouslySetInnerHTML={{ __html: html }}
+      <iframe
+        srcDoc={html}
+        title="HTML preview"
+        className={`block border border-border rounded-lg bg-background ${layout.className}`}
+        style={layout.style}
       />
     );
   }
@@ -86,6 +91,40 @@ export async function FileRenderer({ path, content, raw }: FileRendererProps) {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
+
+interface HtmlLayout {
+  className: string;
+  style: React.CSSProperties;
+}
+
+/**
+ * Sniff which huozi format an HTML file uses (by class name on the body
+ * wrapper) and pick an iframe size that mirrors the published viewing
+ * experience.
+ *
+ *   deck  (16:9) → full width, aspect-ratio locked
+ *   story (9:16) → narrow column centered, aspect-ratio locked
+ *   paper (A4)  → full width, fixed scrollable height
+ *   other       → streaming long-form: full width, fixed scrollable height
+ *
+ * In fullscreen the FullscreenContent shell overrides these via
+ * `!w-full !h-full !aspect-auto` so the iframe truly fills the viewport.
+ */
+function detectHtmlLayout(html: string): HtmlLayout {
+  if (/class="[^"]*\bhuozi-deck\b/.test(html)) {
+    return { className: "w-full", style: { aspectRatio: "16 / 9" } };
+  }
+  if (/class="[^"]*\bhuozi-story\b/.test(html)) {
+    return {
+      className: "mx-auto",
+      style: { width: "min(360px, 100%)", aspectRatio: "9 / 16" },
+    };
+  }
+  if (/class="[^"]*\bhuozi-paper\b/.test(html)) {
+    return { className: "w-full", style: { height: "min(80vh, 800px)" } };
+  }
+  return { className: "w-full", style: { height: "min(80vh, 600px)" } };
+}
 
 function SourceBlock({
   content,
