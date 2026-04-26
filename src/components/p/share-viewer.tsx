@@ -15,6 +15,8 @@
 import { useState } from "react";
 import { PasscodeForm } from "./passcode-form";
 import { CsvGrid } from "@/components/csv-grid";
+import { PageOutline } from "@/components/workspace/page-outline";
+import type { PageEntry } from "@/lib/html/extract-pages";
 import type { ShareContent } from "@/lib/drive/shares";
 
 interface ShareViewerProps {
@@ -26,6 +28,9 @@ interface ShareViewerProps {
   /** Raw text (for Source toggle + client-side renderers like CSV). */
   rawText?: string;
   mimeType?: string;
+  /** Outline entries extracted from the raw HTML (paginated formats). */
+  pages?: PageEntry[];
+  outlineVariant?: "dots" | "list";
 }
 
 type Kind = "csv" | "tsv" | "prose" | "source";
@@ -106,10 +111,18 @@ export function ShareViewer(props: ShareViewerProps) {
           <EmptyHint />
         )
       ) : kind === "prose" && props.prerenderedHtml ? (
-        <article
-          className="prose prose-sm sm:prose-base max-w-none break-words"
-          dangerouslySetInnerHTML={{ __html: props.prerenderedHtml }}
-        />
+        <>
+          <article
+            className="prose prose-sm sm:prose-base max-w-none break-words"
+            dangerouslySetInnerHTML={{ __html: props.prerenderedHtml }}
+          />
+          {props.pages && props.pages.length > 1 && (
+            <PageOutline
+              pages={props.pages}
+              variant={props.outlineVariant ?? "list"}
+            />
+          )}
+        </>
       ) : props.rawText ? (
         <SourceBlock content={props.rawText} />
       ) : (

@@ -5,7 +5,15 @@ import { getShare } from "@/lib/drive/shares";
 import { renderMarkdown } from "@/lib/markdown/renderer";
 import { processHtmlDirect } from "@/lib/html/sanitizer";
 import { processChartComponents } from "@/lib/html/chart-components";
+import { extractPages, type PageEntry } from "@/lib/html/extract-pages";
 import { ShareViewer } from "@/components/p/share-viewer";
+
+function detectHuoziFormat(html: string): "deck" | "story" | "paper" | "other" {
+  if (/class=["'][^"']*\bhuozi-deck\b/.test(html)) return "deck";
+  if (/class=["'][^"']*\bhuozi-story\b/.test(html)) return "story";
+  if (/class=["'][^"']*\bhuozi-paper\b/.test(html)) return "paper";
+  return "other";
+}
 
 export const dynamic = "force-dynamic";
 
@@ -83,12 +91,20 @@ export default async function SharedPage({ params }: { params: Params }) {
 
   let prerenderedHtml: string | undefined;
   let rawText: string | undefined;
+  let pages: PageEntry[] = [];
+  let outlineVariant: "dots" | "list" = "list";
   if (!locked) {
     // share.text is the raw file content
     rawText = share.text;
     if (rawText) {
       const rendered = await renderForPath(share.file_path, rawText);
       if (rendered !== null) prerenderedHtml = rendered;
+      const e = ext(share.file_path);
+      if (e === "html" || e === "htm") {
+        pages = extractPages(rawText);
+        const fmt = detectHuoziFormat(rawText);
+        outlineVariant = fmt === "deck" || fmt === "story" ? "dots" : "list";
+      }
     }
   }
 
@@ -119,6 +135,8 @@ export default async function SharedPage({ params }: { params: Params }) {
             prerenderedHtml={prerenderedHtml}
             rawText={rawText}
             mimeType={(share as { mime_type?: string }).mime_type}
+            pages={pages}
+            outlineVariant={outlineVariant}
           />
         </div>
       </main>
