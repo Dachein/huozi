@@ -1,0 +1,37 @@
+name: Feature request
+description: Suggest an idea or improvement.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem?
+      description: |
+        Describe the situation that motivated this request. "I was trying to do X but ..."
+        is far more useful than "please add Y".
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What might solve it?
+      description: A rough idea is fine. Multiple options welcome — pros/cons help.
+
+  - type: dropdown
+    id: edition
+    attributes:
+      label: Which edition does this apply to?
+      options:
+        - Cloud only
+        - Edge only
+        - Both
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Workarounds you've considered
+      description: Even if the workaround is bad, knowing what you tried helps.

@@ -1,5 +1,9 @@
 # huozi · 活字
 
+[![CI](https://github.com/Dachein/huozi/actions/workflows/ci.yml/badge.svg)](https://github.com/Dachein/huozi/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/Dachein/huozi?style=social)](https://github.com/Dachein/huozi)
+
 **An Agent-native cloud drive.** Speaks the Claude Code tool dialect bit-for-bit, so any MCP-capable Agent — Claude Code, Cursor, Codex, your own — can mount it with zero adapters and use it as a working directory.
 
 > 印 (MCP) · 版 (templates) · 盘 (cloud) · "Agents write, humans read."

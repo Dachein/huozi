@@ -1,0 +1,66 @@
+name: Bug report
+description: Something is broken or behaving unexpectedly.
+labels: [bug]
+body:
+  - type: dropdown
+    id: edition
+    attributes:
+      label: Edition
+      description: Which edition are you running?
+      options:
+        - Cloud (huozi.app)
+        - Edge (self-hosted)
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A short description. What did you do, what did you expect, what did you see instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps. The smaller the repro, the faster the fix.
+      placeholder: |
+        1. Connect Claude Code with `claude mcp add huozi ...`
+        2. Run `huozi_write` with file_path "..."
+        3. See error ...
+    validations:
+      required: true
+
+  - type: input
+    id: agent
+    attributes:
+      label: Agent / MCP client
+      description: Claude Code, Cursor, your own client, etc. Include version if you have it.
+      placeholder: Claude Code 1.x
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / errors
+      description: |
+        Paste any error message or stack trace. For Edge, `wrangler tail` output is very helpful.
+        Please redact secrets.
+      render: shell
+
+  - type: input
+    id: version
+    attributes:
+      label: huozi version / commit
+      description: For Edge, the commit SHA you deployed. Cloud users can skip.
+      placeholder: e.g. `abc1234`
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      options:
+        - label: I've read the [Code of Conduct](../../CODE_OF_CONDUCT.md) and will follow it.
+          required: true
