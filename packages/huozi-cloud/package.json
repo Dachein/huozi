@@ -17,8 +17,9 @@
     "test:watch": "vitest",
     "mcp:stdio": "node dist/mcp/stdio.js",
     "cf:dev": "wrangler dev --config wrangler.toml",
-    "cf:deploy": "wrangler deploy --config wrangler.toml",
-    "cf:migrate": "wrangler d1 execute huozi-db --file src/storage/cloudflare/schema.sql --remote --config wrangler.toml"
+    "cf:deploy": "tsc && wrangler deploy --config wrangler.toml",
+    "cf:migrate": "wrangler d1 execute huozi-db --file src/storage/cloudflare/schema.sql --remote --config wrangler.toml",
+    "cf:sql": "wrangler d1 execute huozi-db --remote --config wrangler.toml --json --command"
   },
   "keywords": [
     "mcp",
@@ -32,6 +33,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "diff": "^5.2.0",
+    "jose": "^6.2.2",
     "zod": "^3.23.8",
     "zod-to-json-schema": "^3.25.2"
   },

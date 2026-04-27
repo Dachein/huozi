@@ -319,6 +319,14 @@ export const en = {
   "recent.op.new": "new",
   "recent.op.edited": "edited",
   "recent.op.deleted": "deleted",
+  "recent.folderCreated": "folder created",
+
+  // Workspace · file view error / hint
+  "view.error.label": "Error",
+  "view.error.aclDenied.title": "This folder is private",
+  "view.error.aclDenied.body": "You don't have access to this path. Ask a member to invite you, or pick another file from the sidebar.",
+  "view.readOnly.title": "Need to modify this file?",
+  "view.readOnly.body": "Ask your connected Agent (Claude Code, Cursor, Claude Desktop, or any MCP client). huozi Cloud's Web UI is read-only by design — all writes flow through a single audited commit path via MCP.",
 
   // Workspace · sidebar title (the clickable "home" link)
   "ws.shell.title": "Workspace",
@@ -430,6 +438,125 @@ export const en = {
   "auth.login.changeEmail": "Use a different email",
   "auth.login.newHere": "New here?",
   "auth.login.guide": "Get Started guide",
+
+  // Select-workspace page (multi-membership users at login)
+  "auth.selectWorkspace.title": "Choose a workspace",
+  "auth.selectWorkspace.subtitle":
+    "You belong to {count} workspaces. Pick one to enter.",
+
+  // Invite landing page
+  "invite.notFound.title": "Invite not found",
+  "invite.notFound.message":
+    "This invite link is invalid or has been deleted.",
+  "invite.accepted.title": "Already accepted",
+  "invite.accepted.message":
+    "This invite has already been redeemed. Sign in if you're not already.",
+  "invite.revoked.title": "Invite revoked",
+  "invite.revoked.message":
+    "The workspace owner revoked this invite. Ask them to send a new one.",
+  "invite.expired.title": "Invite expired",
+  "invite.expired.message":
+    "This invite is older than 7 days. Ask the workspace owner to send a new one.",
+  "invite.welcome.title": "You're invited",
+  "invite.welcome.invitedYouTo": "{inviter} invited you to",
+  "invite.welcome.signInAs": "Sign in as {email}",
+  "invite.welcome.codeNotice": "We'll email a 6-digit code to {email}.",
+  "invite.wrongAccount.title": "Wrong account",
+  "invite.wrongAccount.message":
+    "You're signed in as {current}, but this invite is for {target}. Sign out first, then re-open this link.",
+  "invite.wrongAccount.signOut": "Sign out",
+  "invite.error.title": "Couldn't accept invite",
+
+  // Joined toast
+  "joined.toast": "Joined {slug}",
+
+  // Workspace switcher
+  "switcher.heading": "Switch workspace",
+
+  // User menu (header dropdown)
+  "menu.nav.files": "Files",
+  "menu.nav.shares": "Shares",
+  "menu.nav.members": "Members",
+  "menu.nav.folders": "Folder access",
+  "menu.identity.signedIn": "Signed in",
+  "menu.identity.workspace": "Workspace",
+  "menu.language": "Language",
+  "menu.home": "huozi.app home",
+  "menu.exit": "Exit",
+  "menu.disconnect": "Disconnect",
+
+  // Members page
+  "members.title": "Members",
+  "members.subtitle.owner":
+    "Invite collaborators, see who has access, and remove people you no longer want in this workspace.",
+  "members.subtitle.member": "People with access to this workspace.",
+  "members.invite.heading": "Invite a collaborator",
+  "members.invite.placeholder": "them@example.com",
+  "members.invite.submit": "Invite",
+  "members.invite.submitting": "Sending…",
+  "members.invite.note":
+    "They'll get an email with a link valid for 7 days. Accepting it adds them as a member of this workspace.",
+  "members.list.heading": "Members ({count})",
+  "members.list.you": "(you)",
+  "members.list.remove": "remove",
+  "members.list.removeConfirm": "Remove this member?",
+  "members.role.owner": "owner",
+  "members.role.member": "member",
+  "members.invites.heading": "Pending invites ({count})",
+  "members.invites.expires": "expires {date}",
+  "members.invites.revoke": "revoke",
+  "members.invites.revokeConfirm": "Revoke this invite?",
+  // Keys list (expandable under each member)
+  "members.keys.summary": "{count} keys",
+  "members.keys.revoke": "revoke",
+  "members.keys.revokeConfirm": "Revoke this key? It cannot be undone.",
+  "members.keys.lastUsed": "last used {rel}",
+  "members.keys.neverUsed": "never used",
+  "members.error.invite_failed": "Couldn't send invite.",
+  "members.error.already_member": "That email is already a member.",
+  "members.error.remove_failed": "Couldn't remove this member.",
+  "members.error.owner_only": "Only the workspace owner can do that.",
+
+  // Folder ACL page
+  "folders.title": "Folder access",
+  "folders.subtitle":
+    "Lock a folder so only specific members can read or write inside it. Workspace owner has no bypass — even owners only see folders they're invited into.",
+  "folders.create.heading": "Make a folder private",
+  "folders.create.placeholder": "funds/fund-A/",
+  "folders.create.note":
+    "Path must end with a slash. Subfolders inherit access. Only members below will be able to read or write inside.",
+  "folders.create.submit": "Lock folder",
+  "folders.create.submitting": "Locking…",
+  "folders.members.heading": "Members with access",
+  "folders.members.you": "(you)",
+  "folders.list.heading": "Private folders ({count})",
+  "folders.list.empty": "No private folders yet. Lock one above.",
+  "folders.list.memberCount": "{count} members",
+  "folders.list.edit": "edit",
+  "folders.list.save": "Save",
+  "folders.list.cancel": "Cancel",
+  "folders.list.makePublic": "make public",
+  "folders.makePublicConfirm":
+    "Unlock this folder? Anyone in the workspace will be able to read and write again.",
+  "folders.error.create_failed": "Couldn't create the ACL.",
+  "folders.error.update_failed": "Couldn't update the ACL.",
+  "folders.error.empty_members": "Pick at least one member.",
+  "folders.error.self_excluded":
+    "You must keep yourself in the ACL — locking yourself out makes the folder unrecoverable.",
+  "folders.error.member_not_in_workspace":
+    "Selected member is not in this workspace anymore.",
+  "folders.error.not_in_acl":
+    "This folder is private — you must already be a member to edit its ACL.",
+  "folders.error.invalid_path_prefix":
+    "Path must be relative and contain no '..' segments.",
+  "folders.error.empty_path_prefix": "Path is required.",
+  // Modal-specific
+  "folders.modal.heading": "Folder access",
+  "folders.modal.publicTitle": "Public",
+  "folders.modal.publicHint": "Any workspace member",
+  "folders.modal.privateTitle": "Private",
+  "folders.modal.privateHint": "Only chosen members",
+  "folders.error.load_failed": "Couldn't load access info.",
 
   // Dashboard
 

@@ -125,18 +125,24 @@ function RecentRow({
   // .huozi-keep is the hidden marker huozi_mkdir writes to reserve an
   // empty folder. Show the parent path *as* the row title so the user
   // sees "xiaoji" (or "layer1/layer2") instead of the implementation
-  // detail. The folder icon still applies.
+  // detail. The folder icon still applies. The hover tooltip is also
+  // rewritten so the user never sees the .huozi-keep path leak.
   const isFolderMarker = base === ".huozi-keep";
   const titleText = isFolderMarker ? parent || base : base;
   const parentText = isFolderMarker ? "" : parent;
+  const tooltipText = isFolderMarker
+    ? `${parent || base}/ — ${t("recent.folderCreated")}`
+    : `${entry.path} — ${entry.message}`;
 
   const opLabel = opText(entry.operation, entry.in_batch, t);
+  // create / delete keep semantic colors (green / red); plain edits stay
+  // foreground-default — they're the common case and shouldn't feel alarming.
   const opColor =
     entry.operation === "create"
       ? "text-emerald-600"
       : entry.operation === "delete"
         ? "text-red-500"
-        : "text-accent";
+        : "text-foreground/70";
 
   return (
     <li>
@@ -145,7 +151,7 @@ function RecentRow({
         className={`group relative flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors
                    ${current ? "bg-muted/60" : "hover:bg-muted/40"}
                    ${flashing ? "ring-1 ring-accent/60 bg-accent/10 animate-pulse" : ""}`}
-        title={`${entry.path} — ${entry.message}`}
+        title={tooltipText}
       >
         <span className="shrink-0 self-start mt-0.5">
           <FileIcon name={base} isDir={false} />

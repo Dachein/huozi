@@ -25,15 +25,30 @@
  *   - Print: pages-menu is hidden in @media print.
  */
 
+// Order: 2 unpaginated (web / mobile) then 3 paginated (deck / story / paper).
+// Paginated formats include [data-page] markers + outline + pager chrome.
+// "web" is the catch-all default — desktop-first long page; the publish view
+// treats unmarked HTML as "web" too.
 export const TEMPLATE_FORMATS = [
+  'web',
+  'mobile',
   'deck',
   'story',
   'paper',
-  'mobile',
-  'page',
 ] as const
 
 export type TemplateFormat = (typeof TEMPLATE_FORMATS)[number]
+
+/** Subset that has [data-page] outline structure. Drives pager + outline UX. */
+export const PAGINATED_FORMATS: ReadonlySet<TemplateFormat> = new Set<TemplateFormat>([
+  'deck',
+  'story',
+  'paper',
+])
+
+export function isPaginated(format: TemplateFormat): boolean {
+  return PAGINATED_FORMATS.has(format)
+}
 
 export interface TemplateMeta {
   format: TemplateFormat
@@ -49,6 +64,7 @@ const DECK_HTML = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="huozi:format" content="deck">
 <meta name="huozi:viewport" content="aspect-ratio:16/9">
 <style>
 :root{
@@ -120,6 +136,27 @@ const DECK_HTML = `<!doctype html>
 .huozi-deck .stage code{font-family:var(--font-mono); background:var(--color-border); padding:.1em .3em; border-radius:.2em; font-size:.9em}
 .huozi-deck .stage .muted{color:var(--color-muted)}
 .huozi-deck .stage .footer{position:absolute; bottom:3cqh; right:6cqw; font-size:1.4cqw; color:var(--color-muted)}
+/* Auto-landscape on portrait phones — opt-in via [data-huozi-rotate-portrait]
+   on an ancestor. A 16:9 deck squashed into 9:16 is unreadable, so when the
+   host explicitly opts in (publish view, workspace fullscreen) we rotate.
+   Workspace inline preview deliberately does NOT opt in: it shows the deck
+   in its embed-sized 16:9 frame, no surprise rotation. Vertical finger
+   swipe maps to horizontal slide advance (.slides scroll axis points down
+   on screen after rotation). */
+@media (max-width:767px) and (orientation:portrait){
+  /* !important here is load-bearing: workspace fullscreen sets
+     [&_.huozi-deck]:!w-full !h-full on the host wrapper to force the deck
+     to fill its embed in inline preview, but those !important rules would
+     otherwise pin the deck at 100vw x 100vh and break rotation. We need to
+     win the cascade so the rotated geometry is the actual layout box. */
+  [data-huozi-rotate-portrait] .huozi-deck{
+    width:100vh !important;
+    height:100vw !important;
+    transform:rotate(90deg) translateY(-100vw) !important;
+    transform-origin:top left !important;
+  }
+  [data-huozi-rotate-portrait]{overflow:hidden}
+}
 @media print{
   .huozi-deck{background:#fff; width:auto; height:auto; min-height:auto; transform:none; container-type:normal}
   .huozi-deck .slides{display:block; height:auto; overflow:visible}
@@ -168,6 +205,7 @@ const STORY_HTML = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="huozi:format" content="story">
 <meta name="huozi:viewport" content="aspect-ratio:9/16; max-width:360px">
 <style>
 :root{
@@ -274,6 +312,7 @@ const PAPER_HTML = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="huozi:format" content="paper">
 <meta name="huozi:viewport" content="max-height:80vh">
 <style>
 :root{
@@ -366,6 +405,7 @@ const MOBILE_HTML = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="huozi:format" content="mobile">
 <style>
 :root{
   --color-bg:#ffffff;
@@ -421,11 +461,12 @@ const MOBILE_HTML = `<!doctype html>
 </html>
 `
 
-const PAGE_HTML = `<!doctype html>
+const WEB_HTML = `<!doctype html>
 <html lang="zh">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="huozi:format" content="web">
 <style>
 :root{
   --color-bg:#ffffff;
@@ -498,7 +539,7 @@ const PAGE_HTML = `<!doctype html>
 </style>
 </head>
 <body>
-<div class="huozi-page">
+<div class="huozi-web">
   <div class="layout">
     <main>
       <h1>页面标题</h1>
@@ -551,11 +592,11 @@ export const TEMPLATES: Record<TemplateFormat, TemplateMeta> = {
     shape: 'long, mobile-first',
     body: MOBILE_HTML,
   },
-  page: {
-    format: 'page',
+  web: {
+    format: 'web',
     description:
-      'Long scroll, desktop-first. Landing pages, long-form essays with sticky TOC.',
+      'Long scroll, desktop-first. Landing pages, long-form essays with sticky TOC. Default for unmarked HTML.',
     shape: 'long, desktop-first',
-    body: PAGE_HTML,
+    body: WEB_HTML,
   },
 }

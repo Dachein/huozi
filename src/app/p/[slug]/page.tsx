@@ -6,14 +6,8 @@ import { renderMarkdown } from "@/lib/markdown/renderer";
 import { processHtmlDirect } from "@/lib/html/sanitizer";
 import { processChartComponents } from "@/lib/html/chart-components";
 import { extractPages, type PageEntry } from "@/lib/html/extract-pages";
+import { detectHuoziFormat, type HuoziFormat } from "@/lib/html/detect-format";
 import { ShareViewer } from "@/components/p/share-viewer";
-
-function detectHuoziFormat(html: string): "deck" | "story" | "paper" | "other" {
-  if (/class=["'][^"']*\bhuozi-deck\b/.test(html)) return "deck";
-  if (/class=["'][^"']*\bhuozi-story\b/.test(html)) return "story";
-  if (/class=["'][^"']*\bhuozi-paper\b/.test(html)) return "paper";
-  return "other";
-}
 
 export const dynamic = "force-dynamic";
 
@@ -93,6 +87,7 @@ export default async function SharedPage({ params }: { params: Params }) {
   let rawText: string | undefined;
   let pages: PageEntry[] = [];
   let pageUnit: "page" | "slide" | "sheet" = "page";
+  let htmlFormat: HuoziFormat = "web";
   if (!locked) {
     // share.text is the raw file content
     rawText = share.text;
@@ -102,52 +97,27 @@ export default async function SharedPage({ params }: { params: Params }) {
       const e = ext(share.file_path);
       if (e === "html" || e === "htm") {
         pages = extractPages(rawText);
-        const fmt = detectHuoziFormat(rawText);
-        pageUnit = fmt === "deck" || fmt === "story" ? "slide" : "page";
+        htmlFormat = detectHuoziFormat(rawText);
+        pageUnit =
+          htmlFormat === "deck" || htmlFormat === "story" ? "slide" : "page";
       }
     }
   }
 
+  // Publish surface is full-bleed: the file IS the page. ShareViewer renders
+  // in alwaysOpen fullscreen mode, with an "Open in Huozi" link top-right.
+  // No header / footer chrome here so the content shows exactly as it does
+  // in the workspace view's fullscreen mode.
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <header className="border-b border-border/50">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 h-12 flex items-center justify-between">
-          <Link
-            href="/"
-            className="flex items-baseline gap-2 text-sm font-medium tracking-wide"
-          >
-            <span className="font-serif text-lg font-bold text-accent leading-none">
-              字
-            </span>
-            huozi.app
-          </Link>
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            shared · read-only
-          </span>
-        </div>
-      </header>
-      <main className="flex-1">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 py-8">
-          <ShareViewer
-            slug={slug}
-            filePath={share.file_path}
-            locked={locked}
-            prerenderedHtml={prerenderedHtml}
-            rawText={rawText}
-            mimeType={(share as { mime_type?: string }).mime_type}
-            pages={pages}
-            pageUnit={pageUnit}
-          />
-        </div>
-      </main>
-      <footer className="border-t border-border/50 py-4">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 text-xs text-muted-foreground flex items-center justify-between">
-          <span>Shared by the owner. This URL stays in sync with the file.</span>
-          <Link href="/cloud" className="underline hover:text-foreground">
-            What is huozi?
-          </Link>
-        </div>
-      </footer>
-    </div>
+    <ShareViewer
+      slug={slug}
+      filePath={share.file_path}
+      locked={locked}
+      prerenderedHtml={prerenderedHtml}
+      rawText={rawText}
+      pages={pages}
+      pageUnit={pageUnit}
+      htmlFormat={htmlFormat}
+    />
   );
 }

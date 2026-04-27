@@ -319,6 +319,14 @@ export const fr = {
   "recent.op.new": "nouveau",
   "recent.op.edited": "modifié",
   "recent.op.deleted": "supprimé",
+  "recent.folderCreated": "dossier créé",
+
+  // Workspace · erreur / indice de la vue de fichier
+  "view.error.label": "Erreur",
+  "view.error.aclDenied.title": "Ce dossier est privé",
+  "view.error.aclDenied.body": "Vous n'avez pas accès à ce chemin. Demandez à un membre de vous inviter, ou choisissez un autre fichier dans la barre latérale.",
+  "view.readOnly.title": "Modifier ce fichier ?",
+  "view.readOnly.body": "Demandez à votre Agent connecté (Claude Code, Cursor, Claude Desktop, ou tout client MCP). L'UI Web de huozi Cloud est en lecture seule par conception — toutes les écritures passent par un chemin de commit audité via MCP.",
 
   // Workspace · titre latéral (lien cliquable vers l'accueil)
   "ws.shell.title": "Workspace",
@@ -430,6 +438,127 @@ export const fr = {
   "auth.login.changeEmail": "Utiliser un autre e-mail",
   "auth.login.newHere": "Nouveau ici ?",
   "auth.login.guide": "Guide de démarrage",
+
+  // Sélection d'espace de travail
+  "auth.selectWorkspace.title": "Choisir un espace de travail",
+  "auth.selectWorkspace.subtitle":
+    "Vous appartenez à {count} espaces de travail. Choisissez-en un.",
+
+  // Page d'invitation
+  "invite.notFound.title": "Invitation introuvable",
+  "invite.notFound.message":
+    "Ce lien d'invitation est invalide ou a été supprimé.",
+  "invite.accepted.title": "Déjà acceptée",
+  "invite.accepted.message":
+    "Cette invitation a déjà été acceptée. Connectez-vous si ce n'est pas déjà fait.",
+  "invite.revoked.title": "Invitation révoquée",
+  "invite.revoked.message":
+    "Le propriétaire de l'espace de travail a révoqué cette invitation. Demandez-lui d'en envoyer une nouvelle.",
+  "invite.expired.title": "Invitation expirée",
+  "invite.expired.message":
+    "Cette invitation a plus de 7 jours. Demandez au propriétaire d'en envoyer une nouvelle.",
+  "invite.welcome.title": "Vous êtes invité·e",
+  "invite.welcome.invitedYouTo": "{inviter} vous a invité·e à rejoindre",
+  "invite.welcome.signInAs": "Se connecter en tant que {email}",
+  "invite.welcome.codeNotice":
+    "Nous enverrons un code à 6 chiffres à {email}.",
+  "invite.wrongAccount.title": "Mauvais compte",
+  "invite.wrongAccount.message":
+    "Vous êtes connecté·e en tant que {current}, mais cette invitation est pour {target}. Déconnectez-vous et rouvrez ce lien.",
+  "invite.wrongAccount.signOut": "Se déconnecter",
+  "invite.error.title": "Impossible d'accepter l'invitation",
+
+  // Toast d'arrivée
+  "joined.toast": "Rejoint {slug}",
+
+  // Changement d'espace
+  "switcher.heading": "Changer d'espace",
+
+  // Menu utilisateur (en-tête)
+  "menu.nav.files": "Fichiers",
+  "menu.nav.shares": "Partages",
+  "menu.nav.members": "Membres",
+  "menu.nav.folders": "Accès aux dossiers",
+  "menu.identity.signedIn": "Connecté·e",
+  "menu.identity.workspace": "Espace",
+  "menu.language": "Langue",
+  "menu.home": "Retour à huozi.app",
+  "menu.exit": "Quitter",
+  "menu.disconnect": "Déconnecter",
+
+  // Gestion des membres
+  "members.title": "Membres",
+  "members.subtitle.owner":
+    "Invitez des collaborateurs, voyez qui a accès, et retirez les personnes que vous ne souhaitez plus dans cet espace.",
+  "members.subtitle.member": "Personnes ayant accès à cet espace de travail.",
+  "members.invite.heading": "Inviter un·e collaborateur·trice",
+  "members.invite.placeholder": "eux@exemple.com",
+  "members.invite.submit": "Inviter",
+  "members.invite.submitting": "Envoi…",
+  "members.invite.note":
+    "Ils recevront un e-mail avec un lien valide 7 jours. En l'acceptant, ils deviennent membres de cet espace.",
+  "members.list.heading": "Membres ({count})",
+  "members.list.you": "(vous)",
+  "members.list.remove": "retirer",
+  "members.list.removeConfirm": "Retirer ce membre ?",
+  "members.role.owner": "owner",
+  "members.role.member": "member",
+  "members.invites.heading": "Invitations en attente ({count})",
+  "members.invites.expires": "expire le {date}",
+  "members.invites.revoke": "révoquer",
+  "members.invites.revokeConfirm": "Révoquer cette invitation ?",
+  // Clés par membre
+  "members.keys.summary": "{count} clés",
+  "members.keys.revoke": "révoquer",
+  "members.keys.revokeConfirm": "Révoquer cette clé ? Action irréversible.",
+  "members.keys.lastUsed": "dernière utilisation {rel}",
+  "members.keys.neverUsed": "jamais utilisée",
+  "members.error.invite_failed": "Impossible d'envoyer l'invitation.",
+  "members.error.already_member": "Cet e-mail est déjà membre.",
+  "members.error.remove_failed": "Impossible de retirer.",
+  "members.error.owner_only":
+    "Seul le propriétaire de l'espace peut faire cela.",
+
+  // ACL des dossiers
+  "folders.title": "Accès aux dossiers",
+  "folders.subtitle":
+    "Verrouillez un dossier pour limiter la lecture/écriture à des membres spécifiques. Le propriétaire de l'espace n'a pas de bypass.",
+  "folders.create.heading": "Rendre un dossier privé",
+  "folders.create.placeholder": "funds/fund-A/",
+  "folders.create.note":
+    "Le chemin doit se terminer par /. Les sous-dossiers héritent. Seuls les membres cochés pourront lire ou écrire.",
+  "folders.create.submit": "Verrouiller",
+  "folders.create.submitting": "Verrouillage…",
+  "folders.members.heading": "Membres avec accès",
+  "folders.members.you": "(vous)",
+  "folders.list.heading": "Dossiers privés ({count})",
+  "folders.list.empty": "Aucun dossier privé pour l'instant.",
+  "folders.list.memberCount": "{count} membres",
+  "folders.list.edit": "modifier",
+  "folders.list.save": "Enregistrer",
+  "folders.list.cancel": "Annuler",
+  "folders.list.makePublic": "rendre public",
+  "folders.makePublicConfirm":
+    "Déverrouiller ce dossier ? Tout l'espace pourra y lire et écrire à nouveau.",
+  "folders.error.create_failed": "Échec de la création de l'ACL.",
+  "folders.error.update_failed": "Échec de la mise à jour de l'ACL.",
+  "folders.error.empty_members": "Sélectionnez au moins un membre.",
+  "folders.error.self_excluded":
+    "Vous devez rester dans l'ACL — sinon le dossier sera inaccessible.",
+  "folders.error.member_not_in_workspace":
+    "Le membre sélectionné n'est plus dans cet espace.",
+  "folders.error.not_in_acl":
+    "Ce dossier est privé — vous devez déjà en être membre pour modifier l'ACL.",
+  "folders.error.invalid_path_prefix":
+    "Le chemin doit être relatif et sans segment '..'.",
+  "folders.error.empty_path_prefix": "Le chemin est requis.",
+  // Spécifique modal
+  "folders.modal.heading": "Accès au dossier",
+  "folders.modal.publicTitle": "Public",
+  "folders.modal.publicHint": "Tout membre",
+  "folders.modal.privateTitle": "Privé",
+  "folders.modal.privateHint": "Membres choisis uniquement",
+  "folders.error.load_failed": "Impossible de charger l'accès.",
 
   // Dashboard
 

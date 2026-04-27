@@ -22,8 +22,16 @@ const Ctx = createContext<FullscreenCtx>({
   toggle: () => {},
 });
 
-export function FullscreenProvider({ children }: { children: ReactNode }) {
-  const [fullscreen, setFullscreen] = useState(false);
+export function FullscreenProvider({
+  children,
+  initial = false,
+}: {
+  children: ReactNode;
+  /** Start already in fullscreen — used by the publish surface where the
+   *  file IS the page (no non-fullscreen state to exit to). */
+  initial?: boolean;
+}) {
+  const [fullscreen, setFullscreen] = useState(initial);
 
   useEffect(() => {
     if (!fullscreen) return;

@@ -318,6 +318,14 @@ export const ja = {
   "recent.op.new": "新規",
   "recent.op.edited": "編集",
   "recent.op.deleted": "削除",
+  "recent.folderCreated": "フォルダ作成",
+
+  // ワークスペース · ファイルビューのエラー / ヒント
+  "view.error.label": "エラー",
+  "view.error.aclDenied.title": "このフォルダは非公開です",
+  "view.error.aclDenied.body": "このパスへのアクセス権がありません。メンバーに招待してもらうか、サイドバーから別のファイルを選んでください。",
+  "view.readOnly.title": "このファイルを編集したい?",
+  "view.readOnly.body": "接続中のAgent(Claude Code、Cursor、Claude Desktop、または任意のMCPクライアント)に依頼してください。huozi CloudのWeb UIは読み取り専用設計で、すべての書き込みはMCPの監査済みコミット経路を通ります。",
 
   // ワークスペース · サイドバー見出し（クリックでホームへ）
   "ws.shell.title": "Workspace",
@@ -429,6 +437,124 @@ export const ja = {
   "auth.login.changeEmail": "別のメールアドレスを使用",
   "auth.login.newHere": "初めての方",
   "auth.login.guide": "スタートガイド",
+
+  // ワークスペース選択
+  "auth.selectWorkspace.title": "ワークスペースを選択",
+  "auth.selectWorkspace.subtitle":
+    "あなたは {count} 個のワークスペースに所属しています。1つ選んでください。",
+
+  // 招待ページ
+  "invite.notFound.title": "招待が見つかりません",
+  "invite.notFound.message": "この招待リンクは無効か削除されています。",
+  "invite.accepted.title": "受諾済み",
+  "invite.accepted.message":
+    "この招待はすでに受諾されています。サインインしていなければサインインしてください。",
+  "invite.revoked.title": "招待が取り消されました",
+  "invite.revoked.message":
+    "ワークスペースのオーナーがこの招待を取り消しました。再送を依頼してください。",
+  "invite.expired.title": "招待が期限切れです",
+  "invite.expired.message":
+    "招待は 7 日を過ぎました。ワークスペースのオーナーに再送を依頼してください。",
+  "invite.welcome.title": "招待されました",
+  "invite.welcome.invitedYouTo": "{inviter} があなたを招待しました",
+  "invite.welcome.signInAs": "{email} でサインイン",
+  "invite.welcome.codeNotice": "{email} に 6 桁のコードを送信します。",
+  "invite.wrongAccount.title": "アカウントが一致しません",
+  "invite.wrongAccount.message":
+    "現在 {current} としてサインイン中ですが、この招待は {target} 宛です。先にサインアウトしてからリンクを開き直してください。",
+  "invite.wrongAccount.signOut": "サインアウト",
+  "invite.error.title": "招待を受諾できませんでした",
+
+  // 参加トースト
+  "joined.toast": "{slug} に参加しました",
+
+  // ワークスペース切替
+  "switcher.heading": "ワークスペースを切替",
+
+  // ユーザーメニュー
+  "menu.nav.files": "ファイル",
+  "menu.nav.shares": "共有",
+  "menu.nav.members": "メンバー",
+  "menu.nav.folders": "フォルダ権限",
+  "menu.identity.signedIn": "サインイン中",
+  "menu.identity.workspace": "ワークスペース",
+  "menu.language": "言語",
+  "menu.home": "huozi.app に戻る",
+  "menu.exit": "ログアウト",
+  "menu.disconnect": "切断",
+
+  // メンバー管理
+  "members.title": "メンバー",
+  "members.subtitle.owner":
+    "コラボレーターを招待し、誰がアクセスできるかを確認し、不要になった人を削除できます。",
+  "members.subtitle.member": "このワークスペースのアクセス権を持つ人々。",
+  "members.invite.heading": "コラボレーターを招待",
+  "members.invite.placeholder": "them@example.com",
+  "members.invite.submit": "招待",
+  "members.invite.submitting": "送信中…",
+  "members.invite.note":
+    "7 日間有効な招待リンクを記載したメールを送信します。受諾するとこのワークスペースのメンバーになります。",
+  "members.list.heading": "メンバー ({count})",
+  "members.list.you": "(あなた)",
+  "members.list.remove": "削除",
+  "members.list.removeConfirm": "このメンバーを削除しますか？",
+  "members.role.owner": "owner",
+  "members.role.member": "member",
+  "members.invites.heading": "保留中の招待 ({count})",
+  "members.invites.expires": "{date} 期限切れ",
+  "members.invites.revoke": "取り消し",
+  "members.invites.revokeConfirm": "この招待を取り消しますか？",
+  // メンバーごとの keys
+  "members.keys.summary": "{count} 個のキー",
+  "members.keys.revoke": "取り消し",
+  "members.keys.revokeConfirm": "このキーを取り消しますか？元に戻せません。",
+  "members.keys.lastUsed": "最終使用 {rel}",
+  "members.keys.neverUsed": "未使用",
+  "members.error.invite_failed": "招待の送信に失敗しました。",
+  "members.error.already_member": "このメールアドレスはすでにメンバーです。",
+  "members.error.remove_failed": "削除に失敗しました。",
+  "members.error.owner_only": "ワークスペースのオーナーのみ実行できます。",
+
+  // フォルダ ACL
+  "folders.title": "フォルダ権限",
+  "folders.subtitle":
+    "特定メンバーのみが読み書きできるようフォルダをロック。オーナーもバイパス不可——招待されたフォルダしか見えません。",
+  "folders.create.heading": "プライベートフォルダを作成",
+  "folders.create.placeholder": "funds/fund-A/",
+  "folders.create.note":
+    "パスは / で終わる必要があります。サブフォルダは権限を継承します。下記の選択メンバーのみ読み書きできます。",
+  "folders.create.submit": "フォルダをロック",
+  "folders.create.submitting": "ロック中…",
+  "folders.members.heading": "アクセスできるメンバー",
+  "folders.members.you": "(あなた)",
+  "folders.list.heading": "プライベートフォルダ ({count})",
+  "folders.list.empty": "プライベートフォルダはまだありません。",
+  "folders.list.memberCount": "{count} 人",
+  "folders.list.edit": "編集",
+  "folders.list.save": "保存",
+  "folders.list.cancel": "キャンセル",
+  "folders.list.makePublic": "公開に戻す",
+  "folders.makePublicConfirm":
+    "ロック解除しますか？ワークスペースの全員が再び読み書きできます。",
+  "folders.error.create_failed": "ACL の作成に失敗。",
+  "folders.error.update_failed": "ACL の更新に失敗。",
+  "folders.error.empty_members": "少なくとも1人を選択してください。",
+  "folders.error.self_excluded":
+    "自分自身を ACL から外すことはできません — 復旧不能になります。",
+  "folders.error.member_not_in_workspace":
+    "選択されたメンバーはこのワークスペースにいません。",
+  "folders.error.not_in_acl":
+    "このフォルダはプライベートです — 編集には既にメンバーである必要があります。",
+  "folders.error.invalid_path_prefix":
+    "パスは相対で、'..' を含めないでください。",
+  "folders.error.empty_path_prefix": "パスを入力してください。",
+  // モーダル専用
+  "folders.modal.heading": "フォルダ権限",
+  "folders.modal.publicTitle": "公開",
+  "folders.modal.publicHint": "ワークスペース全員",
+  "folders.modal.privateTitle": "プライベート",
+  "folders.modal.privateHint": "指定メンバーのみ",
+  "folders.error.load_failed": "アクセス情報の読み込みに失敗。",
 
   // Dashboard
 

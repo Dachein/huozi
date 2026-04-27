@@ -32,6 +32,7 @@ import type {
 import { StaleError } from '../types.js'
 import type { HuoziCloudflareBindings } from './bindings.js'
 import { blobKey, gitBlobSha1 } from './sha.js'
+import { AclCache, canAccess } from './folder-acl.js'
 
 interface RpcWriteFile {
   method: 'write-file'
@@ -168,10 +169,14 @@ interface CommitEvent {
  * Per-WebSocket tags stored by state.acceptWebSocket, used for scope-filtered
  * broadcast. Tags are strings in the hibernation API.
  *
- *   tags[0] = principalId            (just for debugging / future fanout)
+ *   tags[0] = principalId            (= user_id for user/agent; opaque for system)
  *   tags[1] = scopePath ?? ''        ('' means no scope — sees everything)
+ *   tags[2] = principalType          ('user' | 'agent' | 'system')
+ *
+ * Sockets accepted before tags[2] was added (legacy hibernated connections)
+ * fall back to non-system semantics, which over-filters rather than leaks.
  */
-type WsTags = [principalId: string, scopePath: string]
+type WsTags = [principalId: string, scopePath: string, principalType: string]
 
 export class HuoziWorkspaceDO {
   constructor(
@@ -256,6 +261,7 @@ export class HuoziWorkspaceDO {
     const workspaceId = request.headers.get('X-Huozi-Workspace') ?? ''
     const principalId = request.headers.get('X-Huozi-Principal-Id') ?? ''
     const scopePath = request.headers.get('X-Huozi-Scope-Path') ?? ''
+    const principalType = request.headers.get('X-Huozi-Principal-Type') ?? 'agent'
 
     // Remember the workspaceId so broadcast envelopes can echo it back (and
     // so a cold DO that only sees commits via write-file knows its own id).
@@ -267,7 +273,7 @@ export class HuoziWorkspaceDO {
 
     // Tags are serialized by the DO runtime as metadata so getTags() returns
     // the same strings after hibernation. Keep them small.
-    const tags: WsTags = [principalId, scopePath]
+    const tags: WsTags = [principalId, scopePath, principalType]
     this.state.acceptWebSocket(server, tags)
 
     // Send a one-shot hello so the browser can set "online" immediately and
@@ -340,9 +346,13 @@ export class HuoziWorkspaceDO {
 
   /**
    * Broadcast a CommitEvent to every WebSocket whose scope overlaps at least
-   * one of the paths in the commit. No-op when there are no subscribers.
+   * one of the paths in the commit, AND who pass the folder-ACL check for
+   * each path. No-op when there are no subscribers.
+   *
+   * Fire-and-forget at the call sites — async only so we can await the ACL
+   * cache; we never block the write path on broadcast.
    */
-  private broadcastCommit(event: CommitEvent): void {
+  private async broadcastCommit(event: CommitEvent): Promise<void> {
     let sockets: WebSocket[]
     try {
       sockets = this.state.getWebSockets()
@@ -351,6 +361,10 @@ export class HuoziWorkspaceDO {
     }
     if (sockets.length === 0) return
 
+    // One cache per broadcast — the same ACL row gets reused across paths
+    // and across subscribers in the same commit, which is the common case.
+    const aclCache = new AclCache()
+
     for (const ws of sockets) {
       let tags: string[]
       try {
@@ -358,14 +372,36 @@ export class HuoziWorkspaceDO {
       } catch {
         continue
       }
+      const principalId = tags[0] ?? ''
       const scope = tags[1] ?? ''
+      // Legacy sockets (pre-v2 tags) default to 'agent' so they get filtered,
+      // not bypassed.
+      const principalType = tags[2] ?? 'agent'
 
-      const visible = scope
+      let visible = scope
         ? event.paths.filter(
             (p) => p.path === scope || p.path.startsWith(scope + '/'),
           )
         : event.paths
       if (visible.length === 0) continue
+
+      // ACL filter for non-system principals: hide paths the subscriber
+      // can't read so private folders stay invisible in live updates.
+      if (principalType !== 'system' && principalId) {
+        const filtered: typeof visible = []
+        for (const p of visible) {
+          const r = await canAccess(
+            this.env,
+            event.workspace_id,
+            p.path,
+            principalId,
+            aclCache,
+          )
+          if (r.allow) filtered.push(p)
+        }
+        visible = filtered
+        if (visible.length === 0) continue
+      }
 
       const payload =
         visible.length === event.paths.length

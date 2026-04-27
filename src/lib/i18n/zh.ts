@@ -316,6 +316,14 @@ export const zh = {
   "recent.op.new": "新建",
   "recent.op.edited": "编辑",
   "recent.op.deleted": "删除",
+  "recent.folderCreated": "新建目录",
+
+  // 云盘 · 文件视图错误 / 提示
+  "view.error.label": "错误",
+  "view.error.aclDenied.title": "这是私密目录",
+  "view.error.aclDenied.body": "你没有访问该路径的权限。请联系目录成员邀请你加入,或在侧栏选择其他文件。",
+  "view.readOnly.title": "想修改这个文件?",
+  "view.readOnly.body": "通过你已连接的 Agent(Claude Code、Cursor、Claude Desktop 或任意 MCP 客户端)进行编辑。huozi Cloud 的 Web UI 设计为只读 —— 所有写入统一走 MCP 的审计提交链路。",
 
   // 云盘 · 侧边栏标题（可点的"首页"链接）
   "ws.shell.title": "Workspace",
@@ -427,6 +435,118 @@ export const zh = {
   "auth.login.changeEmail": "使用其他邮箱",
   "auth.login.newHere": "初来乍到？",
   "auth.login.guide": "查看入门指南",
+
+  // 多 workspace 选择页
+  "auth.selectWorkspace.title": "选择 workspace",
+  "auth.selectWorkspace.subtitle": "你属于 {count} 个 workspace，挑一个进入。",
+
+  // 邀请链接落地页
+  "invite.notFound.title": "邀请不存在",
+  "invite.notFound.message": "这个邀请链接无效或已被删除。",
+  "invite.accepted.title": "已接受过",
+  "invite.accepted.message": "这个邀请已经被接受过。如果未登录，请先登录。",
+  "invite.revoked.title": "邀请已撤销",
+  "invite.revoked.message": "owner 已撤销此邀请，请联系对方重新发送。",
+  "invite.expired.title": "邀请已过期",
+  "invite.expired.message": "邀请超过 7 天已过期，请联系 owner 重发。",
+  "invite.welcome.title": "你被邀请了",
+  "invite.welcome.invitedYouTo": "{inviter} 邀请你加入",
+  "invite.welcome.signInAs": "以 {email} 登录",
+  "invite.welcome.codeNotice": "我们将向 {email} 发送 6 位验证码。",
+  "invite.wrongAccount.title": "账号不匹配",
+  "invite.wrongAccount.message":
+    "你当前已用 {current} 登录，但此邀请发给 {target}。请先退出当前账号，再点击邀请链接。",
+  "invite.wrongAccount.signOut": "退出登录",
+  "invite.error.title": "无法接受邀请",
+
+  // 加入成功提示
+  "joined.toast": "已加入 {slug}",
+
+  // 切换 workspace
+  "switcher.heading": "切换 workspace",
+
+  // 用户菜单（顶部下拉）
+  "menu.nav.files": "文件",
+  "menu.nav.shares": "分享",
+  "menu.nav.members": "成员",
+  "menu.nav.folders": "目录权限",
+  "menu.identity.signedIn": "已登录",
+  "menu.identity.workspace": "Workspace",
+  "menu.language": "语言",
+  "menu.home": "回到 huozi.app",
+  "menu.exit": "退出",
+  "menu.disconnect": "断开连接",
+
+  // 成员管理
+  "members.title": "成员",
+  "members.subtitle.owner":
+    "邀请协作者、查看谁有访问权限，以及移除你不再希望保留在此 workspace 的成员。",
+  "members.subtitle.member": "可访问此 workspace 的成员。",
+  "members.invite.heading": "邀请协作者",
+  "members.invite.placeholder": "ta@example.com",
+  "members.invite.submit": "邀请",
+  "members.invite.submitting": "发送中…",
+  "members.invite.note":
+    "对方将收到一封 7 天内有效的邀请邮件，接受后即成为本 workspace 的成员。",
+  "members.list.heading": "成员（{count}）",
+  "members.list.you": "（你）",
+  "members.list.remove": "移除",
+  "members.list.removeConfirm": "移除该成员？",
+  "members.role.owner": "owner",
+  "members.role.member": "member",
+  "members.invites.heading": "待接受邀请（{count}）",
+  "members.invites.expires": "{date} 过期",
+  "members.invites.revoke": "撤销",
+  "members.invites.revokeConfirm": "撤销此邀请？",
+  // 成员的 keys 展开列表
+  "members.keys.summary": "{count} 把 key",
+  "members.keys.revoke": "撤销",
+  "members.keys.revokeConfirm": "撤销这把 key？此操作不可撤销。",
+  "members.keys.lastUsed": "最后使用 {rel}",
+  "members.keys.neverUsed": "未使用",
+  "members.error.invite_failed": "邀请发送失败。",
+  "members.error.already_member": "该邮箱已是成员。",
+  "members.error.remove_failed": "移除失败。",
+  "members.error.owner_only": "只有 workspace owner 可以执行此操作。",
+
+  // 文件夹 ACL
+  "folders.title": "目录权限",
+  "folders.subtitle":
+    "锁定一个目录，仅指定成员可以读写其下文件。Workspace owner 也不能绕过——只能看到自己被加入的目录。",
+  "folders.create.heading": "新建私密目录",
+  "folders.create.placeholder": "funds/fund-A/",
+  "folders.create.note":
+    "路径必须以 / 结尾。子目录继承父目录权限。只有下方勾选的成员能读写。",
+  "folders.create.submit": "锁定目录",
+  "folders.create.submitting": "锁定中…",
+  "folders.members.heading": "可访问成员",
+  "folders.members.you": "（你）",
+  "folders.list.heading": "私密目录（{count}）",
+  "folders.list.empty": "还没有私密目录。在上方新建一个。",
+  "folders.list.memberCount": "{count} 名成员",
+  "folders.list.edit": "编辑",
+  "folders.list.save": "保存",
+  "folders.list.cancel": "取消",
+  "folders.list.makePublic": "改为公开",
+  "folders.makePublicConfirm":
+    "取消锁定？所有 workspace 成员都将可以读写此目录。",
+  "folders.error.create_failed": "创建 ACL 失败。",
+  "folders.error.update_failed": "更新 ACL 失败。",
+  "folders.error.empty_members": "至少选择一名成员。",
+  "folders.error.self_excluded":
+    "你必须保留自己在 ACL 内——把自己踢出去会让目录无法恢复。",
+  "folders.error.member_not_in_workspace": "选中的成员已不在此 workspace。",
+  "folders.error.not_in_acl":
+    "此目录是私密的——必须已是成员才能编辑 ACL。",
+  "folders.error.invalid_path_prefix": "路径需相对且不可含 '..' 段。",
+  "folders.error.empty_path_prefix": "路径不能为空。",
+  // Modal 专用
+  "folders.modal.heading": "目录权限",
+  "folders.modal.publicTitle": "公开",
+  "folders.modal.publicHint": "任何 workspace 成员",
+  "folders.modal.privateTitle": "私密",
+  "folders.modal.privateHint": "仅指定成员",
+  "folders.error.load_failed": "加载访问信息失败。",
 
   // Dashboard
 

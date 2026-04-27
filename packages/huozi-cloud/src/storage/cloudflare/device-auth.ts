@@ -38,6 +38,7 @@
 import { sha256Hex } from './sha.js'
 import type { HuoziCloudflareBindings } from './bindings.js'
 import { assertAdminAuth, type AdminEnv } from './admin.js'
+import { validatePrincipalAndWorkspace } from './api-keys-validate.js'
 
 // ── Config ──────────────────────────────────────────────────────────
 
@@ -251,9 +252,21 @@ async function mintScopedKey(
     user_id: string
     name: string
   },
-): Promise<{ key_id: string; api_key: string }> {
+): Promise<
+  | { ok: true; key_id: string; api_key: string }
+  | { ok: false; error: string; field: string }
+> {
   // Mirror of admin.ts's mint logic — kept inline so this module is
   // self-contained and doesn't import across layers.
+  const refCheck = await validatePrincipalAndWorkspace(env, {
+    principalType: 'agent',
+    principalId: input.user_id,
+    workspaceId: input.workspace_id,
+  })
+  if (!refCheck.ok) {
+    return { ok: false, error: refCheck.error, field: refCheck.field }
+  }
+
   const slug = input.workspace_id.replace(/^ws_/, '').replace(/[^a-z0-9-]/gi, '')
   const apiKey = `hz_${slug || 'agent'}_${randomHex(16)}`
   const keyId = `k_${randomHex(8)}`
@@ -268,7 +281,7 @@ async function mintScopedKey(
     .bind(keyId, keyHash, input.workspace_id, input.user_id, now, input.name)
     .run()
 
-  return { key_id: keyId, api_key: apiKey }
+  return { ok: true, key_id: keyId, api_key: apiKey }
 }
 
 export async function handleDeviceAuthorize(
@@ -334,11 +347,18 @@ export async function handleDeviceAuthorize(
       ? `[${row.agent_kind}] ${label}`
       : label
 
-  const { key_id, api_key } = await mintScopedKey(env, {
+  const minted = await mintScopedKey(env, {
     workspace_id: workspaceId,
     user_id: userId,
     name: keyName,
   })
+  if (!minted.ok) {
+    return Response.json(
+      { error: minted.error, field: minted.field },
+      { status: 400 },
+    )
+  }
+  const { key_id, api_key } = minted
 
   const update = await env.DB.prepare(
     `UPDATE device_grants

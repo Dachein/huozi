@@ -11,6 +11,7 @@
 
 import type { HuoziCloudflareBindings } from './bindings.js'
 import { resolveBearer } from './auth.js'
+import { AclCache, canAccess } from './folder-acl.js'
 
 interface CommitRow {
   commit_sha: string
@@ -79,6 +80,10 @@ export async function handleRecent(
 
   const scope = p.scopePath
   const entries: RecentEntry[] = []
+  // System principals (admin tokens) bypass ACLs entirely; everyone else
+  // gets the same folder-ACL filter the tools/call dispatcher applies.
+  const aclCache =
+    p.principalType !== 'system' ? new AclCache() : null
 
   for (const c of results ?? []) {
     let paths: PathEntry[]
@@ -87,12 +92,24 @@ export async function handleRecent(
     } catch {
       continue
     }
-    const visible = scope
+    const scopedVisible = scope
       ? paths.filter(
           (pe) => pe.path === scope || pe.path.startsWith(scope + '/'),
         )
       : paths
-    if (visible.length === 0) continue
+    if (scopedVisible.length === 0) continue
+
+    let visible: PathEntry[]
+    if (aclCache) {
+      visible = []
+      for (const pe of scopedVisible) {
+        const r = await canAccess(env, p.workspaceId, pe.path, p.principalId, aclCache)
+        if (r.allow) visible.push(pe)
+      }
+      if (visible.length === 0) continue
+    } else {
+      visible = scopedVisible
+    }
 
     const authorType: 'user' | 'agent' | 'system' =
       c.author_type === 'user'

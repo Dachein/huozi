@@ -109,10 +109,10 @@ export function LiveUpdateBanner({ watchPath }: LiveUpdateBannerProps) {
       key={banner.freshTag}
       role="status"
       aria-live="polite"
-      className="flex items-center gap-3 rounded-md border border-accent/40 bg-accent/5 px-3 py-1.5 text-xs
+      className="flex items-center gap-3 rounded-md border border-border bg-muted/40 px-3 py-1.5 text-xs text-foreground
                  animate-in fade-in slide-in-from-top-1 duration-200"
     >
-      <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0 animate-pulse" />
+      <span className="inline-block w-1.5 h-1.5 rounded-full bg-foreground/50 shrink-0 animate-pulse" />
       <span className="min-w-0 truncate">
         <span className="text-muted-foreground">Edited by </span>
         <strong>

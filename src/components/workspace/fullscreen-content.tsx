@@ -1,25 +1,50 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { ArrowsPointingInIcon } from "@heroicons/react/24/outline";
 import { useFullscreen } from "./fullscreen-context";
+import { FullscreenPager } from "./fullscreen-pager";
+import type { PageEntry } from "@/lib/html/extract-pages";
 
 export type FullscreenMode = "reader" | "raw" | "grid" | null;
 
+/** Subset of huozi formats relevant to the fullscreen surface. */
+export type HtmlFormat = "web" | "mobile" | "deck" | "story" | "paper";
+
 const CLOSE_BUTTON_CLASS =
-  "fixed top-3 right-3 z-[60] inline-flex items-center justify-center w-7 h-7 rounded border border-border bg-background/90 backdrop-blur text-muted-foreground hover:bg-muted hover:text-foreground transition-colors";
+  "inline-flex items-center justify-center w-8 h-8 rounded-md border border-border bg-background/90 backdrop-blur text-muted-foreground hover:bg-muted hover:text-foreground transition-colors";
 
 export function FullscreenContent({
   mode,
   children,
+  pages = [],
+  pageUnit = "page",
+  htmlFormat = "web",
+  alwaysOpen = false,
+  chrome,
 }: {
   mode: FullscreenMode;
   children: ReactNode;
+  pages?: PageEntry[];
+  pageUnit?: "page" | "slide" | "sheet";
+  htmlFormat?: HtmlFormat;
+  /** Skip the FullscreenProvider context check and always render the
+   *  fullscreen wrapper. The publish surface uses this — the file IS the
+   *  page, so there's no non-fullscreen state to fall back to. The close
+   *  button is also suppressed in this mode (replaced by `chrome`, e.g.
+   *  an "Open in Huozi" link). */
+  alwaysOpen?: boolean;
+  /** Extra chrome rendered in the top-right area. In normal (toggle)
+   *  mode it sits to the LEFT of the close button (e.g. a Share button).
+   *  In `alwaysOpen` mode it replaces the close button entirely. */
+  chrome?: ReactNode;
 }) {
   const { fullscreen, setFullscreen } = useFullscreen();
+  const open = alwaysOpen || fullscreen;
 
-  if (!mode || !fullscreen) return <>{children}</>;
+  if (!mode || !open) return <>{children}</>;
 
-  const closeButton = (
+  const closeButton = alwaysOpen ? null : (
     <button
       type="button"
       onClick={() => setFullscreen(false)}
@@ -27,14 +52,35 @@ export function FullscreenContent({
       title="Exit fullscreen (Esc)"
       className={CLOSE_BUTTON_CLASS}
     >
-      <CollapseIcon />
+      <ArrowsPointingInIcon className="w-4 h-4" aria-hidden="true" />
     </button>
   );
+
+  // Pager rendered INSIDE the same fixed strip as chrome + close so they
+  // never overlap, regardless of how wide the caller's chrome is. Order
+  // (left → right): pager · chrome · close.
+  const pagerInChrome =
+    pages.length > 1 &&
+    (htmlFormat === "deck" || htmlFormat === "story" || htmlFormat === "paper")
+      ? <FullscreenPager pages={pages} unit={pageUnit} />
+      : null;
+
+  // Top-right chrome strip: pager + optional caller-supplied buttons + close.
+  // top-4 right-4 = 16px breathing room from edges so the chrome doesn't
+  // crowd the viewport corner.
+  const topRight =
+    pagerInChrome || chrome || closeButton ? (
+      <div className="fixed top-4 right-4 z-[60] flex items-center gap-2">
+        {pagerInChrome}
+        {chrome}
+        {closeButton}
+      </div>
+    ) : null;
 
   if (mode === "reader") {
     return (
       <div className="fixed inset-0 z-50 bg-background overflow-auto">
-        {closeButton}
+        {topRight}
         <div className="mx-auto max-w-3xl px-6 py-10 sm:py-12">{children}</div>
       </div>
     );
@@ -43,43 +89,61 @@ export function FullscreenContent({
   if (mode === "grid") {
     return (
       <div className="fixed inset-0 z-50 bg-background flex flex-col p-4 sm:p-6">
-        {closeButton}
+        {topRight}
         {children}
       </div>
     );
   }
 
   // raw — HTML controls its own layout, no padding so 100vh works.
+  //
   // The .huozi-html-host wrapper from FileRenderer carries inline-preview
-  // sizing (aspect-ratio, max-width, fixed height). In fullscreen we strip
-  // those constraints so the wrapper fills the viewport, and the template
-  // root inside it (which the wrapper already forces to !w-full !h-full)
-  // grows to fill the wrapper too.
+  // sizing hints (aspect-ratio, max-width, fixed height). We strip those in
+  // every fullscreen mode so they don't confine the content. What we
+  // FORCE on top depends on the format:
+  //
+  //   deck / story  — paginated viewport-pinned. The deck CSS uses 100vw /
+  //                   100vh, so we lock host to the same with !w-screen
+  //                   !h-screen. Container is overflow-hidden — snap-scroll
+  //                   happens inside the deck's .slides element, never
+  //                   outside. Any rounding overflow at the edge gets clipped.
+  //
+  //   paper / mobile / web / other — long-flow. The host is left at its
+  //                   block-natural width (= container width minus scrollbar
+  //                   gutter) so a vertical scrollbar doesn't push content
+  //                   beyond viewport horizontally. Container overflow-auto
+  //                   handles the vertical scroll. NEVER force w-screen here:
+  //                   100vw includes the scrollbar gutter and produces a
+  //                   spurious horizontal scrollbar.
+  const isPaginated = htmlFormat === "deck" || htmlFormat === "story";
+  const containerCls = isPaginated
+    ? // Force-to-viewport sizing on the host; lock outer overflow.
+      `overflow-hidden
+       [&_.huozi-html-host]:!w-screen [&_.huozi-html-host]:!h-screen
+       [&_.huozi-html-host]:!max-w-none [&_.huozi-html-host]:!max-h-none
+       [&_.huozi-html-host]:![aspect-ratio:auto]
+       [&_.huozi-html-host]:!overflow-visible
+       [&_.huozi-html-host]:!m-0`
+    : // Long-flow: container scrolls vertically, host follows block width.
+      // overflow-x-hidden is a belt-and-suspenders against any inner
+      // element (or vw-based custom CSS) trying to overflow horizontally.
+      `overflow-x-hidden overflow-y-auto
+       [&_.huozi-html-host]:!w-full [&_.huozi-html-host]:!h-auto
+       [&_.huozi-html-host]:!max-w-none [&_.huozi-html-host]:!max-h-none
+       [&_.huozi-html-host]:![aspect-ratio:auto]
+       [&_.huozi-html-host]:!overflow-visible
+       [&_.huozi-html-host]:!m-0`;
   return (
     <div
-      className="fixed inset-0 z-50 bg-background overflow-auto
-                 [&_.huozi-html-host]:!w-full [&_.huozi-html-host]:!h-full
-                 [&_.huozi-html-host]:!max-w-none [&_.huozi-html-host]:!max-h-none
-                 [&_.huozi-html-host]:![aspect-ratio:auto]
-                 [&_.huozi-html-host]:!overflow-visible
-                 [&_.huozi-html-host]:!m-0"
+      className={`fixed inset-0 z-50 bg-background ${containerCls}`}
+      // Opt-in marker for the deck-only mobile-portrait auto-landscape CSS
+      // baked into the deck template. Workspace inline preview never gets
+      // this attribute, so its embed-sized 16:9 frame is preserved.
+      {...(htmlFormat === "deck" ? { "data-huozi-rotate-portrait": "" } : {})}
     >
-      {closeButton}
+      {topRight}
       {children}
     </div>
   );
 }
 
-function CollapseIcon() {
-  return (
-    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" aria-hidden="true">
-      <path
-        d="M6 3 V6 H3 M10 6 V3 M10 6 H13 M13 10 H10 V13 M3 10 H6 V13"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}

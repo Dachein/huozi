@@ -27,6 +27,7 @@ import { createMvTool } from '../tools/MvTool.js'
 import { createRmTool } from '../tools/RmTool.js'
 import { createShareTool, type ShareToolDeps } from '../tools/ShareTool.js'
 import { createTemplateTool } from '../tools/TemplateTool/index.js'
+import { createWhoamiTool, type WhoamiToolDeps } from '../tools/WhoamiTool.js'
 import type { StorageBackend } from '../storage/types.js'
 import type { Tool } from '../types.js'
 
@@ -42,12 +43,17 @@ export interface HuoziToolRegistryDeps {
    * have the D1 bindings required; tests / in-memory runs leave this off.
    */
   shareDeps?: ShareToolDeps
+  /**
+   * Enables `huozi_whoami`. Same story as shareDeps — needs D1 + the
+   * authenticated principal/keyHash, which only the Worker entry has.
+   */
+  whoamiDeps?: WhoamiToolDeps
 }
 
 export function createHuoziToolRegistry(
   deps: HuoziToolRegistryDeps,
 ): HuoziToolRegistry {
-  const { storage, shareDeps } = deps
+  const { storage, shareDeps, whoamiDeps } = deps
   const tools: Tool<any, any>[] = [
     createReadTool({ storage }),
     createEditTool({ storage }),
@@ -64,6 +70,9 @@ export function createHuoziToolRegistry(
   ]
   if (shareDeps) {
     tools.push(createShareTool(shareDeps))
+  }
+  if (whoamiDeps) {
+    tools.push(createWhoamiTool(whoamiDeps))
   }
 
   const byName = new Map<string, Tool<any, any>>()

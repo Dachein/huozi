@@ -14,8 +14,15 @@ import {
   type FullscreenMode,
 } from "@/components/workspace/fullscreen-content";
 import { PageOutlineMenu } from "@/components/workspace/page-outline-menu";
+import { ShareFullscreenButton } from "@/components/workspace/share-fullscreen-button";
 import { extractPages } from "@/lib/html/extract-pages";
-import { getLocale } from "@/lib/i18n/server";
+import { detectHuoziFormat } from "@/lib/html/detect-format";
+import { getServerT } from "@/lib/i18n/server";
+import { getIdentity } from "@/lib/identity";
+import {
+  cloudAdminListFolderAcls,
+  cloudAdminListMembers,
+} from "@/lib/drive/admin";
 import {
   cloudGlob,
   cloudRead,
@@ -43,7 +50,7 @@ type SearchParams = {
 };
 
 export default async function CloudFileView({ searchParams }: SearchParams) {
-  const locale = await getLocale();
+  const t = await getServerT();
   const params = (await searchParams) ?? {};
   const path = params.path;
   const wantRaw = params.view === "raw";
@@ -59,13 +66,33 @@ export default async function CloudFileView({ searchParams }: SearchParams) {
   }
   if (!path) redirect("/workspace");
 
+  const identity = await getIdentity();
+  const principal = await identity.getPrincipal();
+
   // Tree always needs the file list.
-  const [globRes, readResInitial, recentRes] = await Promise.all([
-    cloudGlob(key, "**/*"),
-    cloudRead(key, path, { offset: paramOffset, limit: paramLimit }),
-    cloudRecent(key, 20),
-  ]);
+  const [globRes, readResInitial, recentRes, members, folderAcls] =
+    await Promise.all([
+      cloudGlob(key, "**/*"),
+      cloudRead(key, path, { offset: paramOffset, limit: paramLimit }),
+      cloudRecent(key, 20),
+      principal && principal.workspaceId
+        ? cloudAdminListMembers(principal.workspaceId).catch(() => [])
+        : Promise.resolve([]),
+      principal && principal.workspaceId
+        ? cloudAdminListFolderAcls({
+            workspaceId: principal.workspaceId,
+          }).catch(() => [])
+        : Promise.resolve([]),
+    ]);
   const recent = recentRes.ok ? recentRes.entries : [];
+  const me = members.find((m) => m.user_id === principal?.userId);
+  const visibleAcls =
+    me?.role === "owner"
+      ? folderAcls
+      : folderAcls.filter((a) =>
+          principal ? a.members.includes(principal.userId) : false,
+        );
+  const privatePrefixes = new Set(visibleAcls.map((a) => a.path_prefix));
 
   // Auto-fallback: if the server said FILE_TOO_LARGE on a default (unpaginated)
   // read, re-request with a sensible page size. This keeps the Web UI usable
@@ -102,6 +129,13 @@ export default async function CloudFileView({ searchParams }: SearchParams) {
         truncated={truncated}
         currentPath={path}
         recent={recent}
+        privatePrefixes={privatePrefixes}
+        members={members.map((m) => ({
+          user_id: m.user_id,
+          email: m.email,
+          display_name: m.display_name,
+        }))}
+        currentUserId={principal?.userId}
       >
         <FileView
           path={path}
@@ -111,6 +145,7 @@ export default async function CloudFileView({ searchParams }: SearchParams) {
           didAutoPaginate={didAutoPaginate}
           offset={effectiveOffset}
           limit={effectiveLimit}
+          t={t}
         />
       </WorkspaceShell>
       <CloudLiveEvents mode="file" watchPath={path} />
@@ -126,6 +161,7 @@ async function FileView({
   didAutoPaginate,
   offset,
   limit,
+  t,
 }: {
   path: string;
   readRes: McpResult<ReadTextData>;
@@ -134,6 +170,7 @@ async function FileView({
   didAutoPaginate: boolean;
   offset: number | undefined;
   limit: number | undefined;
+  t: (key: string) => string;
 }) {
   const fileName = path.split("/").pop() ?? path;
   const parentPath = path.includes("/")
@@ -163,14 +200,16 @@ async function FileView({
     readRes.data.file.content
       ? extractPages(readRes.data.file.content)
       : [];
+  const fileContent =
+    readRes.ok && readRes.data.type === "text"
+      ? (readRes.data.file.content ?? "")
+      : "";
+  // Authoritative format detection (meta first, class sniff second, default
+  // "web"). Drives FullscreenPager visibility + auto-landscape CSS for deck
+  // on mobile portrait.
+  const htmlFormat = detectHuoziFormat(fileContent);
   const pageUnit: "slide" | "page" =
-    /huozi-(deck|story)/.test(
-      readRes.ok && readRes.data.type === "text"
-        ? (readRes.data.file.content ?? "")
-        : "",
-    )
-      ? "slide"
-      : "page";
+    htmlFormat === "deck" || htmlFormat === "story" ? "slide" : "page";
 
   return (
     <FullscreenProvider>
@@ -210,17 +249,40 @@ async function FileView({
         )}
 
         {/* Error */}
-        {!readRes.ok && (
-          <div className="rounded-lg border border-red-500/40 bg-red-500/5 px-4 py-3 text-sm">
-            <strong>Error {readRes.errorCode}:</strong>{" "}
-            <span className="text-muted-foreground">{readRes.message}</span>
-          </div>
-        )}
+        {!readRes.ok &&
+          (readRes.errorCode === 403 && readRes.message === "acl_denied" ? (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-5 py-4 space-y-1.5">
+              <div className="flex items-baseline gap-2">
+                <span className="text-amber-700 dark:text-amber-400 font-mono text-xs tabular-nums">
+                  403
+                </span>
+                <h2 className="text-base font-semibold">
+                  {t("view.error.aclDenied.title")}
+                </h2>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {t("view.error.aclDenied.body")}
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-red-500/40 bg-red-500/5 px-4 py-3 text-sm">
+              <strong>
+                {t("view.error.label")} {readRes.errorCode}:
+              </strong>{" "}
+              <span className="text-muted-foreground">{readRes.message}</span>
+            </div>
+          ))}
 
         {/* Content */}
         {readRes.ok && (
           <>
-            <FullscreenContent mode={fullscreenMode}>
+            <FullscreenContent
+              mode={fullscreenMode}
+              pages={pages}
+              pageUnit={pageUnit}
+              htmlFormat={htmlFormat}
+              chrome={<ShareFullscreenButton path={path} />}
+            >
               <FileBody
                 data={readRes.data}
                 path={path}
@@ -243,10 +305,8 @@ async function FileView({
 
         {/* Read-only-by-design hint */}
         <div className="rounded-lg border border-dashed border-border p-4 text-xs text-muted-foreground">
-          <strong className="text-foreground">Need to modify this file?</strong>{" "}
-          Ask your connected Agent (Claude Code, Cursor, Claude Desktop, or any
-          MCP client). huozi Cloud&rsquo;s Web UI is read-only by design — all
-          writes flow through a single audited commit path via MCP.
+          <strong className="text-foreground">{t("view.readOnly.title")}</strong>{" "}
+          {t("view.readOnly.body")}
         </div>
       </div>
     </FullscreenProvider>

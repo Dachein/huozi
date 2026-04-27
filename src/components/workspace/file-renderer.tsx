@@ -1,6 +1,7 @@
 import { renderMarkdown } from "@/lib/markdown/renderer";
 import { processHtmlDirect } from "@/lib/html/sanitizer";
 import { processChartComponents } from "@/lib/html/chart-components";
+import { detectHuoziFormat } from "@/lib/html/detect-format";
 import { CsvGrid } from "@/components/csv-grid";
 
 /**
@@ -157,10 +158,18 @@ function pickHtmlLayout(rawContent: string): HtmlLayout {
     }
     // Paper grows to content; wrapper provides the scroll box.
     cls = "[&_.huozi-paper]:!min-h-0";
+  } else if (format === "mobile" || format === "web") {
+    // Long-flow templates: let the page extend naturally. Workspace's main
+    // column already scrolls, so wrapping in a fixed-height scroll box just
+    // makes a window-in-a-window. Only the paginated formats (deck / story /
+    // paper) need a constraint to keep one "page" visible at a time.
+    cls =
+      format === "mobile"
+        ? "[&_.huozi-mobile]:!min-h-0"
+        : "[&_.huozi-web]:!min-h-0";
   } else if (!meta?.["aspect-ratio"] && !meta?.["max-height"]) {
-    // Unknown HTML, no meta → a sensible scrollable box.
-    style.height = "min(80vh, 600px)";
-    style.overflowY = "auto";
+    // Unknown HTML, no meta → also let it flow naturally. The host page
+    // (workspace) handles the scroll; no need for a nested 80vh box.
   }
 
   return { className: cls, style };
@@ -182,12 +191,6 @@ function parseHuoziViewport(html: string): Record<string, string> | null {
   return out;
 }
 
-function detectHuoziFormat(html: string): "deck" | "story" | "paper" | "other" {
-  if (/class=["'][^"']*\bhuozi-deck\b/.test(html)) return "deck";
-  if (/class=["'][^"']*\bhuozi-story\b/.test(html)) return "story";
-  if (/class=["'][^"']*\bhuozi-paper\b/.test(html)) return "paper";
-  return "other";
-}
 
 function SourceBlock({
   content,

@@ -7,15 +7,15 @@
     "build": "next build",
     "cf:build": "npx @opennextjs/cloudflare build",
     "cf:preview": "npx @opennextjs/cloudflare dev",
-    "cf:deploy": "npx @opennextjs/cloudflare deploy",
+    "cf:deploy": "npx @opennextjs/cloudflare build && npx @opennextjs/cloudflare deploy",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
     "@glideapps/glide-data-grid": "^6.0.4-alpha24",
-    "@supabase/ssr": "^0.10.2",
-    "@supabase/supabase-js": "^2.103.0",
+    "@heroicons/react": "^2.2.0",
     "echarts": "^6.0.0",
+    "jose": "^6.2.2",
     "lodash": "^4.18.1",
     "lucide-react": "^1.8.0",
     "marked": "^16.4.2",

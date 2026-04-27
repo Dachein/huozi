@@ -14,6 +14,7 @@
 
 import { sha256Hex } from './sha.js'
 import type { HuoziCloudflareBindings } from './bindings.js'
+import { validatePrincipalAndWorkspace } from './api-keys-validate.js'
 
 export interface AdminEnv extends HuoziCloudflareBindings {
   HUOZI_ADMIN_SECRET?: string
@@ -140,6 +141,20 @@ export async function handleMintKey(
     )
   }
 
+  // Referential integrity — D1 has no FKs, so we police it here. Skipping
+  // this check is what produced the orphan-principal bug; never again.
+  const refCheck = await validatePrincipalAndWorkspace(env, {
+    principalType: body.principal_type as 'user' | 'agent' | 'system',
+    principalId: body.principal_id,
+    workspaceId: body.workspace_id,
+  })
+  if (!refCheck.ok) {
+    return Response.json(
+      { error: refCheck.error, field: refCheck.field },
+      { status: 400 },
+    )
+  }
+
   // Generate token and key_id.
   // Using a random suffix means callers get a cryptographically strong token
   // they can hand directly to an Agent.
@@ -238,15 +253,21 @@ export async function handleRevokeKey(
     return Response.json({ error: 'missing_key_id' }, { status: 400 })
   }
 
+  // Soft delete: keep the row for audit, just mark revoked_at. The auth
+  // path filters `revoked_at IS NULL`, so the key stops working immediately
+  // (modulo the 5-min in-isolate auth cache TTL — same window as before).
+  // Already-revoked rows aren't re-stamped: idempotent revoke.
+  const now = Date.now()
   const result = await env.DB.prepare(
-    'DELETE FROM api_keys WHERE key_id = ?',
+    'UPDATE api_keys SET revoked_at = ? WHERE key_id = ? AND revoked_at IS NULL',
   )
-    .bind(key_id)
+    .bind(now, key_id)
     .run()
 
   return Response.json({
     ok: true,
-    deleted: result.meta?.changes ?? 0,
+    revoked: result.meta?.changes ?? 0,
+    revoked_at: now,
   })
 }
 
@@ -269,6 +290,10 @@ export interface ListedKey {
   /** Best-effort summary of what the last action operated on — file_path,
    *  glob pattern, or "path (+N more)" for batch edits. Capped to 160 chars. */
   last_action_target: string | null
+  /** Unix ms when the key was soft-deleted via /admin/revoke-key. Null if
+   *  the key is still active. Default list excludes revoked rows; pass
+   *  `?include_revoked=1` to see them too. */
+  revoked_at: number | null
 }
 
 export async function handleListKeys(
@@ -285,15 +310,23 @@ export async function handleListKeys(
   if (!workspaceId) {
     return Response.json({ error: 'missing_workspace_id' }, { status: 400 })
   }
+  const includeRevoked = url.searchParams.get('include_revoked') === '1'
 
-  const { results } = await env.DB.prepare(
-    `SELECT key_id, workspace_id, scope_path, principal_type, principal_id,
-            created_at, expires_at, last_used_at, ttl_seconds, name,
-            last_action_tool, last_action_target
-     FROM api_keys
-     WHERE workspace_id = ?
-     ORDER BY created_at DESC`,
-  )
+  const sql = includeRevoked
+    ? `SELECT key_id, workspace_id, scope_path, principal_type, principal_id,
+              created_at, expires_at, last_used_at, ttl_seconds, name,
+              last_action_tool, last_action_target, revoked_at
+       FROM api_keys
+       WHERE workspace_id = ?
+       ORDER BY created_at DESC`
+    : `SELECT key_id, workspace_id, scope_path, principal_type, principal_id,
+              created_at, expires_at, last_used_at, ttl_seconds, name,
+              last_action_tool, last_action_target, revoked_at
+       FROM api_keys
+       WHERE workspace_id = ? AND revoked_at IS NULL
+       ORDER BY created_at DESC`
+
+  const { results } = await env.DB.prepare(sql)
     .bind(workspaceId)
     .all<ListedKey>()
 

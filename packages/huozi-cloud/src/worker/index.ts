@@ -31,6 +31,8 @@ import {
   sweepExpiredTickets,
 } from '../storage/cloudflare/events.js'
 import { handleRecent } from '../storage/cloudflare/recent.js'
+import { fetchWhoami } from '../storage/cloudflare/whoami.js'
+import { WHOAMI_TOOL_NAME } from '../tools/WhoamiTool.js'
 import {
   createShareRow,
   handleCreateShare,
@@ -47,9 +49,51 @@ import {
   handleDeviceToken,
 } from '../storage/cloudflare/device-auth.js'
 import {
+  handleAuthLogout,
+  handleAuthMe,
+  handleOtpRequest,
+  handleOtpVerify,
+  handleSelectWorkspace,
+  type AuthOtpEnv,
+} from '../storage/cloudflare/auth-otp.js'
+import {
+  handleCheckSlug,
+  handleCreateWorkspace,
+  handleDeleteWorkspace,
+  handleListWorkspaces,
+} from '../storage/cloudflare/workspaces.js'
+import {
+  handleInspectInvite,
+  handleListInvites,
+  handleListMembers,
+  handleMintInvite,
+  handleRedeemInvite,
+  handleRemoveMember,
+  handleRevokeInvite,
+  type InvitesAdminEnv,
+} from '../storage/cloudflare/invites.js'
+import {
   applyScopeToArgs,
   unscopeResult,
 } from '../storage/cloudflare/scope.js'
+import {
+  TOOL_TO_CAP,
+  effectiveCaps,
+  parseKeyCaps,
+  type Role,
+} from '../storage/cloudflare/permissions.js'
+import {
+  AclCache,
+  canAccess,
+  extractInputPaths,
+  filterPathsByAcl,
+} from '../storage/cloudflare/folder-acl.js'
+import {
+  handleDeleteFolderAcl,
+  handleListFolderAcls,
+  handleListFolderAclsForUser,
+  handleSetFolderAcl,
+} from '../storage/cloudflare/folder-acl-admin.js'
 import {
   loadSessionState,
   persistSessionState,
@@ -266,12 +310,147 @@ const handler: ExportedHandler<HuoziCloudflareBindings> = {
       }
     }
 
+    // Workspace CRUD (used by Cloud's identity layer + onboarding).
+    if (url.pathname === '/admin/workspaces') {
+      try {
+        if (request.method === 'POST')
+          return await handleCreateWorkspace(request, env as AdminEnv)
+        if (request.method === 'GET')
+          return await handleListWorkspaces(request, env as AdminEnv)
+        if (request.method === 'DELETE')
+          return await handleDeleteWorkspace(request, env as AdminEnv)
+        return new Response('method not allowed', { status: 405 })
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/admin/workspaces/check-slug') {
+      try {
+        return await handleCheckSlug(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+
+    // Invites + members.
+    if (url.pathname === '/admin/invites') {
+      try {
+        if (request.method === 'POST')
+          return await handleMintInvite(request, env as InvitesAdminEnv)
+        if (request.method === 'GET')
+          return await handleListInvites(request, env as InvitesAdminEnv)
+        if (request.method === 'DELETE')
+          return await handleRevokeInvite(request, env as InvitesAdminEnv)
+        return new Response('method not allowed', { status: 405 })
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/admin/invites/redeem') {
+      try {
+        return await handleRedeemInvite(request, env as InvitesAdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/admin/invites/inspect') {
+      try {
+        return await handleInspectInvite(request, env as InvitesAdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/admin/workspace-members') {
+      try {
+        if (request.method === 'GET')
+          return await handleListMembers(request, env as InvitesAdminEnv)
+        if (request.method === 'DELETE' || request.method === 'POST')
+          return await handleRemoveMember(request, env as InvitesAdminEnv)
+        return new Response('method not allowed', { status: 405 })
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+
+    // Folder ACLs.
+    if (url.pathname === '/admin/folder-acls') {
+      try {
+        if (request.method === 'GET')
+          return await handleListFolderAcls(request, env as AdminEnv)
+        if (request.method === 'POST')
+          return await handleSetFolderAcl(request, env as AdminEnv)
+        if (request.method === 'DELETE')
+          return await handleDeleteFolderAcl(request, env as AdminEnv)
+        return new Response('method not allowed', { status: 405 })
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/admin/folder-acls/for-user') {
+      try {
+        return await handleListFolderAclsForUser(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+
     // Device-flow public endpoints (no auth; Agents hit these).
     if (url.pathname === '/auth/device-code') {
       return handleDeviceCode(request, env)
     }
     if (url.pathname === '/auth/token') {
       return handleDeviceToken(request, env)
+    }
+
+    // Email-OTP login (humans). Wraps in try/catch so misconfig (missing
+    // HUOZI_AUTH_SECRET) surfaces as a 501 rather than crashing the Worker.
+    if (url.pathname === '/auth/otp/request') {
+      try {
+        return await handleOtpRequest(request, env as AuthOtpEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/auth/otp/verify') {
+      try {
+        return await handleOtpVerify(request, env as AuthOtpEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/auth/me') {
+      try {
+        return await handleAuthMe(request, env as AuthOtpEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/auth/logout') {
+      try {
+        return await handleAuthLogout(request, env as AuthOtpEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/auth/select-workspace') {
+      try {
+        return await handleSelectWorkspace(request, env as AuthOtpEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
     }
 
     // TEMPORARY DEBUG: clear session state for the token's principal.
@@ -333,6 +512,11 @@ async function handleMcp(
       createShare: (principal, input) => createShareRow(env, principal, input),
       publicBase: 'https://huozi.app',
     },
+    whoamiDeps: {
+      // Bake env + this request's principal/keyHash into a closure so the
+      // tool stays free of Worker types.
+      whoami: () => fetchWhoami(env, principal, authRes.keyHash),
+    },
   })
 
   if (rpc.method === 'initialize') {
@@ -378,6 +562,105 @@ async function handleMcp(
       return rpcError(reqId, -32601, `unknown tool: ${params.name}`)
     }
 
+    // ── Whoami bypass ────────────────────────────────────────────────
+    // huozi_whoami is the diagnostic tool — it must work even when the
+    // caller has no workspace_members row, no folder ACL membership, and
+    // no scope the rest of the dispatcher would tolerate. Otherwise an
+    // orphan key can't see its own state, defeating the whole point.
+    // Auth itself already passed (token is valid + not revoked), and
+    // whoami takes no path arguments, so we skip cap / scope / ACL.
+    if (params.name === WHOAMI_TOOL_NAME) {
+      const ctx: ToolUseContext = {
+        workspaceId: principal.workspaceId,
+        principalId: principal.principalId,
+        principalType: principal.principalType,
+        scopePath: principal.scopePath,
+        readFileState: new InMemoryReadFileState(),
+      }
+      const wResult = await tool.run({}, ctx)
+      await touchAction(env, authRes.keyHash, params.name, null)
+      if (wResult.kind === 'error') {
+        return rpcOk(reqId, {
+          isError: true,
+          content: [
+            { type: 'text', text: `Error ${wResult.errorCode}: ${wResult.message}` },
+          ],
+          structuredContent: {
+            errorCode: wResult.errorCode,
+            message: wResult.message,
+          },
+        })
+      }
+      return rpcOk(reqId, {
+        content: [{ type: 'text', text: tool.renderResult(wResult.data) }],
+        structuredContent: wResult.data as Record<string, unknown>,
+      })
+    }
+
+    // ── Capability check ─────────────────────────────────────────────
+    // Resolve the principal's effective caps:
+    //   - system principals (admin-bootstrap keys) bypass entirely
+    //   - else: look up role in workspace_members, intersect with key.caps
+    // Reject before scope rewriting so an unauthorized call doesn't
+    // even reach the tool.
+    const required = TOOL_TO_CAP[params.name] ?? 'read'
+    if (principal.principalType !== 'system') {
+      // api_keys.workspace_id is stored as `ws_<slug>` (legacy compat with
+      // R2 prefixes), while workspace_members.workspace_id is the
+      // workspaces.id UUID. JOIN via slug to bridge the two formats.
+      const wsSlug = principal.workspaceId.replace(/^ws_/, '')
+      const roleRow = await env.DB.prepare(
+        `SELECT m.role
+         FROM workspace_members m
+         JOIN workspaces w ON w.id = m.workspace_id
+         WHERE w.slug = ? AND m.user_id = ?`,
+      )
+        .bind(wsSlug, principal.principalId)
+        .first<{ role: string }>()
+      const role: Role | null =
+        roleRow?.role === 'owner' || roleRow?.role === 'member'
+          ? roleRow.role
+          : null
+      // No membership = creator was removed from workspace. Deny rather
+      // than fall back to "all caps" — the agent's user has no business
+      // here anymore.
+      if (!role) {
+        return rpcOk(reqId, {
+          isError: true,
+          content: [
+            {
+              type: 'text',
+              text: 'Error 403: principal has no membership in this workspace',
+            },
+          ],
+          structuredContent: {
+            errorCode: 403,
+            message: 'principal_no_membership',
+          },
+        })
+      }
+      const effective = effectiveCaps({
+        keyCaps: parseKeyCaps(authRes.keyCapsRaw),
+        role,
+      })
+      if (!effective.has(required)) {
+        return rpcOk(reqId, {
+          isError: true,
+          content: [
+            {
+              type: 'text',
+              text: `Error 403: missing capability '${required}' for tool ${params.name}`,
+            },
+          ],
+          structuredContent: {
+            errorCode: 403,
+            message: 'permission_denied',
+            required,
+          },
+        })
+      }
+    }
+
     // Scope enforcement (SPEC §7.4). Applied BEFORE the tool sees the args,
     // so every path the tool operates on is already absolute within the
     // workspace. scope=null keys pass through untouched.
@@ -400,6 +683,41 @@ async function handleMcp(
           message: scoped.message,
         },
       })
+    }
+
+    // ── Folder ACL input check ────────────────────────────────────────
+    // For each path the tool wants to operate on, verify the principal
+    // is in the nearest private folder's ACL (or that the path is in a
+    // public region). Owner has NO bypass — data layer is egalitarian.
+    // System principals (admin keys) skip this entirely.
+    const aclCache = new AclCache()
+    if (principal.principalType !== 'system') {
+      const inputPaths = extractInputPaths(params.name, scoped.args)
+      for (const path of inputPaths) {
+        const r = await canAccess(
+          env,
+          principal.workspaceId,
+          path,
+          principal.principalId,
+          aclCache,
+        )
+        if (!r.allow) {
+          return rpcOk(reqId, {
+            isError: true,
+            content: [
+              {
+                type: 'text',
+                text: `Error 403: path is in a private folder you don't have access to`,
+              },
+            ],
+            structuredContent: {
+              errorCode: 403,
+              message: 'acl_denied',
+              path_prefix: r.acl?.pathPrefix ?? null,
+            },
+          })
+        }
+      }
     }
 
     // Stateless-read opt-out. Web UI renders on huozi.app set this header so
@@ -469,6 +787,85 @@ async function handleMcp(
           ...(result.meta ? { meta: result.meta } : {}),
         },
       })
+    }
+
+    // ── Folder ACL output filter ──────────────────────────────────────
+    // Listing tools enumerate workspace contents — strip any path the
+    // user can't access so they never even learn the path EXISTS.
+    // Hides /private/secret.md from glob/grep/list_tree output.
+    if (
+      principal.principalType !== 'system' &&
+      result.data &&
+      typeof result.data === 'object'
+    ) {
+      const data = result.data as Record<string, unknown>
+      const ws = principal.workspaceId
+      const uid = principal.principalId
+
+      if (params.name === 'huozi_glob' && Array.isArray(data.filenames)) {
+        data.filenames = await filterPathsByAcl(
+          env,
+          ws,
+          data.filenames as string[],
+          uid,
+          aclCache,
+        )
+      } else if (
+        params.name === 'huozi_grep' &&
+        Array.isArray(data.filenames)
+      ) {
+        const allowed = new Set(
+          await filterPathsByAcl(
+            env,
+            ws,
+            data.filenames as string[],
+            uid,
+            aclCache,
+          ),
+        )
+        data.filenames = (data.filenames as string[]).filter((p) =>
+          allowed.has(p),
+        )
+        // Strip lines from grep content that came from filtered-out files.
+        if (typeof data.content === 'string') {
+          const lines = (data.content as string).split('\n')
+          const kept: string[] = []
+          for (const line of lines) {
+            // Grep lines are formatted as "path:lineno:contents"; we only
+            // need to peek at the prefix.
+            const idx = line.indexOf(':')
+            if (idx > 0) {
+              const path = line.slice(0, idx)
+              if (allowed.has(path)) kept.push(line)
+            } else {
+              kept.push(line)
+            }
+          }
+          data.content = kept.join('\n')
+        }
+      } else if (
+        params.name === 'huozi_list_tree' &&
+        Array.isArray(data.entries)
+      ) {
+        const filtered: unknown[] = []
+        for (const entry of data.entries as unknown[]) {
+          if (
+            entry &&
+            typeof entry === 'object' &&
+            typeof (entry as Record<string, unknown>).path === 'string'
+          ) {
+            const r = await canAccess(
+              env,
+              ws,
+              (entry as Record<string, unknown>).path as string,
+              uid,
+              aclCache,
+            )
+            if (r.allow) filtered.push(entry)
+          }
+        }
+        data.entries = filtered
+      }
     }
 
     // Strip the scope prefix from any path-bearing field in the response so
