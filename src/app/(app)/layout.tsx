@@ -1,7 +1,11 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { Suspense } from "react";
 import { AppHeader } from "@/components/app-header";
+import { JoinedToast } from "@/components/joined-toast";
 import { getIdentity } from "@/lib/identity";
+import { cloudAdminListWorkspaces } from "@/lib/drive/admin";
+import { isCloud } from "@/lib/edition";
 
 /**
  * App layout — gated by identity. Anything under `(app)/` requires a
@@ -33,12 +37,43 @@ export default async function AppLayout({
 
   const workspace = await identity.getPrimaryWorkspace();
   if (!workspace) {
-    redirect("/onboard");
+    // No workspace bound to JWT. In Cloud, distinguish "no memberships
+    // → onboard" from "multiple memberships → pick one". In Edge there's
+    // always exactly one fixed workspace, so just go to /connect.
+    if (isCloud()) {
+      const memberships = await cloudAdminListWorkspaces({
+        memberId: principal.userId,
+      }).catch(() => []);
+      if (memberships.length === 0) {
+        redirect("/onboard");
+      }
+      redirect("/select-workspace");
+    }
+    redirect("/connect");
   }
+
+  // List of every workspace the user belongs to — feeds the switcher in
+  // the user menu (only renders when length > 1). Cheap; one D1 query.
+  const memberships = isCloud()
+    ? await cloudAdminListWorkspaces({ memberId: principal.userId }).catch(
+        () => [],
+      )
+    : [];
 
   return (
     <div className="flex flex-col min-h-screen">
-      <AppHeader principal={principal} workspace={workspace} />
+      <AppHeader
+        principal={principal}
+        workspace={workspace}
+        memberships={memberships.map((w) => ({
+          id: w.id,
+          slug: w.slug,
+          name: w.name,
+        }))}
+      />
+      <Suspense fallback={null}>
+        <JoinedToast />
+      </Suspense>
       {children}
     </div>
   );

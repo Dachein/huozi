@@ -26,35 +26,15 @@
 
 import { cookies } from "next/headers";
 import { getEdgeWorkspaceSlug, getEdgeWorkspaceName } from "../edition";
-import { cloudAdminListKeys, slugToWorkspaceId } from "../drive/admin";
+import { slugToWorkspaceId } from "../drive/admin";
 import { HUOZI_CLOUD_KEY_COOKIE } from "../drive/mcp-client";
+import { createWorkerBackedConnections } from "./connections";
 import type {
-  Connection,
   CreateWorkspaceResult,
   IdentityService,
   Principal,
   Workspace,
 } from "./types";
-
-/** Prefix encoding for agent_kind inside the Worker's api_keys.name field. */
-const KIND_PREFIX = /^\[([a-z-]+)\]\s*/;
-
-function parseName(raw: string | null): {
-  label: string;
-  agentKind: Connection["agentKind"];
-} {
-  if (!raw) return { label: "(unnamed)", agentKind: "other" };
-  const m = raw.match(KIND_PREFIX);
-  if (m) {
-    const kind = m[1] as Connection["agentKind"];
-    return { label: raw.slice(m[0].length) || "(unnamed)", agentKind: kind };
-  }
-  return { label: raw, agentKind: "other" };
-}
-
-function encodeName(label: string, kind: Connection["agentKind"]): string {
-  return `[${kind}] ${label}`;
-}
 
 async function hasValidSessionCookie(): Promise<string | null> {
   const store = await cookies();
@@ -75,6 +55,14 @@ function fixedWorkspace(): Workspace {
 }
 
 export async function createEdgeIdentity(): Promise<IdentityService> {
+  const connections = createWorkerBackedConnections({
+    async getWorkspaceId() {
+      const key = await hasValidSessionCookie();
+      if (!key) return null;
+      return slugToWorkspaceId(getEdgeWorkspaceSlug());
+    },
+  });
+
   return {
     async getPrincipal(): Promise<Principal | null> {
       const key = await hasValidSessionCookie();
@@ -83,6 +71,7 @@ export async function createEdgeIdentity(): Promise<IdentityService> {
         userId: "admin",
         displayLabel: "admin",
         isAdmin: true,
+        workspaceId: slugToWorkspaceId(getEdgeWorkspaceSlug()),
       };
     },
 
@@ -113,55 +102,10 @@ export async function createEdgeIdentity(): Promise<IdentityService> {
       // No-op — we'd never want this to succeed on Edge.
     },
 
-    async listConnections(workspaceId: string): Promise<Connection[]> {
-      // Delegate to huozi-cloud admin API. `name` encodes label + agent_kind.
-      let rows: Awaited<ReturnType<typeof cloudAdminListKeys>> = [];
-      try {
-        rows = await cloudAdminListKeys(workspaceId);
-      } catch {
-        return [];
-      }
-      return rows.map((row) => {
-        const { label, agentKind } = parseName(row.name);
-        return {
-          id: row.key_id,
-          keyId: row.key_id,
-          label,
-          agentKind,
-          createdAt: new Date(row.created_at).toISOString(),
-          // Edge has no "revoked but retained" state: revoke = delete. Any
-          // row we see here is live.
-          revokedAt: null,
-        };
-      });
-    },
-
-    async insertConnection(): Promise<void> {
-      // In Cloud we have a parallel `cloud_connections` table; Edge stores
-      // everything inside huozi-cloud's api_keys row. The mint route is
-      // already responsible for setting `name` on the admin mint call;
-      // there is nothing extra to record here.
-    },
-
-    async markConnectionRevoked(): Promise<void> {
-      // No-op. The revoke API route calls `cloudAdminRevokeKey(keyId)`
-      // which physically removes the row in huozi-cloud. Anything not in
-      // the list anymore is revoked by construction.
-    },
-
-    async ownsConnection(keyId: string): Promise<boolean> {
-      // In Edge, every key in our single workspace belongs to the admin.
-      const workspaceId = slugToWorkspaceId(getEdgeWorkspaceSlug());
-      try {
-        const rows = await cloudAdminListKeys(workspaceId);
-        return rows.some((r) => r.key_id === keyId);
-      } catch {
-        return false;
-      }
-    },
-
-    formatMintName(label: string, kind): string {
-      return encodeName(label, kind);
-    },
+    listConnections: connections.listConnections,
+    insertConnection: connections.insertConnection,
+    markConnectionRevoked: connections.markConnectionRevoked,
+    ownsConnection: connections.ownsConnection,
+    formatMintName: connections.formatMintName,
   };
 }

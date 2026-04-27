@@ -27,6 +27,13 @@ export type AuthResult =
       /** SHA-256(token) — exposed so the worker can write per-key metadata
        *  (e.g. last_action_tool / last_action_target) without re-hashing. */
       keyHash: string
+      /**
+       * Per-key capability narrowing. NULL = inherit creator's role caps.
+       * Non-null = JSON-encoded subset (parsed downstream by the dispatcher).
+       * v1 always NULL; the auth layer surfaces the raw value for forward
+       * compatibility with v2's "narrow my key" UI.
+       */
+      keyCapsRaw: string | null
     }
   | { ok: false; failure: AuthFailure }
 
@@ -41,6 +48,9 @@ interface CacheEntry {
   ttlSeconds: number | null
   /** Our cache TTL — when to force a re-check against D1. */
   refreshAfter: number
+  /** Raw caps cell — caches alongside the principal so the dispatcher
+   *  doesn't need to re-query D1 on the warm path. */
+  keyCapsRaw: string | null
 }
 
 /** 5 min cache TTL. Key revocation lag is bounded by this. */
@@ -88,14 +98,21 @@ export async function resolveBearer(
     // Otherwise we push the deadline forward — that's the whole point of
     // the sliding-window model.
     void bumpActivity(env, keyHash, cached.ttlSeconds, now)
-    return { ok: true, principal: cached.principal, keyHash }
+    return {
+      ok: true,
+      principal: cached.principal,
+      keyHash,
+      keyCapsRaw: cached.keyCapsRaw,
+    }
   }
 
-  // Cold path: D1 lookup.
+  // Cold path: D1 lookup. `revoked_at IS NULL` filters keys that have been
+  // soft-deleted via /admin/revoke-key — they exist in the table for audit
+  // but must not authenticate.
   const row = await env.DB.prepare(
     `SELECT workspace_id, scope_path, principal_type, principal_id,
-            expires_at, ttl_seconds, key_id, last_used_at, name
-     FROM api_keys WHERE key_hash = ?`,
+            expires_at, ttl_seconds, key_id, last_used_at, name, caps
+     FROM api_keys WHERE key_hash = ? AND revoked_at IS NULL`,
   )
     .bind(keyHash)
     .first<{
@@ -108,6 +125,7 @@ export async function resolveBearer(
       key_id: string
       last_used_at: number | null
       name: string | null
+      caps: string | null
     }>()
 
   if (!row) {
@@ -147,6 +165,7 @@ export async function resolveBearer(
     expiresAt: row.expires_at ?? Infinity,
     ttlSeconds: row.ttl_seconds,
     refreshAfter: now + AUTH_CACHE_TTL_MS,
+    keyCapsRaw: row.caps,
   })
 
   // Best-effort sliding-window bump.
@@ -170,7 +189,7 @@ export async function resolveBearer(
     })
   }
 
-  return { ok: true, principal, keyHash }
+  return { ok: true, principal, keyHash, keyCapsRaw: row.caps }
 }
 
 /**

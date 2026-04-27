@@ -239,6 +239,19 @@ export function cloudHistory(
   })
 }
 
+/**
+ * Reserve an empty folder by writing a `.huozi-keep` placeholder under it.
+ * Mirrors `huozi_mkdir` semantics from the MCP tool. Used by the folder ACL
+ * UI so a freshly-locked folder shows up in the file tree even if no real
+ * files have been written into it yet.
+ */
+export function cloudMkdir(
+  key: string,
+  path: string,
+): Promise<McpResult<{ created: boolean }>> {
+  return callTool<{ created: boolean }>(key, 'huozi_mkdir', { path })
+}
+
 // ── Helpers for the UI ─────────────────────────────────────────────────
 
 /**

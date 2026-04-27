@@ -8,13 +8,20 @@
 
 /** Someone holding an authenticated session. */
 export interface Principal {
-  /** Stable identifier. Supabase user uuid in Cloud; `"admin"` in Edge. */
+  /** Stable identifier. D1 users.id in Cloud; `"admin"` in Edge. */
   userId: string;
   email?: string;
   /** Short human-readable label for UI. */
   displayLabel: string;
   /** True when this principal has root admin powers (always true in Edge). */
   isAdmin: boolean;
+  /**
+   * Workspace currently bound to this session via the JWT `wsid` claim.
+   * Null when the user is signed in but hasn't picked a workspace yet
+   * (multi-membership case → /select-workspace; or no memberships →
+   * /onboard). Edge always has a workspaceId (the fixed admin workspace).
+   */
+  workspaceId: string | null;
 }
 
 /** A cloud-drive workspace owned by a Principal. */
@@ -73,11 +80,9 @@ export interface IdentityService {
   ownsConnection(keyId: string): Promise<boolean>;
 
   /**
-   * Edition-specific encoding of a connection's label+kind into the string
-   * that will be stored in huozi-cloud's `api_keys.name` field.
-   *
-   * - Cloud: returns the plain label (kind lives in `cloud_connections.agent_kind`).
-   * - Edge: returns `"[<kind>] <label>"` so the kind survives in D1 alone.
+   * Encode a connection's label+kind into the `api_keys.name` field —
+   * `"[<kind>] <label>"`. Both editions use the same encoding now that
+   * connection metadata lives entirely in D1.
    */
   formatMintName(label: string, kind: AgentKind): string;
 }

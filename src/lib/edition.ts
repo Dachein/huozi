@@ -69,3 +69,24 @@ export function getEdgeWorkspaceSlug(): string {
 export function getEdgeWorkspaceName(): string {
   return process.env.HUOZI_EDGE_WORKSPACE_NAME?.trim() || "Workspace";
 }
+
+// ── Edge route gating ───────────────────────────────────────────────────
+//
+// Cloud-only routes (login, auth callback, OTP install flow) call these
+// helpers at the very top of their handler so Edge builds never execute
+// Supabase code paths even when the bundle happens to ship those modules.
+
+/**
+ * Throws a Next.js notFound() if running on Edge. Use in route segments
+ * (`page.tsx` / `route.ts` for routes that have no Edge analogue at all
+ * (e.g. `/auth/callback` — Supabase callback URL).
+ */
+export function ensureCloudOr404(): void {
+  if (isEdge()) {
+    // Lazy require keeps this importable from contexts that don't have
+    // next/navigation in scope.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { notFound } = require("next/navigation") as typeof import("next/navigation");
+    notFound();
+  }
+}

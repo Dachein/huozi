@@ -1,13 +1,28 @@
 /**
- * Cloud edition — Supabase-backed Identity implementation.
+ * Cloud edition — D1-backed Identity implementation.
  *
- * This is the ONLY module (outside `lib/supabase/*` itself) that touches
- * Supabase directly. Anything else reads from `@/lib/identity`.
+ * Phase A moved auth (login + sessions) to D1.
+ * Phase B (this) moves workspace metadata to D1 too. Cloud edition no
+ * longer touches Supabase at all — `getPrincipal` reads the JWT cookie,
+ * `getPrimaryWorkspace` / `createWorkspace` go through Worker admin
+ * routes that read/write D1 directly.
+ *
+ * The connections methods are imported from `./connections` and shared
+ * with Edge — both editions are now byte-identical at this layer.
  */
 
-import { createClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
+import {
+  cloudAdminCheckSlug,
+  cloudAdminCreateWorkspace,
+  cloudAdminDeleteWorkspace,
+  cloudAdminListWorkspaces,
+  slugToWorkspaceId,
+  type WorkspaceRow,
+} from "@/lib/drive/admin";
+import { SESSION_COOKIE_NAME, verifySession } from "@/lib/auth/jwt";
+import { createWorkerBackedConnections } from "./connections";
 import type {
-  Connection,
   CreateWorkspaceResult,
   IdentityService,
   Principal,
@@ -16,98 +31,83 @@ import type {
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/;
 
-interface WorkspaceRow {
-  id: string;
-  slug: string;
-  name: string;
-  owner_id: string;
-  created_at: string;
-}
-
-interface ConnectionRow {
-  id: string;
-  key_id: string;
-  label: string;
-  agent_kind: string;
-  created_at: string;
-  revoked_at: string | null;
-}
-
 function rowToWorkspace(row: WorkspaceRow): Workspace {
   return {
     id: row.id,
     slug: row.slug,
     name: row.name,
     ownerId: row.owner_id,
-    createdAt: row.created_at,
+    createdAt: new Date(row.created_at).toISOString(),
   };
 }
 
-function rowToConnection(row: ConnectionRow): Connection {
-  return {
-    id: row.id,
-    keyId: row.key_id,
-    label: row.label,
-    agentKind: (row.agent_kind ?? "other") as Connection["agentKind"],
-    createdAt: row.created_at,
-    revokedAt: row.revoked_at,
-  };
+async function readSessionFromCookie(): Promise<{
+  userId: string;
+  email: string;
+  wsid?: string;
+} | null> {
+  const store = await cookies();
+  const token = store.get(SESSION_COOKIE_NAME)?.value;
+  if (!token) return null;
+  const claims = await verifySession(token);
+  if (!claims) return null;
+  return { userId: claims.sub, email: claims.email, wsid: claims.wsid };
 }
 
 export async function createCloudIdentity(): Promise<IdentityService> {
-  const supabase = await createClient();
-
   async function currentUserId(): Promise<string | null> {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-    if (error || !user) return null;
-    return user.id;
+    const session = await readSessionFromCookie();
+    return session?.userId ?? null;
   }
+
+  async function currentBoundWorkspace(): Promise<Workspace | null> {
+    const session = await readSessionFromCookie();
+    if (!session?.wsid) return null;
+    let rows: WorkspaceRow[] = [];
+    try {
+      rows = await cloudAdminListWorkspaces({ id: session.wsid });
+    } catch {
+      return null;
+    }
+    return rows.length > 0 ? rowToWorkspace(rows[0]!) : null;
+  }
+
+  const connections = createWorkerBackedConnections({
+    async getWorkspaceId() {
+      const ws = await currentBoundWorkspace();
+      return ws ? slugToWorkspaceId(ws.slug) : null;
+    },
+  });
 
   return {
     async getPrincipal(): Promise<Principal | null> {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return null;
+      const session = await readSessionFromCookie();
+      if (!session) return null;
       return {
-        userId: user.id,
-        email: user.email ?? undefined,
-        displayLabel: user.email ?? user.id.slice(0, 8),
+        userId: session.userId,
+        email: session.email,
+        displayLabel: session.email || session.userId.slice(0, 8),
         isAdmin: false,
+        workspaceId: session.wsid ?? null,
       };
     },
 
     async getPrimaryWorkspace(): Promise<Workspace | null> {
-      const userId = await currentUserId();
-      if (!userId) return null;
-      const { data } = await supabase
-        .from("cloud_workspaces")
-        .select("id, slug, name, owner_id, created_at")
-        .eq("owner_id", userId)
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle<WorkspaceRow>();
-      return data ? rowToWorkspace(data) : null;
+      return currentBoundWorkspace();
     },
 
     async isSlugAvailable(slug: string): Promise<boolean> {
       if (!SLUG_RE.test(slug)) return false;
-      const { data } = await supabase
-        .from("cloud_workspaces")
-        .select("id")
-        .eq("slug", slug)
-        .maybeSingle<{ id: string }>();
-      return !data;
+      try {
+        return await cloudAdminCheckSlug(slug);
+      } catch {
+        return false;
+      }
     },
 
     async createWorkspace(input): Promise<CreateWorkspaceResult> {
       const userId = await currentUserId();
-      if (!userId) {
-        return { ok: false, error: "not_authenticated" };
-      }
+      if (!userId) return { ok: false, error: "not_authenticated" };
       if (!SLUG_RE.test(input.slug)) {
         return {
           ok: false,
@@ -116,83 +116,48 @@ export async function createCloudIdentity(): Promise<IdentityService> {
             "Slug must be 3–64 lowercase letters, digits, or hyphens; cannot start or end with a hyphen.",
         };
       }
-      {
-        const { data: existing } = await supabase
-          .from("cloud_workspaces")
-          .select("id")
-          .eq("slug", input.slug)
-          .maybeSingle();
-        if (existing) {
+
+      const result = await cloudAdminCreateWorkspace({
+        owner_id: userId,
+        slug: input.slug,
+        name: input.name,
+      });
+      if (!result.ok) {
+        if (result.error === "slug_taken") {
           return {
             ok: false,
             error: "slug_taken",
             message: "That name is already taken.",
           };
         }
+        if (result.error === "slug_format") {
+          return {
+            ok: false,
+            error: "slug_format",
+            message: result.message,
+          };
+        }
+        return {
+          ok: false,
+          error: "db_error",
+          message: result.message ?? result.error,
+        };
       }
-      const { data, error } = await supabase
-        .from("cloud_workspaces")
-        .insert({ owner_id: userId, slug: input.slug, name: input.name })
-        .select("id, slug, name, owner_id, created_at")
-        .single<WorkspaceRow>();
-      if (error || !data) {
-        return { ok: false, error: "db_error", message: error?.message };
-      }
-      return { ok: true, workspace: rowToWorkspace(data) };
+      return { ok: true, workspace: rowToWorkspace(result.workspace) };
     },
 
     async deleteWorkspace(id: string): Promise<void> {
-      await supabase.from("cloud_workspaces").delete().eq("id", id);
-    },
-
-    async listConnections(workspaceId: string): Promise<Connection[]> {
-      const { data } = await supabase
-        .from("cloud_connections")
-        .select(
-          "id, key_id, label, agent_kind, created_at, revoked_at",
-        )
-        .eq("workspace_id", workspaceId)
-        .order("created_at", { ascending: false });
-      return (data ?? []).map((row) => rowToConnection(row as ConnectionRow));
-    },
-
-    async insertConnection(input): Promise<void> {
-      const { error } = await supabase.from("cloud_connections").insert({
-        workspace_id: input.workspaceId,
-        key_id: input.keyId,
-        label: input.label,
-        agent_kind: input.agentKind,
-      });
-      if (error) {
-        throw new Error(`insertConnection failed: ${error.message}`);
+      try {
+        await cloudAdminDeleteWorkspace(id);
+      } catch {
+        // best-effort — used for onboarding rollback only.
       }
     },
 
-    async markConnectionRevoked(keyId: string): Promise<void> {
-      const { error } = await supabase
-        .from("cloud_connections")
-        .update({ revoked_at: new Date().toISOString() })
-        .eq("key_id", keyId);
-      if (error) {
-        throw new Error(`markConnectionRevoked failed: ${error.message}`);
-      }
-    },
-
-    async ownsConnection(keyId: string): Promise<boolean> {
-      // RLS on cloud_connections joins cloud_workspaces.owner_id, so a row
-      // only comes back when the current user owns the enclosing workspace.
-      const { data } = await supabase
-        .from("cloud_connections")
-        .select("id, cloud_workspaces!inner(owner_id)")
-        .eq("key_id", keyId)
-        .maybeSingle();
-      return !!data;
-    },
-
-    formatMintName(label: string): string {
-      // In Cloud the kind lives in `cloud_connections.agent_kind`, so the
-      // Worker's `api_keys.name` can just be the human-readable label.
-      return label;
-    },
+    listConnections: connections.listConnections,
+    insertConnection: connections.insertConnection,
+    markConnectionRevoked: connections.markConnectionRevoked,
+    ownsConnection: connections.ownsConnection,
+    formatMintName: connections.formatMintName,
   };
 }

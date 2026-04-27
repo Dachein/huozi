@@ -3,6 +3,13 @@
 import Link from "next/link";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { FileIcon } from "@/components/workspace/file-icon";
+import { FolderAclModal } from "@/components/workspace/folder-acl-modal";
+
+export interface MemberLite {
+  user_id: string;
+  email: string;
+  display_name: string | null;
+}
 
 export interface FileTreeProps {
   /** Workspace-relative paths, e.g. "funds/fund-A/report.md" */
@@ -11,6 +18,14 @@ export interface FileTreeProps {
   currentPath?: string | null;
   /** Called after the user clicks a leaf — used by mobile shell to close the drawer. */
   onNavigate?: () => void;
+  // ── Folder ACL surface ──────────────────────────────────────────────
+  /** Set of path_prefixes (with trailing /) that have a private ACL.
+   *  When null/undefined, the lock indicator + settings button are hidden. */
+  privatePrefixes?: Set<string>;
+  /** Workspace members; passed to the per-folder ACL modal as picker options. */
+  members?: MemberLite[];
+  /** Current viewer's user_id; the ACL modal uses this for "(you)" + self-include guard. */
+  currentUserId?: string;
 }
 
 interface Node {
@@ -93,12 +108,21 @@ function saveExpanded(s: Set<string>): void {
   }
 }
 
-export function FileTree({ paths, currentPath, onNavigate }: FileTreeProps) {
+export function FileTree({
+  paths,
+  currentPath,
+  onNavigate,
+  privatePrefixes,
+  members,
+  currentUserId,
+}: FileTreeProps) {
   const root = useMemo(() => buildTree(paths), [paths]);
 
   // Expanded folders live in state + localStorage.
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [hydrated, setHydrated] = useState(false);
+  const [aclEditingPath, setAclEditingPath] = useState<string | null>(null);
+  const aclEnabled = !!members && !!currentUserId;
 
   // Load on mount + expand ancestors of current path
   useEffect(() => {
@@ -172,9 +196,20 @@ export function FileTree({ paths, currentPath, onNavigate }: FileTreeProps) {
             isOpen={isOpen}
             matching={matching}
             onNavigate={onNavigate}
+            privatePrefixes={privatePrefixes}
+            onEditAcl={aclEnabled ? (p) => setAclEditingPath(p) : undefined}
           />
         )}
       </nav>
+      {aclEnabled && aclEditingPath !== null && (
+        <FolderAclModal
+          open={true}
+          folderPath={aclEditingPath}
+          members={members!}
+          currentUserId={currentUserId!}
+          onClose={() => setAclEditingPath(null)}
+        />
+      )}
     </div>
   );
 }
@@ -187,6 +222,8 @@ interface TreeNodeListProps {
   isOpen: (path: string) => boolean;
   matching: Set<string> | null;
   onNavigate?: () => void;
+  privatePrefixes?: Set<string>;
+  onEditAcl?: (folderPath: string) => void;
 }
 
 function TreeNodeList({
@@ -197,6 +234,8 @@ function TreeNodeList({
   isOpen,
   matching,
   onNavigate,
+  privatePrefixes,
+  onEditAcl,
 }: TreeNodeListProps) {
   // When filtering, hide nodes whose subtree has no matches
   const visibleNodes = matching
@@ -217,6 +256,8 @@ function TreeNodeList({
           isOpen={isOpen}
           matching={matching}
           onNavigate={onNavigate}
+          privatePrefixes={privatePrefixes}
+          onEditAcl={onEditAcl}
         />
       ))}
     </ul>
@@ -237,6 +278,8 @@ interface TreeNodeProps {
   isOpen: (path: string) => boolean;
   matching: Set<string> | null;
   onNavigate?: () => void;
+  privatePrefixes?: Set<string>;
+  onEditAcl?: (folderPath: string) => void;
 }
 
 function TreeNode({
@@ -247,25 +290,55 @@ function TreeNode({
   isOpen,
   matching,
   onNavigate,
+  privatePrefixes,
+  onEditAcl,
 }: TreeNodeProps) {
   const open = isOpen(node.path);
   const selected = !node.isDir && currentPath === node.path;
   const paddingLeft = 8 + depth * 14;
 
   if (node.isDir) {
+    const isPrivate = privatePrefixes?.has(`${node.path}/`) ?? false;
     return (
-      <li>
-        <button
-          type="button"
-          onClick={() => onToggle(node.path)}
-          className="w-full flex items-center gap-1.5 text-left py-1.5 rounded hover:bg-muted/60 transition-colors"
+      <li className="group/folder">
+        <div
+          className="w-full flex items-center gap-1.5 py-1.5 rounded hover:bg-muted/60 transition-colors"
           style={{ paddingLeft, paddingRight: 8 }}
         >
-          <FileIcon name={node.name} isDir open={open} />
-          <span className="text-sm text-muted-foreground truncate">
-            {node.name}
-          </span>
-        </button>
+          <button
+            type="button"
+            onClick={() => onToggle(node.path)}
+            className="flex-1 min-w-0 flex items-center gap-1.5 text-left"
+          >
+            <FileIcon name={node.name} isDir open={open} />
+            <span className="text-sm text-muted-foreground truncate">
+              {node.name}
+            </span>
+            {isPrivate && (
+              <span
+                className="text-[10px] text-accent shrink-0"
+                aria-label="private"
+                title="Private folder"
+              >
+                ●
+              </span>
+            )}
+          </button>
+          {onEditAcl && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditAcl(node.path);
+              }}
+              className="opacity-0 group-hover/folder:opacity-100 hover:bg-muted text-xs text-muted-foreground hover:text-foreground rounded px-1 transition-opacity shrink-0"
+              aria-label="Folder access settings"
+              title="Access"
+            >
+              ⋯
+            </button>
+          )}
+        </div>
         {open && (
           <TreeNodeList
             nodes={node.children}
@@ -275,6 +348,8 @@ function TreeNode({
             isOpen={isOpen}
             matching={matching}
             onNavigate={onNavigate}
+            privatePrefixes={privatePrefixes}
+            onEditAcl={onEditAcl}
           />
         )}
       </li>

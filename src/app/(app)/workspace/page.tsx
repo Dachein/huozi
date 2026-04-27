@@ -14,7 +14,9 @@ import { getLocale } from "@/lib/i18n/server";
 import { t } from "@/lib/i18n";
 import { getIdentity } from "@/lib/identity";
 import {
+  cloudAdminListFolderAcls,
   cloudAdminListKeys,
+  cloudAdminListMembers,
   slugToWorkspaceId,
 } from "@/lib/drive/admin";
 import {
@@ -43,11 +45,35 @@ export default async function CloudWorkspacePage() {
     redirect("/api/app/session/refresh?next=/workspace");
   }
 
-  const [globRes, recentRes, connections] = await Promise.all([
-    cloudGlob(key, "**/*"),
-    cloudRecent(key, 20),
-    loadConnectionsForStatusSummary(key),
-  ]);
+  const identity = await getIdentity();
+  const principal = await identity.getPrincipal();
+  const ws = await identity.getPrimaryWorkspace();
+
+  const [globRes, recentRes, connections, members, folderAcls] =
+    await Promise.all([
+      cloudGlob(key, "**/*"),
+      cloudRecent(key, 20),
+      loadConnectionsForStatusSummary(key),
+      principal && principal.workspaceId
+        ? cloudAdminListMembers(principal.workspaceId).catch(() => [])
+        : Promise.resolve([]),
+      principal && principal.workspaceId
+        ? cloudAdminListFolderAcls({
+            workspaceId: principal.workspaceId,
+          }).catch(() => [])
+        : Promise.resolve([]),
+    ]);
+  // Member view: only show ACLs they're in (matches what the Worker
+  // would actually let them through). Owner sees all.
+  const me = members.find((m) => m.user_id === principal?.userId);
+  const visibleAcls =
+    me?.role === "owner"
+      ? folderAcls
+      : folderAcls.filter((a) =>
+          principal ? a.members.includes(principal.userId) : false,
+        );
+  const privatePrefixes = new Set(visibleAcls.map((a) => a.path_prefix));
+  void ws;
   const data: GlobData = globRes.ok
     ? globRes.data
     : { durationMs: 0, numFiles: 0, filenames: [], truncated: false };
@@ -69,6 +95,13 @@ export default async function CloudWorkspacePage() {
         numFiles={data.numFiles}
         truncated={data.truncated}
         recent={recent}
+        privatePrefixes={privatePrefixes}
+        members={members.map((m) => ({
+          user_id: m.user_id,
+          email: m.email,
+          display_name: m.display_name,
+        }))}
+        currentUserId={principal?.userId}
       >
         <div className="space-y-8">
           {/* Stats strip — three quick numbers so the workspace home leads
@@ -172,56 +205,40 @@ async function loadConnectionsForStatusSummary(currentKey: string): Promise<{
   rows: StatusSummaryConnection[];
 }> {
   const identity = await getIdentity();
+  const principal = await identity.getPrincipal();
   const ws = await identity.getPrimaryWorkspace();
-  if (!ws) {
+  if (!ws || !principal) {
     return { workspaceName: "Workspace", workspaceSlug: "unknown", rows: [] };
   }
 
-  // Worker D1 is the source of truth — every key that can actually
-  // authenticate lives there. Supabase `cloud_connections` provides
-  // *metadata enrichment* (nicer labels, agent_kind tag) for keys
-  // minted via the Connect-Agent UI flow, but keys minted via other
-  // paths (device flow, bootstrap, admin mint) may only exist in D1.
-  // Use the Worker list as the row set, merge Supabase metadata when
-  // it happens to be there.
-  const [workerKeysAll, supaConnections] = await Promise.all([
-    cloudAdminListKeys(slugToWorkspaceId(ws.slug)).catch(() => []),
-    identity.listConnections(ws.id).catch(() => []),
-  ]);
+  // Worker D1 is the single source of truth: api_keys.name carries
+  // `[kind] label`, revoked rows are filtered server-side, and every
+  // active key necessarily lives here (mints from any path go through
+  // the Worker admin API).
+  const workerKeysAll = await cloudAdminListKeys(
+    slugToWorkspaceId(ws.slug),
+  ).catch(() => []);
 
-  // "Connected Agents" means exactly that — only principals of type
-  // 'agent' that have actually authenticated at least once. We filter
-  // out:
-  //   - principal_type='user' (browser sessions, root/bootstrap keys —
-  //     internal plumbing, not real Agents)
-  //   - last_used_at IS NULL (minted but never used — dangling keys
-  //     that don't represent a live connection)
+  // StatusSummary shows the *current user's* Agents only. In a multi-member
+  // workspace each member sees their own list — owner's audit view of
+  // others' keys lives on /workspace/members.
+  // Filters:
+  //   - principal_id == current user (own keys only)
+  //   - principal_type='agent' (skip browser sessions / system keys)
+  //   - last_used_at IS NOT NULL (minted but never used = dangling)
   const workerKeys = workerKeysAll.filter(
-    (k) => k.principal_type === "agent" && k.last_used_at !== null,
-  );
-
-  const supaByKeyId = new Map(
-    supaConnections
-      .filter((c) => !c.revokedAt)
-      .map((c) => [c.keyId, c]),
+    (k) =>
+      k.principal_id === principal.userId &&
+      k.principal_type === "agent" &&
+      k.last_used_at !== null,
   );
 
   const sessionKeyId = pickCurrentSessionKeyId(workerKeys, currentKey);
 
   const rows: StatusSummaryConnection[] = workerKeys.map((k) => {
-    const supa = supaByKeyId.get(k.key_id);
-
-    // agent_kind: prefer Supabase, fall back to the `[kind] label`
-    // encoding we use in api_keys.name when Supabase doesn't know.
-    const { label, agentKind } = supa
-      ? { label: supa.label, agentKind: supa.agentKind }
-      : parseKeyName(k.name);
-
+    const { label, agentKind } = parseKeyName(k.name);
     return {
-      // React key / stable identifier. Prefer Supabase row id so
-      // revoke/refresh flows line up, fall back to key_id when the
-      // row is Worker-only.
-      id: supa?.id ?? k.key_id,
+      id: k.key_id,
       keyId: k.key_id,
       label,
       agentKind,

@@ -1,4 +1,4 @@
-import { UserMenu } from "@/components/user-menu";
+import { UserMenu, type WorkspaceOption } from "@/components/user-menu";
 import type { Principal, Workspace } from "@/lib/identity";
 
 /**
@@ -15,13 +15,24 @@ import type { Principal, Workspace } from "@/lib/identity";
 interface AppHeaderProps {
   principal: Principal;
   workspace: Workspace | null;
+  /** All workspaces the user belongs to. UserMenu uses this to render
+   *  a switcher (hidden when length ≤ 1). */
+  memberships?: WorkspaceOption[];
 }
 
-export function AppHeader({ principal, workspace }: AppHeaderProps) {
+export function AppHeader({
+  principal,
+  workspace,
+  memberships,
+}: AppHeaderProps) {
   return (
     <header className="border-b border-border/50 bg-background/95 backdrop-blur sticky top-0 z-40">
       <div className="flex h-12 items-center px-3 sm:px-4">
-        <UserMenu principal={principal} workspace={workspace} />
+        <UserMenu
+          principal={principal}
+          workspace={workspace}
+          memberships={memberships ?? []}
+        />
       </div>
     </header>
   );

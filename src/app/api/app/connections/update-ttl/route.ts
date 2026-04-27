@@ -17,7 +17,6 @@ import { getIdentity } from "@/lib/identity";
 import {
   cloudAdminListKeys,
   cloudAdminUpdateKeyTtl,
-  slugToWorkspaceId,
 } from "@/lib/drive/admin";
 
 interface Body {
@@ -66,26 +65,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Authorization: the principal must own the workspace this key belongs to.
-  // Supabase happy path first (keys minted via Connect-Agent UI have a
-  // companion cloud_connections row). Fall back to a Worker D1 lookup for
-  // keys that were minted via device-flow / admin / bootstrap paths and
-  // never got a Supabase row — those still belong to the user iff they
-  // live under the user's primary workspace on the Worker side.
-  let owns = await identity.ownsConnection(keyId);
-  if (!owns) {
-    const ws = await identity.getPrimaryWorkspace();
-    if (ws) {
-      try {
-        const keys = await cloudAdminListKeys(slugToWorkspaceId(ws.slug));
-        owns = keys.some((k) => k.key_id === keyId);
-      } catch {
-        // fall through — owns stays false
-      }
-    }
+  // Update-TTL is self-only by design: owner has view+revoke on others'
+  // keys but cannot edit their config (per the simplified permission model).
+  if (!principal.workspaceId) {
+    return NextResponse.json({ error: "not_authenticated" }, { status: 401 });
   }
-  if (!owns) {
+  const keys = await cloudAdminListKeys(principal.workspaceId).catch(() => []);
+  const key = keys.find((k) => k.key_id === keyId);
+  if (!key) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+  if (key.principal_id !== principal.userId) {
+    return NextResponse.json(
+      { error: "self_only" },
+      { status: 403 },
+    );
   }
 
   try {

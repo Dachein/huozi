@@ -21,6 +21,8 @@ import {
   slugToWorkspaceId,
 } from "@/lib/drive/admin";
 import { HUOZI_CLOUD_KEY_COOKIE } from "@/lib/drive/mcp-client";
+import { workerSelectWorkspace } from "@/lib/auth/worker-client";
+import { buildSessionCookie } from "@/lib/auth/jwt";
 
 interface CreateBody {
   slug?: string;
@@ -114,9 +116,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     maxAge: 60 * 60 * 24 * 30,
   });
 
-  return NextResponse.json({
-    ok: true,
-    workspace: { id: ws.id, slug: ws.slug, name: ws.name },
-    // api_key stays in the cookie — never returned to the browser.
+  // Re-issue the session JWT so it carries the new workspace's wsid claim.
+  // Without this the user just-onboarded would still have a wsid-less JWT
+  // and getPrimaryWorkspace would return null on the next page load.
+  const cookieHeader = req.headers.get("cookie") ?? "";
+  const reissue = await workerSelectWorkspace({
+    cookieHeader,
+    workspaceId: ws.id,
   });
+  const responseHeaders: Record<string, string> = {};
+  if (reissue.ok) {
+    responseHeaders["set-cookie"] = buildSessionCookie(reissue.token);
+  }
+
+  return NextResponse.json(
+    {
+      ok: true,
+      workspace: { id: ws.id, slug: ws.slug, name: ws.name },
+    },
+    { headers: responseHeaders },
+  );
 }

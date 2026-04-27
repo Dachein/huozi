@@ -5,6 +5,11 @@ import { redirect } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace/workspace-shell";
 import { CloudLiveEvents } from "@/components/workspace/cloud-live-events";
 import { getLocale } from "@/lib/i18n/server";
+import { getIdentity } from "@/lib/identity";
+import {
+  cloudAdminListFolderAcls,
+  cloudAdminListMembers,
+} from "@/lib/drive/admin";
 import {
   cloudGlob,
   cloudHistory,
@@ -37,12 +42,33 @@ export default async function CloudHistoryPage({ searchParams }: SearchParams) {
   }
   if (!path) redirect("/workspace");
 
-  const [globRes, histRes, recentRes] = await Promise.all([
-    cloudGlob(key, "**/*"),
-    cloudHistory(key, path, { limit, before }),
-    cloudRecent(key, 20),
-  ]);
+  const identity = await getIdentity();
+  const principal = await identity.getPrincipal();
+
+  const [globRes, histRes, recentRes, members, folderAcls] = await Promise.all(
+    [
+      cloudGlob(key, "**/*"),
+      cloudHistory(key, path, { limit, before }),
+      cloudRecent(key, 20),
+      principal && principal.workspaceId
+        ? cloudAdminListMembers(principal.workspaceId).catch(() => [])
+        : Promise.resolve([]),
+      principal && principal.workspaceId
+        ? cloudAdminListFolderAcls({
+            workspaceId: principal.workspaceId,
+          }).catch(() => [])
+        : Promise.resolve([]),
+    ],
+  );
   const recent = recentRes.ok ? recentRes.entries : [];
+  const me = members.find((m) => m.user_id === principal?.userId);
+  const visibleAcls =
+    me?.role === "owner"
+      ? folderAcls
+      : folderAcls.filter((a) =>
+          principal ? a.members.includes(principal.userId) : false,
+        );
+  const privatePrefixes = new Set(visibleAcls.map((a) => a.path_prefix));
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -52,6 +78,13 @@ export default async function CloudHistoryPage({ searchParams }: SearchParams) {
         truncated={globRes.ok ? globRes.data.truncated : false}
         currentPath={path}
         recent={recent}
+        privatePrefixes={privatePrefixes}
+        members={members.map((m) => ({
+          user_id: m.user_id,
+          email: m.email,
+          display_name: m.display_name,
+        }))}
+        currentUserId={principal?.userId}
       >
         <HistoryBody path={path} histRes={histRes} limit={limit} />
       </WorkspaceShell>

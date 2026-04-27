@@ -1,20 +1,20 @@
 /**
  * POST /api/connections/revoke
  *
- * Revokes an API key belonging to the signed-in user's workspace.
- * Marks the cloud_connections row as revoked AND deletes the hashed key
- * from huozi-cloud so it can't be used anymore.
- *
- * Body: { key_id: string }
+ * Soft-deletes an API key. Permission rules:
+ *   - own key (caller.userId == key.principal_id) → always allowed
+ *   - owner with revoke_any_key cap                → allowed (audit cleanup)
+ *   - else                                         → 403
  */
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getIdentity } from "@/lib/identity";
 import {
   cloudAdminListKeys,
+  cloudAdminListMembers,
   cloudAdminRevokeKey,
-  slugToWorkspaceId,
 } from "@/lib/drive/admin";
+import { ROLE_CAPS, type Role } from "@/lib/permissions";
 
 interface RevokeBody {
   key_id?: string;
@@ -23,7 +23,7 @@ interface RevokeBody {
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const identity = await getIdentity();
   const principal = await identity.getPrincipal();
-  if (!principal) {
+  if (!principal || !principal.workspaceId) {
     return NextResponse.json({ error: "not_authenticated" }, { status: 401 });
   }
 
@@ -38,23 +38,28 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "missing_key_id" }, { status: 400 });
   }
 
-  // Authorization: the principal must own the workspace this key belongs to.
-  // Supabase-first, Worker D1 fallback — mirrors the update-ttl route.
-  // See the longer comment there for context on why both paths exist.
-  let owns = await identity.ownsConnection(keyId);
-  if (!owns) {
-    const ws = await identity.getPrimaryWorkspace();
-    if (ws) {
-      try {
-        const keys = await cloudAdminListKeys(slugToWorkspaceId(ws.slug));
-        owns = keys.some((k) => k.key_id === keyId);
-      } catch {
-        // fall through — owns stays false
-      }
-    }
-  }
-  if (!owns) {
+  // Look up the key in the workspace and the caller's role in parallel.
+  const [keys, members] = await Promise.all([
+    cloudAdminListKeys(principal.workspaceId).catch(() => []),
+    cloudAdminListMembers(principal.workspaceId).catch(() => []),
+  ]);
+  const key = keys.find((k) => k.key_id === keyId);
+  if (!key) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+  const me = members.find((m) => m.user_id === principal.userId);
+  const role: Role | null =
+    me?.role === "owner" || me?.role === "member" ? me.role : null;
+  if (!role) {
+    return NextResponse.json({ error: "not_a_member" }, { status: 403 });
+  }
+  const myOwn = key.principal_id === principal.userId;
+  const canRevokeAny = ROLE_CAPS[role].has("revoke_any_key");
+  if (!myOwn && !canRevokeAny) {
+    return NextResponse.json(
+      { error: "permission_denied" },
+      { status: 403 },
+    );
   }
 
   try {
@@ -66,18 +71,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         message: err instanceof Error ? err.message : String(err),
       },
       { status: 502 },
-    );
-  }
-
-  try {
-    await identity.markConnectionRevoked(keyId);
-  } catch (err) {
-    return NextResponse.json(
-      {
-        error: "mark_revoked_failed",
-        message: err instanceof Error ? err.message : String(err),
-      },
-      { status: 500 },
     );
   }
 

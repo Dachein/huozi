@@ -2,6 +2,117 @@
 -- Apply with `wrangler d1 execute huozi-db --file src/storage/cloudflare/schema.sql`.
 -- Kept minimal; FTS5 and line-offsets indexes come later with Grep's production path.
 
+-- People with login access. One row per email. Replaces Supabase auth.users
+-- so Cloud and Edge editions share the same identity backend.
+CREATE TABLE IF NOT EXISTS users (
+  id            TEXT PRIMARY KEY,        -- UUID; matches former Supabase auth.users.id for legacy rows
+  email         TEXT NOT NULL UNIQUE,
+  display_name  TEXT,
+  created_at    INTEGER NOT NULL,
+  last_seen_at  INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
+
+-- Workspaces. The "Cloud SaaS" used to keep these in Supabase
+-- cloud_workspaces; both editions now share this D1 table. Each workspace
+-- is owned by one user (Cloud); on Edge the owner is the literal "admin".
+CREATE TABLE IF NOT EXISTS workspaces (
+  id          TEXT PRIMARY KEY,        -- UUID; matches former cloud_workspaces.id for legacy rows
+  slug        TEXT NOT NULL UNIQUE,
+  name        TEXT NOT NULL,
+  owner_id    TEXT NOT NULL,           -- foreign-key-ish to users.id (no FK constraint in D1)
+  created_at  INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_workspaces_owner ON workspaces (owner_id);
+
+-- Workspace membership. The `owner` row for a workspace is auto-inserted
+-- when the workspace is created. Other members arrive via accepted
+-- invites. A user can be a member of multiple workspaces; the JWT cookie
+-- pins the *current* one (claim `wsid`).
+CREATE TABLE IF NOT EXISTS workspace_members (
+  workspace_id TEXT NOT NULL,
+  user_id      TEXT NOT NULL,
+  role         TEXT NOT NULL,         -- 'owner' | 'member'
+  joined_at    INTEGER NOT NULL,
+  invited_by   TEXT,                  -- user_id of the inviter; NULL for owners
+  PRIMARY KEY (workspace_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_members_user ON workspace_members (user_id);
+
+-- Outstanding invites. `token` is a high-entropy random string that lives
+-- only in the email + invite URL — never exposed via list endpoints.
+-- Redemption: POST /admin/invites/redeem {token, user_id} → INSERT a
+-- workspace_members row, mark accepted_at. Tokens are single-use.
+CREATE TABLE IF NOT EXISTS workspace_invites (
+  token        TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  email        TEXT NOT NULL,
+  role         TEXT NOT NULL,         -- 'member' (no admin/owner invites yet)
+  invited_by   TEXT NOT NULL,         -- user_id who sent the invite
+  created_at   INTEGER NOT NULL,
+  expires_at   INTEGER NOT NULL,
+  accepted_at  INTEGER,
+  revoked_at   INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_invites_workspace_active
+  ON workspace_invites (workspace_id, accepted_at, revoked_at, expires_at);
+CREATE INDEX IF NOT EXISTS idx_invites_email
+  ON workspace_invites (email);
+
+-- Folder-level ACLs. Only stored when a folder is set "private"; absence
+-- means public. Path prefix MUST end with "/" so prefix matching is
+-- unambiguous (e.g. "funds/fund-A/" never collides with "funds/fund-A2/").
+--
+-- Permission check walks the path's ancestors and picks the longest
+-- matching path_prefix. Non-membership (regardless of role) denies access.
+-- Workspace owner has NO bypass — data layer is egalitarian.
+CREATE TABLE IF NOT EXISTS folder_acls (
+  workspace_id      TEXT NOT NULL,
+  path_prefix       TEXT NOT NULL,        -- ends with "/"
+  mode              TEXT NOT NULL,        -- 'private' (only value in v1)
+  last_changed_by   TEXT NOT NULL,        -- user_id; audit only, no privilege
+  last_changed_at   INTEGER NOT NULL,
+  PRIMARY KEY (workspace_id, path_prefix)
+);
+
+CREATE INDEX IF NOT EXISTS idx_folder_acls_ws
+  ON folder_acls (workspace_id);
+
+CREATE TABLE IF NOT EXISTS folder_acl_members (
+  workspace_id  TEXT NOT NULL,
+  path_prefix   TEXT NOT NULL,
+  user_id       TEXT NOT NULL,
+  added_by      TEXT NOT NULL,
+  added_at      INTEGER NOT NULL,
+  PRIMARY KEY (workspace_id, path_prefix, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_folder_acl_members_user
+  ON folder_acl_members (workspace_id, user_id);
+
+-- Pending email-OTP codes. Short-lived (5 min) state used by the
+-- /auth/otp/{request,verify} endpoints. We store the SHA-256 of the code,
+-- never the plaintext, plus an attempts counter for replay/brute-force
+-- defense. Multiple in-flight codes per email are allowed (user retries);
+-- verify checks the most recent unconsumed row.
+CREATE TABLE IF NOT EXISTS otp_codes (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  email        TEXT NOT NULL,
+  code_hash    TEXT NOT NULL,
+  created_at   INTEGER NOT NULL,
+  expires_at   INTEGER NOT NULL,
+  attempts     INTEGER NOT NULL DEFAULT 0,
+  consumed_at  INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_otp_codes_email_active
+  ON otp_codes (email, consumed_at, expires_at);
+
+
 -- Files currently present in each workspace (hot-path index for reads).
 CREATE TABLE IF NOT EXISTS files_current (
   workspace_id TEXT NOT NULL,
@@ -77,7 +188,16 @@ CREATE TABLE IF NOT EXISTS api_keys (
   -- fresh while last_action_* stays blank. Gives the Web UI a richer
   -- "last action" line than a bare timestamp.
   last_action_tool   TEXT,
-  last_action_target TEXT
+  last_action_target TEXT,
+  -- Soft-delete marker. Revoke sets this to now(); auth path filters
+  -- `revoked_at IS NULL`. Keeps the row around for audit ("when was this
+  -- key revoked?") which used to live in Supabase cloud_connections.
+  revoked_at         INTEGER,
+  -- Per-key capability narrowing (v2 hook). NULL = inherit creator's
+  -- workspace_members.role caps. Non-null = JSON array, intersected with
+  -- role caps so a key can never escalate beyond its creator. v1 always
+  -- writes NULL; advanced "narrow my key" UI lights this up later.
+  caps               TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_api_keys_ws ON api_keys (workspace_id);

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { FileTree } from "./file-tree";
+import { FileTree, type MemberLite } from "./file-tree";
 import { RecentPanel } from "./recent-panel";
 import { useT } from "@/lib/i18n/context";
 import type { RecentEntry } from "@/lib/drive/mcp-client";
@@ -16,6 +16,10 @@ export interface WorkspaceShellProps {
   recent?: RecentEntry[];
   /** Main content. Rendered in the primary column. */
   children: React.ReactNode;
+  // ── Folder-ACL surface (passed straight through to FileTree) ───────
+  privatePrefixes?: Set<string>;
+  members?: MemberLite[];
+  currentUserId?: string;
 }
 
 /**
@@ -33,6 +37,9 @@ export function WorkspaceShell({
   truncated,
   recent,
   children,
+  privatePrefixes,
+  members,
+  currentUserId,
 }: WorkspaceShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -65,6 +72,9 @@ export function WorkspaceShell({
       paths={paths}
       currentPath={currentPath ?? null}
       onNavigate={() => setDrawerOpen(false)}
+      privatePrefixes={privatePrefixes}
+      members={members}
+      currentUserId={currentUserId}
     />
   );
 

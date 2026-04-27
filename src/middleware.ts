@@ -3,26 +3,27 @@
  *
  * Runs on every non-static request. Handles two concerns:
  *   1. Locale cookie (both editions)
- *   2. Auth-gate for Cloud-only routes (login redirect for /dashboard, etc.)
+ *   2. Cloud-only-route gating in Edge mode
  *
- * In Edge mode:
- *   - Skip Supabase entirely (those env vars won't exist).
- *   - Cloud-only routes (/dashboard, /login, /signup) redirect to
- *     /connect — the Edge deployer's paste-key flow.
+ * Auth gating itself happens at the layout / page level via
+ * `getIdentity().getPrincipal()`. The middleware only injects an
+ * `x-pathname` header so layouts can build accurate `?redirect=` URLs.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
 import { COOKIE_NAME, detectLocale } from "@/lib/i18n";
 import { isEdge } from "@/lib/edition";
+import { SESSION_COOKIE_NAME, verifySession } from "@/lib/auth/jwt";
 
 /**
  * Paths that only exist in the Cloud edition. In Edge mode we redirect
  * them to the paste-key connect page so the deployer never sees a broken
  * Supabase-backed surface.
  *
- * `/login`, `/signup`, `/auth/*` rely on Supabase email OTP.
+ * Note: signup is now folded into /login (one input, OTP creates the user
+ * if needed), but we keep the path covered for any old links.
  */
-const CLOUD_ONLY_PREFIXES = ["/login", "/signup", "/auth"];
+const CLOUD_ONLY_PREFIXES = ["/signup", "/auth"];
 
 function applyLocale(req: NextRequest, res: NextResponse): void {
   const localeCookie = req.cookies.get(COOKIE_NAME)?.value;
@@ -39,8 +40,6 @@ function applyLocale(req: NextRequest, res: NextResponse): void {
 export async function middleware(request: NextRequest) {
   // ─── Edge edition ─────────────────────────────────────────────────
   if (isEdge()) {
-    // Cloud-only routes don't exist in Edge. Redirect them to the paste-key
-    // connect page instead of 404'ing.
     const path = request.nextUrl.pathname;
     if (CLOUD_ONLY_PREFIXES.some((p) => path === p || path.startsWith(p + "/"))) {
       const url = request.nextUrl.clone();
@@ -50,65 +49,37 @@ export async function middleware(request: NextRequest) {
       applyLocale(request, res);
       return res;
     }
-
     const res = NextResponse.next({ request });
     applyLocale(request, res);
     return res;
   }
 
   // ─── Cloud edition ────────────────────────────────────────────────
-  // Lazy-load Supabase SSR so Edge builds don't need its env vars.
-  const { createServerClient } = await import("@supabase/ssr");
-
-  // Inject the current request path as a header so RSC layouts can build
-  // accurate `?redirect=` URLs when bouncing unauthenticated users to
-  // /login. Without this the parent `(app)/layout.tsx` would have to
-  // hard-code a fallback and lose whatever subpage the user was after.
+  // Inject the current request path so RSC layouts can build accurate
+  // `?redirect=` URLs when bouncing unauthenticated users to /login.
   const buildHeaders = () => {
     const h = new Headers(request.headers);
     h.set("x-pathname", request.nextUrl.pathname + request.nextUrl.search);
     return h;
   };
-
-  let response = NextResponse.next({ request: { headers: buildHeaders() } });
+  const response = NextResponse.next({ request: { headers: buildHeaders() } });
   applyLocale(request, response);
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value),
-          );
-          response = NextResponse.next({ request: { headers: buildHeaders() } });
-          applyLocale(request, response);
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
-          );
-        },
-      },
-    },
-  );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // Signed-in users bouncing on the auth pages → send to their workspace.
-  if (
-    (request.nextUrl.pathname === "/login" ||
-      request.nextUrl.pathname === "/signup") &&
-    user
-  ) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/workspace";
-    url.search = "";
-    return NextResponse.redirect(url);
+  // If the user is already signed in (valid huozi_session cookie) and lands
+  // on /login or /signup, send them to /workspace. Verifying the JWT here
+  // avoids a Worker roundtrip on every page load.
+  const path = request.nextUrl.pathname;
+  if (path === "/login" || path === "/signup") {
+    const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+    if (token) {
+      const claims = await verifySession(token);
+      if (claims) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/workspace";
+        url.search = "";
+        return NextResponse.redirect(url);
+      }
+    }
   }
 
   return response;
