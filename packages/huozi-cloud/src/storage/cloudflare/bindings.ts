@@ -16,6 +16,14 @@ export interface HuoziCloudflareBindings {
   SESSION_DO: DurableObjectNamespace
 
   /**
+   * Origin used to construct public share URLs (huozi_share output).
+   * Cloud sets this to "https://huozi.app"; Edge deployers point it at
+   * wherever their Next.js front-end lives. Falls back to huozi.app when
+   * unset to keep the cloud build working with zero config.
+   */
+  HUOZI_PUBLIC_BASE?: string
+
+  /**
    * Worker env namespace for config / feature flags.
    * Presence optional; not all deployments need one.
    */

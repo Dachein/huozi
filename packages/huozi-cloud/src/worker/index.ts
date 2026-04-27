@@ -510,7 +510,9 @@ async function handleMcp(
       // Bind the D1-backed createShareRow to an arrow that matches the
       // Tool's expected signature (no env leaked into ShareTool itself).
       createShare: (principal, input) => createShareRow(env, principal, input),
-      publicBase: 'https://huozi.app',
+      // Edge deploys override via HUOZI_PUBLIC_BASE; default keeps the
+      // hosted huozi.app build working with zero config.
+      publicBase: env.HUOZI_PUBLIC_BASE ?? 'https://huozi.app',
     },
     whoamiDeps: {
       // Bake env + this request's principal/keyHash into a closure so the

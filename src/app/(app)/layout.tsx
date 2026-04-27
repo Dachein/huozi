@@ -5,7 +5,7 @@ import { AppHeader } from "@/components/app-header";
 import { JoinedToast } from "@/components/joined-toast";
 import { getIdentity } from "@/lib/identity";
 import { cloudAdminListWorkspaces } from "@/lib/drive/admin";
-import { isCloud } from "@/lib/edition";
+import { isCloud, isEdge } from "@/lib/edition";
 
 /**
  * App layout — gated by identity. Anything under `(app)/` requires a
@@ -30,6 +30,12 @@ export default async function AppLayout({
   const identity = await getIdentity();
   const principal = await identity.getPrincipal();
   if (!principal) {
+    // Edge has no /login surface — the deployer holds the API key and
+    // pastes it into /connect. Cloud sends the user through email-OTP
+    // login with a redirect param so they bounce back where they came.
+    if (isEdge()) {
+      redirect("/connect");
+    }
     const h = await headers();
     const pathname = h.get("x-pathname") ?? "/workspace";
     redirect(`/login?redirect=${encodeURIComponent(pathname)}`);

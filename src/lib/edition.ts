@@ -1,16 +1,17 @@
 /**
  * Edition flag — single source of truth for "which build am I running as".
  *
- * huozi.app ships in two editions:
+ * huozi.app ships in two editions, both backed by the same Cloudflare
+ * Worker codebase under packages/huozi-cloud:
  *
- *   • **cloud** — the hosted site on huozi.app. Has Supabase for accounts,
- *     multi-workspace, billing surfaces, etc. This is the default.
+ *   • **cloud** — the hosted site on huozi.app. D1-native email-OTP login
+ *     (no Supabase as of 2026-04-27), multi-user workspaces with invites,
+ *     web-mintable api_keys. This is the default when HUOZI_EDITION is unset.
  *
  *   • **edge** — the open-source, self-hosted build. Single-deployer:
- *     whoever holds `HUOZI_ADMIN_SECRET` is the admin; all users connect
- *     via pasted API keys. No Supabase, no email login, no dashboard.
- *     Published pages (the `/dashboard` publishing feature) are dropped —
- *     the drive surface (`/workspace`) is all that remains.
+ *     whoever holds `HUOZI_ADMIN_SECRET` is the admin; all browser sessions
+ *     authenticate by pasting an api_key at `/connect`. No email login,
+ *     no signup, no /onboard. One deployment = one workspace.
  *
  * Code that needs to diverge by edition should route through this module
  * (or through `@/lib/identity`, which already dispatches on edition). No
@@ -72,14 +73,14 @@ export function getEdgeWorkspaceName(): string {
 
 // ── Edge route gating ───────────────────────────────────────────────────
 //
-// Cloud-only routes (login, auth callback, OTP install flow) call these
-// helpers at the very top of their handler so Edge builds never execute
-// Supabase code paths even when the bundle happens to ship those modules.
+// Cloud-only routes (e.g. /onboard, /select-workspace, /api/auth/otp/*)
+// call these helpers at the top of their handler so Edge builds never
+// expose surfaces that have no Edge equivalent.
 
 /**
- * Throws a Next.js notFound() if running on Edge. Use in route segments
- * (`page.tsx` / `route.ts` for routes that have no Edge analogue at all
- * (e.g. `/auth/callback` — Supabase callback URL).
+ * Throws a Next.js notFound() if running on Edge. Use at the top of route
+ * segments (`page.tsx` / `route.ts`) that don't apply to Edge — the OTP
+ * email request endpoint, the /onboard wizard, etc.
  */
 export function ensureCloudOr404(): void {
   if (isEdge()) {

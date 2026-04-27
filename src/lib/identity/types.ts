@@ -2,8 +2,10 @@
  * Identity domain types — the vocabulary that the rest of huozi.app uses to
  * talk about "who is this request, and what workspace do they own?".
  *
- * The Cloud edition backs these with Supabase; Edge backs them with a single
- * admin principal. Callers don't need to know which.
+ * Both editions back these with D1 via the huozi-cloud Worker. The Cloud
+ * impl resolves the principal from a JWT cookie (email-OTP issued); the
+ * Edge impl resolves it from the api_key cookie (single "admin" principal).
+ * Callers don't need to know which.
  */
 
 /** Someone holding an authenticated session. */
