@@ -55,7 +55,7 @@ next-env.d.ts
 # built artifacts inside the cloud package
 /packages/huozi-cloud/dist
 
-# scripts/edge-deploy-test.sh generates these
+# scripts/edge-deploy.sh generates these
 /packages/huozi-cloud/wrangler.edge.toml
 /.huozi-edge.env
 

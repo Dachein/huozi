@@ -30,7 +30,7 @@ For a **launch-week pin issue** at github.com/Dachein/huozi/issues, paste this:
 > The Agent-native cloud drive that powers huozi.app is now MIT-licensed and self-hostable on your own Cloudflare account.
 >
 > - **Hosted (Cloud edition):** sign up at https://huozi.app — email OTP, no install
-> - **Self-host (Edge edition):** `git clone github.com/Dachein/huozi && scripts/edge-deploy-test.sh`
+> - **Self-host (Edge edition):** `git clone github.com/Dachein/huozi && scripts/edge-deploy.sh`
 > - **Connect any MCP Agent:** `claude mcp add huozi https://cloud.huozi.app/mcp` (or your edge URL)
 >
 > Architecture, deployment guide, and contribution invariants in [docs/](docs/) and [SPEC.md](packages/huozi-cloud/SPEC.md). PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -77,7 +77,7 @@ Edge edition runs on YOUR Cloudflare account. One Worker, one D1, one R2 bucket.
 ```bash
 git clone github.com/Dachein/huozi && cd huozi
 npm install
-scripts/edge-deploy-test.sh    # provisions everything, mints first key, smoke-tests
+scripts/edge-deploy.sh    # provisions everything, mints first key, smoke-tests
 ```
 
 Free tier covers most of it. MIT licensed.
@@ -151,7 +151,7 @@ Git-style commit so the audit trail is immutable.
 Three modes you can start with:
 
   1. Hosted (Cloud): sign in at https://huozi.app, email OTP. Free for now.
-  2. Self-host (Edge): `git clone github.com/Dachein/huozi && scripts/edge-deploy-test.sh`
+  2. Self-host (Edge): `git clone github.com/Dachein/huozi && scripts/edge-deploy.sh`
      provisions a Worker + D1 + R2 in your CF account in ~60 seconds, mints
      your first admin key, smoke-tests the MCP surface. MIT licensed.
   3. Just curl the MCP endpoint: tools/list returns the 14 huozi_* tools,
@@ -162,7 +162,7 @@ A few things I'd specifically love feedback on:
   - The Claude Code dialect alignment. Field-level mirror of cc-haha's
     FileEditTool / FileReadTool / GlobTool / GrepTool. If you spot drift,
     please open an issue.
-  - The Edge bootstrap UX. Right now it's `scripts/edge-deploy-test.sh +
+  - The Edge bootstrap UX. Right now it's `scripts/edge-deploy.sh +
     paste-key into /workspace/connect`. I think this can be smoother —
     suggestions welcome.
   - The "Agents write, humans read" stance. The Web UI is intentionally
@@ -275,7 +275,7 @@ The Edge edition is a single-deployer build. You run:
     git clone github.com/Dachein/huozi
     cd huozi
     npm install
-    scripts/edge-deploy-test.sh
+    scripts/edge-deploy.sh
 
 The script provisions a Worker, a D1 database, an R2 bucket, applies the
 schema, mints your first admin api_key, and smoke-tests the MCP surface.
@@ -327,7 +327,7 @@ If you're doing any real Agent work I'd genuinely love your eyes on it:
   github.com/Dachein/huozi
 
 Two-minute setup if you want to try the hosted version: huozi.app.
-For self-host: scripts/edge-deploy-test.sh does the whole thing.
+For self-host: scripts/edge-deploy.sh does the whole thing.
 
 Ping me with whatever breaks. 🙏
 ```

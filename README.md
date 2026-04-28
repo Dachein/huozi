@@ -59,7 +59,7 @@ cd huozi
 npm install
 
 # One-shot: provisions Worker / D1 / R2, seeds admin row, mints first key.
-scripts/edge-deploy-test.sh
+scripts/edge-deploy.sh
 ```
 
 What it creates (in your CF account):
@@ -82,7 +82,7 @@ npm run dev
 # → /workspace: you're in
 ```
 
-Tear down anytime with `scripts/edge-deploy-test-teardown.sh`. See [`docs/edge-self-host.md`](docs/edge-self-host.md) for production deployment, custom domains, and the full env-var surface.
+Tear down anytime with `scripts/edge-teardown.sh`. See [`docs/edge-self-host.md`](docs/edge-self-host.md) for production deployment, custom domains, and the full env-var surface.
 
 ## Quick start — Cloud (hosted)
 
@@ -134,7 +134,7 @@ huozi/
 │   ├── src/tools/                  # MCP tools (huozi_read, _edit, …)
 │   └── SPEC.md                     # the canonical architecture doc
 │
-├── scripts/                        # edge-deploy-test.sh, teardown
+├── scripts/                        # edge-deploy.sh, teardown
 └── docs/                           # deployment guides
 ```
 

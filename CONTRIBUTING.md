@@ -17,7 +17,7 @@ cd huozi
 npm install
 ```
 
-You can develop against the hosted Cloud Worker at `cloud.huozi.app/mcp` (no extra setup), or spin up your own Edge Worker with `scripts/edge-deploy-test.sh` (requires a Cloudflare account; see [`docs/edge-self-host.md`](docs/edge-self-host.md)).
+You can develop against the hosted Cloud Worker at `cloud.huozi.app/mcp` (no extra setup), or spin up your own Edge Worker with `scripts/edge-deploy.sh` (requires a Cloudflare account; see [`docs/edge-self-host.md`](docs/edge-self-host.md)).
 
 For Worker development:
 

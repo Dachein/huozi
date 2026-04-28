@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# scripts/edge-deploy-test-teardown.sh
+# scripts/edge-teardown.sh
 #
-# Removes everything provisioned by edge-deploy-test.sh: the worker, the
+# Removes everything provisioned by edge-deploy.sh: the worker, the
 # D1 database, the R2 bucket, the generated wrangler.edge.toml, and the
 # .huozi-edge.env file.
 #

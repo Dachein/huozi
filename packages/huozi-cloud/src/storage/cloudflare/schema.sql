@@ -122,6 +122,7 @@ CREATE TABLE IF NOT EXISTS files_current (
   mtime        INTEGER NOT NULL,
   encoding     TEXT,
   line_endings TEXT,
+  content_type TEXT,
   PRIMARY KEY (workspace_id, path)
 );
 
