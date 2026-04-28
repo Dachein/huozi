@@ -59,7 +59,7 @@ export class CloudflareStorage implements StorageBackend {
     _signal?: AbortSignal,
   ): Promise<FileRecord | null> {
     const row = await this.env.DB.prepare(
-      `SELECT workspace_id, path, blob_sha, size, mtime, encoding, line_endings
+      `SELECT workspace_id, path, blob_sha, size, mtime, encoding, line_endings, content_type
        FROM files_current WHERE workspace_id = ? AND path = ?`,
     )
       .bind(workspaceId, path)
@@ -71,6 +71,7 @@ export class CloudflareStorage implements StorageBackend {
         mtime: number
         encoding: string | null
         line_endings: string | null
+        content_type: string | null
       }>()
 
     if (!row) return null
@@ -98,6 +99,7 @@ export class CloudflareStorage implements StorageBackend {
         row.line_endings === 'LF' || row.line_endings === 'CRLF'
           ? (row.line_endings as 'LF' | 'CRLF')
           : undefined,
+      content_type: row.content_type ?? undefined,
     }
   }
 
@@ -108,6 +110,7 @@ export class CloudflareStorage implements StorageBackend {
     author: Author
     parent_sha?: string | null
     message?: string
+    content_type?: string
     signal?: AbortSignal
   }): Promise<WriteResult> {
     const stub = this.workspaceStub(args.workspaceId)
@@ -121,6 +124,7 @@ export class CloudflareStorage implements StorageBackend {
         author: args.author,
         parent_sha: args.parent_sha,
         message: args.message,
+        content_type: args.content_type,
       }),
       headers: { 'content-type': 'application/json' },
     })

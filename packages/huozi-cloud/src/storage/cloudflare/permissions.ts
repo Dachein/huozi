@@ -55,6 +55,7 @@ export const ROLE_CAPS: Record<Role, ReadonlySet<Capability>> = {
 
 export const TOOL_TO_CAP: Record<string, Capability> = {
   huozi_read: 'read',
+  huozi_download: 'read',
   huozi_glob: 'read',
   huozi_grep: 'read',
   huozi_history: 'read',
@@ -66,6 +67,7 @@ export const TOOL_TO_CAP: Record<string, Capability> = {
   huozi_batch_edit: 'write',
   huozi_mv: 'write',
   huozi_mkdir: 'write',
+  huozi_upload: 'write',
 
   huozi_rm: 'delete',
 

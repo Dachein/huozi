@@ -42,6 +42,7 @@ interface RpcWriteFile {
   author: Author
   parent_sha?: string | null
   message?: string
+  content_type?: string
 }
 
 interface RpcWriteBatch {
@@ -490,13 +491,21 @@ export class HuoziWorkspaceDO {
     // Update D1 in a batch for atomicity.
     const stmts: D1PreparedStatement[] = [
       this.env.DB.prepare(
-        `INSERT INTO files_current (workspace_id, path, blob_sha, size, mtime)
-         VALUES (?, ?, ?, ?, ?)
+        `INSERT INTO files_current (workspace_id, path, blob_sha, size, mtime, content_type)
+         VALUES (?, ?, ?, ?, ?, ?)
          ON CONFLICT(workspace_id, path) DO UPDATE SET
            blob_sha = excluded.blob_sha,
            size = excluded.size,
-           mtime = excluded.mtime`,
-      ).bind(rpc.workspaceId, rpc.path, blob_sha, bytes.length, now),
+           mtime = excluded.mtime,
+           content_type = excluded.content_type`,
+      ).bind(
+        rpc.workspaceId,
+        rpc.path,
+        blob_sha,
+        bytes.length,
+        now,
+        rpc.content_type ?? null,
+      ),
       this.env.DB.prepare(
         `INSERT INTO commits (workspace_id, commit_sha, parent_sha, author_id, author_type, message, timestamp, paths_json)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -549,6 +558,7 @@ export class HuoziWorkspaceDO {
       blob_sha,
       size: bytes.length,
       mtime: now,
+      content_type: rpc.content_type,
     }
 
     // Broadcast to any subscribed WebSockets. Fire-and-forget; best-effort.

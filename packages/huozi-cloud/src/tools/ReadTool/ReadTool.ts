@@ -39,6 +39,7 @@ import {
   READ_TOOL_NAME,
   READ_TOOL_USER_FACING_NAME,
 } from './prompt.js'
+import { guessMime } from './mime.js'
 import { readInputSchema, readOutputSchema, type ReadInput, type ReadOutput } from './schema.js'
 
 /**
@@ -62,30 +63,9 @@ export interface ReadToolDeps {
   binarySigner?: BinaryRefSigner
 }
 
-/**
- * Binary extension hints. Used when the file size exceeds the inline budget
- * and we're deciding how to report the mime type on `binary_ref`. Detection
- * is by extension — see cc:FileReadTool.ts:472-481 for precedent (CC also
- * uses extension, not null-byte sniffing).
- */
-const MIME_BY_EXT: Record<string, string> = {
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.webp': 'image/webp',
-  '.pdf': 'application/pdf',
-  '.ipynb': 'application/x-ipynb+json',
-  '.zip': 'application/zip',
-  '.mp4': 'video/mp4',
-  '.mp3': 'audio/mpeg',
-}
-
-function guessMime(path: string): string {
-  const i = path.lastIndexOf('.')
-  if (i < 0) return 'application/octet-stream'
-  return MIME_BY_EXT[path.slice(i).toLowerCase()] ?? 'application/octet-stream'
-}
+// MIME detection lives in ./mime.ts; the worker's blob-download endpoint
+// shares the same map so signed download URLs serve files with the right
+// content-type without re-deriving it.
 
 /**
  * Canonical path handling. v1 PoC:

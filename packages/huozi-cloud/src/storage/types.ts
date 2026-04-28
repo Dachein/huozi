@@ -29,6 +29,12 @@ export interface FileRecord {
   /** Optional metadata the backend may cache to skip redetection. */
   encoding?: DetectedEncoding
   lineEndings?: LineEndingType
+  /**
+   * MIME type (e.g. `application/pdf`, `image/png`). Set on binary
+   * uploads via `huozi_upload`. NULL for legacy text rows; consumers
+   * should fall back to extension-based mime-guessing.
+   */
+  content_type?: string
 }
 
 /**
@@ -98,6 +104,12 @@ export interface StorageBackend {
     author: Author
     parent_sha?: string | null
     message?: string
+    /**
+     * Optional MIME type, persisted on `files_current.content_type`.
+     * Set by `huozi_upload` for binary writes; left undefined by text
+     * tools (`huozi_write` / `huozi_edit`) to keep legacy behavior.
+     */
+    content_type?: string
     signal?: AbortSignal
   }): Promise<WriteResult>
 

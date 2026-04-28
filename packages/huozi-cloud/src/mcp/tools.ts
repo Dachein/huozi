@@ -21,13 +21,16 @@ import {
   createReadTool,
   createWriteTool,
 } from '../index.js'
+import { createDownloadTool } from '../tools/DownloadTool.js'
 import { createListTreeTool } from '../tools/ListTreeTool.js'
 import { createMkdirTool } from '../tools/MkdirTool.js'
 import { createMvTool } from '../tools/MvTool.js'
 import { createRmTool } from '../tools/RmTool.js'
 import { createShareTool, type ShareToolDeps } from '../tools/ShareTool.js'
 import { createTemplateTool } from '../tools/TemplateTool/index.js'
+import { createUploadTool } from '../tools/UploadTool/index.js'
 import { createWhoamiTool, type WhoamiToolDeps } from '../tools/WhoamiTool.js'
+import type { BinaryRefSigner } from '../tools/ReadTool/ReadTool.js'
 import type { StorageBackend } from '../storage/types.js'
 import type { Tool } from '../types.js'
 
@@ -48,14 +51,20 @@ export interface HuoziToolRegistryDeps {
    * authenticated principal/keyHash, which only the Worker entry has.
    */
   whoamiDeps?: WhoamiToolDeps
+  /**
+   * Enables real signed-URL emission for `huozi_read`'s binary_ref branch
+   * and (when added) `huozi_download`. Without it, large reads return a
+   * placeholder URL the agent can't actually fetch.
+   */
+  binarySigner?: BinaryRefSigner
 }
 
 export function createHuoziToolRegistry(
   deps: HuoziToolRegistryDeps,
 ): HuoziToolRegistry {
-  const { storage, shareDeps, whoamiDeps } = deps
+  const { storage, shareDeps, whoamiDeps, binarySigner } = deps
   const tools: Tool<any, any>[] = [
-    createReadTool({ storage }),
+    createReadTool({ storage, binarySigner }),
     createEditTool({ storage }),
     createWriteTool({ storage }),
     createGlobTool({ storage }),
@@ -67,12 +76,18 @@ export function createHuoziToolRegistry(
     createRmTool({ storage }),
     createMvTool({ storage }),
     createTemplateTool(),
+    createUploadTool({ storage }),
   ]
   if (shareDeps) {
     tools.push(createShareTool(shareDeps))
   }
   if (whoamiDeps) {
     tools.push(createWhoamiTool(whoamiDeps))
+  }
+  // huozi_download is only meaningful when signed URLs work — no point
+  // listing a tool whose every output is a placeholder URL.
+  if (binarySigner) {
+    tools.push(createDownloadTool({ storage, signer: binarySigner }))
   }
 
   const byName = new Map<string, Tool<any, any>>()

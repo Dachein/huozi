@@ -84,6 +84,7 @@ export class InMemoryStorage implements StorageBackend {
     author: Author
     parent_sha?: string | null
     message?: string
+    content_type?: string
     signal?: AbortSignal
   }): Promise<WriteResult> {
     return this.runSerialized(args.workspaceId, async () => {
@@ -110,6 +111,7 @@ export class InMemoryStorage implements StorageBackend {
         mtime: Date.now(),
         encoding: existing?.encoding,
         lineEndings: existing?.lineEndings,
+        content_type: args.content_type ?? existing?.content_type,
       }
       this.files.set(key, record)
 
