@@ -9,7 +9,7 @@
  * fetch + secrets being in the server environment.
  */
 
-const CLOUD_URL = process.env.HUOZI_CLOUD_URL ?? 'https://cloud.huozi.app'
+import { cloudFetch } from '@/lib/cloud-fetch'
 
 export interface McpCallResult<T = unknown> {
   ok: true
@@ -42,7 +42,7 @@ async function rpc(
   params?: Record<string, unknown>,
 ): Promise<RpcEnvelope> {
   const id = nextId++
-  const res = await fetch(`${CLOUD_URL}/mcp`, {
+  const res = await cloudFetch(`/mcp`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${key}`,
@@ -203,8 +203,8 @@ export async function cloudRecent(
   limit = 20,
 ): Promise<{ ok: true; entries: RecentEntry[] } | { ok: false; message: string }> {
   try {
-    const res = await fetch(
-      `${CLOUD_URL}/events/recent?limit=${encodeURIComponent(String(limit))}`,
+    const res = await cloudFetch(
+      `/events/recent?limit=${encodeURIComponent(String(limit))}`,
       {
         method: 'GET',
         headers: { Authorization: `Bearer ${key}` },

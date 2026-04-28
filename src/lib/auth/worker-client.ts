@@ -3,10 +3,11 @@
  *
  * These routes are *public* (no admin secret), but they live on the Worker
  * because that's where D1 is. Next.js proxies to them so the browser only
- * ever talks to its own origin.
+ * ever talks to its own origin. Outbound goes through the CLOUD service
+ * binding when running on Cloudflare; falls back to public HTTP locally.
  */
 
-const CLOUD_URL = process.env.HUOZI_CLOUD_URL ?? "https://cloud.huozi.app";
+import { cloudFetch } from "@/lib/cloud-fetch";
 
 export interface OtpRequestResult {
   ok: true;
@@ -16,7 +17,7 @@ export interface OtpRequestResult {
 export async function workerOtpRequest(
   email: string,
 ): Promise<{ ok: true; expires_in: number } | { ok: false; error: string; status: number }> {
-  const res = await fetch(`${CLOUD_URL}/auth/otp/request`, {
+  const res = await cloudFetch("/auth/otp/request", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ email }),
@@ -51,7 +52,7 @@ export async function workerOtpVerify(
   email: string,
   code: string,
 ): Promise<OtpVerifySuccess | { ok: false; error: string; status: number }> {
-  const res = await fetch(`${CLOUD_URL}/auth/otp/verify`, {
+  const res = await cloudFetch("/auth/otp/verify", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ email, code }),
@@ -78,7 +79,7 @@ export async function workerSelectWorkspace(opts: {
 }): Promise<
   SelectWorkspaceResult | { ok: false; error: string; status: number }
 > {
-  const res = await fetch(`${CLOUD_URL}/auth/select-workspace`, {
+  const res = await cloudFetch("/auth/select-workspace", {
     method: "POST",
     headers: {
       "content-type": "application/json",

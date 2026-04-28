@@ -123,9 +123,11 @@ export async function handleDeviceCode(
     .bind(device_code, user_code, clientName, agentKind, now, expires_at)
     .run()
 
-  // Front-end URL that the user opens. We keep this hard-coded to
-  // huozi.app since the Worker doesn't own the front-end origin.
-  const verification_url_base = 'https://huozi.app/device'
+  // Front-end URL that the user opens. The Worker doesn't own the
+  // front-end origin, so we read it from HUOZI_PUBLIC_BASE (cloud → huozi.app;
+  // edge → wherever the deployer's Next.js front-end lives).
+  const publicBase = (env.HUOZI_PUBLIC_BASE ?? 'https://huozi.app').replace(/\/+$/, '')
+  const verification_url_base = `${publicBase}/device`
 
   return Response.json({
     device_code,

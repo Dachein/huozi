@@ -4,9 +4,12 @@
  * The admin secret lives in Next.js env (`HUOZI_ADMIN_SECRET`, same secret
  * set on the cloud worker via `wrangler secret put`). It must NEVER reach a
  * browser: only import this module from server components or API routes.
+ *
+ * Outbound calls go through the CLOUD service binding when running on
+ * Cloudflare; falls back to public HTTP via HUOZI_CLOUD_URL during dev.
  */
 
-const CLOUD_URL = process.env.HUOZI_CLOUD_URL ?? "https://cloud.huozi.app";
+import { cloudFetch } from "@/lib/cloud-fetch";
 
 function adminSecret(): string {
   const s = process.env.HUOZI_ADMIN_SECRET;
@@ -38,7 +41,7 @@ export interface MintKeyResult {
 export async function cloudAdminMintKey(
   input: MintKeyInput,
 ): Promise<MintKeyResult> {
-  const res = await fetch(`${CLOUD_URL}/admin/mint-key`, {
+  const res = await cloudFetch(`/admin/mint-key`, {
     method: "POST",
     headers: {
       "X-Admin-Secret": adminSecret(),
@@ -95,7 +98,7 @@ export async function cloudAdminUpdateKeyTtl(
   ttl_seconds: number | null;
   expires_at: number | null;
 }> {
-  const res = await fetch(`${CLOUD_URL}/admin/update-key-ttl`, {
+  const res = await cloudFetch(`/admin/update-key-ttl`, {
     method: "POST",
     headers: {
       "X-Admin-Secret": adminSecret(),
@@ -121,7 +124,7 @@ export async function cloudAdminListKeys(
 ): Promise<ListedKey[]> {
   const qs = new URLSearchParams({ workspace_id: workspaceId });
   if (options?.includeRevoked) qs.set("include_revoked", "1");
-  const res = await fetch(`${CLOUD_URL}/admin/list-keys?${qs.toString()}`, {
+  const res = await cloudFetch(`/admin/list-keys?${qs.toString()}`, {
     method: "GET",
     headers: { "X-Admin-Secret": adminSecret() },
   });
@@ -136,7 +139,7 @@ export async function cloudAdminListKeys(
 export async function cloudAdminRevokeKey(
   keyId: string,
 ): Promise<{ revoked: number; revoked_at: number }> {
-  const res = await fetch(`${CLOUD_URL}/admin/revoke-key`, {
+  const res = await cloudFetch(`/admin/revoke-key`, {
     method: "POST",
     headers: {
       "X-Admin-Secret": adminSecret(),
@@ -183,7 +186,7 @@ export async function cloudAdminCreateWorkspace(
   | { ok: true; workspace: WorkspaceRow }
   | { ok: false; error: string; status: number; message?: string }
 > {
-  const res = await fetch(`${CLOUD_URL}/admin/workspaces`, {
+  const res = await cloudFetch(`/admin/workspaces`, {
     method: "POST",
     headers: {
       "X-Admin-Secret": adminSecret(),
@@ -223,7 +226,7 @@ export async function cloudAdminListWorkspaces(opts: {
   if (opts.ownerId) qs.set("owner_id", opts.ownerId);
   if (opts.slug) qs.set("slug", opts.slug);
   if (opts.id) qs.set("id", opts.id);
-  const res = await fetch(`${CLOUD_URL}/admin/workspaces?${qs.toString()}`, {
+  const res = await cloudFetch(`/admin/workspaces?${qs.toString()}`, {
     method: "GET",
     headers: { "X-Admin-Secret": adminSecret() },
   });
@@ -236,8 +239,8 @@ export async function cloudAdminListWorkspaces(opts: {
 }
 
 export async function cloudAdminCheckSlug(slug: string): Promise<boolean> {
-  const res = await fetch(
-    `${CLOUD_URL}/admin/workspaces/check-slug?slug=${encodeURIComponent(slug)}`,
+  const res = await cloudFetch(
+    `/admin/workspaces/check-slug?slug=${encodeURIComponent(slug)}`,
     {
       method: "GET",
       headers: { "X-Admin-Secret": adminSecret() },
@@ -266,8 +269,8 @@ export interface InviteSummary {
 export async function cloudAdminInspectInvite(
   token: string,
 ): Promise<InviteSummary | null> {
-  const res = await fetch(
-    `${CLOUD_URL}/admin/invites/inspect?token=${encodeURIComponent(token)}`,
+  const res = await cloudFetch(
+    `/admin/invites/inspect?token=${encodeURIComponent(token)}`,
     {
       method: "GET",
       headers: { "X-Admin-Secret": adminSecret() },
@@ -293,7 +296,7 @@ export async function cloudAdminMintInvite(input: {
   | { ok: true; token: string; expires_at: number; accept_url: string }
   | { ok: false; error: string; status: number; message?: string }
 > {
-  const res = await fetch(`${CLOUD_URL}/admin/invites`, {
+  const res = await cloudFetch(`/admin/invites`, {
     method: "POST",
     headers: {
       "X-Admin-Secret": adminSecret(),
@@ -335,8 +338,8 @@ export interface InviteRow {
 export async function cloudAdminListInvites(
   workspaceId: string,
 ): Promise<InviteRow[]> {
-  const res = await fetch(
-    `${CLOUD_URL}/admin/invites?workspace_id=${encodeURIComponent(workspaceId)}`,
+  const res = await cloudFetch(
+    `/admin/invites?workspace_id=${encodeURIComponent(workspaceId)}`,
     {
       method: "GET",
       headers: { "X-Admin-Secret": adminSecret() },
@@ -348,8 +351,8 @@ export async function cloudAdminListInvites(
 }
 
 export async function cloudAdminRevokeInvite(token: string): Promise<void> {
-  await fetch(
-    `${CLOUD_URL}/admin/invites?token=${encodeURIComponent(token)}`,
+  await cloudFetch(
+    `/admin/invites?token=${encodeURIComponent(token)}`,
     {
       method: "DELETE",
       headers: { "X-Admin-Secret": adminSecret() },
@@ -364,7 +367,7 @@ export async function cloudAdminRedeemInvite(input: {
   | { ok: true; workspace_id: string; role: string }
   | { ok: false; error: string; status: number }
 > {
-  const res = await fetch(`${CLOUD_URL}/admin/invites/redeem`, {
+  const res = await cloudFetch(`/admin/invites/redeem`, {
     method: "POST",
     headers: {
       "X-Admin-Secret": adminSecret(),
@@ -401,8 +404,8 @@ export interface MemberRow {
 export async function cloudAdminListMembers(
   workspaceId: string,
 ): Promise<MemberRow[]> {
-  const res = await fetch(
-    `${CLOUD_URL}/admin/workspace-members?workspace_id=${encodeURIComponent(workspaceId)}`,
+  const res = await cloudFetch(
+    `/admin/workspace-members?workspace_id=${encodeURIComponent(workspaceId)}`,
     {
       method: "GET",
       headers: { "X-Admin-Secret": adminSecret() },
@@ -421,7 +424,7 @@ export async function cloudAdminRemoveMember(input: {
     workspace_id: input.workspace_id,
     user_id: input.user_id,
   });
-  const res = await fetch(`${CLOUD_URL}/admin/workspace-members?${qs}`, {
+  const res = await cloudFetch(`/admin/workspace-members?${qs}`, {
     method: "DELETE",
     headers: { "X-Admin-Secret": adminSecret() },
   });
@@ -449,7 +452,7 @@ export async function cloudAdminListFolderAcls(opts: {
 }): Promise<FolderAclSummary[]> {
   const qs = new URLSearchParams({ workspace_id: opts.workspaceId });
   if (opts.pathPrefix) qs.set("path_prefix", opts.pathPrefix);
-  const res = await fetch(`${CLOUD_URL}/admin/folder-acls?${qs}`, {
+  const res = await cloudFetch(`/admin/folder-acls?${qs}`, {
     method: "GET",
     headers: { "X-Admin-Secret": adminSecret() },
   });
@@ -468,7 +471,7 @@ export async function cloudAdminSetFolderAcl(input: {
   | { ok: true; acl: FolderAclSummary }
   | { ok: false; error: string; status: number; message?: string }
 > {
-  const res = await fetch(`${CLOUD_URL}/admin/folder-acls`, {
+  const res = await cloudFetch(`/admin/folder-acls`, {
     method: "POST",
     headers: {
       "X-Admin-Secret": adminSecret(),
@@ -500,7 +503,7 @@ export async function cloudAdminDeleteFolderAcl(opts: {
     workspace_id: opts.workspaceId,
     path_prefix: opts.pathPrefix,
   });
-  await fetch(`${CLOUD_URL}/admin/folder-acls?${qs}`, {
+  await cloudFetch(`/admin/folder-acls?${qs}`, {
     method: "DELETE",
     headers: { "X-Admin-Secret": adminSecret() },
   });
@@ -514,7 +517,7 @@ export async function cloudAdminListFolderAclsForUser(opts: {
     workspace_id: opts.workspaceId,
     user_id: opts.userId,
   });
-  const res = await fetch(`${CLOUD_URL}/admin/folder-acls/for-user?${qs}`, {
+  const res = await cloudFetch(`/admin/folder-acls/for-user?${qs}`, {
     method: "GET",
     headers: { "X-Admin-Secret": adminSecret() },
   });
@@ -524,8 +527,8 @@ export async function cloudAdminListFolderAclsForUser(opts: {
 }
 
 export async function cloudAdminDeleteWorkspace(id: string): Promise<void> {
-  const res = await fetch(
-    `${CLOUD_URL}/admin/workspaces?id=${encodeURIComponent(id)}`,
+  const res = await cloudFetch(
+    `/admin/workspaces?id=${encodeURIComponent(id)}`,
     {
       method: "DELETE",
       headers: { "X-Admin-Secret": adminSecret() },
@@ -556,8 +559,8 @@ export interface DeviceGrantSummary {
 export async function cloudAdminDeviceInspect(
   userCode: string,
 ): Promise<DeviceGrantSummary | null> {
-  const res = await fetch(
-    `${CLOUD_URL}/admin/device-inspect?user_code=${encodeURIComponent(userCode)}`,
+  const res = await cloudFetch(
+    `/admin/device-inspect?user_code=${encodeURIComponent(userCode)}`,
     {
       method: "GET",
       headers: { "X-Admin-Secret": adminSecret() },
@@ -584,7 +587,7 @@ export async function cloudAdminDeviceAuthorize(input: {
   agent_kind: string | null;
   client_name: string | null;
 }> {
-  const res = await fetch(`${CLOUD_URL}/admin/device-authorize`, {
+  const res = await cloudFetch(`/admin/device-authorize`, {
     method: "POST",
     headers: {
       "X-Admin-Secret": adminSecret(),
@@ -607,7 +610,7 @@ export async function cloudAdminDeviceAuthorize(input: {
 export async function cloudAdminDeviceDeny(
   userCode: string,
 ): Promise<{ ok: true }> {
-  const res = await fetch(`${CLOUD_URL}/admin/device-deny`, {
+  const res = await cloudFetch(`/admin/device-deny`, {
     method: "POST",
     headers: {
       "X-Admin-Secret": adminSecret(),

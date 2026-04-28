@@ -8,5 +8,21 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
-  "workers_dev": true
+  "workers_dev": true,
+  // Catch-all on cloud.huozi.app — anything not matched by huozi-cloud's
+  // more specific path patterns (/auth, /admin, /me, /mcp, /events,
+  // /shares, /blobs, /health, /debug) falls through to here. This is how
+  // the product UI (login, workspace, /p/<slug>, /api/* BFF) gets served
+  // alongside the cloud worker on the same origin.
+  "routes": [
+    { "pattern": "cloud.huozi.app/*", "zone_name": "huozi.app" }
+  ],
+  // Service binding to the cloud worker. Lets BFF routes RPC into
+  // huozi-cloud without going through public HTTP — zero network hop,
+  // skips DNS, and scopes admin auth to in-process traffic. Falls back
+  // to public fetch via HUOZI_CLOUD_URL env when env.CLOUD is absent
+  // (next dev, tests).
+  "services": [
+    { "binding": "CLOUD", "service": "huozi-cloud" }
+  ]
 }

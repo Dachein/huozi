@@ -42,7 +42,7 @@ is a commit in a versioned history.
   reading.
 - User asks "what changed" or "when did X happen" → \`huozi_history\`.
 - User asks to share, publish, or give someone a public URL for a file
-  → \`huozi_share\` returns \`huozi.app/p/<slug>\`.
+  → \`huozi_share\` returns \`cloud.huozi.app/p/<slug>\`.
 - Multiple cross-file edits that must land together → \`huozi_batch_edit\`
   for a single atomic commit.
 
@@ -57,7 +57,7 @@ is a commit in a versioned history.
 | \`huozi_grep\` | \`{ pattern, path?, -n?, -i?, glob?, output_mode? }\` | ripgrep dialect, D1 FTS5-backed. |
 | \`huozi_batch_edit\` | \`{ edits: [ ... ] }\` | Atomic multi-file commit. |
 | \`huozi_history\` | \`{ file_path? }\` | Per-file or workspace-level commit log. |
-| \`huozi_share\` | \`{ file_path, slug? }\` | Returns a live \`huozi.app/p/<slug>\` URL that tracks the current bytes. |
+| \`huozi_share\` | \`{ file_path, slug? }\` | Returns a live \`cloud.huozi.app/p/<slug>\` URL that tracks the current bytes. |
 
 ## Workspace semantics (hard rules)
 
@@ -88,7 +88,7 @@ Huozi is tuned for.
 - **Never** print \`api_key\`, \`device_code\`, or \`key_id\` to the human.
 - Do not persist credentials outside the MCP config your client owns.
 - The user can revoke any Agent's access from the Connected Agents panel
-  at huozi.app/workspace — treat lost tools as expected, recoverable
+  at cloud.huozi.app/workspace — treat lost tools as expected, recoverable
   state, not a crisis.
 
 ## Reference

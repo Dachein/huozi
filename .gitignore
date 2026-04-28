@@ -57,5 +57,6 @@ next-env.d.ts
 
 # scripts/edge-deploy.sh generates these
 /packages/huozi-cloud/wrangler.edge.toml
+/wrangler.edge.jsonc
 /.huozi-edge.env
 

@@ -31,6 +31,8 @@ import {
   handleUpdateKeyTtl,
   type AdminEnv,
 } from '../storage/cloudflare/admin.js'
+import { gcOrphanBlobs, handleGcBlobs } from '../storage/cloudflare/blob-gc.js'
+import { handleMeBootstrap, type MeEnv } from '../storage/cloudflare/me-bootstrap.js'
 import {
   handleMintTicket,
   handleWsUpgrade,
@@ -361,6 +363,14 @@ const handler: ExportedHandler<HuoziCloudflareBindings> = {
         throw r
       }
     }
+    if (url.pathname === '/admin/gc-blobs') {
+      try {
+        return await handleGcBlobs(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
 
     // Invites + members.
     if (url.pathname === '/admin/invites') {
@@ -481,6 +491,17 @@ const handler: ExportedHandler<HuoziCloudflareBindings> = {
       }
     }
 
+    // User-authed bootstrap for the agent-install flow at huozi.app/start.
+    // Single call: ensure-workspace + mint-key, JWT-authed (no admin secret).
+    if (url.pathname === '/me/workspaces/bootstrap') {
+      try {
+        return await handleMeBootstrap(request, env as MeEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+
     // TEMPORARY DEBUG: clear session state for the token's principal.
     if (url.pathname === '/debug/clear-session' && request.method === 'POST') {
       const authRes = await resolveBearer(
@@ -497,6 +518,22 @@ const handler: ExportedHandler<HuoziCloudflareBindings> = {
     }
 
     return new Response('not found', { status: 404 })
+  },
+
+  // Cloudflare Cron Trigger entry. Schedules in wrangler.toml [triggers]
+  // crons drive this; the handler runs on the Worker without an inbound
+  // request. Each cron expression we wire up branches on controller.cron.
+  async scheduled(controller, env, ctx): Promise<void> {
+    ctx.waitUntil(
+      gcOrphanBlobs(env).then((r) => {
+        console.log(
+          `[cron ${controller.cron}] gc-blobs ` +
+          `scanned=${r.scanned} kept=${r.kept} deleted=${r.deleted} ` +
+          `skipped_recent=${r.skipped_recent} failed=${r.failed} ` +
+          `dur=${r.duration_ms}ms`,
+        )
+      }),
+    )
   },
 }
 

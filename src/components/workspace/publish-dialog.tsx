@@ -7,7 +7,7 @@
  *               ( ) Public   (•) 6-digit passcode [______]
  *               Link expires in: (30m | 6h | 24h | 1mo | never)
  *   Step 2 — success:
- *               https://huozi.app/p/<random-slug>    [Copy]
+ *               https://cloud.huozi.app/p/<random-slug>    [Copy]
  *               passcode: 424242                      (if set)
  *
  * URL slugs are always server-generated (10 random chars) — we removed
@@ -208,7 +208,7 @@ export function PublishDialog({ path, open, onClose }: PublishDialogProps) {
           <div className="space-y-4">
             <p className="text-xs text-muted-foreground leading-relaxed">
               Makes this file readable at{" "}
-              <span className="font-mono">huozi.app/p/&lt;random&gt;</span>. The
+              <span className="font-mono">cloud.huozi.app/p/&lt;random&gt;</span>. The
               link always shows the latest version — edits go live immediately.
             </p>
 

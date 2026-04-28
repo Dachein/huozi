@@ -37,7 +37,33 @@ function applyLocale(req: NextRequest, res: NextResponse): void {
   }
 }
 
+/**
+ * Hostnames at which the product UI must NOT be served. Cloud edition
+ * canonically lives at cloud.huozi.app — `huozi.app` is reserved for
+ * marketing only, but a legacy zone-route binding still falls through
+ * to this Worker for non-marketing paths. We 404 those explicitly so
+ * the dual presence doesn't shadow real bugs (cookie-domain mismatch,
+ * stale links, etc.). To keep this off in Edge / preview deployments,
+ * the list is empty there.
+ */
+const REJECTED_HOSTS = new Set(["huozi.app", "www.huozi.app"]);
+
 export async function middleware(request: NextRequest) {
+  // ─── Block legacy huozi.app fallback (Cloud edition only) ─────────
+  if (!isEdge()) {
+    const host = (request.headers.get("host") ?? "").toLowerCase().split(":")[0];
+    if (host && REJECTED_HOSTS.has(host)) {
+      return new NextResponse(
+        `<!doctype html><meta charset="utf-8"><title>Moved</title>` +
+          `<p>The product UI lives at <a href="https://cloud.huozi.app${request.nextUrl.pathname}${request.nextUrl.search}">cloud.huozi.app${request.nextUrl.pathname}</a>.</p>`,
+        {
+          status: 404,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        },
+      );
+    }
+  }
+
   // ─── Edge edition ─────────────────────────────────────────────────
   if (isEdge()) {
     const path = request.nextUrl.pathname;

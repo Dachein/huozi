@@ -8,7 +8,7 @@
  * Both sides talk to the same Worker.
  */
 
-const CLOUD_URL = process.env.HUOZI_CLOUD_URL ?? 'https://cloud.huozi.app'
+import { cloudFetch } from '@/lib/cloud-fetch'
 
 export interface ShareMetadata {
   slug: string
@@ -50,7 +50,7 @@ type Result<T> = { ok: true; data: T } | ErrorResponse
 
 export async function getShare(slug: string): Promise<Result<ShareResponse>> {
   try {
-    const res = await fetch(`${CLOUD_URL}/shares/${encodeURIComponent(slug)}`, {
+    const res = await cloudFetch(`/shares/${encodeURIComponent(slug)}`, {
       method: 'GET',
       cache: 'no-store',
     })
@@ -81,8 +81,8 @@ export async function unlockShare(
   passcode: string,
 ): Promise<Result<ShareContent>> {
   try {
-    const res = await fetch(
-      `${CLOUD_URL}/shares/${encodeURIComponent(slug)}/unlock`,
+    const res = await cloudFetch(
+      `/shares/${encodeURIComponent(slug)}/unlock`,
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -130,7 +130,7 @@ export async function createShare(
   | { ok: false; error?: string; message: string; status: number }
 > {
   try {
-    const res = await fetch(`${CLOUD_URL}/shares`, {
+    const res = await cloudFetch(`/shares`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${key}`,
@@ -187,7 +187,7 @@ export async function listShares(
   | { ok: false; message: string }
 > {
   try {
-    const res = await fetch(`${CLOUD_URL}/shares`, {
+    const res = await cloudFetch(`/shares`, {
       method: 'GET',
       headers: { Authorization: `Bearer ${key}` },
       cache: 'no-store',
@@ -213,8 +213,8 @@ export async function revokeShare(
   slug: string,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   try {
-    const res = await fetch(
-      `${CLOUD_URL}/shares/${encodeURIComponent(slug)}/revoke`,
+    const res = await cloudFetch(
+      `/shares/${encodeURIComponent(slug)}/revoke`,
       {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}` },

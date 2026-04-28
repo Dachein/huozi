@@ -3,10 +3,31 @@ main = "dist/worker/index.js"
 compatibility_date = "2026-04-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Custom domain — CF auto-creates the DNS record on deploy.
+# Path-pattern routes on cloud.huozi.app — share the hostname with the
+# main Next.js worker (huozi). Cloudflare picks the most specific match,
+# so /auth, /admin, /me, /mcp, /events, /shares, /blobs, /health, /debug
+# land here, and everything else (login, /workspace/*, /p/<slug>, /api/*)
+# falls through to huozi's catch-all "cloud.huozi.app/*".
 routes = [
-  { pattern = "cloud.huozi.app", custom_domain = true }
+  { pattern = "cloud.huozi.app/auth/*",   zone_name = "huozi.app" },
+  { pattern = "cloud.huozi.app/admin/*",  zone_name = "huozi.app" },
+  { pattern = "cloud.huozi.app/me/*",     zone_name = "huozi.app" },
+  { pattern = "cloud.huozi.app/mcp",      zone_name = "huozi.app" },
+  { pattern = "cloud.huozi.app/events/*", zone_name = "huozi.app" },
+  { pattern = "cloud.huozi.app/shares",   zone_name = "huozi.app" },
+  { pattern = "cloud.huozi.app/shares/*", zone_name = "huozi.app" },
+  { pattern = "cloud.huozi.app/blobs/*",  zone_name = "huozi.app" },
+  { pattern = "cloud.huozi.app/health",   zone_name = "huozi.app" },
+  { pattern = "cloud.huozi.app/debug/*",  zone_name = "huozi.app" },
 ]
+
+# ── Vars ────────────────────────────────────────────────────────────
+# Public origin for human-facing URLs minted by the worker (device-flow
+# verification page, share links, etc.). Cloud edition points at
+# cloud.huozi.app — both API and UI live there now. Edge deployers
+# override this in their generated wrangler config.
+[vars]
+HUOZI_PUBLIC_BASE = "https://cloud.huozi.app"
 
 # ── R2: blob storage ─────────────────────────────────────────────────
 [[r2_buckets]]
@@ -31,6 +52,13 @@ class_name = "HuoziSessionDO"
 [[migrations]]
 tag = "v1"
 new_classes = ["HuoziWorkspaceDO", "HuoziSessionDO"]
+
+# ── Cron triggers ────────────────────────────────────────────────────
+# Weekly R2 orphan-blob GC. Sweeps the BLOBS bucket and deletes any
+# object whose sha is no longer referenced by D1 metadata. See
+# src/storage/cloudflare/blob-gc.ts. Sundays 04:00 UTC = low traffic.
+[triggers]
+crons = ["0 4 * * SUN"]
 
 # ── Observability ────────────────────────────────────────────────────
 [observability]

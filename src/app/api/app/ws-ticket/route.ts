@@ -16,8 +16,13 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { HUOZI_CLOUD_KEY_COOKIE } from "@/lib/drive/mcp-client";
+import { cloudFetch } from "@/lib/cloud-fetch";
 
-const CLOUD_URL = process.env.HUOZI_CLOUD_URL ?? "https://cloud.huozi.app";
+// Public URL is still needed to derive the wss:// endpoint we hand to the
+// browser — browsers can't reach service bindings, so the websocket has
+// to dial the real public origin.
+const CLOUD_PUBLIC_URL =
+  process.env.HUOZI_CLOUD_URL ?? "https://cloud.huozi.app";
 
 export async function GET(): Promise<NextResponse> {
   const cookieStore = await cookies();
@@ -31,7 +36,7 @@ export async function GET(): Promise<NextResponse> {
 
   let res: Response;
   try {
-    res = await fetch(`${CLOUD_URL}/events/mint-ticket`, {
+    res = await cloudFetch("/events/mint-ticket", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}` },
       cache: "no-store",
@@ -67,8 +72,10 @@ export async function GET(): Promise<NextResponse> {
     );
   }
 
-  // Derive wss:// URL from the cloud URL (works for both localhost http and prod https).
-  const wsUrl = CLOUD_URL.replace(/^http/, "ws") + "/events/ws?ticket=" + encodeURIComponent(body.ticket);
+  // Derive wss:// URL from the public cloud URL (works for both localhost
+  // http and prod https). Browsers can't use service bindings, so we hand
+  // them the real origin.
+  const wsUrl = CLOUD_PUBLIC_URL.replace(/^http/, "ws") + "/events/ws?ticket=" + encodeURIComponent(body.ticket);
 
   return NextResponse.json({
     ok: true,
