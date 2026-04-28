@@ -144,6 +144,7 @@ The huozi.app **marketing site** (landing, blog, /cloud, /edge, /docs, /start) l
 
 - [`packages/huozi-cloud/SPEC.md`](packages/huozi-cloud/SPEC.md) — architecture, tool contracts, audit model, the why behind every decision
 - [`docs/edge-self-host.md`](docs/edge-self-host.md) — Edge deployment in production
+- [`docs/upgrade.md`](docs/upgrade.md) — upgrading an already-deployed huozi (Cloud client refresh + Edge full re-deploy)
 - [`AGENTS.md`](AGENTS.md) — invariants for anyone (human or AI) writing code in this repo
 
 ## License
