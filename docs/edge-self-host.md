@@ -5,7 +5,7 @@ The **Edge** edition of huozi is the open-source self-host build. One Cloudflare
 This guide covers:
 
 1. [What the Edge edition is](#what-the-edge-edition-is) — and what it isn't
-2. [Quick start](#quick-start) — `scripts/edge-deploy-test.sh` end-to-end
+2. [Quick start](#quick-start) — `scripts/edge-deploy.sh` end-to-end
 3. [Environment variables](#environment-variables) — the full surface
 4. [Production deployment](#production-deployment) — custom domain, persistent secrets
 5. [Operations](#operations) — minting more keys, rotating secrets, teardown
@@ -43,7 +43,7 @@ What you don't get (yet):
 
 - Multi-user invites — the data layer supports it (workspace_members, folder_acl_members), but the Edge UI doesn't expose it. You'd need to mint and hand out api_keys manually for now.
 - Email-OTP login — there's no SMTP wired up on Edge. The deployer holds the api_key.
-- Web onboarding — the first key mint is a CLI call (`scripts/edge-deploy-test.sh` does it for you).
+- Web onboarding — the first key mint is a CLI call (`scripts/edge-deploy.sh` does it for you).
 
 ## Quick start
 
@@ -66,7 +66,7 @@ npm install
 **Step 2 — provision the Worker stack**
 
 ```bash
-scripts/edge-deploy-test.sh
+scripts/edge-deploy.sh
 ```
 
 The script is fully unattended. It:
@@ -86,7 +86,7 @@ The script is fully unattended. It:
 Override the inside-huozi workspace slug:
 
 ```bash
-WORKSPACE_SLUG=alice scripts/edge-deploy-test.sh
+WORKSPACE_SLUG=alice scripts/edge-deploy.sh
 ```
 
 **Step 3 — run the Next.js front-end**
@@ -126,7 +126,7 @@ Next.js side (set in `.env.local` or via `set -a; source .huozi-edge.env; set +a
 
 ## Production deployment
 
-The `edge-deploy-test.sh` script gives you a working `*.workers.dev` Worker. For a real deploy you'll typically want:
+The `edge-deploy.sh` script gives you a working `*.workers.dev` Worker. For a real deploy you'll typically want:
 
 - **Custom domain** for the Worker (so MCP endpoint is e.g. `cloud.alice.dev/mcp`)
 - **Custom domain** for the Next.js front-end (where users browse the workspace)
@@ -207,7 +207,7 @@ curl -X POST "$WORKER/admin/revoke-key" \
 **Tear down everything**:
 
 ```bash
-scripts/edge-deploy-test-teardown.sh
+scripts/edge-teardown.sh
 ```
 
 Deletes Worker, D1 (and all data), R2 (and all blobs), local toml, local env file. Cannot be undone.
