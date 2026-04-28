@@ -24,6 +24,9 @@ import type { StorageBackend } from '../../storage/types.js'
 import { buildTool } from '../../Tool.js'
 import type { Tool, ToolResult, ToolUseContext } from '../../types.js'
 import { canonicalizePath } from '../../utils/path.js'
+import { classifyOfficeUpload } from './convert/office-detect.js'
+import { convertDocxToMarkdown } from './convert/docx-to-md.js'
+import { convertXlsxToSheets } from './convert/xlsx-to-sheets.js'
 import { extractZip } from './zip.js'
 
 export const UPLOAD_TOOL_NAME = 'huozi_upload'
@@ -63,12 +66,19 @@ const extractedEntrySchema = z.object({
   blob_sha: z.string(),
 })
 
+const derivativeSchema = z.object({
+  path: z.string(),
+  size: z.number(),
+  blob_sha: z.string(),
+  kind: z.enum(['markdown', 'csv', 'image', 'readme']),
+})
+
 export const uploadOutputSchema = z.object({
   ok: z.literal(true),
-  kind: z.enum(['file', 'archive']),
+  kind: z.enum(['file', 'archive', 'office']),
   file_path: z.string(),
   size: z.number(),
-  blob_sha: z.string().optional(), // unset for archives (per-entry shas live in `extracted`)
+  blob_sha: z.string().optional(), // unset for archives + office (per-entry shas live in `extracted` / `derivatives`)
   content_type: z.string().optional(),
   commit_sha: z.string(),
   // Populated only when extract=true and file_path is a zip.
@@ -80,6 +90,13 @@ export const uploadOutputSchema = z.object({
       total_bytes: z.number(),
     })
     .optional(),
+  // Populated only for Office uploads (.docx / .xlsx). Lists the converted
+  // files actually written to the workspace; the original Office bytes are
+  // NOT retained.
+  derivatives: z.array(derivativeSchema).optional(),
+  // Soft warnings from converters (formula resolution loss, dropped images,
+  // empty sheets, etc.). Empty when conversion was clean.
+  warnings: z.array(z.string()).optional(),
 })
 
 export type UploadOutput = z.infer<typeof uploadOutputSchema>
@@ -88,12 +105,16 @@ export function uploadPrompt(): string {
   return `Upload binary or text bytes to the cloud workspace.
 
 Usage:
-- ${UPLOAD_TOOL_NAME} is the right tool for non-text uploads (PDF, image, audio, zip, docx). For UTF-8 text use huozi_write — its diff/render path is richer.
+- ${UPLOAD_TOOL_NAME} is the right tool for non-text uploads (PDF, image, audio, zip, docx, xlsx). For UTF-8 text use huozi_write — its diff/render path is richer.
 - \`file_path\` is the destination. Last-write-wins; no Read-first requirement (you didn't author the file, you're uploading it).
 - \`content_base64\` is standard base64. Inline cap: ${MAX_INLINE_UPLOAD_BYTES / 1024 / 1024} MB raw bytes. Larger files: split, stream via the signed-URL endpoint (see SPEC), or compress.
 - \`content_type\` is optional but recommended for binaries the UI will render — e.g. "image/png", "application/pdf", "audio/mpeg". Without it, downloads fall back to mime-by-extension.
 - \`extract: true\` requires a .zip path. The archive is unpacked into a sibling folder named after the zip (e.g. \`pkg.zip\` → entries under \`pkg/\`); the zip itself is NOT stored. Safety: rejects path traversal (\`../\`), absolute paths, files >50 MB uncompressed each, archives >50 MB total or >5000 entries.
-- Returned \`file_path\` is a workspace-relative path you can hand back to the user (or pass to huozi_share to publish).`
+- Office files are auto-converted (the original is NOT retained):
+    .docx → \`<basename>.md\` plus an \`<basename>.images/\` folder if the doc had images.
+    .xlsx → \`<basename>.sheets/\` folder containing one \`.csv\` per sheet plus a \`README.md\` index. Formulas resolve to their last cached value; cell formatting / charts / merged-cell visuals are lost.
+- Office formats NOT accepted (returned as an error so the user knows to convert): .pptx / .ppt / .doc / .xls / .odt / .ods / .odp / .pages / .numbers / .key. The error message tells the user what to convert to (PDF or .docx/.xlsx) and re-upload.
+- Returned \`file_path\` is the path the agent / user requested. For Office uploads the actual written paths live in \`derivatives[]\`; pass any of those into huozi_share to publish, or huozi_read to fetch the converted text.`
 }
 
 function decodeBase64(s: string): Uint8Array {
@@ -104,8 +125,210 @@ function decodeBase64(s: string): Uint8Array {
   return out
 }
 
+/** Strip a leading directory + trailing extension. "blog/q1.docx" → "q1". */
+function basenameNoExt(path: string): string {
+  const base = path.slice(path.lastIndexOf('/') + 1)
+  const dot = base.lastIndexOf('.')
+  return dot > 0 ? base.slice(0, dot) : base
+}
+
+/** "blog/q1.docx" → "blog/" (with trailing slash, or "" if at root). */
+function dirOf(path: string): string {
+  const i = path.lastIndexOf('/')
+  return i >= 0 ? path.slice(0, i + 1) : ''
+}
+
 export interface UploadToolDeps {
   storage: StorageBackend
+}
+
+async function runDocxUpload(
+  deps: UploadToolDeps,
+  ctx: ToolUseContext,
+  origPath: string,
+  bytes: Uint8Array,
+): Promise<ToolResult<UploadOutput>> {
+  const dir = dirOf(origPath)
+  const stem = basenameNoExt(origPath)
+  // Image folder lives next to the .md file. mammoth needs the relative
+  // src= attribute, which is just `./<stem>.images/` from the .md's POV.
+  const imagesDirRel = `./${stem}.images/`
+  const imagesDirAbs = `${dir}${stem}.images/`
+  const mdPath = `${dir}${stem}.md`
+
+  let conversion
+  try {
+    conversion = await convertDocxToMarkdown(bytes, imagesDirRel)
+  } catch (e) {
+    return {
+      kind: 'error',
+      errorCode: ERR.INVALID_URI,
+      message: `Could not parse .docx: ${e instanceof Error ? e.message : String(e)}`,
+    }
+  }
+
+  const edits: Array<{
+    path: string
+    content: Uint8Array
+    parent_sha?: string | null
+  }> = [
+    {
+      path: mdPath,
+      content: new TextEncoder().encode(conversion.markdown),
+    },
+  ]
+  for (const img of conversion.images) {
+    edits.push({
+      path: imagesDirAbs + img.filename,
+      content: img.bytes,
+    })
+  }
+
+  const batch = await deps.storage.writeBatch({
+    workspaceId: ctx.workspaceId,
+    edits,
+    author: { id: ctx.principalId, type: ctx.principalType },
+    message: `upload: ${origPath} → ${mdPath}${conversion.images.length ? ` (+ ${conversion.images.length} images)` : ''}`,
+    allOrNothing: true,
+  })
+
+  if (batch.aborted || batch.commit_sha === null) {
+    return {
+      kind: 'error',
+      errorCode: ERR.INTERNAL,
+      message: 'docx conversion write was aborted',
+    }
+  }
+
+  // Refresh ReadFileState for the markdown file so subsequent huozi_edit
+  // calls don't trip NOT_READ_FIRST.
+  const mdResult = batch.results.find((r) => r.path === mdPath)
+  if (mdResult?.success && mdResult.record) {
+    ctx.readFileState.set(mdPath, {
+      blob_sha: mdResult.record.blob_sha,
+      offset: undefined,
+      limit: undefined,
+      readAt: Date.now(),
+    })
+  }
+
+  const derivatives = batch.results
+    .filter(
+      (r): r is typeof r & { record: NonNullable<typeof r.record> } =>
+        r.success && !!r.record,
+    )
+    .map((r) => ({
+      path: r.path,
+      size: r.record.size,
+      blob_sha: r.record.blob_sha,
+      kind: (r.path === mdPath ? 'markdown' : 'image') as 'markdown' | 'image',
+    }))
+
+  return {
+    kind: 'success',
+    data: {
+      ok: true,
+      kind: 'office',
+      file_path: origPath,
+      size: bytes.length,
+      commit_sha: batch.commit_sha,
+      derivatives,
+      ...(conversion.warnings.length
+        ? { warnings: conversion.warnings }
+        : {}),
+    },
+  }
+}
+
+async function runXlsxUpload(
+  deps: UploadToolDeps,
+  ctx: ToolUseContext,
+  origPath: string,
+  bytes: Uint8Array,
+): Promise<ToolResult<UploadOutput>> {
+  const dir = dirOf(origPath)
+  const stem = basenameNoExt(origPath)
+  const sheetsDirAbs = `${dir}${stem}.sheets/`
+
+  let conversion
+  try {
+    conversion = await convertXlsxToSheets(bytes)
+  } catch (e) {
+    return {
+      kind: 'error',
+      errorCode: ERR.INVALID_URI,
+      message: `Could not parse .xlsx: ${e instanceof Error ? e.message : String(e)}`,
+    }
+  }
+
+  if (conversion.sheets.length === 0) {
+    return {
+      kind: 'error',
+      errorCode: ERR.INVALID_URI,
+      message: `xlsx had no usable sheets (all empty?)`,
+    }
+  }
+
+  const readmePath = `${sheetsDirAbs}README.md`
+  const edits: Array<{
+    path: string
+    content: Uint8Array
+    parent_sha?: string | null
+  }> = [
+    {
+      path: readmePath,
+      content: new TextEncoder().encode(conversion.readme),
+    },
+  ]
+  for (const s of conversion.sheets) {
+    edits.push({
+      path: sheetsDirAbs + s.filename,
+      content: new TextEncoder().encode(s.csv),
+    })
+  }
+
+  const batch = await deps.storage.writeBatch({
+    workspaceId: ctx.workspaceId,
+    edits,
+    author: { id: ctx.principalId, type: ctx.principalType },
+    message: `upload: ${origPath} → ${sheetsDirAbs} (${conversion.sheets.length} sheets)`,
+    allOrNothing: true,
+  })
+
+  if (batch.aborted || batch.commit_sha === null) {
+    return {
+      kind: 'error',
+      errorCode: ERR.INTERNAL,
+      message: 'xlsx conversion write was aborted',
+    }
+  }
+
+  const derivatives = batch.results
+    .filter(
+      (r): r is typeof r & { record: NonNullable<typeof r.record> } =>
+        r.success && !!r.record,
+    )
+    .map((r) => ({
+      path: r.path,
+      size: r.record.size,
+      blob_sha: r.record.blob_sha,
+      kind: (r.path === readmePath ? 'readme' : 'csv') as 'readme' | 'csv',
+    }))
+
+  return {
+    kind: 'success',
+    data: {
+      ok: true,
+      kind: 'office',
+      file_path: origPath,
+      size: bytes.length,
+      commit_sha: batch.commit_sha,
+      derivatives,
+      ...(conversion.warnings.length
+        ? { warnings: conversion.warnings }
+        : {}),
+    },
+  }
 }
 
 export function createUploadTool(
@@ -129,6 +352,17 @@ export function createUploadTool(
     renderResult(data) {
       if (data.kind === 'archive' && data.extracted) {
         return `✓ Extracted ${data.extracted.count} files from ${data.file_path} → ${data.extracted.dest_prefix} (${data.extracted.total_bytes} bytes)`
+      }
+      if (data.kind === 'office' && data.derivatives) {
+        const lines = [
+          `✓ Converted ${data.file_path} (original not retained)`,
+          ...data.derivatives.map((d) => `  - ${d.path}`),
+        ]
+        if (data.warnings && data.warnings.length) {
+          lines.push('Warnings:')
+          for (const w of data.warnings) lines.push(`  • ${w}`)
+        }
+        return lines.join('\n')
       }
       return `✓ Uploaded ${data.file_path} (${data.size} bytes${data.content_type ? `, ${data.content_type}` : ''})`
     },
@@ -169,7 +403,31 @@ export function createUploadTool(
         }
       }
 
-      // ── 4. Extract branch ───────────────────────────────────────────
+      // ── 4. Office classification — convert / reject / passthrough ───
+      // Decided BEFORE extract because (a) extract: true on a .docx is a
+      // category error worth failing fast, (b) zip auto-extract for an
+      // archive that happens to contain Office files is still passthrough
+      // — we don't recursively convert.
+      const office = classifyOfficeUpload(path)
+
+      if (office.kind === 'rejected' && !input.extract) {
+        return {
+          kind: 'error',
+          errorCode: ERR.INVALID_URI,
+          message: office.rejectReason ?? 'Unsupported Office format',
+          meta: { ext: office.ext },
+        }
+      }
+
+      if (office.kind === 'docx' && !input.extract) {
+        return await runDocxUpload(deps, ctx, path, bytes)
+      }
+
+      if (office.kind === 'xlsx' && !input.extract) {
+        return await runXlsxUpload(deps, ctx, path, bytes)
+      }
+
+      // ── 5. Extract branch ───────────────────────────────────────────
       if (input.extract) {
         if (!path.toLowerCase().endsWith('.zip')) {
           return {
