@@ -15,6 +15,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useWorkspaceNav } from "@/components/workspace/nav-pending";
 import {
   HUOZI_LIVE_COMMIT_EVENT,
   type CommitEvent,
@@ -156,10 +157,29 @@ function RecentRow({
         ? "text-red-500"
         : "text-foreground/70";
 
+  const href = `/workspace/view?path=${encodeURIComponent(entry.path)}`;
+  const { navigate } = useWorkspaceNav();
+
   return (
     <li>
       <Link
-        href={`/workspace/view?path=${encodeURIComponent(entry.path)}`}
+        href={href}
+        onClick={(e) => {
+          // Keep modifier-clicks (cmd/ctrl/middle/shift) as
+          // open-in-new-tab; intercept plain clicks so the main column
+          // flips to the skeleton without waiting for the server.
+          if (
+            e.metaKey ||
+            e.ctrlKey ||
+            e.shiftKey ||
+            e.altKey ||
+            e.button === 1
+          ) {
+            return;
+          }
+          e.preventDefault();
+          navigate(href);
+        }}
         className={`group relative flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors
                    ${current ? "bg-muted/60" : "hover:bg-muted/40"}
                    ${flashing ? "ring-1 ring-accent/60 bg-accent/10 animate-pulse" : ""}`}

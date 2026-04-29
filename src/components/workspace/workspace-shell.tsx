@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FileTree, type MemberLite } from "./file-tree";
 import { RecentPanel } from "./recent-panel";
+import { NavPendingGate, WorkspaceNavProvider } from "./nav-pending";
 import { useT } from "@/lib/i18n/context";
 import type { RecentEntry } from "@/lib/drive/mcp-client";
 
@@ -79,6 +80,7 @@ export function WorkspaceShell({
   );
 
   return (
+    <WorkspaceNavProvider>
     <div className="flex flex-col lg:flex-row flex-1 min-h-0">
       {/* Mobile top strip (hamburger) — hidden on lg+.
           Exit / language now live in the AppHeader's UserMenu, so this
@@ -138,9 +140,12 @@ export function WorkspaceShell({
 
       {/* Main content */}
       <main className="flex-1 min-w-0">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 py-8">{children}</div>
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 py-8">
+          <NavPendingGate>{children}</NavPendingGate>
+        </div>
       </main>
     </div>
+    </WorkspaceNavProvider>
   );
 }
 

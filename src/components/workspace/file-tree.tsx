@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { FileIcon } from "@/components/workspace/file-icon";
 import { FolderAclModal } from "@/components/workspace/folder-acl-modal";
+import { useWorkspaceNav } from "@/components/workspace/nav-pending";
 
 export interface MemberLite {
   user_id: string;
@@ -367,17 +368,60 @@ function TreeNode({
     );
   }
 
+  const href = `/workspace/view?path=${encodeURIComponent(node.path)}`;
   return (
     <li>
-      <Link
-        href={`/workspace/view?path=${encodeURIComponent(node.path)}`}
-        onClick={onNavigate}
-        className={`flex items-center gap-1.5 py-1.5 rounded transition-colors ${selected ? "bg-accent/10 text-accent" : "hover:bg-muted/60"}`}
-        style={{ paddingLeft, paddingRight: 8 }}
-      >
-        <FileIcon name={node.name} isDir={false} />
-        <span className="text-sm font-mono truncate">{node.name}</span>
-      </Link>
+      <FileLeafLink
+        href={href}
+        onNavigate={onNavigate}
+        selected={selected}
+        paddingLeft={paddingLeft}
+        name={node.name}
+      />
     </li>
+  );
+}
+
+function FileLeafLink({
+  href,
+  onNavigate,
+  selected,
+  paddingLeft,
+  name,
+}: {
+  href: string;
+  onNavigate?: () => void;
+  selected: boolean;
+  paddingLeft: number;
+  name: string;
+}) {
+  const { navigate } = useWorkspaceNav();
+  return (
+    <Link
+      href={href}
+      onClick={(e) => {
+        // Let modifier-clicks (cmd/ctrl/middle/shift) keep their default
+        // open-in-new-tab behavior. Plain clicks go through our
+        // transition-aware navigate so the main column flips to the
+        // skeleton immediately.
+        if (
+          e.metaKey ||
+          e.ctrlKey ||
+          e.shiftKey ||
+          e.altKey ||
+          e.button === 1
+        ) {
+          return;
+        }
+        e.preventDefault();
+        onNavigate?.();
+        navigate(href);
+      }}
+      className={`flex items-center gap-1.5 py-1.5 rounded transition-colors ${selected ? "bg-accent/10 text-accent" : "hover:bg-muted/60"}`}
+      style={{ paddingLeft, paddingRight: 8 }}
+    >
+      <FileIcon name={name} isDir={false} />
+      <span className="text-sm font-mono truncate">{name}</span>
+    </Link>
   );
 }
