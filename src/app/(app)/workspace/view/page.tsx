@@ -163,7 +163,7 @@ async function FileView({
 
   return (
     <FullscreenProvider>
-      <div className="space-y-6">
+      <div className="flex flex-col gap-6 flex-1 min-h-0">
         <LiveUpdateBanner watchPath={path} />
         {/* Path + actions */}
         <div>
@@ -253,8 +253,10 @@ async function FileView({
           </>
         )}
 
-        {/* Read-only-by-design hint */}
-        <div className="rounded-lg border border-dashed border-border p-4 text-xs text-muted-foreground">
+        {/* Read-only-by-design hint — sticks to the bottom of the main
+            column when content is short, pushed down by mt-auto;
+            otherwise flows naturally below the content. */}
+        <div className="mt-auto rounded-lg border border-dashed border-border p-4 text-xs text-muted-foreground">
           <strong className="text-foreground">{t("view.readOnly.title")}</strong>{" "}
           {t("view.readOnly.body")}
         </div>

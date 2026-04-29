@@ -139,9 +139,11 @@ export function WorkspaceShell({
       </div>
 
       {/* Main content */}
-      <main className="flex-1 min-w-0 relative">
+      <main className="flex-1 min-w-0 relative flex flex-col">
         <NavLoadingBar />
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 py-8">{children}</div>
+        <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 py-8 flex-1 flex flex-col">
+          {children}
+        </div>
       </main>
     </div>
     </WorkspaceNavProvider>
