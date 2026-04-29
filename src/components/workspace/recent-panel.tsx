@@ -13,6 +13,7 @@
  */
 
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   HUOZI_LIVE_COMMIT_EVENT,
@@ -34,8 +35,19 @@ interface LiveEntry extends RecentEntry {
   freshTag?: number;
 }
 
-export function RecentPanel({ initial, currentPath }: RecentPanelProps) {
+export function RecentPanel({
+  initial,
+  currentPath: currentPathProp,
+}: RecentPanelProps) {
   const t = useT();
+  // Same trick as FileTree: when the caller can't supply currentPath
+  // (server layouts have no searchParams), fall back to the URL so the
+  // active-row highlight updates immediately on navigation.
+  const pathname = usePathname();
+  const search = useSearchParams();
+  const derivedPath =
+    pathname === "/workspace/view" ? (search.get("path") ?? null) : null;
+  const currentPath = currentPathProp ?? derivedPath;
   const [entries, setEntries] = useState<LiveEntry[]>(initial);
 
   useEffect(() => {

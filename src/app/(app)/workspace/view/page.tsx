@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { WorkspaceShell } from "@/components/workspace/workspace-shell";
 import { FileRenderer } from "@/components/workspace/file-renderer";
 import { CloudLiveEvents } from "@/components/workspace/cloud-live-events";
 import { LiveUpdateBanner } from "@/components/workspace/live-update-banner";
@@ -18,15 +17,8 @@ import { ShareFullscreenButton } from "@/components/workspace/share-fullscreen-b
 import { extractPages } from "@/lib/html/extract-pages";
 import { detectHuoziFormat } from "@/lib/html/detect-format";
 import { getServerT } from "@/lib/i18n/server";
-import { getIdentity } from "@/lib/identity";
 import {
-  cloudAdminListFolderAcls,
-  cloudAdminListMembers,
-} from "@/lib/drive/admin";
-import {
-  cloudGlob,
   cloudRead,
-  cloudRecent,
   HUOZI_CLOUD_KEY_COOKIE,
   stripCatN,
   type McpResult,
@@ -66,33 +58,10 @@ export default async function CloudFileView({ searchParams }: SearchParams) {
   }
   if (!path) redirect("/workspace");
 
-  const identity = await getIdentity();
-  const principal = await identity.getPrincipal();
-
-  // Tree always needs the file list.
-  const [globRes, readResInitial, recentRes, members, folderAcls] =
-    await Promise.all([
-      cloudGlob(key, "**/*"),
-      cloudRead(key, path, { offset: paramOffset, limit: paramLimit }),
-      cloudRecent(key, 20),
-      principal && principal.workspaceId
-        ? cloudAdminListMembers(principal.workspaceId).catch(() => [])
-        : Promise.resolve([]),
-      principal && principal.workspaceId
-        ? cloudAdminListFolderAcls({
-            workspaceId: principal.workspaceId,
-          }).catch(() => [])
-        : Promise.resolve([]),
-    ]);
-  const recent = recentRes.ok ? recentRes.entries : [];
-  const me = members.find((m) => m.user_id === principal?.userId);
-  const visibleAcls =
-    me?.role === "owner"
-      ? folderAcls
-      : folderAcls.filter((a) =>
-          principal ? a.members.includes(principal.userId) : false,
-        );
-  const privatePrefixes = new Set(visibleAcls.map((a) => a.path_prefix));
+  const readResInitial = await cloudRead(key, path, {
+    offset: paramOffset,
+    limit: paramLimit,
+  });
 
   // Auto-fallback: if the server said FILE_TOO_LARGE on a default (unpaginated)
   // read, re-request with a sensible page size. This keeps the Web UI usable
@@ -112,44 +81,25 @@ export default async function CloudFileView({ searchParams }: SearchParams) {
     didAutoPaginate = true;
   }
 
-  const paths = globRes.ok ? globRes.data.filenames : [];
-  const numFiles = globRes.ok ? globRes.data.numFiles : 0;
-  const truncated = globRes.ok ? globRes.data.truncated : false;
-
   // Resolved offset/limit (what the actual request used)
   const effectiveOffset = paramOffset ?? (didAutoPaginate ? 1 : undefined);
   const effectiveLimit = paramLimit ?? (didAutoPaginate ? DEFAULT_PAGE_LINES : undefined);
   const paginated = effectiveOffset !== undefined || effectiveLimit !== undefined;
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <WorkspaceShell
-        paths={paths}
-        numFiles={numFiles}
-        truncated={truncated}
-        currentPath={path}
-        recent={recent}
-        privatePrefixes={privatePrefixes}
-        members={members.map((m) => ({
-          user_id: m.user_id,
-          email: m.email,
-          display_name: m.display_name,
-        }))}
-        currentUserId={principal?.userId}
-      >
-        <FileView
-          path={path}
-          readRes={readRes}
-          wantRaw={wantRaw}
-          paginated={paginated}
-          didAutoPaginate={didAutoPaginate}
-          offset={effectiveOffset}
-          limit={effectiveLimit}
-          t={t}
-        />
-      </WorkspaceShell>
+    <>
+      <FileView
+        path={path}
+        readRes={readRes}
+        wantRaw={wantRaw}
+        paginated={paginated}
+        didAutoPaginate={didAutoPaginate}
+        offset={effectiveOffset}
+        limit={effectiveLimit}
+        t={t}
+      />
       <CloudLiveEvents mode="file" watchPath={path} />
-    </div>
+    </>
   );
 }
 
@@ -413,12 +363,6 @@ async function FileBody({
       <FileRenderer path={path} content={raw} raw={wantRaw} />
     </div>
   );
-}
-
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
 }
 
 function isStructured(path: string): boolean {

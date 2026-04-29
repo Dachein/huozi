@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { FileIcon } from "@/components/workspace/file-icon";
 import { FolderAclModal } from "@/components/workspace/folder-acl-modal";
@@ -110,12 +111,22 @@ function saveExpanded(s: Set<string>): void {
 
 export function FileTree({
   paths,
-  currentPath,
+  currentPath: currentPathProp,
   onNavigate,
   privatePrefixes,
   members,
   currentUserId,
 }: FileTreeProps) {
+  // When the caller doesn't pass currentPath (the new view/layout.tsx
+  // can't read searchParams from a Server Layout), derive it from the
+  // URL on the client so the highlight updates as soon as the user
+  // clicks a Link — before the new page.tsx finishes loading.
+  const pathname = usePathname();
+  const search = useSearchParams();
+  const derivedPath =
+    pathname === "/workspace/view" ? (search.get("path") ?? null) : null;
+  const currentPath = currentPathProp ?? derivedPath;
+
   const root = useMemo(() => buildTree(paths), [paths]);
 
   // Expanded folders live in state + localStorage.

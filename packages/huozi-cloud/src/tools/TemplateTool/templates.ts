@@ -66,6 +66,15 @@ const DECK_HTML = `<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="huozi:format" content="deck">
 <meta name="huozi:viewport" content="aspect-ratio:16/9">
+<!-- Card / OG meta — fill before publishing. og:image is optional;
+     leave blank to use the huozi default banner. -->
+<title>Untitled</title>
+<meta name="description" content="">
+<meta property="og:title" content="">
+<meta property="og:description" content="">
+<meta property="og:type" content="article">
+<meta property="og:image" content="">
+<meta name="twitter:card" content="summary_large_image">
 <style>
 :root{
   --color-bg:#ffffff;
@@ -207,6 +216,15 @@ const STORY_HTML = `<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="huozi:format" content="story">
 <meta name="huozi:viewport" content="aspect-ratio:9/16; max-width:360px">
+<!-- Card / OG meta — fill before publishing. og:image is optional;
+     leave blank to use the huozi default banner. -->
+<title>Untitled</title>
+<meta name="description" content="">
+<meta property="og:title" content="">
+<meta property="og:description" content="">
+<meta property="og:type" content="article">
+<meta property="og:image" content="">
+<meta name="twitter:card" content="summary_large_image">
 <style>
 :root{
   --color-bg:#0f0f10;
@@ -314,6 +332,15 @@ const PAPER_HTML = `<!doctype html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="huozi:format" content="paper">
 <meta name="huozi:viewport" content="max-height:80vh">
+<!-- Card / OG meta — fill before publishing. og:image is optional;
+     leave blank to use the huozi default banner. -->
+<title>Untitled</title>
+<meta name="description" content="">
+<meta property="og:title" content="">
+<meta property="og:description" content="">
+<meta property="og:type" content="article">
+<meta property="og:image" content="">
+<meta name="twitter:card" content="summary_large_image">
 <style>
 :root{
   --color-bg:#ffffff;
@@ -406,6 +433,15 @@ const MOBILE_HTML = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="huozi:format" content="mobile">
+<!-- Card / OG meta — fill before publishing. og:image is optional;
+     leave blank to use the huozi default banner. -->
+<title>Untitled</title>
+<meta name="description" content="">
+<meta property="og:title" content="">
+<meta property="og:description" content="">
+<meta property="og:type" content="article">
+<meta property="og:image" content="">
+<meta name="twitter:card" content="summary_large_image">
 <style>
 :root{
   --color-bg:#ffffff;
@@ -467,6 +503,15 @@ const WEB_HTML = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="huozi:format" content="web">
+<!-- Card / OG meta — fill before publishing. og:image is optional;
+     leave blank to use the huozi default banner. -->
+<title>Untitled</title>
+<meta name="description" content="">
+<meta property="og:title" content="">
+<meta property="og:description" content="">
+<meta property="og:type" content="article">
+<meta property="og:image" content="">
+<meta name="twitter:card" content="summary_large_image">
 <style>
 :root{
   --color-bg:#ffffff;

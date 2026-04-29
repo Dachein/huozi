@@ -7,6 +7,8 @@ import { processHtmlDirect } from "@/lib/html/sanitizer";
 import { processChartComponents } from "@/lib/html/chart-components";
 import { extractPages, type PageEntry } from "@/lib/html/extract-pages";
 import { detectHuoziFormat, type HuoziFormat } from "@/lib/html/detect-format";
+import { extractShareMeta } from "@/lib/share-meta";
+import { parseMarkdown } from "@/lib/share-meta/extract-markdown";
 import { ShareViewer } from "@/components/p/share-viewer";
 
 export const dynamic = "force-dynamic";
@@ -23,11 +25,38 @@ export async function generateMetadata({
   if (!res.ok) {
     return { title: "Not found — huozi" };
   }
-  const base = res.data.file_path.split("/").pop() ?? res.data.file_path;
+  const share = res.data;
+  const text = share.locked === true ? undefined : share.text;
+  const meta = extractShareMeta(share.file_path, text);
+  const url = `/p/${slug}`;
+
   return {
-    title: `${base} — huozi`,
-    description: "A shared file on huozi.app.",
-    robots: { index: false, follow: false },
+    title: meta.title,
+    description: meta.description,
+    keywords: meta.keywords,
+    authors: meta.authors?.map((name) => ({ name })),
+    alternates: { canonical: url },
+    openGraph: {
+      type: meta.type,
+      title: meta.title,
+      description: meta.description,
+      url,
+      siteName: "活字 Huozi",
+      locale: meta.locale,
+      images: [{ url: meta.image }],
+    },
+    twitter: {
+      card: meta.twitterCard,
+      title: meta.title,
+      description: meta.description,
+      images: [meta.image],
+    },
+    // Locked shares stay out of indexes; everything else can be indexed iff the
+    // author hasn't otherwise opted out via a robots <meta> in the file.
+    robots:
+      share.locked === true
+        ? { index: false, follow: false }
+        : { index: true, follow: true },
   };
 }
 
@@ -42,7 +71,10 @@ async function renderForPath(
 ): Promise<string | null> {
   const e = ext(filePath);
   if (e === "md" || e === "mdx") {
-    return await renderMarkdown(text);
+    // Strip YAML frontmatter before passing to remark — generateMetadata read
+    // the same frontmatter upstream, so we're not losing information.
+    const { content } = parseMarkdown(text);
+    return await renderMarkdown(content);
   }
   if (e === "html" || e === "htm") {
     const { html } = processHtmlDirect(processChartComponents(text));
