@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FileTree, type MemberLite } from "./file-tree";
 import { RecentPanel } from "./recent-panel";
-import { NavPendingGate, WorkspaceNavProvider } from "./nav-pending";
+import { NavLoadingBar, WorkspaceNavProvider } from "./nav-pending";
 import { useT } from "@/lib/i18n/context";
 import type { RecentEntry } from "@/lib/drive/mcp-client";
 
@@ -139,10 +139,9 @@ export function WorkspaceShell({
       </div>
 
       {/* Main content */}
-      <main className="flex-1 min-w-0">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 py-8">
-          <NavPendingGate>{children}</NavPendingGate>
-        </div>
+      <main className="flex-1 min-w-0 relative">
+        <NavLoadingBar />
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 py-8">{children}</div>
       </main>
     </div>
     </WorkspaceNavProvider>

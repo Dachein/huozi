@@ -92,6 +92,20 @@ body::before {
   100% { opacity: 1; filter: blur(0); transform: translateY(0); }
 }
 
+/* Indeterminate top progress bar — used by WorkspaceShell during
+   client-side navigation. A narrow band sweeps left → right with a
+   gentle scale pulse, evoking the ink-brush motif rather than a
+   mechanical blue Chrome bar. */
+@keyframes loading-bar {
+  0%   { transform: translateX(-40%) scaleX(0.4); }
+  50%  { transform: translateX(50%)  scaleX(0.7); }
+  100% { transform: translateX(220%) scaleX(0.3); }
+}
+.animate-loading-bar {
+  animation: loading-bar 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  transform-origin: left center;
+}
+
 .animate-float {
   animation: float 8s ease-in-out infinite;
 }

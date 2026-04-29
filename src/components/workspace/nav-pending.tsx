@@ -52,36 +52,24 @@ export function useWorkspaceNav(): WorkspaceNav {
 }
 
 /**
- * Renders `{children}` when no navigation is pending, otherwise renders
- * a skeleton — same shape as the file-view header + body so the layout
- * doesn't jump when content arrives.
+ * Top-of-column indeterminate progress bar — visible only while a
+ * navigation is in flight. We deliberately do NOT swap `{children}`
+ * for a skeleton: pages here are full reading surfaces, not card
+ * lists, so a structural skeleton looks like a blank screen. The old
+ * page stays visible (the user already clicked, they know it's
+ * about to change) and the bar communicates "working on it".
  */
-export function NavPendingGate({ children }: { children: ReactNode }) {
+export function NavLoadingBar() {
   const { isPending } = useWorkspaceNav();
-  if (isPending) return <ViewSkeleton />;
-  return <>{children}</>;
-}
-
-function ViewSkeleton() {
+  if (!isPending) return null;
   return (
-    <div className="space-y-6 animate-pulse" aria-busy="true" aria-live="polite">
-      <div>
-        <div className="h-3 w-40 rounded bg-muted/60 mb-3" />
-        <div className="flex items-center gap-2">
-          <div className="h-6 w-2/3 rounded bg-muted/70" />
-          <div className="ml-auto h-6 w-20 rounded bg-muted/50" />
-          <div className="h-6 w-20 rounded bg-muted/50" />
-        </div>
-      </div>
-      <div className="space-y-3 pt-2">
-        <div className="h-4 w-11/12 rounded bg-muted/50" />
-        <div className="h-4 w-10/12 rounded bg-muted/50" />
-        <div className="h-4 w-9/12 rounded bg-muted/40" />
-        <div className="h-4 w-11/12 rounded bg-muted/50" />
-        <div className="h-4 w-8/12 rounded bg-muted/40" />
-        <div className="h-4 w-10/12 rounded bg-muted/50" />
-        <div className="h-4 w-7/12 rounded bg-muted/40" />
-      </div>
+    <div
+      role="progressbar"
+      aria-busy="true"
+      aria-label="Loading"
+      className="pointer-events-none absolute inset-x-0 top-0 h-0.5 overflow-hidden z-20"
+    >
+      <div className="h-full w-1/3 bg-accent animate-loading-bar" />
     </div>
   );
 }
