@@ -70,7 +70,7 @@ const derivativeSchema = z.object({
   path: z.string(),
   size: z.number(),
   blob_sha: z.string(),
-  kind: z.enum(['markdown', 'csv', 'image', 'readme']),
+  kind: z.enum(['markdown', 'csv', 'image']),
 })
 
 export const uploadOutputSchema = z.object({
@@ -112,7 +112,7 @@ Usage:
 - \`extract: true\` requires a .zip path. The archive is unpacked into a sibling folder named after the zip (e.g. \`pkg.zip\` → entries under \`pkg/\`); the zip itself is NOT stored. Safety: rejects path traversal (\`../\`), absolute paths, files >50 MB uncompressed each, archives >50 MB total or >5000 entries.
 - Office files are auto-converted (the original is NOT retained):
     .docx → \`<basename>.md\` plus an \`<basename>.images/\` folder if the doc had images.
-    .xlsx → \`<basename>.sheets/\` folder containing one \`.csv\` per sheet plus a \`README.md\` index. Formulas resolve to their last cached value; cell formatting / charts / merged-cell visuals are lost.
+    .xlsx → \`<basename>.sheets/\` folder containing one \`.csv\` per sheet (no index file). Formulas resolve to their last cached value; cell formatting / charts / merged-cell visuals are lost. Soft warnings (skipped empty sheets, name collisions) come back in the \`warnings\` field.
 - Office formats NOT accepted (returned as an error so the user knows to convert): .pptx / .ppt / .doc / .xls / .odt / .ods / .odp / .pages / .numbers / .key. The error message tells the user what to convert to (PDF or .docx/.xlsx) and re-upload.
 - Returned \`file_path\` is the path the agent / user requested. For Office uploads the actual written paths live in \`derivatives[]\`; pass any of those into huozi_share to publish, or huozi_read to fetch the converted text.`
 }
@@ -269,17 +269,16 @@ async function runXlsxUpload(
     }
   }
 
-  const readmePath = `${sheetsDirAbs}README.md`
+  // No README — just the CSVs. The file tree itself is the index, and
+  // soft warnings (skipped sheets, name collisions) flow back through
+  // the `warnings` field on the upload result. This keeps `.sheets/`
+  // folders idempotent for re-uploads and additive when an agent later
+  // drops more CSVs into the same folder.
   const edits: Array<{
     path: string
     content: Uint8Array
     parent_sha?: string | null
-  }> = [
-    {
-      path: readmePath,
-      content: new TextEncoder().encode(conversion.readme),
-    },
-  ]
+  }> = []
   for (const s of conversion.sheets) {
     edits.push({
       path: sheetsDirAbs + s.filename,
@@ -312,7 +311,7 @@ async function runXlsxUpload(
       path: r.path,
       size: r.record.size,
       blob_sha: r.record.blob_sha,
-      kind: (r.path === readmePath ? 'readme' : 'csv') as 'readme' | 'csv',
+      kind: 'csv' as const,
     }))
 
   return {

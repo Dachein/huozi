@@ -1,5 +1,7 @@
 /**
- * xlsx → folder of CSVs (one per sheet) + a README.md table of contents.
+ * xlsx → folder of CSVs (one per sheet). No README index — the file tree
+ * itself is the index, and soft warnings come back via the conversion
+ * result so the upload tool can surface them out-of-band.
  *
  * Worker compatibility: SheetJS (xlsx) works in `nodejs_compat` mode without
  * extra polyfill. We give it raw bytes via `XLSX.read(bytes, { type: 'buffer' })`.
@@ -24,7 +26,7 @@
  * mechanically convenient but didn't match what the user saw.
  *
  * Empty sheets are skipped — no point in 0-row CSV files cluttering the
- * tree. The README still lists them in the warnings if any were dropped.
+ * tree. They show up in the returned warnings.
  *
  * CSV escaping: we don't use `XLSX.utils.sheet_to_csv` because it doesn't
  * quote bare `\n` (it only quotes `\r\n`), which breaks RFC 4180-compliant
@@ -40,13 +42,10 @@ export interface XlsxSheet {
   filename: string
   csv: string
   rowCount: number
-  columnHeaders: string[]
 }
 
 export interface XlsxConversionResult {
   sheets: XlsxSheet[]
-  /** Markdown body for `<basename>.sheets/README.md`. */
-  readme: string
   /** Soft warnings (skipped empty sheets, name-collisions resolved, etc.). */
   warnings: string[]
 }
@@ -144,54 +143,13 @@ export async function convertXlsxToSheets(
     }
 
     const filename = sheetNameToFilename(name, usedFilenames)
-    const headers = rows[0] ?? []
     sheets.push({
       name,
       filename,
       csv: rowsToCsv(rows),
       rowCount: rows.length - 1, // exclude header from "data row" count
-      columnHeaders: headers.slice(0, 16), // cap header preview in README
     })
   }
 
-  return {
-    sheets,
-    readme: buildReadme(sheets, warnings),
-    warnings,
-  }
-}
-
-function buildReadme(sheets: XlsxSheet[], warnings: string[]): string {
-  const lines: string[] = []
-  lines.push(
-    `# Workbook (${sheets.length} sheet${sheets.length === 1 ? '' : 's'})`,
-  )
-  lines.push('')
-  lines.push(
-    `> Auto-converted from a .xlsx upload. Original not retained — formulas were resolved to their last calculated value.`,
-  )
-  lines.push('')
-
-  if (sheets.length > 0) {
-    lines.push('| Sheet | Rows | Columns | File |')
-    lines.push('|---|---|---|---|')
-    for (const s of sheets) {
-      const cols = s.columnHeaders
-        .map((h) => h.replace(/\|/g, '\\|'))
-        .join(' / ')
-      const colsCell =
-        cols.length > 60 ? `${cols.slice(0, 60)}…` : cols || '_(no header row)_'
-      lines.push(
-        `| ${s.name.replace(/\|/g, '\\|')} | ${s.rowCount} | ${colsCell} | [${s.filename}](./${encodeURIComponent(s.filename)}) |`,
-      )
-    }
-  }
-
-  if (warnings.length > 0) {
-    lines.push('')
-    lines.push('## Conversion notes')
-    for (const w of warnings) lines.push(`- ${w}`)
-  }
-
-  return lines.join('\n')
+  return { sheets, warnings }
 }

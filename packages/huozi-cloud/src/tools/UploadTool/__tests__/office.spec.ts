@@ -59,7 +59,7 @@ describe('classifyOfficeUpload', () => {
 })
 
 describe('convertXlsxToSheets', () => {
-  it('produces one CSV per non-empty sheet plus a README', async () => {
+  it('produces one CSV per non-empty sheet (no README index)', async () => {
     const xlsx = buildXlsx([
       {
         name: 'Sales',
@@ -85,8 +85,8 @@ describe('convertXlsxToSheets', () => {
     expect(result.sheets[0]?.filename).toBe('Sales.csv')
     expect(result.sheets[0]?.csv).toContain('Alpha,100,150')
     expect(result.sheets[1]?.csv).toContain('Jan,50')
-    expect(result.readme).toContain('| Sales |')
-    expect(result.readme).toContain('| Forecast |')
+    // README is intentionally NOT generated — the file tree is the index.
+    expect(result).not.toHaveProperty('readme')
   })
 
   it('renders dates in the cell\'s display format', async () => {
@@ -173,7 +173,7 @@ describe('huozi_upload — office integration', () => {
     expect(r.message.toLowerCase()).toContain('docx')
   })
 
-  it('writes xlsx as a sheets folder + README, drops original', async () => {
+  it('writes xlsx as a sheets folder of CSVs only, drops original', async () => {
     const storage = new InMemoryStorage()
     const tool = createUploadTool({ storage })
 
@@ -193,8 +193,11 @@ describe('huozi_upload — office integration', () => {
     expect(r.data.kind).toBe('office')
     expect(r.data.derivatives).toBeDefined()
     const paths = r.data.derivatives!.map((d) => d.path).sort()
-    expect(paths).toContain('reports/q1.sheets/README.md')
-    expect(paths).toContain('reports/q1.sheets/Sales.csv')
+    expect(paths).toEqual(['reports/q1.sheets/Sales.csv'])
+    // No README produced — folder contains CSVs and only CSVs, so an
+    // agent later dropping more sheets in here doesn't have to keep an
+    // index file in sync.
+    expect(paths).not.toContain('reports/q1.sheets/README.md')
 
     // Original xlsx must NOT be in storage.
     const orig = await storage.readFile('ws_test', 'reports/q1.xlsx')
