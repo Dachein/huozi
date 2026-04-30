@@ -19,9 +19,12 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { LocaleGrid } from "@/components/locale-grid";
+import { ThemeGrid } from "@/components/theme-grid";
+import { Icon } from "@/components/icon";
 import { useT } from "@/lib/i18n/context";
 import { isEdge } from "@/lib/edition";
 import type { Principal, Workspace } from "@/lib/identity";
+import type { Theme } from "@/lib/theme";
 
 export interface WorkspaceOption {
   id: string;
@@ -33,12 +36,16 @@ export interface UserMenuProps {
   principal: Principal;
   workspace: Workspace | null;
   memberships: WorkspaceOption[];
+  /** Active theme — passed in from the server layout so the ThemeGrid
+   *  highlights the correct tile without a hydration round-trip. */
+  theme: Theme;
 }
 
 export function UserMenu({
   principal,
   workspace,
   memberships,
+  theme,
 }: UserMenuProps) {
   const pathname = usePathname() ?? "";
   const router = useRouter();
@@ -122,13 +129,14 @@ export function UserMenu({
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className={`group flex items-center gap-1.5 rounded-md px-1.5 py-1 text-sm
+        className={`huozi-app-trigger group flex items-center gap-1.5 rounded-md px-1.5 py-1 text-sm
                    transition-colors min-w-0
                    ${open ? "bg-muted" : "hover:bg-muted/60"}`}
       >
-        <span className="font-serif text-base font-bold text-accent leading-none shrink-0">
-          字
-        </span>
+        <Icon
+          name="brand"
+          className="text-base font-bold text-accent shrink-0"
+        />
         {workspace ? (
           <>
             <span className="hidden sm:inline text-border">/</span>
@@ -144,24 +152,12 @@ export function UserMenu({
             huozi
           </span>
         )}
-        <svg
-          viewBox="0 0 12 12"
-          width="9"
-          height="9"
+        <Icon
+          name="chevron-down"
           className={`opacity-50 transition-transform shrink-0 ${
             open ? "rotate-180" : ""
           }`}
-          aria-hidden="true"
-        >
-          <path
-            d="M2 4 L6 8 L10 4"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        />
       </button>
 
       {open && (
@@ -200,6 +196,14 @@ export function UserMenu({
             <LocaleGrid onPick={() => setOpen(false)} />
           </div>
 
+          {/* Theme row */}
+          <div className="px-3 py-2 border-b border-border/60">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
+              {t("menu.theme")}
+            </div>
+            <ThemeGrid current={theme} onPick={() => setOpen(false)} />
+          </div>
+
           {/* Switch workspace — only renders when the user belongs to 2+
               workspaces. A single-workspace user has nothing to switch to,
               so we keep the menu compact for them. */}
@@ -225,7 +229,11 @@ export function UserMenu({
                     </span>
                   </span>
                   <span className="text-xs shrink-0">
-                    {switching === ws.id ? "…" : "→"}
+                    {switching === ws.id ? (
+                      "…"
+                    ) : (
+                      <Icon name="arrow-right" />
+                    )}
                   </span>
                 </button>
               ))}
@@ -241,21 +249,21 @@ export function UserMenu({
               href="/workspace"
               active={filesActive}
               onClick={() => setOpen(false)}
-              icon={<span className="font-serif text-accent">云</span>}
+              icon={<Icon name="files" className="text-accent" />}
               label={t("menu.nav.files")}
             />
             <NavRow
               href="/workspace/shares"
               active={sharesActive}
               onClick={() => setOpen(false)}
-              icon={<span className="text-[13px]">↗</span>}
+              icon={<Icon name="external" className="text-[13px]" />}
               label={t("menu.nav.shares")}
             />
             <NavRow
               href="/workspace/members"
               active={membersActive}
               onClick={() => setOpen(false)}
-              icon={<span className="font-serif text-accent">人</span>}
+              icon={<Icon name="members" className="text-accent" />}
               label={t("menu.nav.members")}
             />
           </nav>
@@ -267,7 +275,7 @@ export function UserMenu({
             className="flex items-center justify-between px-3 py-2 text-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors border-b border-border/60"
           >
             <span>{t("menu.home")}</span>
-            <span className="text-muted-foreground">↗</span>
+            <Icon name="external" className="text-muted-foreground" />
           </Link>
 
           {/* Exit */}
@@ -278,7 +286,7 @@ export function UserMenu({
               className="w-full flex items-center justify-between px-3 py-2.5 text-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors text-left"
             >
               <span>{exitLabel}</span>
-              <span className="text-xs opacity-60">→</span>
+              <Icon name="arrow-right" className="text-xs opacity-60" />
             </button>
           </form>
         </div>

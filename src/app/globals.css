@@ -1,8 +1,20 @@
-@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Serif+SC:wght@400;700&display=swap");
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
-:root {
+/* ─────────────────────────────────────────────────────────────────────
+ * Theme tokens
+ *
+ * Surface defined in docs/theme-contract.md §2. Default theme below;
+ * additional themes are `[data-theme="<name>"]` selectors that override
+ * any subset of tokens. Components consume tokens via Tailwind v4
+ * `@theme inline` re-exports (color-*, font-*) or via the bare CSS
+ * vars (geometry, motion, decoration).
+ * ───────────────────────────────────────────────────────────────────── */
+
+:root,
+[data-theme="default"] {
+  /* Color */
   --background: #faf8f3;
   --foreground: #2d2519;
   --muted: #f3efe6;
@@ -14,22 +26,153 @@
   --accent-foreground: #faf8f3;
   --destructive: #c4594a;
   --destructive-foreground: #faf8f3;
+  --info: #5b7a99;
+  --info-foreground: #faf8f3;
+
+  /* Typography */
+  --font-sans-stack: var(--font-geist-sans);
+  --font-mono-stack: var(--font-geist-mono);
+  --font-serif-stack: "Noto Serif SC", serif;
+  --font-display-stack: var(--font-serif-stack);
+
+  /* Geometry */
+  --radius: 0.375rem;
+  --radius-sm: 0.25rem;
+  --border-width: 1px;
+  --border-width-strong: 2px;
+
+  /* Shadow */
+  --shadow: 0 4px 12px -2px rgba(45, 37, 25, 0.08), 0 2px 4px -1px rgba(45, 37, 25, 0.04);
+  --shadow-block: var(--shadow);
+
+  /* Motion */
+  --motion-duration: 200ms;
+  --motion-easing: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Decoration toggles — see body::before and `.animate-*` rules below */
+  --decoration-paper-grain: 0.03;
+  --decoration-ink-animations: 1;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #faf8f3;
-    --foreground: #2d2519;
-    --muted: #f3efe6;
-    --muted-foreground: #6b5d4b;
-    --border: #ddd4c2;
-    --primary: #2d2519;
-    --primary-foreground: #faf8f3;
-    --accent: #c4594a;
-    --accent-foreground: #faf8f3;
-    --destructive: #c4594a;
-    --destructive-foreground: #faf8f3;
-  }
+/* ─────────────────────────────────────────────────────────────────────
+ * Reference theme: brutal-mono
+ *
+ * Visual reference: neo-brutalist mono — saturated cadmium yellow
+ * panels, hot-pink CTA, hard right angles, hard offset shadows,
+ * JetBrains Mono throughout. Lines are straight; nothing is rounded
+ * (avatars / circle dots opt back in via `rounded-full` carve-out).
+ *
+ * Used to validate the contract — if a real reskin needs a knob this
+ * theme can't reach, that knob is missing from the contract.
+ * ───────────────────────────────────────────────────────────────────── */
+[data-theme="brutal-mono"] {
+  /* Color — neo-brutalist palette, huozi-flavored.
+   *
+   * Strategy: take Slock's brutal scaffolding (vivid yellow panels,
+   * black borders, white-cream background, cyan info tag) but keep
+   * huozi's brand red (#c4594a) as the accent rather than borrowing
+   * Slock's pink. Result: red + yellow + black is a classic Bauhaus
+   * / 1920s-era poster palette that sits naturally in the brutal
+   * frame without reading as a Slock skin.
+   *
+   * background: cream-white (#fff8e1) — lighter than Slock's by
+   *             a hair to keep the yellow panels feeling like the
+   *             dominant note rather than fighting the page.
+   * muted:      vivid cadmium yellow (#ffd60a) — the sidebar /
+   *             active surface color. Black text on it.
+   * accent:     huozi's Paris Review red (#c4594a) — same as the
+   *             default theme's accent, intentionally. Works on
+   *             both cream and yellow backgrounds.
+   * destructive: bright alarm red (#ef4444) — kept distinct from
+   *             accent so error states still read as urgent.
+   * info:       sky cyan (#7dd3fc) — Slock's runtime-tag cyan,
+   *             reserved for "Claude Code"-style metadata pills
+   *             (component-level usage to come). */
+  --background: #fff8e1;
+  --foreground: #000000;
+  --muted: #ffd60a;
+  --muted-foreground: #000000;
+  --border: #000000;
+  --primary: #000000;
+  --primary-foreground: #fff8e1;
+  --accent: #c4594a;
+  --accent-foreground: #fff8e1;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --info: #7dd3fc;
+  --info-foreground: #000000;
+
+  --font-sans-stack: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --font-mono-stack: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --font-serif-stack: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --font-display-stack: "JetBrains Mono", ui-monospace, Menlo, monospace;
+
+  --radius: 0;
+  --radius-sm: 0;
+  --border-width: 2px;
+  --border-width-strong: 3px;
+
+  --shadow: 4px 4px 0 #000000;
+  --shadow-block: 6px 6px 0 #000000;
+
+  --motion-duration: 80ms;
+  --motion-easing: steps(2, end);
+
+  --decoration-paper-grain: 0;
+  --decoration-ink-animations: 0;
+}
+
+/* Structural override: zero out all border-radii under brutal-mono.
+ *
+ * Tailwind's `rounded-*` utilities don't read `--radius` — they emit
+ * fixed values per scale step. To enforce "lines are straight" across
+ * components without rewriting JSX, we sledgehammer every descendant.
+ *
+ * Carve-out: `rounded-full` keeps avatars / status dots circular —
+ * these are intentional curves that survive the theme's hard-edge
+ * rule (Slock does the same: pixel avatars are square but status
+ * indicators stay round). */
+[data-theme="brutal-mono"] *:not([class*="rounded-full"]) {
+  border-radius: 0 !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Theme-scoped component overrides
+ *
+ * Tokens cover the bulk of theming, but a few high-leverage
+ * components carry visual identity that tokens alone can't reach
+ * (e.g. Slock's signature workspace pill is a specific composition
+ * of background + foreground + shadow + slight rotation — no single
+ * token captures "stamp"). For these, components expose a stable
+ * class name and themes override it under `[data-theme="<name>"]`.
+ *
+ * See `docs/theme-contract.md` §4 for the pattern's contract.
+ * ───────────────────────────────────────────────────────────────────── */
+
+/* Brutal-mono: workspace trigger as a stamped Slock-style pill.
+ * Black background, yellow text, hard offset shadow, small rotation
+ * for the "stamp" feel. All descendant text inverts to yellow
+ * regardless of original Tailwind text-* class. */
+[data-theme="brutal-mono"] .huozi-app-trigger {
+  background: var(--foreground);
+  border: var(--border-width-strong) solid var(--border);
+  box-shadow: var(--shadow);
+  padding: 0.3rem 0.7rem;
+  transform: rotate(-1.5deg);
+  transform-origin: center;
+}
+
+[data-theme="brutal-mono"] .huozi-app-trigger,
+[data-theme="brutal-mono"] .huozi-app-trigger * {
+  color: var(--muted);
+}
+
+/* Hover / open state: lift via increased shadow offset, no other
+ * change. Pills don't change color on interaction in Slock-style. */
+[data-theme="brutal-mono"] .huozi-app-trigger:hover,
+[data-theme="brutal-mono"] .huozi-app-trigger[aria-expanded="true"] {
+  background: var(--foreground);
+  box-shadow: var(--shadow-block);
 }
 
 @theme inline {
@@ -44,9 +187,12 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-serif: "Noto Serif SC", serif;
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --font-sans: var(--font-sans-stack);
+  --font-mono: var(--font-mono-stack);
+  --font-serif: var(--font-serif-stack);
+  --font-display: var(--font-display-stack);
 }
 
 /* Paper texture grain overlay */
@@ -62,7 +208,9 @@ body::before {
   inset: 0;
   pointer-events: none;
   z-index: 50;
-  opacity: 0.03;
+  /* Multiplied by token so a theme can disable the grain by setting
+     --decoration-paper-grain: 0. */
+  opacity: var(--decoration-paper-grain);
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 256px 256px;
@@ -102,24 +250,37 @@ body::before {
   100% { transform: translateX(220%) scaleX(0.3); }
 }
 .animate-loading-bar {
-  animation: loading-bar 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation: loading-bar 1.2s var(--motion-easing) infinite;
   transform-origin: left center;
 }
 
+/* Ink-themed ambient animations — themes that don't fit the ink/mist
+   aesthetic (brutal-mono etc.) set --decoration-ink-animations to 0
+   and these fall back to the rest state. */
 .animate-float {
-  animation: float 8s ease-in-out infinite;
+  animation: float calc(8s / var(--decoration-ink-animations, 1)) ease-in-out infinite;
+  animation-play-state: var(--ink-anim-play, running);
 }
 
 .animate-mist {
-  animation: mist 20s ease-in-out infinite;
+  animation: mist calc(20s / var(--decoration-ink-animations, 1)) ease-in-out infinite;
+  animation-play-state: var(--ink-anim-play, running);
 }
 
 .animate-ink-reveal {
   animation: ink-reveal 1.2s ease-out both;
+  animation-play-state: var(--ink-anim-play, running);
 }
 
 .animate-ink-reveal-slow {
   animation: ink-reveal-slow 1.5s ease-out both;
+  animation-play-state: var(--ink-anim-play, running);
+}
+
+/* When a theme disables ink animations, freeze them at their final
+   state so the layout looks intentional rather than mid-motion. */
+[data-theme="brutal-mono"] {
+  --ink-anim-play: paused;
 }
 
 /* Staggered delays */

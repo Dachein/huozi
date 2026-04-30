@@ -12,6 +12,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useT } from "@/lib/i18n/context";
+import { Icon } from "@/components/icon";
 
 const TIMEOUT_MS = 4500;
 
@@ -48,7 +49,7 @@ export function JoinedToast() {
                  shadow-lg px-4 py-2 text-sm
                  animate-in fade-in slide-in-from-top-3 duration-300"
     >
-      <span className="font-serif text-accent mr-2">入</span>
+      <Icon name="joined" className="text-accent mr-2" />
       {_("joined.toast")
         .split("{slug}")
         .map((chunk, i) => (

@@ -6,6 +6,7 @@ import { JoinedToast } from "@/components/joined-toast";
 import { getIdentity } from "@/lib/identity";
 import { cloudAdminListWorkspaces } from "@/lib/drive/admin";
 import { isCloud, isEdge } from "@/lib/edition";
+import { getTheme } from "@/lib/theme/server";
 
 /**
  * App layout — gated by identity. Anything under `(app)/` requires a
@@ -60,17 +61,19 @@ export default async function AppLayout({
 
   // List of every workspace the user belongs to — feeds the switcher in
   // the user menu (only renders when length > 1). Cheap; one D1 query.
-  const memberships = isCloud()
-    ? await cloudAdminListWorkspaces({ memberId: principal.userId }).catch(
-        () => [],
-      )
-    : [];
+  const [memberships, theme] = await Promise.all([
+    isCloud()
+      ? cloudAdminListWorkspaces({ memberId: principal.userId }).catch(() => [])
+      : Promise.resolve([]),
+    getTheme(),
+  ]);
 
   return (
     <div className="flex flex-col min-h-screen">
       <AppHeader
         principal={principal}
         workspace={workspace}
+        theme={theme}
         memberships={memberships.map((w) => ({
           id: w.id,
           slug: w.slug,
