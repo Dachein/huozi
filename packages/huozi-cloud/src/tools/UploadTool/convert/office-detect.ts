@@ -5,7 +5,7 @@
  * Magic-byte sniffing would be marginally more accurate but costs an
  * additional Uint8Array scan for every upload, and a determined attacker
  * could craft a polyglot anyway. The defense in depth lives in the
- * converters themselves: mammoth / exceljs validate format on parse.
+ * converters themselves: mammoth / SheetJS validate format on parse.
  */
 
 export type OfficeKind =

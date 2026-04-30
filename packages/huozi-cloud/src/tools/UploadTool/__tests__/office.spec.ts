@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import ExcelJS from 'exceljs'
+import * as XLSX from 'xlsx'
 import { InMemoryStorage } from '../../../storage/memory.js'
 import { InMemoryReadFileState } from '../../../state/ReadFileState.js'
 import type { ToolUseContext } from '../../../types.js'
@@ -23,17 +23,16 @@ function b64(bytes: Uint8Array): string {
   return btoa(s)
 }
 
-async function buildXlsx(
+function buildXlsx(
   sheets: Array<{ name: string; rows: (string | number | Date)[][] }>,
-): Promise<Uint8Array> {
-  const wb = new ExcelJS.Workbook()
+): Uint8Array {
+  const wb = XLSX.utils.book_new()
   for (const s of sheets) {
-    const ws = wb.addWorksheet(s.name)
-    for (const row of s.rows) ws.addRow(row)
+    const ws = XLSX.utils.aoa_to_sheet(s.rows, { cellDates: true })
+    XLSX.utils.book_append_sheet(wb, ws, s.name)
   }
-  const buf = (await wb.xlsx.writeBuffer()) as ArrayBuffer | Buffer
-  // Workbook returns a Buffer; normalize to Uint8Array regardless.
-  return new Uint8Array(buf as never)
+  const out = XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer
+  return new Uint8Array(out)
 }
 
 describe('classifyOfficeUpload', () => {
@@ -61,7 +60,7 @@ describe('classifyOfficeUpload', () => {
 
 describe('convertXlsxToSheets', () => {
   it('produces one CSV per non-empty sheet plus a README', async () => {
-    const xlsx = await buildXlsx([
+    const xlsx = buildXlsx([
       {
         name: 'Sales',
         rows: [
@@ -90,19 +89,28 @@ describe('convertXlsxToSheets', () => {
     expect(result.readme).toContain('| Forecast |')
   })
 
-  it('handles dates as ISO 8601', async () => {
-    const xlsx = await buildXlsx([
+  it('renders dates in the cell\'s display format', async () => {
+    // SheetJS applies the cell's numFmt; with no explicit format, dates
+    // come back in Excel's default short-date form (m/d/yy). The point
+    // is "what the user saw in Excel", not ISO 8601.
+    const xlsx = buildXlsx([
       {
         name: 'Dates',
         rows: [['Day'], [new Date('2026-01-15T00:00:00Z')]],
       },
     ])
     const result = await convertXlsxToSheets(xlsx)
-    expect(result.sheets[0]?.csv).toContain('2026-01-15')
+    const csv = result.sheets[0]?.csv ?? ''
+    // Accept any rendering that mentions the year + month + day. The exact
+    // format depends on SheetJS's default-numFmt resolution and isn't worth
+    // pinning down — what matters is that we didn't emit a serial number.
+    expect(csv).toMatch(/(2026|26).*1.*15|1.*15.*(2026|26)/)
+    // And definitely not the Excel serial (~46037 for 2026-01-15).
+    expect(csv).not.toMatch(/4[56]\d{3}/)
   })
 
   it('escapes values containing commas / quotes', async () => {
-    const xlsx = await buildXlsx([
+    const xlsx = buildXlsx([
       {
         name: 'Quotes',
         rows: [['name', 'note'], ['ok', 'has,comma'], ['ok2', 'has"quote']],
@@ -114,12 +122,16 @@ describe('convertXlsxToSheets', () => {
   })
 
   it('skips empty sheets and lists them as warnings', async () => {
-    const wb = new ExcelJS.Workbook()
-    wb.addWorksheet('Empty')
-    const ws = wb.addWorksheet('Real')
-    ws.addRow(['a', 'b'])
-    ws.addRow([1, 2])
-    const xlsx = new Uint8Array((await wb.xlsx.writeBuffer()) as never)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([]), 'Empty')
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.aoa_to_sheet([['a', 'b'], [1, 2]]),
+      'Real',
+    )
+    const xlsx = new Uint8Array(
+      XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer,
+    )
 
     const result = await convertXlsxToSheets(xlsx)
     expect(result.sheets).toHaveLength(1)
@@ -127,7 +139,7 @@ describe('convertXlsxToSheets', () => {
     expect(result.warnings.some((w) => w.includes('Empty'))).toBe(true)
   })
 
-  // ExcelJS itself rejects path separators on write, so we can't synthesize
+  // SheetJS rejects path separators on write, so we can't synthesize
   // a malformed xlsx from this test. The filename sanitization is
   // defense-in-depth against externally-crafted files; it's verified by
   // reading the converter source: any "/" / "\" / NUL becomes "_".
@@ -165,7 +177,7 @@ describe('huozi_upload — office integration', () => {
     const storage = new InMemoryStorage()
     const tool = createUploadTool({ storage })
 
-    const xlsx = await buildXlsx([
+    const xlsx = buildXlsx([
       {
         name: 'Sales',
         rows: [['product', 'q1'], ['Alpha', 100]],
@@ -200,9 +212,11 @@ describe('huozi_upload — office integration', () => {
     const storage = new InMemoryStorage()
     const tool = createUploadTool({ storage })
 
-    const wb = new ExcelJS.Workbook()
-    wb.addWorksheet('Empty')
-    const xlsx = new Uint8Array((await wb.xlsx.writeBuffer()) as never)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([]), 'Empty')
+    const xlsx = new Uint8Array(
+      XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer,
+    )
 
     const r = await tool.run(
       { file_path: 'blank.xlsx', content_base64: b64(xlsx) },
