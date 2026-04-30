@@ -121,6 +121,49 @@ describe('convertXlsxToSheets', () => {
     expect(result.sheets[0]?.csv).toContain('"has""quote"')
   })
 
+  it('strips cosmetic leading rows so CSV row 1 is the data header', async () => {
+    // Mimics the 40237.xlsx shape: row 1 is a banner with one date in B,
+    // rows 2-3 are blank, row 4 is the real header, rows 5+ are data.
+    const xlsx = buildXlsx([
+      {
+        name: 'Report',
+        rows: [
+          ['', new Date('2026-03-03T00:00:00Z'), '', '', ''],
+          ['', '', '', '', ''],
+          ['', '', '', '', ''],
+          ['Country', 'ISIN', 'Underlying', 'Code', 'Score'],
+          ['China', 'US01609W1027', 'Alibaba', 'BABA', 0.75],
+          ['US', 'US92826C8394', 'Visa', 'V', 0.7],
+        ],
+      },
+    ])
+    const result = await convertXlsxToSheets(xlsx)
+    const csv = result.sheets[0]?.csv ?? ''
+    const firstLine = csv.split('\r\n')[0]
+    expect(firstLine).toBe('Country,ISIN,Underlying,Code,Score')
+    expect(csv).toContain('Alibaba')
+    // The skip should be reported as a warning so it's auditable.
+    expect(
+      result.warnings.some((w) => w.includes('Report') && w.includes('skipped')),
+    ).toBe(true)
+  })
+
+  it('does not strip when row 1 already looks like a header', async () => {
+    const xlsx = buildXlsx([
+      {
+        name: 'Clean',
+        rows: [
+          ['Product', 'Q1', 'Q2'],
+          ['Alpha', 100, 150],
+          ['Beta', 200, 250],
+        ],
+      },
+    ])
+    const result = await convertXlsxToSheets(xlsx)
+    expect(result.sheets[0]?.csv.split('\r\n')[0]).toBe('Product,Q1,Q2')
+    expect(result.warnings).toEqual([])
+  })
+
   it('skips empty sheets and lists them as warnings', async () => {
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([]), 'Empty')

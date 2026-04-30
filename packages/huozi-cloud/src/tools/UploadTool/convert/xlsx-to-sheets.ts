@@ -93,6 +93,29 @@ function rowsToCsv(rows: string[][]): string {
   return rows.map((r) => r.map(csvEscape).join(',')).join('\r\n')
 }
 
+/**
+ * Detect how many cosmetic leading rows to skip so CSV row 1 = the table
+ * header. See the call site for the rationale.
+ *
+ * Returns `{ skipped }` rather than mutating, so the caller can decide
+ * whether to also surface a warning.
+ */
+function stripLeadingBannerRows(rows: string[][]): { skipped: number } {
+  if (rows.length === 0) return { skipped: 0 }
+  const window = Math.min(20, rows.length)
+  const counts = rows.slice(0, window).map(
+    (r) => r.filter((c) => c !== '').length,
+  )
+  const peak = Math.max(...counts)
+  // If the top of the sheet is uniformly sparse (peak <= 1), there's no
+  // real table to align to — leave it alone.
+  if (peak <= 1) return { skipped: 0 }
+  const threshold = Math.max(2, Math.ceil(peak / 2))
+  let i = 0
+  while (i < window && counts[i]! < threshold) i++
+  return { skipped: i }
+}
+
 export async function convertXlsxToSheets(
   bytes: Uint8Array,
 ): Promise<XlsxConversionResult> {
@@ -141,6 +164,31 @@ export async function convertXlsxToSheets(
       warnings.push(`Skipped empty sheet "${name}"`)
       continue
     }
+
+    // Strip cosmetic leading rows so CSV row 1 is the actual header.
+    //
+    // Many real-world spreadsheets put a title banner / report date / blank
+    // separator above the data table. Downstream tools (pandas, DuckDB, "open
+    // CSV in Excel") all treat row 1 as the column header by convention, so
+    // when banner rows leak through, every consumer sees garbage headers like
+    // ",3/3/25,," and has to manually skip rows.
+    //
+    // Heuristic: look at the first 20 rows. The "real" data row is the one
+    // with the most non-empty cells (call that count K). We then drop every
+    // leading row whose non-empty count is below K/2 — those are clearly
+    // sparse banners, not part of the table. We stop as soon as we hit a row
+    // that meets the K/2 bar; that row becomes CSV row 1.
+    //
+    // This intentionally does NOT auto-skip dense banners (e.g. a section
+    // title that fills the whole row). For those, leave the data alone — the
+    // agent can huozi_edit if needed.
+    const stripped = stripLeadingBannerRows(rows)
+    if (stripped.skipped > 0) {
+      warnings.push(
+        `Sheet "${name}": skipped ${stripped.skipped} sparse leading row${stripped.skipped === 1 ? '' : 's'} (banner / title) so CSV row 1 is the data header`,
+      )
+    }
+    rows.splice(0, stripped.skipped)
 
     const filename = sheetNameToFilename(name, usedFilenames)
     sheets.push({
