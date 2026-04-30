@@ -49,7 +49,14 @@ export function RecentPanel({
   const derivedPath =
     pathname === "/workspace/view" ? (search.get("path") ?? null) : null;
   const currentPath = currentPathProp ?? derivedPath;
-  const [entries, setEntries] = useState<LiveEntry[]>(initial);
+  // Server-side recent() returns one row per (commit × path), so a file
+  // touched twice shows up twice. Collapse on path here too — same dedup
+  // policy the live-update branch already applies — so the user sees one
+  // row per file with the newest timestamp / op, and the active-row
+  // highlight has exactly one target to bind to.
+  const [entries, setEntries] = useState<LiveEntry[]>(() =>
+    dedupByPath(initial),
+  );
 
   useEffect(() => {
     function onCommit(e: Event) {
@@ -201,6 +208,22 @@ function RecentRow({
       </Link>
     </li>
   );
+}
+
+/**
+ * Keep only the newest row per path. Initial input is already in
+ * newest-first order from the server, so a Set-driven first-seen-wins
+ * pass is correct.
+ */
+function dedupByPath(rows: RecentEntry[]): LiveEntry[] {
+  const seen = new Set<string>();
+  const out: LiveEntry[] = [];
+  for (const r of rows) {
+    if (seen.has(r.path)) continue;
+    seen.add(r.path);
+    out.push(r);
+  }
+  return out;
 }
 
 function opText(
