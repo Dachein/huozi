@@ -118,13 +118,50 @@ export interface SanitizeResult {
   };
 }
 
+export interface ProcessHtmlOptions {
+  /**
+   * Wrap each `<style>` block in `@scope (<scopeTo>) { ... }` so the
+   * embedded HTML's CSS doesn't leak into the host document. Pass the
+   * selector of the host wrapper (e.g. `.huozi-html-host`).
+   *
+   * Top-level `:root`, `html`, and `body` selectors are rewritten to
+   * `:scope` so author-declared CSS variables and base styles still take
+   * effect on the wrapper. Mixed selectors like `body.dark` are not
+   * rewritten and simply won't match — acceptable since deck templates
+   * don't use those patterns.
+   *
+   * Browser support for `@scope`: Chrome/Edge 118+, Safari 17.4+,
+   * Firefox 128+. On older browsers the entire scoped block is dropped
+   * by the parser — deck looks unstyled but the host shell stays clean.
+   *
+   * Leave undefined for full-bleed surfaces (e.g. `/p/<slug>`) where the
+   * file IS the page and global CSS is intentional.
+   */
+  scopeTo?: string;
+}
+
+/** Rewrite top-level `:root` / `html` / `body` selectors to `:scope` so
+ *  they target the scope root (the host wrapper) instead of being dead
+ *  inside `@scope`. Only matches whole-token selectors followed by `,`
+ *  or `{`; compound selectors like `body.dark` or `html > body` are left
+ *  alone (they won't match anything in scope, which is the safe default). */
+function rewriteRootSelectorsToScope(css: string): string {
+  return css.replace(
+    /(?<=^|[\s,{}])(:root|html|body)(?=\s*[,{])/g,
+    ":scope",
+  );
+}
+
 /**
  * Minimal security filter for trusted HTML (API-key-gated content).
  * Strips only executable vectors: <script>, <iframe>, <embed>, <object>,
  * on* event handlers, and javascript: URLs. Everything else passes through
  * including <style>, inline style attributes, and all HTML tags.
  */
-export function processHtmlDirect(rawHtml: string): SanitizeResult {
+export function processHtmlDirect(
+  rawHtml: string,
+  opts: ProcessHtmlOptions = {},
+): SanitizeResult {
   let html = rawHtml;
   let meta: SanitizeResult["meta"];
 
@@ -139,7 +176,11 @@ export function processHtmlDirect(rawHtml: string): SanitizeResult {
     const parts: string[] = [];
     for (const css of parsed.styles) {
       const clean = sanitizeCss(css);
-      if (clean) parts.push(`<style>${clean}</style>`);
+      if (!clean) continue;
+      const final = opts.scopeTo
+        ? `@scope (${opts.scopeTo}) {\n${rewriteRootSelectorsToScope(clean)}\n}`
+        : clean;
+      parts.push(`<style>${final}</style>`);
     }
     parts.push(parsed.body);
     html = parts.join("\n");

@@ -55,7 +55,9 @@ export async function FileRenderer({ path, content, raw }: FileRendererProps) {
   // workspace inline preview (root = sized wrapper), and Fullscreen
   // (FullscreenContent overrides the wrapper to viewport).
   if (ext === "html" || ext === "htm") {
-    const { html } = processHtmlDirect(processChartComponents(content));
+    const { html } = processHtmlDirect(processChartComponents(content), {
+      scopeTo: ".huozi-html-host",
+    });
     const layout = pickHtmlLayout(content);
     return (
       <div
