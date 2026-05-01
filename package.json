@@ -7,7 +7,10 @@
     "build": "next build",
     "cf:build": "npx @opennextjs/cloudflare build",
     "cf:preview": "npx @opennextjs/cloudflare dev",
-    "cf:deploy": "npx @opennextjs/cloudflare build && npx @opennextjs/cloudflare deploy",
+    "cf:deploy:web": "npx @opennextjs/cloudflare build && npx @opennextjs/cloudflare deploy",
+    "cf:deploy:api": "pnpm -C packages/huozi-cloud cf:deploy:api",
+    "cf:deploy:all": "pnpm cf:deploy:api && pnpm cf:deploy:web",
+    "cf:deploy": "echo '\\nUse one of: cf:deploy:api (backend) | cf:deploy:web (frontend) | cf:deploy:all\\n' && exit 1",
     "start": "next start",
     "lint": "eslint"
   },
@@ -49,6 +52,6 @@
     "eslint-config-next": "16.2.3",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "wrangler": "^4.82.2"
+    "wrangler": "~4.85.0"
   }
 }

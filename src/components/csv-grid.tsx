@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  CompactSelection,
   DataEditor,
   GridCellKind,
-  emptyGridSelection,
   type DataEditorProps,
   type GridCell,
   type GridColumn,
@@ -13,6 +13,15 @@ import {
   type Rectangle,
   type Theme,
 } from "@glideapps/glide-data-grid";
+
+// glide-data-grid v6 dropped the `emptyGridSelection` named export.
+// The shape stayed the same; we just construct it from the empty
+// CompactSelection helper now. Frozen because both fields are
+// referentially compared by glide on every render.
+const EMPTY_GRID_SELECTION: GridSelection = Object.freeze({
+  columns: CompactSelection.empty(),
+  rows: CompactSelection.empty(),
+}) as GridSelection;
 import "@glideapps/glide-data-grid/dist/index.css";
 import {
   parseDelimited,
@@ -128,7 +137,7 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
   // row the user just clicked. Reset whenever the displayed rows shift
   // (filter/sort), because the numeric index we stored points into the old
   // `sorted` array.
-  const [gridSel, setGridSel] = useState<GridSelection>(emptyGridSelection);
+  const [gridSel, setGridSel] = useState<GridSelection>(EMPTY_GRID_SELECTION);
   const [detailRowIndex, setDetailRowIndex] = useState<number | null>(null);
   const [visible, setVisible] = useState<{
     y: number;
@@ -140,7 +149,7 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
   // whenever the visible row order changes so the handle and modal don't
   // dangle on the wrong row.
   const resetRowFocus = useCallback(() => {
-    setGridSel(emptyGridSelection);
+    setGridSel(EMPTY_GRID_SELECTION);
     setDetailRowIndex(null);
   }, []);
 
@@ -209,35 +218,61 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
     setGridSel(sel);
   }, []);
 
-  const theme = useMemo<Partial<Theme>>(
-    () => ({
+  // Resolve CSS theme tokens at mount. Glide renders to a canvas so
+  // it can't consume CSS custom properties directly — we read the
+  // computed values once and pass them as concrete hex strings. A
+  // theme change triggers a full reload (see `theme-grid.tsx`), so
+  // we don't need a MutationObserver here.
+  const theme = useMemo<Partial<Theme>>(() => {
+    if (typeof window === "undefined") {
+      return {
+        fontFamily:
+          "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+        baseFontStyle: "12px",
+        headerFontStyle: "600 12px",
+        cellHorizontalPadding: 10,
+        headerIconSize: 14,
+      };
+    }
+    const cs = getComputedStyle(document.documentElement);
+    const get = (name: string, fallback: string) =>
+      cs.getPropertyValue(name).trim() || fallback;
+    const background = get("--background", "#faf8f3");
+    const muted = get("--muted", "#f3efe6");
+    const border = get("--border", "#ddd4c2");
+    const foreground = get("--foreground", "#2d2519");
+    const mutedFg = get("--muted-foreground", "#6b5d4b");
+    const accent = get("--accent", "#c4594a");
+    const accentFg = get("--accent-foreground", "#faf8f3");
+    const fontSans = get("--font-sans-stack", "");
+    return {
       fontFamily:
+        fontSans ||
         "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
       baseFontStyle: "12px",
       headerFontStyle: "600 12px",
       cellHorizontalPadding: 10,
       headerIconSize: 14,
-      accentColor: "#c4594a",
-      accentLight: "rgba(196, 89, 74, 0.14)",
-      accentFg: "#faf8f3",
-      // Warm-cream palette to blend with the page (--background #faf8f3 +
-      // --muted #f3efe6 + --border #ddd4c2). Pure-white default felt
-      // jarring against the paper-grain backdrop.
-      bgCell: "#faf8f3",
-      bgCellMedium: "#f6f2e9",
-      bgHeader: "#f3efe6",
-      bgHeaderHovered: "#ece6d6",
-      bgHeaderHasFocus: "#ece6d6",
-      borderColor: "#ddd4c2",
-      horizontalBorderColor: "#e4dccb",
-      textDark: "#2d2519",
-      textMedium: "#6b5d4b",
-      textLight: "#8b7d68",
-      textHeader: "#2d2519",
-      textGroupHeader: "#2d2519",
-    }),
-    [],
-  );
+      accentColor: accent,
+      accentLight: hexWithAlpha(accent, 0.14),
+      accentFg,
+      // Match the page surface tokens so the grid feels native to
+      // whichever theme is active (warm cream in default, vivid
+      // yellow + black in brutal).
+      bgCell: background,
+      bgCellMedium: muted,
+      bgHeader: muted,
+      bgHeaderHovered: muted,
+      bgHeaderHasFocus: muted,
+      borderColor: border,
+      horizontalBorderColor: border,
+      textDark: foreground,
+      textMedium: mutedFg,
+      textLight: mutedFg,
+      textHeader: foreground,
+      textGroupHeader: foreground,
+    };
+  }, []);
 
   if (header.length === 0) {
     return (
@@ -295,7 +330,7 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
       </div>
 
       <div
-        className={`${fullscreen ? "flex-1 min-h-0" : ""} relative rounded-lg border border-border overflow-hidden`}
+        className={`huozi-csv-grid ${fullscreen ? "flex-1 min-h-0" : ""} relative rounded-lg border border-border overflow-hidden`}
         style={fullscreen ? undefined : { height: gridHeight }}
       >
         <DataEditor
@@ -463,6 +498,30 @@ function RowDetailModal({
       </div>
     </div>
   );
+}
+
+/** Convert a CSS color string into rgba(...) with the given alpha.
+ *  Accepts #rgb, #rrggbb, or any rgb()/hsl() — for non-hex inputs we
+ *  fall back to a transparent overlay since Glide accepts any CSS
+ *  color string for accentLight. */
+function hexWithAlpha(color: string, alpha: number): string {
+  const c = color.trim();
+  if (c.startsWith("#")) {
+    let hex = c.slice(1);
+    if (hex.length === 3) {
+      hex = hex
+        .split("")
+        .map((ch) => ch + ch)
+        .join("");
+    }
+    if (hex.length === 6) {
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+  }
+  return c;
 }
 
 function HandleIcon() {

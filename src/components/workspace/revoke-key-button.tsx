@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useT } from "@/lib/i18n/context";
+import { useConfirm } from "@/components/confirm-provider";
 
 interface Props {
   keyId: string;
@@ -12,12 +13,19 @@ interface Props {
 export function RevokeKeyButton({ keyId, label }: Props) {
   const t = useT();
   const router = useRouter();
+  const ask = useConfirm();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleRevoke() {
-    const prompt = t("ws.action.confirmRevoke").replace("{label}", label);
-    const ok = window.confirm(prompt);
+    const ok = await ask({
+      title: t("confirm.revokeKey.title"),
+      body: t("confirm.revokeKey.body").replace("{label}", label),
+      warning: t("confirm.revokeKey.warning"),
+      actionLabel: t("confirm.revokeKey.action"),
+      cancelLabel: t("confirm.cancel"),
+      tone: "danger",
+    });
     if (!ok) return;
 
     setBusy(true);
@@ -51,11 +59,11 @@ export function RevokeKeyButton({ keyId, label }: Props) {
         type="button"
         onClick={handleRevoke}
         disabled={busy}
-        className="text-xs rounded border border-red-500/50 text-red-500 px-2 py-1 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="huozi-button-danger text-xs rounded border border-destructive/50 text-destructive px-2 py-1 hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         {busy ? t("ws.action.revoking") : t("ws.action.revoke")}
       </button>
-      {error && <span className="text-xs text-red-500">{error}</span>}
+      {error && <span className="text-xs text-destructive">{error}</span>}
     </span>
   );
 }

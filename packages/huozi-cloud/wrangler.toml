@@ -3,6 +3,15 @@ main = "dist/worker/index.js"
 compatibility_date = "2026-04-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Treat .wasm imports as CompiledWasm modules. Required by
+# @resvg/resvg-wasm (used in src/render/svgRendererResvg.ts) — the
+# import `@resvg/resvg-wasm/index_bg.wasm` resolves to a binary that
+# wrangler needs to bundle as a Wasm module, not a plain asset.
+[[rules]]
+type = "CompiledWasm"
+globs = ["**/*.wasm"]
+fallthrough = true
+
 # Path-pattern routes on cloud.huozi.app — share the hostname with the
 # main Next.js worker (huozi). Cloudflare picks the most specific match,
 # so /auth, /admin, /me, /mcp, /events, /shares, /blobs, /health, /debug

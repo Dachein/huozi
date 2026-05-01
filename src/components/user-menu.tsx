@@ -164,7 +164,7 @@ export function UserMenu({
         <div
           role="menu"
           aria-label="Account menu"
-          className="absolute left-0 top-full mt-1.5 w-[260px] z-40
+          className="huozi-app-menu absolute left-0 top-full mt-1.5 w-[260px] z-40
                      rounded-md border border-border bg-background shadow-lg
                      animate-in fade-in slide-in-from-top-1 duration-150
                      overflow-hidden"
@@ -218,7 +218,7 @@ export function UserMenu({
                   type="button"
                   onClick={() => switchTo(ws)}
                   disabled={switching !== null}
-                  className="w-full flex items-center justify-between gap-2 px-3 py-1.5 text-sm
+                  className="huozi-row w-full flex items-center justify-between gap-2 px-3 py-1.5 text-sm
                              text-muted-foreground hover:bg-muted/60 hover:text-foreground
                              transition-colors disabled:opacity-50 text-left"
                 >
@@ -272,7 +272,7 @@ export function UserMenu({
           <Link
             href="/"
             onClick={() => setOpen(false)}
-            className="flex items-center justify-between px-3 py-2 text-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors border-b border-border/60"
+            className="huozi-row flex items-center justify-between px-3 py-2 text-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors border-b border-border/60"
           >
             <span>{t("menu.home")}</span>
             <Icon name="external" className="text-muted-foreground" />
@@ -283,7 +283,7 @@ export function UserMenu({
             <button
               type="submit"
               title={exitTitle}
-              className="w-full flex items-center justify-between px-3 py-2.5 text-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors text-left"
+              className="huozi-row w-full flex items-center justify-between px-3 py-2.5 text-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors text-left"
             >
               <span>{exitLabel}</span>
               <Icon name="arrow-right" className="text-xs opacity-60" />
@@ -308,7 +308,8 @@ function NavRow({ href, active, onClick, icon, label }: NavRowProps) {
     <Link
       href={href}
       onClick={onClick}
-      className={`flex items-center gap-2.5 px-3 py-1.5 text-sm transition-colors
+      aria-current={active ? "page" : undefined}
+      className={`huozi-row flex items-center gap-2.5 px-3 py-1.5 text-sm transition-colors
                  ${
                    active
                      ? "bg-muted/70 text-foreground font-medium"

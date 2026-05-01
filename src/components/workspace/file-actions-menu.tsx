@@ -69,7 +69,7 @@ export function FileActionsMenu(props: FileActionsMenuProps) {
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={`group inline-flex items-center gap-1.5 rounded-md border px-2 py-1.5 h-8
+        className={`huozi-button group inline-flex items-center gap-1.5 rounded-md border px-2 py-1.5 h-8
                    text-xs font-medium transition-colors
                    ${
                      open
@@ -106,7 +106,7 @@ export function FileActionsMenu(props: FileActionsMenuProps) {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full mt-1 min-w-[220px] z-30
+          className="huozi-app-menu absolute right-0 top-full mt-1 min-w-[220px] z-30
                      rounded-md border border-border bg-background shadow-lg
                      py-1 text-sm
                      animate-in fade-in slide-in-from-top-1 duration-150"
@@ -180,7 +180,8 @@ function MenuLink({
     <Link
       href={href}
       onClick={onClick}
-      className={`flex items-center gap-2 px-3 py-1.5 hover:bg-muted/60 transition-colors
+      aria-current={active ? "page" : undefined}
+      className={`huozi-row flex items-center gap-2 px-3 py-1.5 hover:bg-muted/60 transition-colors
                  ${active ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
     >
       <span className="w-3 text-xs text-accent">{active ? "✓" : ""}</span>
@@ -200,7 +201,7 @@ function MenuButton({
     <button
       type="button"
       onClick={onClick}
-      className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+      className="huozi-row w-full flex items-center gap-2 px-3 py-1.5 text-left text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
     >
       <span className="w-3 text-xs"></span>
       <span>{children}</span>

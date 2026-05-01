@@ -68,13 +68,17 @@ function ext(path: string): string {
 async function renderForPath(
   filePath: string,
   text: string,
+  slug: string,
 ): Promise<string | null> {
   const e = ext(filePath);
   if (e === "md" || e === "mdx") {
     // Strip YAML frontmatter before passing to remark — generateMetadata read
     // the same frontmatter upstream, so we're not losing information.
     const { content } = parseMarkdown(text);
-    return await renderMarkdown(content);
+    // assetBase scopes /__assets__/... URLs back through this share —
+    // the route handler at /p/[slug]/__assets__/[...path] proxies to
+    // the share's workspace.
+    return await renderMarkdown(content, { assetBase: `/p/${slug}` });
   }
   if (e === "html" || e === "htm") {
     const { html } = processHtmlDirect(processChartComponents(text));
@@ -124,7 +128,7 @@ export default async function SharedPage({ params }: { params: Params }) {
     // share.text is the raw file content
     rawText = share.text;
     if (rawText) {
-      const rendered = await renderForPath(share.file_path, rawText);
+      const rendered = await renderForPath(share.file_path, rawText, slug);
       if (rendered !== null) prerenderedHtml = rendered;
       const e = ext(share.file_path);
       if (e === "html" || e === "htm") {

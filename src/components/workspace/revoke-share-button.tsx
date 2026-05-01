@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useT } from "@/lib/i18n/context";
+import { useConfirm } from "@/components/confirm-provider";
 
 export function RevokeShareButton({
   slug,
@@ -10,14 +12,20 @@ export function RevokeShareButton({
   slug: string;
   path: string;
 }) {
+  const t = useT();
   const router = useRouter();
+  const ask = useConfirm();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handle() {
-    const ok = window.confirm(
-      `Revoke the share for "${path}"?\n\nThe URL will stop working immediately. Viewers who saved the link get 404.`,
-    );
+    const ok = await ask({
+      title: t("confirm.revokeShare.title"),
+      body: t("confirm.revokeShare.body").replace("{path}", path),
+      actionLabel: t("confirm.revokeShare.action"),
+      cancelLabel: t("confirm.cancel"),
+      tone: "danger",
+    });
     if (!ok) return;
 
     setBusy(true);
@@ -50,11 +58,11 @@ export function RevokeShareButton({
         type="button"
         onClick={handle}
         disabled={busy}
-        className="text-xs rounded border border-red-500/40 text-red-500 px-2 py-1 hover:bg-red-500/5 disabled:opacity-50"
+        className="huozi-button-danger text-xs rounded border border-destructive/40 text-destructive px-2 py-1 hover:bg-destructive/5 disabled:opacity-50"
       >
         {busy ? "Revoking…" : "Revoke"}
       </button>
-      {error && <span className="text-xs text-red-500">{error}</span>}
+      {error && <span className="text-xs text-destructive">{error}</span>}
     </span>
   );
 }

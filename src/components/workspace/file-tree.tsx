@@ -314,7 +314,7 @@ function TreeNode({
     return (
       <li className="group/folder">
         <div
-          className="w-full flex items-center gap-1.5 py-1.5 rounded hover:bg-muted/60 transition-colors"
+          className="huozi-row w-full flex items-center gap-1.5 py-1.5 rounded hover:bg-muted/60 transition-colors"
           style={{ paddingLeft, paddingRight: 8 }}
         >
           <button
@@ -417,7 +417,8 @@ function FileLeafLink({
         onNavigate?.();
         navigate(href);
       }}
-      className={`flex items-center gap-1.5 py-1.5 rounded transition-colors ${selected ? "bg-accent/10 text-accent" : "hover:bg-muted/60"}`}
+      aria-current={selected ? "page" : undefined}
+      className={`huozi-row flex items-center gap-1.5 py-1.5 rounded transition-colors ${selected ? "bg-accent/10 text-accent" : "hover:bg-muted/60"}`}
       style={{ paddingLeft, paddingRight: 8 }}
     >
       <FileIcon name={name} isDir={false} />

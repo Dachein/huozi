@@ -477,6 +477,119 @@ export async function handleGetShare(
   })
 }
 
+// ── GET /shares/:slug/asset/:path (public, asset proxy) ─────────────────
+
+/**
+ * Stream an asset file from the share's workspace. Used by the public
+ * `/p/<slug>` renderer to resolve in-markdown image references like
+ * `/__assets__/foo.png` without exposing the workspace directly.
+ *
+ * Security model:
+ *   - The share itself must be public (no passcode_hash) and unrevoked.
+ *     Locked shares don't proxy assets (the embedded markdown is hidden,
+ *     so its assets stay hidden too).
+ *   - The asset path is workspace-scoped (looked up via files_current),
+ *     so traversal is bounded by D1's exact-path index.
+ *   - Asset MUST live under `/__assets__/`. We don't proxy arbitrary
+ *     workspace files through this endpoint — that would amount to a
+ *     "everything in the workspace is public if any file is shared" leak.
+ */
+export async function handleGetShareAsset(
+  request: Request,
+  env: HuoziCloudflareBindings,
+  slug: string,
+  assetPath: string,
+): Promise<Response> {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return new Response('method not allowed', { status: 405 })
+  }
+  if (!SLUG_RE.test(slug)) {
+    return Response.json({ error: 'bad_slug' }, { status: 400 })
+  }
+  // Hard guard: must be under /__assets__/ (workspace-relative). The
+  // path arrives from the regex capture group already without a leading
+  // slash, so we check the prefix directly.
+  if (!assetPath.startsWith('__assets__/') || assetPath.includes('..')) {
+    return Response.json({ error: 'bad_asset_path' }, { status: 400 })
+  }
+  const row = await env.DB.prepare(
+    `SELECT * FROM shares
+     WHERE slug = ?
+       AND revoked_at IS NULL
+       AND (expires_at IS NULL OR expires_at > ?)`,
+  )
+    .bind(slug, Date.now())
+    .first<ShareRow>()
+  if (!row) {
+    return Response.json({ error: 'not_found' }, { status: 404 })
+  }
+  if (row.passcode_hash) {
+    return Response.json({ error: 'locked' }, { status: 403 })
+  }
+
+  // Look up the asset in the same workspace as the share.
+  const current = await currentBlobForPath(env, row.workspace_id, assetPath)
+  if (!current) {
+    return Response.json({ error: 'asset_not_found' }, { status: 404 })
+  }
+  const blob = await fetchBlobContent(env, current.blob_sha)
+  if (!blob) {
+    return Response.json({ error: 'blob_missing' }, { status: 410 })
+  }
+
+  // Pull stored content_type from D1 (set by huozi_upload /
+  // huozi_image_render); fall back to extension detection for older rows.
+  const contentRow = await env.DB.prepare(
+    'SELECT content_type FROM files_current WHERE workspace_id = ? AND path = ?',
+  )
+    .bind(row.workspace_id, assetPath)
+    .first<{ content_type: string | null }>()
+  const contentType = contentRow?.content_type ?? guessAssetMime(assetPath)
+
+  // Cast Uint8Array to BodyInit-friendly view; Response accepts ArrayBuffer
+  // but the @cloudflare/workers-types build of Uint8Array is occasionally
+  // narrower than DOM's. `.buffer` is always BodyInit-compatible.
+  const body =
+    request.method === 'HEAD'
+      ? null
+      : (blob.bytes.buffer as ArrayBuffer)
+  return new Response(body, {
+    status: 200,
+    headers: {
+      'Content-Type': contentType,
+      // Content-addressed bytes; a given URL always returns the same
+      // bytes, so cache aggressively. If the markdown re-publishes
+      // pointing at a new sha, the URL pattern itself doesn't change
+      // (still `/__assets__/foo.png`) but the resolved blob does — the
+      // proxy is the indirection. 1h is conservative; can be raised
+      // once we add ETag from blob_sha.
+      'Content-Length': String(blob.size),
+      'Cache-Control': 'public, max-age=3600',
+      'X-Content-Type-Options': 'nosniff',
+      ETag: `"${current.blob_sha}"`,
+    },
+  })
+}
+
+function guessAssetMime(path: string): string {
+  const ext = path.split('.').pop()?.toLowerCase() ?? ''
+  switch (ext) {
+    case 'png':
+      return 'image/png'
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg'
+    case 'webp':
+      return 'image/webp'
+    case 'gif':
+      return 'image/gif'
+    case 'svg':
+      return 'image/svg+xml'
+    default:
+      return 'application/octet-stream'
+  }
+}
+
 // ── POST /shares/:slug/unlock (public, passcode-gated content) ──────────
 
 interface UnlockBody {

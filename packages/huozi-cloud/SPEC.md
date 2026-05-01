@@ -548,6 +548,79 @@ Agent 看到 `truncated: true` 或 `skipped_files` 时可以决定：缩小 `pat
 
 **用于 revert**：配合 `huozi_revert`（v2）按 commit_sha 或 message_uuid 撤销。v1 只提供只读查询。
 
+### 4.8 `huozi_image_render`（huozi 扩展）
+
+**CC 没有这个工具。** 解决「让 Agent 在文章里画图」的问题：把 SVG 源码渲染成 PNG，存进工作区的标准图库，返回路径。MD 引用 PNG，发布管道再把路径替换成公开 URL。
+
+**为什么不只用 huozi_upload**：upload 接的是已有字节流（来自图片生成模型 / 用户截图）。render 接的是**源码**（SVG / Mermaid），由服务端用确定渲染栈生成位图。两条管道最后落到同一个 content-addressed blob，但前段动作不同 —— 一个是「存」，一个是「画并存」。
+
+**输入**（v1 仅 `svg`）：
+```ts
+{
+  format: 'svg'                       // v2: + 'mermaid'
+  source: string                      // SVG 源码（含 <svg>…</svg>）
+  scale?: 1 | 2 | 3                   // 输出像素比，默认 2（retina）
+  width?: number                      // 像素宽，可选；默认按 viewBox × scale
+  save_to?: string                    // 可选目标路径；默认 /__assets__/<sha-prefix>.png
+  alt?: string                        // 可选语义说明，写入 D1 image_meta（v2 用）
+}
+```
+
+**输出**：
+```ts
+{
+  ok: true
+  file_path: string                   // 实际写入的工作区路径
+  blob_sha: string                    // PNG 的 git blob SHA
+  width: number                       // 渲染后像素宽
+  height: number                      // 渲染后像素高
+  bytes: number                       // PNG 字节数
+  content_type: 'image/png'
+  commit_sha: string
+}
+```
+
+**路径约定**：
+
+| 场景 | 默认路径 |
+|---|---|
+| `save_to` 缺省 | `/__assets__/<blob-sha-前 12 位>.png` |
+| `save_to` 提供 | 原样使用，但必须以 `.png` 结尾且不可越界 |
+
+`/__assets__/` 是图库根（workspace 内部路径）。Markdown 引用就用 `![alt](/__assets__/...)`，发布管道（`/p/<slug>`）会把 URL 改写成 `/p/<slug>/a/<path>`（`/a/` 而不是 `/__assets__/`，因为 Next.js 把 `_` 开头的路径段当作 private folder 不参与路由）。
+
+**渲染栈**：
+
+- **SVG**：`@resvg/resvg-wasm`。Worker 友好，无 native 依赖，包含中文字体回退（v1 仅 PingFang SC + Noto CJK 子集，包大小约 1.2 MB）
+- **Mermaid（v2）**：通过外部 render 服务（独立 Worker）调用 `@mermaid-js/mermaid-cli` headless chromium。MCP tool 这一侧只做 HTTP 转发
+
+**幂等性**：相同 `source + scale + width` → 相同 PNG 字节 → 相同 `blob_sha` → R2 自动去重。重复调用是安全的（多次 commit 但 blob 只占一份磁盘）。
+
+**大小限制**：渲染输出 PNG 上限 5 MB。超过则返回 `FILE_TOO_LARGE`，Agent 应降低 `scale` 或拆分图。
+
+**Last-write-wins**：和 `huozi_upload` 同语义，不要求 staleness check。Render 是「按需重画」语义，不是「编辑现有文件」。
+
+**配套 HTTP 端点**（Worker 侧）：
+
+```
+GET /shares/<slug>/asset/__assets__/<path>
+```
+
+匹配 `/p/<slug>` 渲染的 markdown 中 `/__assets__/...` 的图片引用。语义：
+
+- 匹配的 share 必须是公开的（无 passcode）且未撤销
+- 资产路径**必须**以 `__assets__/` 开头；其它路径返回 400（不是「凡是 share 同 workspace 的文件都开放」）
+- 用 share 的 workspace_id 在 `files_current` 索引里查 blob_sha → 从 R2 取字节
+- Headers：`Content-Type`（D1 的 `content_type` 列优先，回退扩展名）、`Cache-Control: public, max-age=3600`、`ETag: "<blob_sha>"`
+
+Next.js 侧的 `/p/[slug]/a/[...path]/route.ts` 是个薄代理 —— 收到 `/p/<slug>/a/<path>` 后把 `__assets__/` 加回去再转给 Worker `/shares/<slug>/asset/__assets__/<path>`。不做权限或缓存判断。
+
+**未来扩展（v2+）**：
+- `format: 'mermaid'`
+- `format: 'd2'`、`'graphviz'`
+- preset：`'mobile' | 'desktop' | 'square' | 'story'`（对齐 `huozi_template` 的 5 种 HTML 格式）
+- `huozi_image_list` —— 列工作区中所有图片 + 引用计数（清理孤儿用）
+
 ### 5.1 `ReadFileState`（核心）
 
 **位置**：`AgentSessionDO`（per-agent，per-workspace-session）

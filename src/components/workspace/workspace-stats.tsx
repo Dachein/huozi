@@ -32,7 +32,7 @@ export function WorkspaceStats({
 
 function StatCard({ value, label }: { value: number; label: string }) {
   return (
-    <div className="rounded-xl border border-border bg-muted/15 px-4 py-3 sm:px-5 sm:py-4">
+    <div className="huozi-card rounded-xl border border-border bg-muted/15 px-4 py-3 sm:px-5 sm:py-4">
       <div className="font-serif text-2xl sm:text-3xl font-bold leading-none">
         {value.toLocaleString()}
       </div>

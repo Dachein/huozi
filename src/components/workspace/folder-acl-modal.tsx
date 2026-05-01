@@ -15,6 +15,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "@/lib/i18n/context";
+import { useConfirm } from "@/components/confirm-provider";
 
 interface MemberLite {
   user_id: string;
@@ -48,6 +49,7 @@ export function FolderAclModal({
   onClose,
 }: FolderAclModalProps) {
   const _ = useT();
+  const ask = useConfirm();
   const router = useRouter();
   const pathPrefix = folderPath.endsWith("/") ? folderPath : `${folderPath}/`;
   const [acl, setAcl] = useState<FolderAcl | null>(null);
@@ -131,7 +133,14 @@ export function FolderAclModal({
         onClose();
         return;
       }
-      if (!confirm(_("folders.makePublicConfirm"))) return;
+      const ok = await ask({
+        title: _("confirm.makePublic.title"),
+        body: _("folders.makePublicConfirm"),
+        actionLabel: _("confirm.makePublic.action"),
+        cancelLabel: _("confirm.cancel"),
+        tone: "danger",
+      });
+      if (!ok) return;
       startTransition(async () => {
         const res = await fetch(
           `/api/app/folder-acl?path_prefix=${encodeURIComponent(pathPrefix)}`,

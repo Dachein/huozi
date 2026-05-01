@@ -69,14 +69,14 @@ export function StatusSummary({ connections, labels }: StatusSummaryProps) {
   }, null);
 
   return (
-    <section className="rounded-xl border border-border/60 bg-muted/30 p-5 sm:p-6">
+    <section className="huozi-card rounded-xl border border-border/60 bg-muted/30 p-5 sm:p-6">
       <div className="flex items-center justify-between gap-3 mb-4">
         <div className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
           {labels.connectedAgents} · {active.length}
         </div>
         <Link
           href="/workspace/connect"
-          className="shrink-0 rounded-md bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:opacity-90 transition-opacity"
+          className="huozi-button-primary shrink-0 rounded-md bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:opacity-90 transition-opacity"
         >
           + {labels.connectNew}
         </Link>

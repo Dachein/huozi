@@ -187,7 +187,8 @@ function RecentRow({
           e.preventDefault();
           navigate(href);
         }}
-        className={`group relative flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors
+        aria-current={current ? "page" : undefined}
+        className={`huozi-row group relative flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors
                    ${current ? "bg-muted/60" : "hover:bg-muted/40"}
                    ${flashing ? "ring-1 ring-accent/60 bg-accent/10 animate-pulse" : ""}`}
         title={tooltipText}

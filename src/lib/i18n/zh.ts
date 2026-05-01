@@ -167,8 +167,8 @@ export const zh = {
   "auth.login.guide": "查看入门指南",
 
   // 多 workspace 选择页
-  "auth.selectWorkspace.title": "选择 workspace",
-  "auth.selectWorkspace.subtitle": "你属于 {count} 个 workspace，挑一个进入。",
+  "auth.selectWorkspace.title": "选择工作空间",
+  "auth.selectWorkspace.subtitle": "你属于 {count} 个工作空间，挑一个进入。",
 
   // 邀请链接落地页
   "invite.notFound.title": "邀请不存在",
@@ -176,9 +176,9 @@ export const zh = {
   "invite.accepted.title": "已接受过",
   "invite.accepted.message": "这个邀请已经被接受过。如果未登录，请先登录。",
   "invite.revoked.title": "邀请已撤销",
-  "invite.revoked.message": "owner 已撤销此邀请，请联系对方重新发送。",
+  "invite.revoked.message": "所有者已撤销此邀请，请联系对方重新发送。",
   "invite.expired.title": "邀请已过期",
-  "invite.expired.message": "邀请超过 7 天已过期，请联系 owner 重发。",
+  "invite.expired.message": "邀请超过 7 天已过期，请联系所有者重发。",
   "invite.welcome.title": "你被邀请了",
   "invite.welcome.invitedYouTo": "{inviter} 邀请你加入",
   "invite.welcome.signInAs": "以 {email} 登录",
@@ -193,7 +193,7 @@ export const zh = {
   "joined.toast": "已加入 {slug}",
 
   // 切换 workspace
-  "switcher.heading": "切换 workspace",
+  "switcher.heading": "切换工作空间",
 
   // 用户菜单（顶部下拉）
   "menu.nav.files": "文件",
@@ -201,33 +201,66 @@ export const zh = {
   "menu.nav.members": "成员",
   "menu.nav.folders": "目录权限",
   "menu.identity.signedIn": "已登录",
-  "menu.identity.workspace": "Workspace",
+  "menu.identity.workspace": "工作空间",
   "menu.language": "语言",
   "menu.theme": "主题",
   "theme.default.name": "纸",
   "theme.brutalMono.name": "块",
   "theme.applying": "应用主题",
+  "theme.confirm.title": "切换风格",
+  "theme.confirm.body": "切换到「{name}」？页面会刷新以应用新风格。",
+  "theme.confirm.experimental": "该风格参考 Slock 创意风格，仅作实验使用。",
+  "theme.confirm.action": "确认切换",
+  "theme.confirm.cancel": "取消",
+  "locale.confirm.title": "切换语言",
+  "locale.confirm.body": "切换到「{name}」？",
+
+  // 通用确认对话框 —— 撤销 / 移除 等
+  "confirm.revokeKey.title": "撤销 key",
+  "confirm.revokeKey.body": "撤销「{label}」？使用此 key 的 Agent 会立刻停工。",
+  "confirm.revokeKey.warning": "此操作不可撤销。",
+  "confirm.revokeKey.action": "撤销",
+  "confirm.revokeShare.title": "撤销分享链接",
+  "confirm.revokeShare.body": "撤销「{path}」的分享？链接立即失效，已保存链接的访问者会得到 404。",
+  "confirm.revokeShare.action": "撤销",
+  "confirm.removeMember.title": "移除成员",
+  "confirm.removeMember.body": "移除该成员？他们将立即失去对此工作空间的访问权限。",
+  "confirm.removeMember.action": "移除",
+  "confirm.cancelInvite.title": "撤销邀请",
+  "confirm.cancelInvite.body": "撤销此邀请？",
+  "confirm.cancelInvite.action": "撤销",
+  "confirm.makePublic.title": "改为公开",
+  "confirm.makePublic.body": "取消锁定？所有工作空间成员都将可以读写此目录。",
+  "confirm.makePublic.action": "确认",
+  "confirm.cancel": "取消",
   "menu.home": "回到 huozi.app",
   "menu.exit": "退出",
   "menu.disconnect": "断开连接",
 
+  // 表格列头（成员 / 待接受邀请）
+  "members.col.email": "邮箱",
+  "members.col.role": "角色",
+  "members.col.keys": "key 数",
+  "members.col.expires": "过期",
+  "members.col.actions": "",
+
   // 成员管理
   "members.title": "成员",
   "members.subtitle.owner":
-    "邀请协作者、查看谁有访问权限，以及移除你不再希望保留在此 workspace 的成员。",
-  "members.subtitle.member": "可访问此 workspace 的成员。",
+    "邀请协作者、查看谁有访问权限，以及移除你不再希望保留在此工作空间的成员。",
+  "members.subtitle.member": "可访问此工作空间的成员。",
   "members.invite.heading": "邀请协作者",
   "members.invite.placeholder": "ta@example.com",
   "members.invite.submit": "邀请",
   "members.invite.submitting": "发送中…",
   "members.invite.note":
-    "对方将收到一封 7 天内有效的邀请邮件，接受后即成为本 workspace 的成员。",
+    "对方将收到一封 7 天内有效的邀请邮件，接受后即成为本工作空间的成员。",
   "members.list.heading": "成员（{count}）",
   "members.list.you": "（你）",
   "members.list.remove": "移除",
   "members.list.removeConfirm": "移除该成员？",
-  "members.role.owner": "owner",
-  "members.role.member": "member",
+  "members.role.owner": "所有者",
+  "members.role.member": "成员",
   "members.invites.heading": "待接受邀请（{count}）",
   "members.invites.expires": "{date} 过期",
   "members.invites.revoke": "撤销",
@@ -241,12 +274,12 @@ export const zh = {
   "members.error.invite_failed": "邀请发送失败。",
   "members.error.already_member": "该邮箱已是成员。",
   "members.error.remove_failed": "移除失败。",
-  "members.error.owner_only": "只有 workspace owner 可以执行此操作。",
+  "members.error.owner_only": "只有工作空间所有者可以执行此操作。",
 
   // 文件夹 ACL
   "folders.title": "目录权限",
   "folders.subtitle":
-    "锁定一个目录，仅指定成员可以读写其下文件。Workspace owner 也不能绕过——只能看到自己被加入的目录。",
+    "锁定一个目录，仅指定成员可以读写其下文件。工作空间所有者也不能绕过——只能看到自己被加入的目录。",
   "folders.create.heading": "新建私密目录",
   "folders.create.placeholder": "funds/fund-A/",
   "folders.create.note":
@@ -263,13 +296,13 @@ export const zh = {
   "folders.list.cancel": "取消",
   "folders.list.makePublic": "改为公开",
   "folders.makePublicConfirm":
-    "取消锁定？所有 workspace 成员都将可以读写此目录。",
+    "取消锁定？所有工作空间成员都将可以读写此目录。",
   "folders.error.create_failed": "创建 ACL 失败。",
   "folders.error.update_failed": "更新 ACL 失败。",
   "folders.error.empty_members": "至少选择一名成员。",
   "folders.error.self_excluded":
     "你必须保留自己在 ACL 内——把自己踢出去会让目录无法恢复。",
-  "folders.error.member_not_in_workspace": "选中的成员已不在此 workspace。",
+  "folders.error.member_not_in_workspace": "选中的成员已不在此工作空间。",
   "folders.error.not_in_acl":
     "此目录是私密的——必须已是成员才能编辑 ACL。",
   "folders.error.invalid_path_prefix": "路径需相对且不可含 '..' 段。",
@@ -277,7 +310,7 @@ export const zh = {
   // Modal 专用
   "folders.modal.heading": "目录权限",
   "folders.modal.publicTitle": "公开",
-  "folders.modal.publicHint": "任何 workspace 成员",
+  "folders.modal.publicHint": "任何工作空间成员",
   "folders.modal.privateTitle": "私密",
   "folders.modal.privateHint": "仅指定成员",
   "folders.error.load_failed": "加载访问信息失败。",
@@ -350,7 +383,7 @@ export const zh = {
 
   "connect.rawKey.show": "显示原始 API key",
   "connect.rawKey.note":
-    "我们不存明文 —— 现在就复制。丢了可在 workspace 页面吊销并重新发一把。",
+    "我们不存明文 —— 现在就复制。丢了可在工作空间页面吊销并重新发一把。",
 
   "connect.waiting.title": "等待 {title} 连接…",
   "connect.waiting.desc":

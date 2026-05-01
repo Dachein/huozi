@@ -12,6 +12,20 @@
  * vars (geometry, motion, decoration).
  * ───────────────────────────────────────────────────────────────────── */
 
+/* ─────────────────────────────────────────────────────────────────────
+ * Layout variables (not part of the theme contract — internal).
+ *
+ * These keep structural numbers in one place so AppHeader, the
+ * workspace-shell aside, and any future shell pieces can reference
+ * the same value. A theme MAY override these on its [data-theme]
+ * block if it wants a taller header etc., but they're not exposed
+ * to authors as public tokens (no `--color-*` re-export, no entry
+ * in docs/theme-contract.md §2).
+ * ───────────────────────────────────────────────────────────────────── */
+:root {
+  --shell-header-height: 3rem;
+}
+
 :root,
 [data-theme="default"] {
   /* Color */
@@ -28,6 +42,8 @@
   --destructive-foreground: #faf8f3;
   --info: #5b7a99;
   --info-foreground: #faf8f3;
+  --surface-elevated: #ffffff;
+  --surface-active: #c4594a;
 
   /* Typography */
   --font-sans-stack: var(--font-geist-sans);
@@ -66,28 +82,28 @@
  * theme can't reach, that knob is missing from the contract.
  * ───────────────────────────────────────────────────────────────────── */
 [data-theme="brutal-mono"] {
-  /* Color — neo-brutalist palette, huozi-flavored.
+  /* Color — neo-brutalist v3, Slock-faithful palette + huozi accent.
    *
-   * Strategy: take Slock's brutal scaffolding (vivid yellow panels,
-   * black borders, white-cream background, cyan info tag) but keep
-   * huozi's brand red (#c4594a) as the accent rather than borrowing
-   * Slock's pink. Result: red + yellow + black is a classic Bauhaus
-   * / 1920s-era poster palette that sits naturally in the brutal
-   * frame without reading as a Slock skin.
+   * Strategy: replicate Slock's signature yellow panel + pink-active
+   * + white-hover convention, but render every interactive state as
+   * a discrete BLOCK (1px black border + offset shadow) rather than
+   * a flat fill. This goes harder on brutalism than Slock's actual
+   * UI (which uses flat fills) — the user wants "blocks, not fills"
+   * as the interactive grammar.
    *
-   * background: cream-white (#fff8e1) — lighter than Slock's by
-   *             a hair to keep the yellow panels feeling like the
-   *             dominant note rather than fighting the page.
-   * muted:      vivid cadmium yellow (#ffd60a) — the sidebar /
-   *             active surface color. Black text on it.
-   * accent:     huozi's Paris Review red (#c4594a) — same as the
-   *             default theme's accent, intentionally. Works on
-   *             both cream and yellow backgrounds.
-   * destructive: bright alarm red (#ef4444) — kept distinct from
-   *             accent so error states still read as urgent.
-   * info:       sky cyan (#7dd3fc) — Slock's runtime-tag cyan,
-   *             reserved for "Claude Code"-style metadata pills
-   *             (component-level usage to come). */
+   * background: cream-white (#fff8e1) — page canvas; the right-side
+   *             main content stays here.
+   * muted:      vivid cadmium yellow (#ffd60a) — panel surface
+   *             (menus, sidebar). Black text on it.
+   * accent:     huozi's Paris Review red (#c4594a) — kept from v2.
+   *             Stays for icons, links, brand glyph color.
+   * destructive: bright alarm red (#ef4444).
+   * info:       sky cyan (#7dd3fc) — reserved for runtime tags.
+   *
+   * State surfaces (not tokenized — brutal-specific aesthetic, see
+   * `.huozi-menu-item` / `.huozi-tile` override blocks below):
+   *   active interactive: pink  #ff85a2 + 1px black border + 2x2 shadow
+   *   hover  interactive: white #ffffff + 1px black border + 2x2 shadow */
   --background: #fff8e1;
   --foreground: #000000;
   --muted: #ffd60a;
@@ -101,6 +117,8 @@
   --destructive-foreground: #ffffff;
   --info: #7dd3fc;
   --info-foreground: #000000;
+  --surface-elevated: #ffffff;
+  --surface-active: #ff85a2;
 
   --font-sans-stack: "JetBrains Mono", ui-monospace, Menlo, monospace;
   --font-mono-stack: "JetBrains Mono", ui-monospace, Menlo, monospace;
@@ -151,8 +169,10 @@
 
 /* Brutal-mono: workspace trigger as a stamped Slock-style pill.
  * Black background, yellow text, hard offset shadow, small rotation
- * for the "stamp" feel. All descendant text inverts to yellow
- * regardless of original Tailwind text-* class. */
+ * for the "stamp" feel. The yellow is hardcoded here (not from
+ * --muted) because brutal-mono v2 moved --muted to deep purple for
+ * panel surfaces — but the pill is the brand-yellow anchor and
+ * needs to stay yellow as a fixed visual mark. */
 [data-theme="brutal-mono"] .huozi-app-trigger {
   background: var(--foreground);
   border: var(--border-width-strong) solid var(--border);
@@ -164,7 +184,7 @@
 
 [data-theme="brutal-mono"] .huozi-app-trigger,
 [data-theme="brutal-mono"] .huozi-app-trigger * {
-  color: var(--muted);
+  color: #ffd60a;
 }
 
 /* Hover / open state: lift via increased shadow offset, no other
@@ -173,6 +193,253 @@
 [data-theme="brutal-mono"] .huozi-app-trigger[aria-expanded="true"] {
   background: var(--foreground);
   box-shadow: var(--shadow-block);
+}
+
+/* Brutal-mono: app dropdown menu = saturated yellow panel.
+ *
+ * Slock-faithful: the dropdown surface IS the brand-yellow color.
+ * Inherited foreground is black (--muted-foreground) so default text
+ * reads against it. Tailwind text-* classes inside (text-accent
+ * etc.) keep their authored colors via specificity.
+ *
+ * Box-shadow is forced to the hard-offset brutal value (6×6 black)
+ * — Tailwind `shadow-lg` on the dropdown otherwise renders a soft
+ * blur that fights the rest of the brutal vocabulary. */
+[data-theme="brutal-mono"] .huozi-app-menu {
+  background: var(--muted) !important;
+  color: var(--muted-foreground);
+  border-color: var(--border) !important;
+  box-shadow: var(--shadow-block) !important;
+}
+
+/* Section dividers inside the menu: bump from 60% to full strength
+ * so they read against the saturated yellow panel. */
+[data-theme="brutal-mono"] .huozi-app-menu [class*="border-border"] {
+  border-color: var(--border) !important;
+}
+
+/* Direct-child section blocks inside the menu use 2px bottom border
+ * (= --border-width) instead of the default 1px. The thicker rule
+ * matches the brutal "everything stronger" aesthetic and keeps the
+ * sections feeling stamped, not lined. */
+[data-theme="brutal-mono"] .huozi-app-menu > [class*="border-b"] {
+  border-bottom-width: var(--border-width) !important;
+}
+
+/* Block treatment: every interactive list row in the workspace
+ * shell (user-menu items, file-tree rows, recent-panel rows,
+ * workspace-search results) becomes a discrete "block" on hover/
+ * active. 1px black border + 2x2 hard offset shadow + horizontal
+ * margin. The transparent default border keeps the row width
+ * consistent so the layout doesn't shift on hover.
+ *
+ * Active state is signaled by `aria-current="page"` (rows) or
+ * `aria-pressed="true"` (picker tiles). Vertical margin is 1px so
+ * adjacent shadows don't stack visually. */
+[data-theme="brutal-mono"] .huozi-row,
+[data-theme="brutal-mono"] .huozi-tile {
+  margin: 1px 6px;
+  border: 1px solid transparent;
+}
+
+/* Active block: surface-active fill (pink in brutal). */
+[data-theme="brutal-mono"] .huozi-row[aria-current="page"],
+[data-theme="brutal-mono"] .huozi-tile[aria-pressed="true"] {
+  background: var(--surface-active) !important;
+  border-color: var(--border);
+  box-shadow: 2px 2px 0 var(--border);
+}
+
+/* Hover block: surface-elevated fill (white in brutal). `:not()`
+ * guards keep an active-row hover from washing out the active fill. */
+[data-theme="brutal-mono"] .huozi-row:not([aria-current="page"]):hover,
+[data-theme="brutal-mono"] .huozi-tile:not([aria-pressed="true"]):hover {
+  background: var(--surface-elevated) !important;
+  border-color: var(--border);
+  box-shadow: 2px 2px 0 var(--border);
+}
+
+/* Force black foreground on hover/active blocks. Without this,
+ * Tailwind `text-accent` (red) on icons would clash against pink
+ * or fight readability against white. Black-on-pink and black-on-
+ * white are the brutal rule. */
+[data-theme="brutal-mono"] .huozi-row[aria-current="page"],
+[data-theme="brutal-mono"] .huozi-row[aria-current="page"] *,
+[data-theme="brutal-mono"] .huozi-tile[aria-pressed="true"],
+[data-theme="brutal-mono"] .huozi-tile[aria-pressed="true"] *,
+[data-theme="brutal-mono"] .huozi-row:not([aria-current="page"]):hover,
+[data-theme="brutal-mono"] .huozi-row:not([aria-current="page"]):hover *,
+[data-theme="brutal-mono"] .huozi-tile:not([aria-pressed="true"]):hover,
+[data-theme="brutal-mono"] .huozi-tile:not([aria-pressed="true"]):hover * {
+  color: var(--foreground) !important;
+}
+
+/* Brutal-mono: workspace shell left panel = saturated yellow.
+ *
+ * The Slock-defining move: the entire sidebar (file tree + recent
+ * panel + tree header) is the brand-yellow surface, and individual
+ * interactive rows surface as pink/white blocks against it.
+ *
+ * Right border bumps to --border-width-strong (3px) full-opacity
+ * black, replacing the default 50% subtle divider — without this
+ * the yellow-vs-cream boundary reads weak in brutal context. */
+[data-theme="brutal-mono"] .huozi-shell-panel {
+  background: var(--muted) !important;
+  border-right-width: var(--border-width-strong) !important;
+  border-right-color: var(--border) !important;
+}
+
+/* Brutal-mono: top app header = surface-elevated (white).
+ *
+ * Cream-on-cream between AppHeader and the main content reads flat;
+ * Slock's reference uses a clear white strip at the top so the
+ * yellow sidebar and pink/white interactive blocks have a neutral
+ * frame above them. The huozi pill sits inside this white strip. */
+[data-theme="brutal-mono"] .huozi-app-header {
+  background: var(--surface-elevated) !important;
+  border-bottom-width: var(--border-width);
+  border-bottom-color: var(--border);
+}
+
+/* Brutal-mono: button = stamped block.
+ *
+ * 1px black border + 2x2 hard shadow at rest. On hover the shadow
+ * grows to 4x4 (--shadow), giving a "lift" without changing the
+ * color or position. Matches the `huozi-row` block grammar so all
+ * interactive surfaces speak the same vocabulary. */
+[data-theme="brutal-mono"] .huozi-button {
+  background: var(--surface-elevated) !important;
+  border: var(--border-width) solid var(--border) !important;
+  box-shadow: 2px 2px 0 var(--border);
+  color: var(--foreground) !important;
+}
+
+[data-theme="brutal-mono"] .huozi-button:hover {
+  background: var(--surface-elevated) !important;
+  box-shadow: var(--shadow);
+}
+
+/* When the button is in an "open" / pressed state (aria-expanded
+ * or aria-pressed), it sinks: shadow disappears and translates to
+ * compensate, simulating a stamped-down button. */
+[data-theme="brutal-mono"] .huozi-button[aria-expanded="true"],
+[data-theme="brutal-mono"] .huozi-button[aria-pressed="true"] {
+  background: var(--surface-active) !important;
+  box-shadow: none;
+  transform: translate(2px, 2px);
+}
+
+/* Primary CTA variant — solid foreground fill with the same block
+ * grammar (border + offset shadow). Used for the workspace invite
+ * submit, the "+ 新建连接" link, and the dialog confirm button when
+ * tone="default". Lift on hover (shadow grows) without translating. */
+[data-theme="brutal-mono"] .huozi-button-primary {
+  background: var(--foreground) !important;
+  border: var(--border-width) solid var(--border) !important;
+  box-shadow: 2px 2px 0 var(--border);
+  color: var(--primary-foreground) !important;
+}
+
+[data-theme="brutal-mono"] .huozi-button-primary:hover {
+  box-shadow: var(--shadow);
+}
+
+/* Danger variant — surface-elevated fill with red border/text and a
+ * red drop-shadow so destructive actions read as a distinct stamp,
+ * not just "another block". Used for revoke / remove / unlock-folder
+ * buttons and the dialog confirm when tone="danger". */
+[data-theme="brutal-mono"] .huozi-button-danger {
+  background: var(--surface-elevated) !important;
+  border: var(--border-width) solid var(--destructive) !important;
+  box-shadow: 2px 2px 0 var(--destructive);
+  color: var(--destructive) !important;
+}
+
+[data-theme="brutal-mono"] .huozi-button-danger:hover {
+  box-shadow: 4px 4px 0 var(--destructive);
+}
+
+/* Solid danger — destructive fill (used for the dialog confirm
+ * button when tone="danger"). Black-on-red is the brutal warning
+ * stamp — same border + shadow grammar. */
+[data-theme="brutal-mono"] .huozi-button-danger-solid {
+  background: var(--destructive) !important;
+  border: var(--border-width) solid var(--border) !important;
+  box-shadow: 2px 2px 0 var(--border);
+  color: var(--destructive-foreground) !important;
+}
+
+[data-theme="brutal-mono"] .huozi-button-danger-solid:hover {
+  box-shadow: var(--shadow);
+}
+
+/* Code blocks: terminal stamp.
+ *
+ * Black bg + yellow text + thick border + hard offset shadow. Same
+ * visual rhyme as the workspace pill — both feel like brand-yellow
+ * "stamps" against the cream main content. Hits both the published
+ * `.prose-huozi` container and the workspace inline-render `.prose`
+ * container so the treatment is consistent across surfaces. */
+[data-theme="brutal-mono"] .prose pre,
+[data-theme="brutal-mono"] .prose-huozi pre {
+  background: var(--foreground) !important;
+  color: #ffd60a !important;
+  border: var(--border-width-strong) solid var(--border) !important;
+  box-shadow: var(--shadow-block) !important;
+}
+
+/* Inline code (not the children of <pre>): smaller stamp version. */
+[data-theme="brutal-mono"] .prose :not(pre) > code,
+[data-theme="brutal-mono"] .prose-huozi :not(pre) > code {
+  background: var(--foreground) !important;
+  color: #ffd60a !important;
+  border: 1px solid var(--border) !important;
+  padding: 0.1em 0.4em;
+}
+
+/* Brutal-mono: HTML embed host = white block.
+ *
+ * Embedded HTML files often have transparent backgrounds (the author
+ * relies on the page chrome to provide one). In default theme that's
+ * fine — both page and embed share the same cream. In brutal, the
+ * page is cream but the embed should read as a stamped block: white
+ * surface, black border, hard shadow.
+ *
+ * Inner elements with their own bg (deck slides, story cards, etc.)
+ * paint over this fill, so the override only kicks in for "naked"
+ * HTML that didn't author its own canvas. */
+[data-theme="brutal-mono"] .huozi-html-host {
+  background: var(--surface-elevated);
+  border: var(--border-width) solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+/* Brutal-mono: stat / panel cards = framed surface.
+ *
+ * Used by /workspace landing surfaces (WorkspaceStats tiles,
+ * StatusSummary panel, WorkspaceSearch box) and the shares table.
+ * Keeps the underlying Tailwind background (soft cream tint) and
+ * adds a 2px black frame.
+ *
+ * NO offset shadow here on purpose: a 4×4 black shadow on a wide
+ * table renders as a heavy black rail down the right edge, and the
+ * row dividers inside the table interrupt it visually into a
+ * "barbed" bar. Block stamps are reserved for finger-sized surfaces
+ * (rows, buttons, tiles); for wide content panels the frame alone
+ * is enough structure. */
+[data-theme="brutal-mono"] .huozi-card {
+  border: var(--border-width) solid var(--border) !important;
+}
+
+/* Brutal-mono: CSV grid wrapper = stamped block.
+ *
+ * Glide DataGrid renders to a canvas — its colors are JS-themed in
+ * `csv-grid.tsx` via the `theme` prop (which reads CSS tokens at
+ * mount). The wrapper border + shadow here gives the whole grid the
+ * same block silhouette as other surfaces. */
+[data-theme="brutal-mono"] .huozi-csv-grid {
+  border: var(--border-width) solid var(--border) !important;
+  box-shadow: var(--shadow) !important;
 }
 
 @theme inline {
@@ -189,6 +456,8 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-active: var(--surface-active);
   --font-sans: var(--font-sans-stack);
   --font-mono: var(--font-mono-stack);
   --font-serif: var(--font-serif-stack);

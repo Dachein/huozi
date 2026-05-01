@@ -32,8 +32,8 @@ export function AppHeader({
   theme,
 }: AppHeaderProps) {
   return (
-    <header className="border-b border-border/50 bg-background/95 backdrop-blur sticky top-0 z-40">
-      <div className="flex h-12 items-center px-3 sm:px-4">
+    <header className="huozi-app-header border-b border-border/50 bg-background/95 backdrop-blur sticky top-0 z-40">
+      <div className="flex h-[var(--shell-header-height)] items-center px-3 sm:px-4">
         <UserMenu
           principal={principal}
           workspace={workspace}

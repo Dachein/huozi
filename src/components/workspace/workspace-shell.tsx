@@ -103,7 +103,7 @@ export function WorkspaceShell({
       </div>
 
       {/* Desktop fixed tree ≥ lg */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-72 lg:shrink-0 lg:border-r lg:border-border/50 lg:h-[calc(100vh-56px)] lg:sticky lg:top-14 lg:overflow-hidden">
+      <aside className="huozi-shell-panel hidden lg:flex lg:flex-col lg:w-72 lg:shrink-0 lg:border-r lg:border-border/50 lg:h-[calc(100vh-var(--shell-header-height))] lg:sticky lg:top-[var(--shell-header-height)] lg:overflow-hidden">
         <TreeHeader numFiles={numFiles} truncated={truncated} />
         {recent && recent.length > 0 && (
           <RecentPanel initial={recent} currentPath={currentPath ?? null} />
@@ -124,7 +124,7 @@ export function WorkspaceShell({
         {/* Panel — TreeHeader doubles as the drawer header via onClose,
             so we don't get two redundant "Files / Workspace" rows. */}
         <aside
-          className={`absolute inset-y-0 left-0 w-[84%] max-w-sm bg-background border-r border-border shadow-xl flex flex-col transition-transform ${drawerOpen ? "translate-x-0" : "-translate-x-full"}`}
+          className={`huozi-shell-panel absolute inset-y-0 left-0 w-[84%] max-w-sm bg-background border-r border-border shadow-xl flex flex-col transition-transform ${drawerOpen ? "translate-x-0" : "-translate-x-full"}`}
         >
           <TreeHeader
             numFiles={numFiles}

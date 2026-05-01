@@ -30,7 +30,7 @@ export function WorkspaceSearch({ paths }: WorkspaceSearchProps) {
   }, [paths, query]);
 
   return (
-    <div className="rounded-xl border border-border bg-muted/20 p-4 sm:p-5">
+    <div className="huozi-card rounded-xl border border-border bg-muted/20 p-4 sm:p-5">
       <h2 className="text-sm font-semibold mb-3">{t("ws.search.title")}</h2>
       <input
         type="search"
@@ -58,7 +58,7 @@ export function WorkspaceSearch({ paths }: WorkspaceSearchProps) {
                   <li key={p}>
                     <Link
                       href={`/workspace/view?path=${encodeURIComponent(p)}`}
-                      className="flex items-center gap-2 px-2.5 py-2 text-xs hover:bg-muted/60 transition-colors"
+                      className="huozi-row flex items-center gap-2 px-2.5 py-2 text-xs hover:bg-muted/60 transition-colors"
                     >
                       <span className="shrink-0">
                         <FileIcon name={base} isDir={false} />

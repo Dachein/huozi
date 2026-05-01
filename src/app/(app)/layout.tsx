@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { Suspense } from "react";
 import { AppHeader } from "@/components/app-header";
 import { JoinedToast } from "@/components/joined-toast";
+import { ConfirmProvider } from "@/components/confirm-provider";
 import { getIdentity } from "@/lib/identity";
 import { cloudAdminListWorkspaces } from "@/lib/drive/admin";
 import { isCloud, isEdge } from "@/lib/edition";
@@ -69,21 +70,23 @@ export default async function AppLayout({
   ]);
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <AppHeader
-        principal={principal}
-        workspace={workspace}
-        theme={theme}
-        memberships={memberships.map((w) => ({
-          id: w.id,
-          slug: w.slug,
-          name: w.name,
-        }))}
-      />
-      <Suspense fallback={null}>
-        <JoinedToast />
-      </Suspense>
-      {children}
-    </div>
+    <ConfirmProvider>
+      <div className="flex flex-col min-h-screen">
+        <AppHeader
+          principal={principal}
+          workspace={workspace}
+          theme={theme}
+          memberships={memberships.map((w) => ({
+            id: w.id,
+            slug: w.slug,
+            name: w.name,
+          }))}
+        />
+        <Suspense fallback={null}>
+          <JoinedToast />
+        </Suspense>
+        {children}
+      </div>
+    </ConfirmProvider>
   );
 }

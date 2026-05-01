@@ -22,6 +22,7 @@ import {
   createWriteTool,
 } from '../index.js'
 import { createDownloadTool } from '../tools/DownloadTool.js'
+import { createImageRenderTool } from '../tools/ImageRenderTool.js'
 import { createListTreeTool } from '../tools/ListTreeTool.js'
 import { createMkdirTool } from '../tools/MkdirTool.js'
 import { createMvTool } from '../tools/MvTool.js'
@@ -31,6 +32,7 @@ import { createTemplateTool } from '../tools/TemplateTool/index.js'
 import { createUploadTool } from '../tools/UploadTool/index.js'
 import { createWhoamiTool, type WhoamiToolDeps } from '../tools/WhoamiTool.js'
 import type { BinaryRefSigner } from '../tools/ReadTool/ReadTool.js'
+import type { SvgRenderer } from '../render/svgRenderer.js'
 import type { StorageBackend } from '../storage/types.js'
 import type { Tool } from '../types.js'
 
@@ -57,12 +59,19 @@ export interface HuoziToolRegistryDeps {
    * placeholder URL the agent can't actually fetch.
    */
   binarySigner?: BinaryRefSigner
+  /**
+   * Enables `huozi_image_render`. Worker entry wires the resvg-wasm
+   * renderer; in-memory tests can pass a fake. Without it, the tool is
+   * not registered (rendering is the whole point — degrading silently
+   * would surprise agents).
+   */
+  svgRenderer?: SvgRenderer
 }
 
 export function createHuoziToolRegistry(
   deps: HuoziToolRegistryDeps,
 ): HuoziToolRegistry {
-  const { storage, shareDeps, whoamiDeps, binarySigner } = deps
+  const { storage, shareDeps, whoamiDeps, binarySigner, svgRenderer } = deps
   const tools: Tool<any, any>[] = [
     createReadTool({ storage, binarySigner }),
     createEditTool({ storage }),
@@ -88,6 +97,11 @@ export function createHuoziToolRegistry(
   // listing a tool whose every output is a placeholder URL.
   if (binarySigner) {
     tools.push(createDownloadTool({ storage, signer: binarySigner }))
+  }
+  // huozi_image_render needs a concrete renderer; without one, registering
+  // the tool would mislead the agent.
+  if (svgRenderer) {
+    tools.push(createImageRenderTool({ storage, svgRenderer }))
   }
 
   const byName = new Map<string, Tool<any, any>>()

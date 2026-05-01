@@ -17,7 +17,8 @@
     "test:watch": "vitest",
     "mcp:stdio": "node dist/mcp/stdio.js",
     "cf:dev": "wrangler dev --config wrangler.toml",
-    "cf:deploy": "tsc && wrangler deploy --config wrangler.toml",
+    "cf:deploy:api": "tsc && wrangler deploy --config wrangler.toml",
+    "cf:deploy": "echo '\\nuse cf:deploy:api here, or pnpm cf:deploy:all from repo root\\n' && exit 1",
     "cf:migrate": "wrangler d1 execute huozi-db --file src/storage/cloudflare/schema.sql --remote --config wrangler.toml",
     "cf:sql": "wrangler d1 execute huozi-db --remote --config wrangler.toml --json --command"
   },
@@ -32,6 +33,7 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@resvg/resvg-wasm": "^2.6.2",
     "diff": "^5.2.0",
     "fflate": "^0.8.2",
     "jose": "^6.2.2",
@@ -46,6 +48,6 @@
     "@types/node": "^20.12.0",
     "typescript": "^5.5.0",
     "vitest": "^4.1.4",
-    "wrangler": "^4.84.0"
+    "wrangler": "~4.85.0"
   }
 }

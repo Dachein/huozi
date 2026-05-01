@@ -91,16 +91,16 @@ export default async function SharesPage() {
               to create one.
             </div>
           ) : shares.length > 0 ? (
-            <div className="rounded-lg border border-border overflow-hidden">
+            <div className="huozi-card rounded-lg border border-border/60 overflow-hidden">
               <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
+                <thead className="text-xs uppercase tracking-wider text-muted-foreground border-b border-border/60">
                   <tr>
                     <th className="text-left px-4 py-2 font-medium">File</th>
                     <th className="text-left px-4 py-2 font-medium">URL</th>
                     <th className="text-left px-4 py-2 font-medium">Gate</th>
                     <th className="text-left px-4 py-2 font-medium">Views</th>
                     <th className="text-left px-4 py-2 font-medium">Created</th>
-                    <th className="text-right px-4 py-2 font-medium"></th>
+                    <th className="text-right pl-4 pr-6 py-2 font-medium"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -142,7 +142,7 @@ export default async function SharesPage() {
                         <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
                           {formatTime(s.created_at)}
                         </td>
-                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <td className="pl-4 pr-6 py-3 text-right whitespace-nowrap">
                           <RevokeShareButton
                             slug={s.slug}
                             path={s.file_path}

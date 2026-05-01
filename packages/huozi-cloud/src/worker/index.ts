@@ -16,6 +16,7 @@
  */
 
 import { createHuoziToolRegistry } from '../mcp/tools.js'
+import { resvgSvgRenderer } from '../render/svgRendererResvg.js'
 import { CloudflareStorage } from '../storage/cloudflare/storage.js'
 import { resolveBearer, touchAction } from '../storage/cloudflare/auth.js'
 import {
@@ -45,6 +46,7 @@ import {
   createShareRow,
   handleCreateShare,
   handleGetShare,
+  handleGetShareAsset,
   handleListShares,
   handleRevokeShare,
   handleUnlockShare,
@@ -279,6 +281,17 @@ const handler: ExportedHandler<HuoziCloudflareBindings> = {
         if (action === 'unlock') return handleUnlockShare(request, env, slug)
         if (action === 'revoke') return handleRevokeShare(request, env, slug)
         return handleGetShare(request, env, slug)
+      }
+    }
+    // GET /shares/<slug>/asset/__assets__/<...> — public asset proxy
+    // for /p/<slug> markdown image references. Separate from the slug
+    // regex above because the trailing path is variable-depth.
+    {
+      const m = url.pathname.match(
+        /^\/shares\/([a-z0-9][a-z0-9-]{1,38}[a-z0-9])\/asset\/(.+)$/,
+      )
+      if (m) {
+        return handleGetShareAsset(request, env, m[1]!, m[2]!)
       }
     }
 
@@ -656,6 +669,7 @@ async function handleMcp(
       whoami: () => fetchWhoami(env, principal, authRes.keyHash),
     },
     binarySigner,
+    svgRenderer: resvgSvgRenderer,
   })
 
   if (rpc.method === 'initialize') {
