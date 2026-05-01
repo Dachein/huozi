@@ -580,14 +580,25 @@ Agent 看到 `truncated: true` 或 `skipped_files` 时可以决定：缩小 `pat
 }
 ```
 
-**路径约定**：
+**路径约定**（save_to）：
 
 | 场景 | 默认路径 |
 |---|---|
 | `save_to` 缺省 | `/__assets__/<blob-sha-前 12 位>.png` |
 | `save_to` 提供 | 原样使用，但必须以 `.png` 结尾且不可越界 |
 
-`/__assets__/` 是图库根（workspace 内部路径）。Markdown 引用就用 `![alt](/__assets__/...)`，发布管道（`/p/<slug>`）会把 URL 改写成 `/p/<slug>/a/<path>`（`/a/` 而不是 `/__assets__/`，因为 Next.js 把 `_` 开头的路径段当作 private folder 不参与路由）。
+#### URL 约定（图片库 SSOT）
+
+下面四条是 huozi 图片资产从 workspace 到公开页面的**完整路径形态**。任何代码改动涉及到资产 URL 都以这里为准，不要在源码里重复推导这套规则。
+
+| 层 | 形态 | 谁产生 |
+|---|---|---|
+| workspace 内部路径 | `/__assets__/<file>.png` | `huozi_image_render` 或手写 markdown |
+| markdown 源码引用 | `![alt](/__assets__/<file>.png)` | Agent / 用户 |
+| 公开页面 HTML（`/p/<slug>`）中的 `<img src>` | `/p/<slug>/a/<file>.png` | `src/lib/markdown/renderer.ts` 的 `rewriteAssetUrls()` |
+| Next.js 反代命中的 worker 端点 | `/shares/<slug>/asset/__assets__/<file>.png` | `src/app/p/[slug]/a/[...path]/route.ts` |
+
+**为什么 URL 上是 `/a/` 而不是 `/__assets__/`**：Next.js 把以下划线开头的路径段当作 [private folder](https://nextjs.org/docs/app/building-your-application/routing/colocation#private-folders)，不参与路由。`[slug]/__assets__/[...path]/route.ts` 永远不会被注册。所以公开 URL 用 `/a/`（短、不冲突），workspace 内部路径保留 `__assets__/`（无路由约束，且和 Agent 工具语义一致）。代理 route 的职责就是把丢失的 `__assets__/` 加回去再转给 worker。
 
 **渲染栈**：
 
@@ -600,20 +611,12 @@ Agent 看到 `truncated: true` 或 `skipped_files` 时可以决定：缩小 `pat
 
 **Last-write-wins**：和 `huozi_upload` 同语义，不要求 staleness check。Render 是「按需重画」语义，不是「编辑现有文件」。
 
-**配套 HTTP 端点**（Worker 侧）：
-
-```
-GET /shares/<slug>/asset/__assets__/<path>
-```
-
-匹配 `/p/<slug>` 渲染的 markdown 中 `/__assets__/...` 的图片引用。语义：
+**配套 HTTP 端点**（Worker 侧 — `GET /shares/<slug>/asset/__assets__/<path>`，URL 形态见上方「URL 约定」表）：
 
 - 匹配的 share 必须是公开的（无 passcode）且未撤销
 - 资产路径**必须**以 `__assets__/` 开头；其它路径返回 400（不是「凡是 share 同 workspace 的文件都开放」）
 - 用 share 的 workspace_id 在 `files_current` 索引里查 blob_sha → 从 R2 取字节
 - Headers：`Content-Type`（D1 的 `content_type` 列优先，回退扩展名）、`Cache-Control: public, max-age=3600`、`ETag: "<blob_sha>"`
-
-Next.js 侧的 `/p/[slug]/a/[...path]/route.ts` 是个薄代理 —— 收到 `/p/<slug>/a/<path>` 后把 `__assets__/` 加回去再转给 Worker `/shares/<slug>/asset/__assets__/<path>`。不做权限或缓存判断。
 
 **未来扩展（v2+）**：
 - `format: 'mermaid'`
@@ -1070,8 +1073,174 @@ roots: [
 
 ---
 
+## 13.5 身份与认证（Identity & Auth）
+
+> 跨 edition 的 auth 设计。三个核心差异（登录方式 / workspace 模型 / 公开注册）见 `AGENTS.md` "Three core differences"；本节细化 Worker 侧的数据模型、HTTP 端点、和 MCP 工具契约。
+
+### 13.5.1 D1 schema 追加
+
+```sql
+-- Edge: 邮箱 + 密码凭证。一个 user 一行；Cloud 用户没有这一行（不影响）。
+-- 算法 v1 锁 argon2id；hash 是 PHC 字符串（自带 salt + 参数），算法升级时
+-- 比对用 PHC 头自动识别，无需迁移历史行。
+CREATE TABLE IF NOT EXISTS password_credentials (
+  user_id      TEXT PRIMARY KEY,
+  hash         TEXT NOT NULL,        -- argon2id PHC string
+  updated_at   INTEGER NOT NULL
+);
+
+-- 一次性魔法链接（Phase B 的 huozi_grant_browser_session 落地表）。
+-- 单次使用，过期自动失效，consumed_at 标记后即使 token 泄露也无效。
+CREATE TABLE IF NOT EXISTS magic_links (
+  token        TEXT PRIMARY KEY,         -- 高熵随机串，URL 中传输
+  user_id      TEXT NOT NULL,
+  workspace_id TEXT NOT NULL,            -- 落地的 workspace（=cookie 中 wsid）
+  created_at   INTEGER NOT NULL,
+  expires_at   INTEGER NOT NULL,         -- 默认 created + 600s
+  consumed_at  INTEGER,                  -- 首次点击后写入
+  issued_by    TEXT                      -- 调用 grant 的 caller principal_id（审计用）
+);
+
+CREATE INDEX IF NOT EXISTS idx_magic_links_user ON magic_links (user_id);
+```
+
+`workspace_invites` 已存在（§ 6.3），Edge / Cloud 共用。Edge 的差异在于**接收侧不验证 email** —— 邀请者点击 URL 后可以修改 email 字段。`email` 在 Edge 等同于 username（登录标识，无所有权证明）。
+
+### 13.5.2 浏览器闭环（Phase A — main flow）
+
+#### Cloud first contact（OTP 驱动）
+
+| 步 | 路径 | 动作 |
+|---|---|---|
+| 1 | `GET /login` | 表单：仅 email 输入框 |
+| 2 | `POST /api/auth/cloud/request-otp` | 写一行 `otp_codes` + 发邮件；回 `{ ok }` |
+| 3 | `GET /login?email=…&pending=1` | 表单切换到 OTP code 输入 |
+| 4 | `POST /api/auth/cloud/verify-otp` | 校验 → upsert `users` → mint JWT cookie → 302 `/workspace` 或 `/select-workspace` |
+
+新邮箱第一次走完即为注册，无独立 signup 路由。
+
+#### Edge first contact（密码驱动）
+
+| 步 | 路径 | 动作 |
+|---|---|---|
+| 1 | `GET /admin/setup?secret=$HUOZI_ADMIN_SECRET` | **仅当 D1 `users` 为空**才显示表单（email + password）；否则 404 防止重置攻击 |
+| 2 | `POST /admin/setup` | upsert users + workspaces + workspace_members(owner) + password_credentials → JWT cookie |
+| 3 | `POST /admin/invites`（已认证） | admin 在 `/workspace/members` 提交被邀请人 email → 写 `workspace_invites` 行 + 返回 `/invite/<token>` URL |
+| 4 | `GET /invite/<token>` | 表单：**email（预填，可改）** + password |
+| 5 | `POST /invite/<token>/accept` | 校验 token 未过期未消费 → upsert users（按表单 email）+ password_credentials + workspace_members(member) → JWT cookie → 302 `/workspace` |
+
+#### Edge 后续登录（Cloud 不走这条）
+
+| 步 | 路径 | 动作 |
+|---|---|---|
+| 1 | `GET /login`（Edge 模式） | 表单：email + password 两栏 |
+| 2 | `POST /api/auth/edge-login` | 查 `users` by email → 比对 `password_credentials.hash`（argon2id verify）→ JWT cookie → 302 `/workspace`；任何失败统一返 `Invalid email or password`（不区分用户存在与否，防 enumeration） |
+
+### 13.5.3 Identity tools（Phase B — MCP 层）
+
+> 浏览器闭环之上的 Agent 快捷路径。本节工具不取代 Phase A，是补充。
+
+#### `huozi_request_otp`（Cloud only · 匿名）
+
+```ts
+// input
+{ email: string }
+
+// output
+{ ok: true, expires_in_seconds: 600 }
+| { ok: false, error: 'rate_limited' | 'invalid_email' }
+```
+
+不需要 api_key（这是注册 / 首次登录的入口）。Worker 写 otp_codes 表 + 发邮件，行为与 `POST /api/auth/cloud/request-otp` 一致。
+
+**Rate limit**：每 email 每 10 分钟 max 3 次，每 IP 每小时 max 20 次。超限返回 `rate_limited`，不暴露具体计数。
+
+#### `huozi_verify_otp`（Cloud only · 匿名）
+
+```ts
+// input
+{ email: string, code: string, agent_label?: string }
+
+// output
+{ ok: true, api_key: string, key_id: string, workspace_id: string | null }
+| { ok: false, error: 'invalid_code' | 'expired' | 'rate_limited' }
+```
+
+成功时同步：upsert `users`、mint 一把 api_key（`agent_kind: 'unknown'`，name 用 `agent_label` 或默认 `"[mcp-bootstrap] <date>"`）、返回 key 给 Agent 自己存。`workspace_id: null` 时 Agent 应当提示用户用浏览器走 `/onboard` 创建第一个 workspace（`huozi_create_workspace` 不开放）。
+
+**Rate limit**：每 email 每 10 分钟 max 5 次错误尝试，超限返回 `rate_limited`（不返 expired，避免泄露 OTP 还在有效期内）。
+
+#### `huozi_invite`（Cloud + Edge · 已认证）
+
+```ts
+// input
+{ email: string, role?: 'member' }   // v1 仅 'member'
+
+// output
+{ ok: true, invite_url: string, expires_at: number }
+| { ok: false, error: 'permission_denied' | 'already_member' | 'edge_admin_only' }
+```
+
+调用者必须是当前 workspace 的 owner（Cloud：role='owner'；Edge：principal='admin'）。返回 URL 让 Agent 转给被邀请人——接受走浏览器（`/invite/<token>`），借机引导新用户配 Agent。
+
+#### `huozi_grant_browser_session`（Cloud + Edge · 已认证）
+
+```ts
+// input
+{}    // 完全无参数，从 caller 的 api_key 推断 user + workspace
+
+// output
+{ ok: true, url: string, expires_at: number }
+```
+
+Worker 写 `magic_links` 行 → 返回 `<base>/auth/m/<token>`。expire 默认 10 分钟。点击后 `GET /auth/m/<token>` 校验 + mint JWT cookie + 重定向 `/workspace`，同步标记 `consumed_at`。
+
+**安全**：token 短暂，单次使用；Agent 被攻陷时多发链接不增加攻击面（攻陷者已经持 api_key）；workspace_id 从 caller 取，跨 ws 攻击不可能。
+
+### 13.5.4 故意不开放的 MCP 工具
+
+| 工具名 | 不做的原因 |
+|---|---|
+| `huozi_create_workspace` | Cloud 暂时一人一 ws，开放只增混乱；Edge 永远单 ws |
+| `huozi_join_workspace` / `huozi_accept_invite` | 接受邀请走浏览器，是 onboarding 入口（也借机让新用户连 Agent）。MCP 走完后用户没 cookie 也没在浏览器，体验断裂 |
+| `huozi_change_password` | 高破坏性，留 UI |
+| `huozi_delete_workspace` / `huozi_transfer_owner` | 不可逆，留 UI 加二次确认 |
+
+### 13.5.5 端点全表
+
+| Method | Path | Edition | Auth | 用途 |
+|---|---|---|---|---|
+| `GET` | `/login` | both | none | 登录页（Edge 显示 email+password；Cloud 显示 OTP 流程）|
+| `POST` | `/api/auth/cloud/request-otp` | Cloud | none | 发 OTP |
+| `POST` | `/api/auth/cloud/verify-otp` | Cloud | none | 校验 OTP → cookie |
+| `POST` | `/api/auth/edge-login` | Edge | none | email+password → cookie |
+| `GET` | `/admin/setup` | Edge | `?secret=$HUOZI_ADMIN_SECRET` | 一次性 admin 初始化（仅 users 空时）|
+| `POST` | `/admin/setup` | Edge | secret | 同上提交 |
+| `POST` | `/admin/invites` | both | cookie + owner | 已存在；admin 生成邀请 URL |
+| `GET` | `/invite/<token>` | both | none | 接受邀请表单（Cloud 跳过 password；Edge 含 password）|
+| `POST` | `/invite/<token>/accept` | both | none | 接受 → cookie |
+| `GET` | `/auth/m/<token>` | both | none | 一次性魔法链接消费 → cookie |
+| `POST` | `/api/auth/logout` | both | cookie | 清 cookie |
+
+### 13.5.6 实施分阶段
+
+| Phase | 内容 | 风险 |
+|---|---|---|
+| A1 | Edge `/admin/setup` + password_credentials 表 + argon2id helper | 低（新增）|
+| A2 | Edge `/login` 改密码登录 + `/api/auth/edge-login`；middleware 不变 | 中（替换 connect 路径）|
+| A3 | Edge `/invite/<token>` 表单 + `/invite/<token>/accept` | 中（新流程）|
+| A4 | Cloud 浏览器流程已有（无改动）| — |
+| B1 | `huozi_grant_browser_session` + `/auth/m/<token>` + magic_links 表 | 低 |
+| B2 | `huozi_invite`（包装现有 `/admin/invites`）| 低 |
+| B3 | `huozi_request_otp` + `huozi_verify_otp`（Cloud only）+ rate-limit 中间件 | 中（暴露匿名 endpoint）|
+
+A1-A4 独立闭环；B1-B3 可任意时机插入，不阻塞 A。
+
+---
+
 ## 14. 变更记录
 
+- **v0.7 (2026-05-01)**：新增 §13.5 身份与认证。锁定 Cloud / Edge 三大核心差异（OTP vs 密码 / 多 vs 单 workspace / 公开注册 vs 邀请）。Edge 浏览器闭环（`/admin/setup` + 密码 `/login` + 邀请 URL 设密码）；Identity tools Phase B 设计（`huozi_request_otp` / `huozi_verify_otp` / `huozi_invite` / `huozi_grant_browser_session`）。**故意不开放** `huozi_join_workspace` —— 接受邀请走浏览器作为新用户 onboarding 入口。新增 D1 表：`password_credentials`、`magic_links`。
 - **v0.6 (2026-04-21)**：钉住 "Agent 写，人类读" 的分工（§0.3 目标 5、§0.4 新增"依据"小节、§0.2 明确 Web UI 不做编辑）。v1 Web UI（`huozi.app/cloud/workspace`）上线，支持浏览 + 历史视图；Web 编辑**显式**推到 v2 且要看真实需求再决定做不做。同一 commit 周期新增：Worker 侧 Scope 运行时强制、Secret scanner、vitest 单测套件（177 assertions）、3 个 CF-wire smoke（batch/scope/secrets 共 71 assertions）。
 - **v0.5 (2026-04-20)**：基于生态调研（官方 MCP filesystem / TencentCOS / Dropbox / OneDrive / Box / `mathematic-inc/claude-tools-mcp`）的调整。**定位升级为"Agent 用的云端硬盘"**（§0.1）。新增 `huozi_batch_edit`（§4.6）和 `huozi_history`（§4.7）；Read 输出加 `blob_sha` 字段（§4.1）；Edit 明确反对 whitespace-tolerant fallback（§4.2）；MCP 暴露采用 roots 协议（§10.2）。**关键结论**：CC 方言云端硬盘是空白象限，我们是第一家。
 - **v0.4 (2026-04-20)**：钉住 Q8/Q10。`.ipynb` v1 read-only；`userModified` 重新定义为 human-approved 标记；Secret scanner 增加占位符白名单（模板变量和 `-test-` 等）；Read 扩展类型不做能力协商。**所有 10 个 open questions 已全部定稿**。

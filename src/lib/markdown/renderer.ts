@@ -71,19 +71,13 @@ const processor = unified()
 
 export interface RenderOptions {
   /**
-   * If set, image / link URLs that start with `/__assets__/` are
-   * rewritten to `${assetBase}/a/...`. Used by the `/p/<slug>` share
-   * renderer to scope asset references back through a route handler
-   * that can fetch from the share's workspace.
+   * If set, `/__assets__/<path>` URLs are rewritten to
+   * `${assetBase}/a/<path>`. Used by the `/p/<slug>` share renderer.
+   * See `packages/huozi-cloud/SPEC.md` §4.8 → "URL 约定" for the
+   * canonical four-layer URL shape.
    *
-   * URL segment is `/a/`, not `/__assets__/`, because Next.js treats
-   * folders starting with `_` as private (excluded from routing). The
-   * underlying workspace path stays `/__assets__/...`; only the public
-   * URL shape changes.
-   *
-   * Leave undefined for contexts where assets resolve naturally
-   * (workspace view inside the app, where `/__assets__/...` is a
-   * routable path already).
+   * Leave undefined for in-app workspace view, where `/__assets__/...`
+   * is already a routable path.
    */
   assetBase?: string;
 }
@@ -101,23 +95,16 @@ export async function renderMarkdown(
 }
 
 /**
- * Rewrite `/__assets__/<path>` references in rendered HTML to
- * `${base}/a/<path>`. Operates on the serialized string instead of the
- * rehype tree because the rewrite is a string-level concern (URL prefix
- * swap), not a structural one — and string replace is significantly
- * cheaper than a full tree walk for the common case (a handful of
- * images).
+ * Rewrite `/__assets__/<path>` → `${base}/a/<path>` in rendered HTML.
+ * Operates on the serialized string (cheaper than a tree walk for the
+ * handful-of-images common case). Matches `src="..."`, `src='...'`, and
+ * `src=...` (unquoted).
  *
- * Why `/a/` and not `/__assets__/`: Next.js treats folders starting
- * with `_` as private (skipped during routing). A `[slug]/__assets__/`
- * route would never match. The internal workspace path stays
- * `__assets__/...` — the route handler at `[slug]/a/[...path]` puts
- * `__assets__/` back when calling the worker.
- *
- * Match shape: `src="/__assets__/foo.png"`, `href='/__assets__/...'`,
- * `src=/__assets__/...` (no quotes — produced by some rehype configs).
+ * The `/__assets__/ → /a/` URL shape is dictated by Next.js's
+ * private-folder convention; full rationale + 4-layer URL table lives
+ * in `packages/huozi-cloud/SPEC.md` §4.8 "URL 约定".
  */
-function rewriteAssetUrls(html: string, base: string): string {
+export function rewriteAssetUrls(html: string, base: string): string {
   // Strip trailing slashes; the path being rewritten already starts with `/`.
   const b = base.replace(/\/+$/, "");
   return html.replace(

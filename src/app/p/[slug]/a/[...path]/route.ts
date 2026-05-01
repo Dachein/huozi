@@ -1,22 +1,14 @@
 /**
- * Public asset proxy for /p/<slug> shares.
+ * Public asset proxy for `/p/<slug>` shares.
  *
- * Markdown rendered by `/p/[slug]/page.tsx` may contain image
- * references that originally pointed at workspace-relative paths like
- * `/__assets__/foo.png`. The renderer rewrites those to
- * `/p/<slug>/a/foo.png` (see lib/markdown/renderer.ts) — `/a/` instead
- * of `/__assets__/` because Next.js treats `_`-prefixed folders as
- * private (not routed). This route resolves them by proxying to
- * `cloud.huozi.app/shares/<slug>/asset/__assets__/foo.png` (worker
- * side keeps the original `__assets__/` workspace path).
+ * Receives `/p/<slug>/a/<path>` and forwards to worker
+ * `/shares/<slug>/asset/__assets__/<path>` (worker keeps the
+ * `__assets__/` workspace prefix). All policy — public-share check,
+ * caching, content-type — lives in the worker; this route is just a
+ * thin tunnel.
  *
- * The worker side is responsible for:
- *   - Validating the share is public (no passcode) and not revoked
- *   - Looking up the asset in the share's workspace
- *   - Streaming bytes with the right Content-Type + cache headers
- *
- * We do nothing here besides forwarding — kept thin so the cache /
- * security policy stays in one place (the worker).
+ * URL shape rationale + canonical 4-layer table: see
+ * `packages/huozi-cloud/SPEC.md` §4.8 "URL 约定".
  */
 
 import type { NextRequest } from "next/server";
@@ -45,9 +37,8 @@ async function proxyToWorker(
   pathParts: string[],
   method: "GET" | "HEAD",
 ): Promise<Response> {
-  // pathParts is the segments AFTER /p/<slug>/a/ — the public URL
-  // shape, with __assets__ stripped (Next routing constraint, see
-  // file header). Put it back when constructing the worker URL.
+  // pathParts = segments AFTER /p/<slug>/a/. Worker expects
+  // `__assets__/<path>` — put the prefix back here.
   const assetPath = pathParts
     .map((p) => encodeURIComponent(p))
     .join("/");
