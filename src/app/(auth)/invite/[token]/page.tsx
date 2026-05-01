@@ -11,15 +11,19 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SESSION_COOKIE_NAME, verifySession } from "@/lib/auth/jwt";
+import { isEdge } from "@/lib/edition";
 import { cloudAdminInspectInvite } from "@/lib/drive/admin";
 import { getServerT } from "@/lib/i18n/server";
+import { EdgeInviteAcceptForm } from "./edge-invite-form";
 
 interface PageProps {
   params: Promise<{ token: string }>;
+  searchParams?: Promise<{ error?: string }>;
 }
 
-export default async function InvitePage({ params }: PageProps) {
+export default async function InvitePage({ params, searchParams }: PageProps) {
   const { token } = await params;
+  const errorCode = (await searchParams)?.error ?? null;
   const _ = await getServerT();
 
   const invite = await cloudAdminInspectInvite(token).catch(() => null);
@@ -52,6 +56,22 @@ export default async function InvitePage({ params }: PageProps) {
       <Status
         title={_("invite.expired.title")}
         message={_("invite.expired.message")}
+      />
+    );
+  }
+
+  // ── Edge edition: render the password-set form. Email is editable
+  //    (treated as username; URL is the trust). No "already signed in"
+  //    branch — Edge users bootstrap fresh on this page.
+  if (isEdge()) {
+    return (
+      <EdgeInviteAcceptForm
+        token={token}
+        suggestedEmail={invite.email}
+        workspaceName={invite.workspace_name}
+        workspaceSlug={invite.workspace_slug}
+        inviterEmail={invite.inviter_email}
+        errorCode={errorCode}
       />
     );
   }

@@ -32,6 +32,14 @@ import {
   handleUpdateKeyTtl,
   type AdminEnv,
 } from '../storage/cloudflare/admin.js'
+import {
+  handleAdminSetupForm,
+  handleAdminSetupSubmit,
+} from '../storage/cloudflare/admin-setup.js'
+import {
+  handleEdgeInviteRedeem,
+  handleEdgeLogin,
+} from '../storage/cloudflare/auth-password.js'
 import { gcOrphanBlobs, handleGcBlobs } from '../storage/cloudflare/blob-gc.js'
 import { handleMeBootstrap, type MeEnv } from '../storage/cloudflare/me-bootstrap.js'
 import {
@@ -295,6 +303,16 @@ const handler: ExportedHandler<HuoziCloudflareBindings> = {
       }
     }
 
+    // Edge first-run admin setup. One-shot HTML flow served by the
+    // Worker itself (no Next.js — keeps bootstrap self-contained). Only
+    // works when D1 `users` is empty + HUOZI_EDGE_WORKSPACE_SLUG is set.
+    if (url.pathname === '/admin/setup') {
+      if (request.method === 'POST') {
+        return await handleAdminSetupSubmit(request, env as AdminEnv)
+      }
+      return await handleAdminSetupForm(request, env as AdminEnv)
+    }
+
     // Admin endpoints — server-to-server via HUOZI_ADMIN_SECRET.
     if (url.pathname === '/admin/mint-key') {
       try {
@@ -478,6 +496,14 @@ const handler: ExportedHandler<HuoziCloudflareBindings> = {
         if (r instanceof Response) return r
         throw r
       }
+    }
+    // Edge-only password login. Returns 404 in Cloud (where
+    // HUOZI_EDGE_WORKSPACE_SLUG is unset).
+    if (url.pathname === '/auth/edge-login') {
+      return await handleEdgeLogin(request, env as AuthOtpEnv)
+    }
+    if (url.pathname === '/auth/edge-invite-redeem') {
+      return await handleEdgeInviteRedeem(request, env as AuthOtpEnv)
     }
     if (url.pathname === '/auth/me') {
       try {

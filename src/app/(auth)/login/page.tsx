@@ -1,17 +1,31 @@
-import { redirect } from "next/navigation";
 import { isEdge } from "@/lib/edition";
 import { LoginForm } from "./login-form";
+import { EdgeLoginForm } from "./edge-login-form";
 
 /**
- * /login is Cloud-only — it talks to Supabase's email-OTP API.
+ * /login renders different surfaces per edition:
+ *   - Cloud → email-OTP flow (LoginForm, talks to Worker /auth/otp/*)
+ *   - Edge  → email + password (EdgeLoginForm, posts to /auth/edge-login)
  *
- * Edge deployments don't have a user table at all (single admin via
- * pasted API key), so on Edge we redirect straight to /cloud/connect
- * where the bootstrap key is pasted in.
+ * Edge also uses /admin/setup (Worker-served) for first-run admin
+ * provisioning and /invite/<token> for accepting invitations; both set
+ * a session cookie directly so the user lands here only on subsequent
+ * sign-ins.
  */
-export default function LoginPage() {
+
+type SearchParams = {
+  searchParams?: Promise<{ error?: string; email?: string }>;
+};
+
+export default async function LoginPage({ searchParams }: SearchParams) {
   if (isEdge()) {
-    redirect("/cloud/connect");
+    const params = (await searchParams) ?? {};
+    return (
+      <EdgeLoginForm
+        errorCode={params.error ?? null}
+        emailHint={params.email ?? ""}
+      />
+    );
   }
   return <LoginForm />;
 }
