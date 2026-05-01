@@ -12,7 +12,9 @@
     "cf:deploy:all": "pnpm cf:deploy:api && pnpm cf:deploy:web",
     "cf:deploy": "echo '\\nUse one of: cf:deploy:api (backend) | cf:deploy:web (frontend) | cf:deploy:all\\n' && exit 1",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@glideapps/glide-data-grid": "^6.0.4-alpha24",
@@ -52,6 +54,7 @@
     "eslint-config-next": "16.2.3",
     "tailwindcss": "^4",
     "typescript": "^5",
+    "vitest": "^4.1.5",
     "wrangler": "~4.85.0"
   }
 }
