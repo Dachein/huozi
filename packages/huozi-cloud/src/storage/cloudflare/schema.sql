@@ -113,6 +113,37 @@ CREATE INDEX IF NOT EXISTS idx_otp_codes_email_active
   ON otp_codes (email, consumed_at, expires_at);
 
 
+-- Edge-edition email+password credentials. One row per user with a
+-- password (Cloud users have none — they only login via OTP). The hash
+-- column stores a self-describing PHC string ("$pbkdf2-sha256$i=…"),
+-- so a future migration to argon2id is transparent — verify dispatches
+-- by algorithm prefix. See `auth/password.ts`.
+CREATE TABLE IF NOT EXISTS password_credentials (
+  user_id     TEXT PRIMARY KEY,
+  hash        TEXT NOT NULL,
+  updated_at  INTEGER NOT NULL
+);
+
+
+-- One-shot magic links (Phase B `huozi_grant_browser_session`). Token
+-- is high-entropy random; click consumes it (consumed_at set) so even
+-- if the URL leaks afterwards it's useless. workspace_id is captured
+-- at issue time so the resulting cookie binds back to the same wsid
+-- the issuing principal had.
+CREATE TABLE IF NOT EXISTS magic_links (
+  token        TEXT PRIMARY KEY,
+  user_id      TEXT NOT NULL,
+  workspace_id TEXT NOT NULL,
+  created_at   INTEGER NOT NULL,
+  expires_at   INTEGER NOT NULL,
+  consumed_at  INTEGER,
+  issued_by    TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_magic_links_user
+  ON magic_links (user_id);
+
+
 -- Files currently present in each workspace (hot-path index for reads).
 CREATE TABLE IF NOT EXISTS files_current (
   workspace_id TEXT NOT NULL,
