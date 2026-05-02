@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { hashPassword, verifyPassword } from "../password.js";
 
-// Iteration count is high (600k) so each hash takes ~80-150 ms on a
-// laptop. Keep this suite tight — a few targeted assertions are enough
-// to lock the algorithm.
+// Iteration count is 100k (Workers PBKDF2 cap). Each hash takes ~15-30
+// ms on a laptop. Keep this suite tight — a few targeted assertions
+// are enough to lock the algorithm.
 
 describe("password hashing", () => {
   it("produces a PHC-style string with the expected algo and iteration count", async () => {
     const phc = await hashPassword("hunter2");
-    expect(phc).toMatch(/^\$pbkdf2-sha256\$i=600000\$[\w-]+\$[\w-]+$/);
+    expect(phc).toMatch(/^\$pbkdf2-sha256\$i=100000\$[\w-]+\$[\w-]+$/);
   });
 
   it("uses a fresh salt — same password hashes differently each call", async () => {

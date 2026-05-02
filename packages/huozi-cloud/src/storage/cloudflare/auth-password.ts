@@ -24,15 +24,14 @@ interface EdgeLoginEnv extends HuoziCloudflareBindings {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// A precomputed hash of the literal string `__no_user__` — used as a
-// dummy when the email isn't found, so we still pay the verify cost
-// and don't reveal user existence via timing. Algo + iterations match
-// the ones in `auth/password.ts`. Re-generate by running:
-//   await hashPassword('__no_user__')
-// in a node REPL with that module imported. Salt is fixed here on
-// purpose — its only job is making the verify shape match production.
+// Dummy PHC string used as a fixed verify target when the user isn't
+// found — keeps the timing flat between "no user" and "user but wrong
+// password" branches. Both salt and hash are valid base64url; the hash
+// is intentionally meaningless (verify just compares bytes and returns
+// false). Iteration count must match the live algo in `auth/password.ts`
+// (100k, the Workers cap).
 const DUMMY_PHC =
-  "$pbkdf2-sha256$i=600000$AAAAAAAAAAAAAAAAAAAAAA$" +
+  "$pbkdf2-sha256$i=100000$AAAAAAAAAAAAAAAAAAAAAA$" +
   "qpEbpYfQcAJoJEK7BrIzJfk-D32uyJaaKJfIdHm-PI8";
 
 interface UserRow {

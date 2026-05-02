@@ -1,22 +1,28 @@
 /**
  * Password hashing & verification (Edge edition only at v1).
  *
- * Algorithm: PBKDF2-SHA-256 with 600,000 iterations (OWASP 2023 guidance).
- * Encoded as a PHC-style string so future migrations to argon2id can be
- * transparent — `verifyPassword` dispatches by the leading `$<algo>$`
- * prefix, so old PBKDF2 hashes keep verifying after a new algorithm
- * lands. The argon2id upgrade path is documented in SPEC §13.5.1.
+ * Algorithm: PBKDF2-SHA-256 with 100,000 iterations.
  *
- * v1 sticks with PBKDF2 because it lives entirely in `crypto.subtle`
- * (zero bundle cost on the Worker), and 600k iterations stays under the
- * 50 ms CPU-tick budget for a single password verify on Workers.
+ * Why 100k specifically: Cloudflare Workers' WebCrypto runtime caps
+ * PBKDF2 at 100,000 iterations — anything higher throws a
+ * `NotSupportedError`. OWASP 2023 recommends 600k, but that's a
+ * non-starter on this platform. 100k still beats NIST SP 800-63B's
+ * "at least 10,000" bar by 10×, and combined with a 16-byte random
+ * salt + 32-byte derived hash gives meaningful resistance against
+ * offline cracking for the Edge self-host threat model (deployer-
+ * controlled D1 leak).
+ *
+ * Encoded as a PHC-style string so future migrations to argon2id (via
+ * a WASM bundle) can be transparent — `verifyPassword` dispatches by
+ * the leading `$<algo>$` prefix, so old PBKDF2 hashes keep verifying
+ * after a new algorithm lands. Upgrade path: SPEC §13.5.1.
  *
  * PHC string shape:
- *   $pbkdf2-sha256$i=600000$<base64url(salt)>$<base64url(hash)>
+ *   $pbkdf2-sha256$i=100000$<base64url(salt)>$<base64url(hash)>
  */
 
 const ALGO_ID = "pbkdf2-sha256";
-const ITERATIONS = 600_000;
+const ITERATIONS = 100_000;
 const SALT_BYTES = 16;
 const HASH_BYTES = 32; // 256 bits
 
