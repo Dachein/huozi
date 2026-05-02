@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useLocale } from "@/lib/i18n/context";
+import { useLocale, useT } from "@/lib/i18n/context";
 import { COOKIE_NAME, type Locale, LOCALES } from "@/lib/i18n";
-import { ApplyingOverlay, APPLY_DELAY_MS } from "@/components/applying-overlay";
+import { ApplyingOverlay } from "@/components/applying-overlay";
+import { useSwitchApply } from "@/components/use-switch-apply";
 
 interface LocaleInfo {
   glyph: string;
@@ -29,12 +29,12 @@ export interface LocaleGridProps {
 
 /**
  * 4-card locale picker. Inline grid (no popover) — used in the workspace
- * UserMenu and in the marketing mobile menu so both surfaces share the
- * same visual idiom.
+ * UserMenu so identity / language / theme read as a coherent set of
+ * controls.
  *
- * Switch flow (shared with ThemeGrid):
- *   click → write cookie → close menu → render full-screen overlay →
- *   250ms later → hard reload → first paint is in the new locale
+ * Switch flow (shared with ThemeGrid via `useSwitchApply`):
+ *   click → confirm dialog → write cookie → close menu → full-screen
+ *   overlay → 250ms → hard reload → first paint is in the new locale
  *
  * Hard reload (rather than `router.refresh()`) keeps the flow
  * symmetrical with theme switching — same overlay component, same
@@ -42,14 +42,25 @@ export interface LocaleGridProps {
  */
 export function LocaleGrid({ onPick }: LocaleGridProps = {}) {
   const current = useLocale();
-  const [applying, setApplying] = useState<Locale | null>(null);
+  const t = useT();
+  const { applying, apply } = useSwitchApply<Locale>();
 
   function choose(loc: Locale) {
-    if (loc === current || applying) return;
-    document.cookie = `${COOKIE_NAME}=${loc};path=/;max-age=${60 * 60 * 24 * 365};samesite=lax`;
-    setApplying(loc);
-    onPick?.(loc);
-    setTimeout(() => window.location.reload(), APPLY_DELAY_MS);
+    void apply({
+      cookieName: COOKIE_NAME,
+      current,
+      next: loc,
+      confirm: {
+        title: t("locale.confirm.title"),
+        body: t("locale.confirm.body").replace("{name}", INFO[loc].native),
+        // Locale-confirm shares the theme-confirm action/cancel keys —
+        // they're plain "Confirm" / "Cancel" verbs and adding parallel
+        // `locale.confirm.action` keys would just duplicate four files.
+        actionLabel: t("theme.confirm.action"),
+        cancelLabel: t("theme.confirm.cancel"),
+      },
+      onPicked: onPick,
+    });
   }
 
   return (
@@ -69,12 +80,12 @@ export function LocaleGrid({ onPick }: LocaleGridProps = {}) {
               aria-label={info.native}
               aria-pressed={active}
               aria-busy={isApplyingThis || undefined}
-              className={`flex-1 flex flex-col items-center gap-0.5 rounded-md px-2 py-1.5 transition-colors
-                         disabled:cursor-default
+              className={`huozi-tile flex-1 flex flex-col items-center gap-0.5 rounded-md px-2 py-1.5 transition-colors
+                         cursor-pointer disabled:cursor-default
                          ${
                            active || isApplyingThis
                              ? "bg-muted text-foreground"
-                             : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                             : "text-muted-foreground hover:bg-muted hover:text-foreground"
                          }`}
             >
               <span

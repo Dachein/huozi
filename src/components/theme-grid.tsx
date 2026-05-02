@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { COOKIE_NAME, type Theme, THEMES } from "@/lib/theme";
 import { useT } from "@/lib/i18n/context";
-import { ApplyingOverlay, APPLY_DELAY_MS } from "@/components/applying-overlay";
+import { ApplyingOverlay } from "@/components/applying-overlay";
+import { useSwitchApply } from "@/components/use-switch-apply";
 
 interface ThemeInfo {
   /** Single-character glyph shown in the tile, mirrors the LocaleGrid
@@ -31,10 +31,9 @@ export interface ThemeGridProps {
  * 2-card theme picker. Inline grid, mirrors `LocaleGrid` so the user
  * menu reads as a coherent set of identity controls.
  *
- * Switch flow (shared with LocaleGrid):
- *   click → write cookie → close menu → render full-screen overlay
- *   in current theme → 250ms later → hard reload → first paint is
- *   in new theme
+ * Switch flow (shared with LocaleGrid via `useSwitchApply`):
+ *   click → confirm dialog → write cookie → close menu → full-screen
+ *   overlay → 250ms → hard reload → first paint is in new theme
  *
  * The current theme is always passed in from a server component (root
  * layout reads it from the cookie) — the client doesn't re-read the
@@ -44,14 +43,24 @@ export interface ThemeGridProps {
  */
 export function ThemeGrid({ current, onPick }: ThemeGridProps) {
   const t = useT();
-  const [applying, setApplying] = useState<Theme | null>(null);
+  const { applying, apply } = useSwitchApply<Theme>();
 
   function choose(theme: Theme) {
-    if (theme === current || applying) return;
-    document.cookie = `${COOKIE_NAME}=${theme};path=/;max-age=${60 * 60 * 24 * 365};samesite=lax`;
-    setApplying(theme);
-    onPick?.(theme);
-    setTimeout(() => window.location.reload(), APPLY_DELAY_MS);
+    const name = t(INFO[theme].labelKey);
+    void apply({
+      cookieName: COOKIE_NAME,
+      current,
+      next: theme,
+      confirm: {
+        title: t("theme.confirm.title"),
+        body: t("theme.confirm.body").replace("{name}", name),
+        warning:
+          theme === "brutal-mono" ? t("theme.confirm.experimental") : undefined,
+        actionLabel: t("theme.confirm.action"),
+        cancelLabel: t("theme.confirm.cancel"),
+      },
+      onPicked: onPick,
+    });
   }
 
   return (
@@ -71,12 +80,12 @@ export function ThemeGrid({ current, onPick }: ThemeGridProps) {
               aria-label={t(info.labelKey)}
               aria-pressed={active}
               aria-busy={isApplyingThis || undefined}
-              className={`flex-1 flex flex-col items-center gap-0.5 rounded-md px-2 py-1.5 transition-colors
-                         disabled:cursor-default
+              className={`huozi-tile flex-1 flex flex-col items-center gap-0.5 rounded-md px-2 py-1.5 transition-colors
+                         cursor-pointer disabled:cursor-default
                          ${
                            active || isApplyingThis
                              ? "bg-muted text-foreground"
-                             : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                             : "text-muted-foreground hover:bg-muted hover:text-foreground"
                          }`}
             >
               <span
