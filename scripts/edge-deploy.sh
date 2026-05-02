@@ -2,120 +2,167 @@
 #
 # scripts/edge-deploy.sh
 #
-# One-shot deploy of the huozi Edge edition into the user's Cloudflare
-# account. Deploys TWO workers (matches the cloud architecture):
+# One-shot, idempotent deploy of huozi Edge to a Cloudflare account.
+# Provisions the BFF + backend worker pair on a custom hostname
+# (defaults to edge.huozi.app), proxied DNS, path-pattern routes, fresh
+# D1 schema, R2 bucket, bootstrap secrets — and prints a one-shot
+# /admin/setup URL for the deployer to open in a browser.
 #
-#   1. huozi-edge        — cloud worker (D1 / R2 / DOs / MCP / auth APIs)
-#   2. huozi-edge-app    — main Next.js worker (login, /workspace, /p,
-#                          /api BFF). Talks to (1) via service binding.
+# ─── Usage ───────────────────────────────────────────────────────────
 #
-# Both run on workers.dev URLs by default (no custom domain). Re-runs are
-# idempotent: D1 / R2 reuse existing rows, secrets are rotated, workers
-# are redeployed.
+#   1. Generate a Cloudflare API token at
+#      https://dash.cloudflare.com/profile/api-tokens with scopes:
+#        Account · Workers Scripts:Edit
+#        Account · Account D1:Edit
+#        Account · Workers R2 Storage:Edit
+#        Zone (huozi.app) · DNS:Edit
+#        Zone (huozi.app) · Workers Routes:Edit
 #
-# Provisions:
-#   - Worker (cloud):   huozi-edge
-#   - Worker (main):    huozi-edge-app
-#   - D1:               huozi-edge-db
-#   - R2:               huozi-edge-blobs
-#   - DOs:              HuoziWorkspaceDO, HuoziSessionDO (on cloud worker)
-#   - Service binding:  huozi-edge-app.CLOUD → huozi-edge
-#   - Secrets:          HUOZI_ADMIN_SECRET, HUOZI_AUTH_SECRET (on both),
-#                       HUOZI_PUBLIC_BASE (on cloud)
-#   - Workspace row + first admin api_key
+#   2. export CLOUDFLARE_API_TOKEN=<that token>
 #
-# After it finishes you'll get:
-#   - The main worker URL  (https://huozi-edge-app.<acct>.workers.dev)
-#     ← visit this in a browser to use the product
-#   - The cloud worker URL (https://huozi-edge.<acct>.workers.dev)
-#     ← /mcp endpoint that Agents talk to
-#   - The bootstrap api_key (paste at /workspace/connect)
-#   - .huozi-edge.env file (for local `npm run dev` against this stack)
+#   3. (Optional) override defaults via env:
+#        EDGE_HOSTNAME=edge.huozi.app
+#        EDGE_ZONE=huozi.app
+#        EDGE_WORKSPACE_SLUG=demo
+#        EDGE_WORKSPACE_NAME="Edge Demo"
+#        EDGE_SERV_SCRIPT=huozi-edge-serv-demo
+#        EDGE_WEB_SCRIPT=huozi-edge-web-demo
+#        EDGE_D1_NAME=huozi-edge-db
+#        EDGE_R2_NAME=huozi-edge-blobs
 #
-# Usage:
-#   scripts/edge-deploy.sh
-#   WORKSPACE_SLUG=alice scripts/edge-deploy.sh
+#   4. scripts/edge-deploy.sh
 #
-# Tear down: scripts/edge-teardown.sh
+# Tear down with scripts/edge-teardown.sh.
 #
 
 set -euo pipefail
 
-# ── Config ───────────────────────────────────────────────────────────────
+# ─── Config ──────────────────────────────────────────────────────────
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORKER_DIR="$ROOT_DIR/packages/huozi-cloud"
+SERV_DIR="$ROOT_DIR/packages/huozi-cloud"
 
-WORKSPACE_SLUG="${WORKSPACE_SLUG:-default}"
-WORKSPACE_NAME="${WORKSPACE_NAME:-huozi-edge}"
-ADMIN_USER_ID="${ADMIN_USER_ID:-admin}"
+EDGE_HOSTNAME="${EDGE_HOSTNAME:-edge.huozi.app}"
+EDGE_ZONE="${EDGE_ZONE:-huozi.app}"
+EDGE_WORKSPACE_SLUG="${EDGE_WORKSPACE_SLUG:-demo}"
+EDGE_WORKSPACE_NAME="${EDGE_WORKSPACE_NAME:-Edge Demo}"
+EDGE_SERV_SCRIPT="${EDGE_SERV_SCRIPT:-huozi-edge-serv-demo}"
+EDGE_WEB_SCRIPT="${EDGE_WEB_SCRIPT:-huozi-edge-web-demo}"
+EDGE_D1_NAME="${EDGE_D1_NAME:-huozi-edge-db}"
+EDGE_R2_NAME="${EDGE_R2_NAME:-huozi-edge-blobs}"
 
-if [[ ! "$WORKSPACE_SLUG" =~ ^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$ ]]; then
-  echo "✗ WORKSPACE_SLUG must match /^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$/  (got: $WORKSPACE_SLUG)" >&2
-  exit 1
+CF_API="https://api.cloudflare.com/client/v4"
+
+# Path patterns that go to the backend worker. Everything else falls
+# through to the BFF catch-all. CF picks the most specific match
+# regardless of declaration order, but order is kept readable.
+SERV_PATHS=(
+  "/auth/*" "/admin/*" "/me/*" "/mcp"
+  "/events/*" "/shares" "/shares/*"
+  "/blobs/*" "/health" "/debug/*"
+)
+
+cyan()   { printf '\033[36m%s\033[0m\n' "$*"; }
+green()  { printf '\033[32m%s\033[0m\n' "$*"; }
+yellow() { printf '\033[33m%s\033[0m\n' "$*"; }
+red()    { printf '\033[31m%s\033[0m\n' "$*" >&2; }
+die()    { red "✘ $*"; exit 1; }
+
+# ─── Pre-flight ──────────────────────────────────────────────────────
+[[ -n "${CLOUDFLARE_API_TOKEN:-}" ]] || die \
+  "Set CLOUDFLARE_API_TOKEN. Generate at https://dash.cloudflare.com/profile/api-tokens with the scopes listed in the script header."
+
+command -v jq >/dev/null      || die "Install jq (brew install jq)."
+command -v curl >/dev/null    || die "Install curl."
+command -v openssl >/dev/null || die "Install openssl."
+
+cyan "▶ Pre-flight"
+ACCOUNT_ID=$(curl -fsS "$CF_API/accounts" \
+  -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  | jq -r '.result[0].id') || die "API token rejected — check scopes."
+[[ -n "$ACCOUNT_ID" && "$ACCOUNT_ID" != "null" ]] \
+  || die "Couldn't read account ID via token."
+ZONE_ID=$(curl -fsS "$CF_API/zones?name=$EDGE_ZONE" \
+  -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  | jq -r '.result[0].id // empty')
+[[ -n "$ZONE_ID" ]] || die "Zone $EDGE_ZONE not found in this account."
+green "  account=$ACCOUNT_ID  zone=$EDGE_ZONE ($ZONE_ID)"
+echo
+
+# ─── 1. D1 database (idempotent) ─────────────────────────────────────
+cyan "▶ 1. D1 database: $EDGE_D1_NAME"
+D1_ID=$(curl -fsS "$CF_API/accounts/$ACCOUNT_ID/d1/database?name=$EDGE_D1_NAME" \
+  -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  | jq -r '.result[0].uuid // empty')
+if [[ -z "$D1_ID" ]]; then
+  D1_ID=$(curl -fsS -X POST "$CF_API/accounts/$ACCOUNT_ID/d1/database" \
+    -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{\"name\":\"$EDGE_D1_NAME\"}" \
+    | jq -r '.result.uuid')
+  green "  created  → $D1_ID"
+else
+  green "  reused   → $D1_ID"
 fi
+echo
 
-CLOUD_WORKER_NAME="huozi-edge"
-MAIN_WORKER_NAME="huozi-edge-app"
-D1_NAME="huozi-edge-db"
-R2_NAME="huozi-edge-blobs"
-CLOUD_WRANGLER_TOML="$WORKER_DIR/wrangler.edge.toml"
-MAIN_WRANGLER_JSONC="$ROOT_DIR/wrangler.edge.jsonc"
-ENV_FILE="$ROOT_DIR/.huozi-edge.env"
+# ─── 2. R2 bucket (idempotent) ───────────────────────────────────────
+cyan "▶ 2. R2 bucket: $EDGE_R2_NAME"
+R2_OK=$(curl -fsS "$CF_API/accounts/$ACCOUNT_ID/r2/buckets/$EDGE_R2_NAME" \
+  -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  | jq -r '.success')
+if [[ "$R2_OK" != "true" ]]; then
+  curl -fsS -X POST "$CF_API/accounts/$ACCOUNT_ID/r2/buckets" \
+    -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{\"name\":\"$EDGE_R2_NAME\"}" >/dev/null
+  green "  created"
+else
+  green "  reused"
+fi
+echo
 
-cyan() { printf '\033[36m%s\033[0m\n' "$*"; }
-green() { printf '\033[32m%s\033[0m\n' "$*"; }
-red() { printf '\033[31m%s\033[0m\n' "$*" >&2; }
+# ─── 3. Generate wrangler configs ────────────────────────────────────
+cyan "▶ 3. Generate wrangler configs"
+SERV_TOML="$SERV_DIR/wrangler.edge.toml"
+WEB_JSONC="$ROOT_DIR/wrangler.edge.jsonc"
 
-# ── Preflight ────────────────────────────────────────────────────────────
-cyan "▸ Preflight"
-command -v node >/dev/null || { red "✗ node not in PATH"; exit 1; }
-command -v npx >/dev/null || { red "✗ npx not in PATH"; exit 1; }
-command -v jq >/dev/null || { red "✗ jq not in PATH (brew install jq)"; exit 1; }
+SERV_ROUTES=""
+for p in "${SERV_PATHS[@]}"; do
+  SERV_ROUTES+="  { pattern = \"$EDGE_HOSTNAME$p\", zone_name = \"$EDGE_ZONE\" },"$'\n'
+done
 
-cd "$WORKER_DIR"
-npx wrangler whoami >/dev/null 2>&1 || {
-  red "✗ wrangler not authenticated. Run \`npx wrangler login\` first."
-  exit 1
-}
-
-# ── Generate auth secrets up-front (need them on both workers) ──────────
-ADMIN_SECRET="$(node -e 'console.log(require("crypto").randomBytes(32).toString("hex"))')"
-AUTH_SECRET="$(node -e 'console.log(require("crypto").randomBytes(32).toString("hex"))')"
-SIGNING_SECRET="$(node -e 'console.log(require("crypto").randomBytes(32).toString("hex"))')"
-
-# ╔════════════════════════════════════════════════════════════════════╗
-# ║  STAGE 1: Cloud worker (huozi-edge)                                ║
-# ╚════════════════════════════════════════════════════════════════════╝
-
-# ── Build cloud worker ───────────────────────────────────────────────────
-cyan "▸ Building cloud worker (tsc → dist/)"
-npx tsc
-
-# ── Generate cloud wrangler.toml ─────────────────────────────────────────
-cyan "▸ Generating $(basename "$CLOUD_WRANGLER_TOML")"
-cat > "$CLOUD_WRANGLER_TOML" <<EOF
+cat > "$SERV_TOML" <<EOF
 # Auto-generated by scripts/edge-deploy.sh — DO NOT EDIT BY HAND.
-# Tear down:  scripts/edge-teardown.sh
-name = "$CLOUD_WORKER_NAME"
+name = "$EDGE_SERV_SCRIPT"
 main = "dist/worker/index.js"
 compatibility_date = "2026-04-01"
 compatibility_flags = ["nodejs_compat"]
 
-# No custom domain — uses the workers.dev URL so we don't touch DNS.
+[[rules]]
+type = "CompiledWasm"
+globs = ["**/*.wasm"]
+fallthrough = true
+
+routes = [
+$SERV_ROUTES]
+
+[vars]
+HUOZI_PUBLIC_BASE = "https://$EDGE_HOSTNAME"
+HUOZI_EDGE_WORKSPACE_SLUG = "$EDGE_WORKSPACE_SLUG"
+HUOZI_EDGE_WORKSPACE_NAME = "$EDGE_WORKSPACE_NAME"
 
 [[r2_buckets]]
 binding = "BLOBS"
-bucket_name = "$R2_NAME"
+bucket_name = "$EDGE_R2_NAME"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "$D1_NAME"
-database_id = "__FILLED_AFTER_CREATE__"
+database_name = "$EDGE_D1_NAME"
+database_id = "$D1_ID"
 
 [[durable_objects.bindings]]
 name = "WORKSPACE_DO"
 class_name = "HuoziWorkspaceDO"
-
 [[durable_objects.bindings]]
 name = "SESSION_DO"
 class_name = "HuoziSessionDO"
@@ -124,7 +171,6 @@ class_name = "HuoziSessionDO"
 tag = "v1"
 new_classes = ["HuoziWorkspaceDO", "HuoziSessionDO"]
 
-# Weekly R2 orphan-blob GC. See src/storage/cloudflare/blob-gc.ts.
 [triggers]
 crons = ["0 4 * * SUN"]
 
@@ -132,221 +178,153 @@ crons = ["0 4 * * SUN"]
 enabled = true
 EOF
 
-# ── Create / find D1 ─────────────────────────────────────────────────────
-cyan "▸ Creating D1 database $D1_NAME"
-npx wrangler d1 create "$D1_NAME" 2>&1 | tail -3 || true
-D1_ID="$(npx wrangler d1 list --json 2>/dev/null \
-         | jq -r --arg n "$D1_NAME" '.[] | select(.name==$n) | .uuid' \
-         | head -1 || true)"
-if [[ -z "$D1_ID" ]]; then
-  red "✗ Failed to create or find D1 $D1_NAME"
-  exit 1
-fi
-green "  database_id = $D1_ID"
-sed -i.bak "s|__FILLED_AFTER_CREATE__|$D1_ID|" "$CLOUD_WRANGLER_TOML" && rm -f "$CLOUD_WRANGLER_TOML.bak"
-
-# ── Create R2 (idempotent) ───────────────────────────────────────────────
-cyan "▸ Creating R2 bucket $R2_NAME"
-npx wrangler r2 bucket create "$R2_NAME" 2>&1 | grep -v "already exists" || true
-
-# ── Apply schema ─────────────────────────────────────────────────────────
-cyan "▸ Applying D1 schema"
-npx wrangler d1 execute "$D1_NAME" --remote \
-  --config "$CLOUD_WRANGLER_TOML" \
-  --file src/storage/cloudflare/schema.sql >/dev/null
-
-# ── Seed admin user / workspace / membership ─────────────────────────────
-cyan "▸ Seeding admin user / workspace / membership rows"
-NOW_MS=$(node -e 'process.stdout.write(String(Date.now()))')
-WORKSPACE_UUID=$(node -e 'process.stdout.write(require("crypto").randomUUID())')
-SEED_SQL=$(cat <<SQL
-INSERT OR IGNORE INTO users (id, email, display_name, created_at)
-  VALUES ('$ADMIN_USER_ID', 'admin@edge.local', 'Edge Admin', $NOW_MS);
-INSERT OR IGNORE INTO workspaces (id, slug, name, owner_id, created_at)
-  VALUES ('$WORKSPACE_UUID', '$WORKSPACE_SLUG', '$WORKSPACE_NAME', '$ADMIN_USER_ID', $NOW_MS);
-INSERT OR IGNORE INTO workspace_members (workspace_id, user_id, role, joined_at)
-  VALUES ('$WORKSPACE_UUID', '$ADMIN_USER_ID', 'owner', $NOW_MS);
-SQL
-)
-npx wrangler d1 execute "$D1_NAME" --remote \
-  --config "$CLOUD_WRANGLER_TOML" \
-  --command "$SEED_SQL" >/dev/null
-
-# ── Push secrets to cloud worker ─────────────────────────────────────────
-cyan "▸ Pushing secrets to cloud worker"
-echo "$ADMIN_SECRET"   | npx wrangler secret put HUOZI_ADMIN_SECRET   --config "$CLOUD_WRANGLER_TOML" >/dev/null
-echo "$AUTH_SECRET"    | npx wrangler secret put HUOZI_AUTH_SECRET    --config "$CLOUD_WRANGLER_TOML" >/dev/null
-echo "$SIGNING_SECRET" | npx wrangler secret put HUOZI_SIGNING_SECRET --config "$CLOUD_WRANGLER_TOML" >/dev/null
-
-# ── Deploy cloud worker ──────────────────────────────────────────────────
-cyan "▸ Deploying cloud worker"
-CLOUD_DEPLOY_OUT="$(npx wrangler deploy --config "$CLOUD_WRANGLER_TOML" 2>&1 || true)"
-CLOUD_WORKER_URL="$(echo "$CLOUD_DEPLOY_OUT" | grep -Eo 'https://[a-zA-Z0-9.-]+\.workers\.dev' | head -1 || true)"
-if [[ -z "$CLOUD_WORKER_URL" ]]; then
-  red "✗ Couldn't extract cloud worker URL from deploy output"
-  echo "$CLOUD_DEPLOY_OUT"
-  exit 1
-fi
-green "  Cloud worker: $CLOUD_WORKER_URL"
-
-# ╔════════════════════════════════════════════════════════════════════╗
-# ║  STAGE 2: Main Next.js worker (huozi-edge-app)                     ║
-# ╚════════════════════════════════════════════════════════════════════╝
-
-# ── Generate main wrangler config ────────────────────────────────────────
-cyan "▸ Generating $(basename "$MAIN_WRANGLER_JSONC")"
-cat > "$MAIN_WRANGLER_JSONC" <<JSONC
-// Auto-generated by scripts/edge-deploy.sh — DO NOT EDIT BY HAND.
-// Tear down:  scripts/edge-teardown.sh
+cat > "$WEB_JSONC" <<EOF
 {
   "\$schema": "node_modules/wrangler/config-schema.json",
   "main": ".open-next/worker.js",
-  "name": "$MAIN_WORKER_NAME",
+  "name": "$EDGE_WEB_SCRIPT",
   "compatibility_date": "2025-04-01",
   "compatibility_flags": ["nodejs_compat"],
-  "assets": {
-    "directory": ".open-next/assets",
-    "binding": "ASSETS"
-  },
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
   "workers_dev": true,
+  "routes": [
+    { "pattern": "$EDGE_HOSTNAME/*", "zone_name": "$EDGE_ZONE" }
+  ],
   "services": [
-    { "binding": "CLOUD", "service": "$CLOUD_WORKER_NAME" }
+    { "binding": "CLOUD", "service": "$EDGE_SERV_SCRIPT" }
   ],
   "vars": {
     "HUOZI_EDITION": "edge",
-    "HUOZI_EDGE_WORKSPACE_SLUG": "$WORKSPACE_SLUG"
+    "HUOZI_EDGE_WORKSPACE_SLUG": "$EDGE_WORKSPACE_SLUG",
+    "HUOZI_EDGE_WORKSPACE_NAME": "$EDGE_WORKSPACE_NAME",
+    "HUOZI_PUBLIC_BASE": "https://$EDGE_HOSTNAME"
   }
 }
-JSONC
-
-# ── Build Next.js with OpenNext ──────────────────────────────────────────
-cyan "▸ Building Next.js (OpenNext, HUOZI_EDITION=edge)"
-cd "$ROOT_DIR"
-HUOZI_EDITION=edge npx @opennextjs/cloudflare build > /tmp/huozi-edge-opennext-build.log 2>&1 || {
-  red "✗ OpenNext build failed. Tail of log:"
-  tail -20 /tmp/huozi-edge-opennext-build.log >&2
-  exit 1
-}
-
-# ── Push secrets to main worker (must exist before deploy that references them) ──
-cyan "▸ Pushing secrets to main worker"
-echo "$ADMIN_SECRET" | npx wrangler secret put HUOZI_ADMIN_SECRET --config "$MAIN_WRANGLER_JSONC" >/dev/null
-echo "$AUTH_SECRET"  | npx wrangler secret put HUOZI_AUTH_SECRET  --config "$MAIN_WRANGLER_JSONC" >/dev/null
-
-# ── Deploy main worker ───────────────────────────────────────────────────
-cyan "▸ Deploying main worker"
-MAIN_DEPLOY_OUT="$(npx @opennextjs/cloudflare deploy -- --config "$MAIN_WRANGLER_JSONC" 2>&1 || true)"
-MAIN_WORKER_URL="$(echo "$MAIN_DEPLOY_OUT" | grep -Eo 'https://[a-zA-Z0-9.-]+\.workers\.dev' | head -1 || true)"
-if [[ -z "$MAIN_WORKER_URL" ]]; then
-  red "✗ Couldn't extract main worker URL from deploy output"
-  echo "$MAIN_DEPLOY_OUT"
-  exit 1
-fi
-green "  Main worker: $MAIN_WORKER_URL"
-
-# ── Set HUOZI_PUBLIC_BASE on cloud worker → main worker URL ──────────────
-# Used for device-flow verification links + public share URLs minted by
-# huozi_share. Now that we know where the UI lives, point cloud at it.
-cyan "▸ Pointing HUOZI_PUBLIC_BASE on cloud → $MAIN_WORKER_URL"
-echo "$MAIN_WORKER_URL" | npx wrangler secret put HUOZI_PUBLIC_BASE --config "$CLOUD_WRANGLER_TOML" >/dev/null
-
-# ╔════════════════════════════════════════════════════════════════════╗
-# ║  STAGE 3: Bootstrap api_key + smoke tests                           ║
-# ╚════════════════════════════════════════════════════════════════════╝
-
-# ── Mint the first admin api_key ─────────────────────────────────────────
-cyan "▸ Minting first admin api_key"
-MINT_BODY=$(cat <<JSON
-{
-  "workspace_id": "ws_$WORKSPACE_SLUG",
-  "principal_id": "$ADMIN_USER_ID",
-  "principal_type": "user",
-  "ttl_seconds": null,
-  "name": "[edge-admin] bootstrap"
-}
-JSON
-)
-MINT_OUT="$(curl -sS -X POST "$CLOUD_WORKER_URL/admin/mint-key" \
-  -H "X-Admin-Secret: $ADMIN_SECRET" \
-  -H "Content-Type: application/json" \
-  -d "$MINT_BODY" || true)"
-ADMIN_API_KEY="$(echo "$MINT_OUT" | jq -r '.api_key // empty' 2>/dev/null || true)"
-if [[ -z "$ADMIN_API_KEY" ]]; then
-  red "✗ mint-key failed. Raw response:"
-  echo "$MINT_OUT" | head -10
-  exit 1
-fi
-
-# ── Smoke test 1: huozi_whoami via MCP on cloud worker ───────────────────
-cyan "▸ Smoke test: huozi_whoami over MCP (cloud worker)"
-WHOAMI_OUT="$(curl -sS -X POST "$CLOUD_WORKER_URL/mcp" \
-  -H "Authorization: Bearer $ADMIN_API_KEY" \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"huozi_whoami","arguments":{}}}')"
-WHOAMI_ROLE="$(echo "$WHOAMI_OUT" | jq -r '.result.structuredContent.workspace.role // empty')"
-if [[ "$WHOAMI_ROLE" != "owner" ]]; then
-  red "✗ whoami did not report role=owner. Raw response:"
-  echo "$WHOAMI_OUT"
-  exit 1
-fi
-green "  ✓ MCP/cloud → role=owner"
-
-# ── Smoke test 2: main worker reachable + middleware behaving ────────────
-cyan "▸ Smoke test: main worker /connect (paste-key page)"
-MAIN_HTTP_CODE="$(curl -sS -o /dev/null -w "%{http_code}" "$MAIN_WORKER_URL/connect" || true)"
-if [[ "$MAIN_HTTP_CODE" != "200" ]]; then
-  red "✗ Main worker /connect returned $MAIN_HTTP_CODE (expected 200)"
-  exit 1
-fi
-green "  ✓ Main worker /connect → 200"
-
-# ── Persist env file for local dev ───────────────────────────────────────
-# This file lets you run `npm run dev` against the deployed Edge stack
-# (e.g. for testing the UI changes against real D1 / R2). The hosted
-# main worker is the canonical UI; this is just for local iteration.
-cat > "$ENV_FILE" <<EOF
-# scripts/edge-deploy.sh — generated $(date -u +"%Y-%m-%dT%H:%M:%SZ")
-# Source this to run Next.js locally against the deployed Edge stack:
-#   set -a; source .huozi-edge.env; set +a
-#   npm run dev
-HUOZI_EDITION=edge
-HUOZI_CLOUD_URL=$CLOUD_WORKER_URL
-HUOZI_ADMIN_SECRET=$ADMIN_SECRET
-HUOZI_AUTH_SECRET=$AUTH_SECRET
-HUOZI_EDGE_WORKSPACE_SLUG=$WORKSPACE_SLUG
-HUOZI_EDGE_WORKSPACE_NAME=$WORKSPACE_NAME
-
-# Bootstrap api_key — paste into /workspace/connect on first visit.
-# (Sensitive — do not commit. Regenerate via scripts/edge-deploy.sh.)
-HUOZI_BOOTSTRAP_API_KEY=$ADMIN_API_KEY
 EOF
-chmod 600 "$ENV_FILE"
 
-# ── Summary ──────────────────────────────────────────────────────────────
-cat <<SUMMARY
+green "  $SERV_TOML"
+green "  $WEB_JSONC"
+echo
 
-$(green "════════ Edge deploy complete ════════")
-  Main worker (UI):    $MAIN_WORKER_URL
-  Cloud worker (API):  $CLOUD_WORKER_URL
-  D1 db:               $D1_NAME ($D1_ID)
-  R2 bucket:           $R2_NAME
-  Workspace:           $WORKSPACE_SLUG  →  ws_$WORKSPACE_SLUG (UUID $WORKSPACE_UUID)
-  Service binding:     $MAIN_WORKER_NAME.CLOUD → $CLOUD_WORKER_NAME
-  Admin api_key:       $ADMIN_API_KEY
+# ─── 4. Apply D1 schema ──────────────────────────────────────────────
+cyan "▶ 4. Apply D1 schema"
+( cd "$SERV_DIR" \
+  && CLOUDFLARE_API_TOKEN="$CLOUDFLARE_API_TOKEN" \
+     ./node_modules/.bin/wrangler d1 execute "$EDGE_D1_NAME" \
+       --file src/storage/cloudflare/schema.sql \
+       --remote --config wrangler.edge.toml >/dev/null )
+green "  schema applied"
+echo
 
-  Env file:            $ENV_FILE  (chmod 600, gitignored)
+# ─── 5. DNS record (proxied) ─────────────────────────────────────────
+cyan "▶ 5. DNS: $EDGE_HOSTNAME (proxied)"
+EXISTING_DNS=$(curl -fsS \
+  "$CF_API/zones/$ZONE_ID/dns_records?name=$EDGE_HOSTNAME&type=AAAA" \
+  -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  | jq -r '.result[0].id // empty')
+DNS_BODY=$(jq -nc --arg n "$EDGE_HOSTNAME" \
+  '{type:"AAAA", name:$n, content:"100::", ttl:1, proxied:true}')
+if [[ -z "$EXISTING_DNS" ]]; then
+  curl -fsS -X POST "$CF_API/zones/$ZONE_ID/dns_records" \
+    -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+    -H "Content-Type: application/json" -d "$DNS_BODY" >/dev/null
+  green "  created"
+else
+  curl -fsS -X PATCH "$CF_API/zones/$ZONE_ID/dns_records/$EXISTING_DNS" \
+    -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+    -H "Content-Type: application/json" -d "$DNS_BODY" >/dev/null
+  green "  updated"
+fi
+echo
 
-$(cyan "Next steps:")
-  1. Visit the deployed UI:
-       $MAIN_WORKER_URL/workspace/connect
-     and paste:
-       $ADMIN_API_KEY
-  2. (Optional) Run Next.js locally against this stack:
-       set -a; source .huozi-edge.env; set +a
-       npm run dev
+# ─── 6. Deploy backend worker ────────────────────────────────────────
+cyan "▶ 6. Deploy $EDGE_SERV_SCRIPT (backend)"
+( cd "$SERV_DIR" \
+  && ./node_modules/.bin/tsc \
+  && CLOUDFLARE_API_TOKEN="$CLOUDFLARE_API_TOKEN" \
+     ./node_modules/.bin/wrangler deploy --config wrangler.edge.toml >/dev/null )
+green "  deployed"
+echo
 
-$(cyan "Tear down:")
-  scripts/edge-teardown.sh
+# ─── 7. Register routes via API (deterministic) ──────────────────────
+# wrangler can silently fail to register routes when another worker
+# already holds a wider pattern on the same host; the API call surfaces
+# any error explicitly.
+cyan "▶ 7. Register worker routes"
+register_route() {
+  local pattern="$1" script="$2" existing
+  existing=$(curl -fsS "$CF_API/zones/$ZONE_ID/workers/routes" \
+    -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+    | jq -r --arg p "$pattern" '.result[] | select(.pattern==$p) | .id' | head -1)
+  if [[ -n "$existing" ]]; then
+    curl -fsS -X PUT "$CF_API/zones/$ZONE_ID/workers/routes/$existing" \
+      -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d "$(jq -nc --arg p "$pattern" --arg s "$script" '{pattern:$p, script:$s}')" \
+      >/dev/null
+    printf "  updated  %-40s → %s\n" "$pattern" "$script"
+  else
+    curl -fsS -X POST "$CF_API/zones/$ZONE_ID/workers/routes" \
+      -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d "$(jq -nc --arg p "$pattern" --arg s "$script" '{pattern:$p, script:$s}')" \
+      >/dev/null
+    printf "  created  %-40s → %s\n" "$pattern" "$script"
+  fi
+}
+for p in "${SERV_PATHS[@]}"; do
+  register_route "$EDGE_HOSTNAME$p" "$EDGE_SERV_SCRIPT"
+done
+register_route "$EDGE_HOSTNAME/*" "$EDGE_WEB_SCRIPT"
+echo
 
-SUMMARY
+# ─── 8. Secrets (synced across both workers) ─────────────────────────
+cyan "▶ 8. Secrets"
+AUTH_SECRET=$(openssl rand -hex 32)
+ADMIN_SECRET=$(openssl rand -hex 32)
+
+put_secret() {
+  local name="$1" value="$2" config="$3" cwd="$4"
+  ( cd "$cwd" && printf '%s' "$value" \
+    | CLOUDFLARE_API_TOKEN="$CLOUDFLARE_API_TOKEN" \
+      ./node_modules/.bin/wrangler secret put "$name" --config "$config" \
+      >/dev/null 2>&1 )
+}
+put_secret HUOZI_AUTH_SECRET  "$AUTH_SECRET"  wrangler.edge.toml "$SERV_DIR"
+put_secret HUOZI_ADMIN_SECRET "$ADMIN_SECRET" wrangler.edge.toml "$SERV_DIR"
+green "  serv worker secrets set"
+echo
+
+# ─── 9. Build + deploy BFF (OpenNext) ────────────────────────────────
+cyan "▶ 9. Build + deploy $EDGE_WEB_SCRIPT (BFF)"
+( cd "$ROOT_DIR" \
+  && HUOZI_EDITION=edge \
+     CLOUDFLARE_API_TOKEN="$CLOUDFLARE_API_TOKEN" \
+     npx --yes @opennextjs/cloudflare build >/dev/null \
+  && HUOZI_EDITION=edge \
+     CLOUDFLARE_API_TOKEN="$CLOUDFLARE_API_TOKEN" \
+     npx --yes @opennextjs/cloudflare deploy \
+       --config=wrangler.edge.jsonc >/dev/null )
+put_secret HUOZI_AUTH_SECRET  "$AUTH_SECRET"  wrangler.edge.jsonc "$ROOT_DIR"
+put_secret HUOZI_ADMIN_SECRET "$ADMIN_SECRET" wrangler.edge.jsonc "$ROOT_DIR"
+green "  deployed + secrets set"
+echo
+
+# ─── 10. Smoke ───────────────────────────────────────────────────────
+cyan "▶ 10. Smoke test"
+sleep 4 # propagation
+status=$(curl -s -o /dev/null -w '%{http_code}' "https://$EDGE_HOSTNAME/health" || echo 000)
+[[ "$status" == "200" ]] && green "  /health → 200" \
+  || yellow "  /health → $status (DNS may still be propagating; try again in 30s)"
+status=$(curl -s -o /dev/null -w '%{http_code}' "https://$EDGE_HOSTNAME/login" || echo 000)
+[[ "$status" == "200" ]] && green "  /login  → 200" \
+  || yellow "  /login  → $status"
+echo
+
+# ─── Done ────────────────────────────────────────────────────────────
+green "✓ Edge demo deployed."
+echo
+cyan  "Open this URL in a browser to set up the first admin:"
+echo "  https://$EDGE_HOSTNAME/admin/setup?secret=$ADMIN_SECRET"
+echo
+yellow "After admin setup the page 404s (one-shot guard); discard the URL."

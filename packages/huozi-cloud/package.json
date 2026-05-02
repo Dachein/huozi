@@ -18,9 +18,12 @@
     "mcp:stdio": "node dist/mcp/stdio.js",
     "cf:dev": "wrangler dev --config wrangler.toml",
     "cf:deploy:api": "tsc && wrangler deploy --config wrangler.toml",
+    "cf:deploy:edge:serv": "tsc && wrangler deploy --config wrangler.edge.toml",
     "cf:deploy": "echo '\\nuse cf:deploy:api here, or pnpm cf:deploy:all from repo root\\n' && exit 1",
     "cf:migrate": "wrangler d1 execute huozi-db --file src/storage/cloudflare/schema.sql --remote --config wrangler.toml",
-    "cf:sql": "wrangler d1 execute huozi-db --remote --config wrangler.toml --json --command"
+    "cf:migrate:edge": "wrangler d1 execute huozi-edge-db --file src/storage/cloudflare/schema.sql --remote --config wrangler.edge.toml",
+    "cf:sql": "wrangler d1 execute huozi-db --remote --config wrangler.toml --json --command",
+    "cf:sql:edge": "wrangler d1 execute huozi-edge-db --remote --config wrangler.edge.toml --json --command"
   },
   "keywords": [
     "mcp",
