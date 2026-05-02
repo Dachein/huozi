@@ -1,33 +1,34 @@
 /**
  * Edge edition — identity implementation for self-hosted deployments.
  *
- * Assumptions (see AGENTS.md → "Editions"):
- *   - Single deployer, single workspace. Slug comes from
- *     `HUOZI_EDGE_WORKSPACE_SLUG` (default `"default"`).
- *   - No Supabase, no OAuth, no email login.
- *   - "Who is this request?" resolves to `"admin"` whenever there's a
- *     valid API-key cookie. Invalid / missing cookie → null principal.
- *   - The one workspace is represented by the huozi-cloud `api_keys`
- *     rows addressed to `ws_<slug>`. There's no separate metadata table.
+ * Auth model (Phase A, current):
+ *   - Primary: JWT session cookie (`huozi_session`), set by either the
+ *     `/admin/setup` first-run flow, the `/auth/edge-login` password
+ *     login, or the `/invite/<token>/edge-accept` invite redemption.
+ *     We read the JWT, verify against `HUOZI_AUTH_SECRET`, and use its
+ *     claims as the principal. This is the same shape Cloud uses, so
+ *     downstream code (cookie refresh, `/workspace`) is uniform.
+ *   - Legacy: api-key cookie (`huozi_key`), set by the older
+ *     paste-key flow at `/connect`. Still accepted to keep existing
+ *     installs working without a forced re-login. Anyone with the api
+ *     key is treated as the workspace's admin user.
  *
- * Bootstrap flow (MVP — no web UI):
- *   1. Deployer sets `HUOZI_ADMIN_SECRET` on both the huozi-cloud Worker
- *      and this Next.js app.
- *   2. Deployer runs a one-shot CLI (or curl) against the Worker's
- *      `/admin/mint-key` to mint the first key:
- *        curl -X POST <worker>/admin/mint-key \
- *          -H "X-Admin-Secret: $HUOZI_ADMIN_SECRET" \
- *          -d '{"workspace_id":"ws_default","principal_id":"admin",
- *               "principal_type":"user","name":"Admin · browser"}'
- *   3. Deployer visits `/connect` and pastes the returned key.
- *   4. From then on the `/workspace/connect` UI mints additional keys
- *      for Agents normally; manage them inline from `/workspace`.
+ * Workspace metadata: still pinned at deploy time via
+ * `HUOZI_EDGE_WORKSPACE_SLUG` / `HUOZI_EDGE_WORKSPACE_NAME`. There's
+ * exactly one workspace per Edge deployment.
+ *
+ * Differences vs Cloud (`identity/cloud.ts`):
+ *   - Edge has no slug picker / signup / multi-workspace flow — those
+ *     methods are no-ops or fixed-error.
+ *   - Edge's "primary workspace" is env-derived, not D1-derived.
+ *   - Edge accepts the legacy api-key cookie as a fallback.
  */
 
 import { cookies } from "next/headers";
 import { getEdgeWorkspaceSlug, getEdgeWorkspaceName } from "../edition";
 import { slugToWorkspaceId } from "../drive/admin";
 import { HUOZI_CLOUD_KEY_COOKIE } from "../drive/mcp-client";
+import { SESSION_COOKIE_NAME, verifySession } from "../auth/jwt";
 import { createWorkerBackedConnections } from "./connections";
 import type {
   CreateWorkspaceResult,
@@ -36,11 +37,45 @@ import type {
   Workspace,
 } from "./types";
 
-async function hasValidSessionCookie(): Promise<string | null> {
+interface EdgeSession {
+  userId: string;
+  email?: string;
+  displayLabel: string;
+}
+
+/**
+ * Read whichever credential is present and return a uniform shape.
+ * JWT first (the new password-based flow); api-key cookie second
+ * (legacy paste-key flow). Returns null only if neither is valid.
+ */
+async function readEdgeSession(): Promise<EdgeSession | null> {
   const store = await cookies();
-  const value = store.get(HUOZI_CLOUD_KEY_COOKIE)?.value;
-  if (!value || !value.startsWith("hz_")) return null;
-  return value;
+
+  // ── JWT path (Phase A onwards) ───────────────────────────────────
+  const token = store.get(SESSION_COOKIE_NAME)?.value;
+  if (token) {
+    const claims = await verifySession(token);
+    if (claims) {
+      return {
+        userId: claims.sub,
+        email: claims.email,
+        displayLabel: claims.email || claims.sub.slice(0, 8),
+      };
+    }
+  }
+
+  // ── Legacy api-key path (`/connect` paste flow) ──────────────────
+  const apiKey = store.get(HUOZI_CLOUD_KEY_COOKIE)?.value;
+  if (apiKey && apiKey.startsWith("hz_")) {
+    // The legacy flow doesn't carry an email — surface a stable
+    // "admin" label so the user menu has something to render.
+    return {
+      userId: "admin",
+      displayLabel: "admin",
+    };
+  }
+
+  return null;
 }
 
 function fixedWorkspace(): Workspace {
@@ -57,39 +92,42 @@ function fixedWorkspace(): Workspace {
 export async function createEdgeIdentity(): Promise<IdentityService> {
   const connections = createWorkerBackedConnections({
     async getWorkspaceId() {
-      const key = await hasValidSessionCookie();
-      if (!key) return null;
+      const session = await readEdgeSession();
+      if (!session) return null;
       return slugToWorkspaceId(getEdgeWorkspaceSlug());
     },
   });
 
   return {
     async getPrincipal(): Promise<Principal | null> {
-      const key = await hasValidSessionCookie();
-      if (!key) return null;
+      const session = await readEdgeSession();
+      if (!session) return null;
       return {
-        userId: "admin",
-        displayLabel: "admin",
+        userId: session.userId,
+        email: session.email,
+        displayLabel: session.displayLabel,
+        // Edge: any signed-in user is treated as admin (single workspace,
+        // single trust boundary). RBAC for Edge invitees is a follow-up.
         isAdmin: true,
         workspaceId: slugToWorkspaceId(getEdgeWorkspaceSlug()),
       };
     },
 
     async getPrimaryWorkspace(): Promise<Workspace | null> {
-      const key = await hasValidSessionCookie();
-      if (!key) return null;
+      const session = await readEdgeSession();
+      if (!session) return null;
       return fixedWorkspace();
     },
 
     async isSlugAvailable(): Promise<boolean> {
-      // The single Edge workspace exists as soon as the deployer mints the
-      // first key against it. There's no "available" slug to pick.
+      // The single Edge workspace exists as soon as the deployer
+      // completes /admin/setup. There's no "available" slug to pick.
       return false;
     },
 
     async createWorkspace(): Promise<CreateWorkspaceResult> {
-      // Edge workspaces are provisioned out-of-band via the Worker's
-      // /admin/mint-key endpoint. The web flow doesn't own that step.
+      // Edge workspaces are provisioned at deploy time via env vars.
+      // The web flow doesn't own this step.
       return {
         ok: false,
         error: "slug_taken",
@@ -99,7 +137,7 @@ export async function createEdgeIdentity(): Promise<IdentityService> {
     },
 
     async deleteWorkspace(): Promise<void> {
-      // No-op — we'd never want this to succeed on Edge.
+      // No-op — Edge workspaces are env-pinned, can't be deleted via web.
     },
 
     listConnections: connections.listConnections,

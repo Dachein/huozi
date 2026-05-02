@@ -6,7 +6,7 @@ import { JoinedToast } from "@/components/joined-toast";
 import { ConfirmProvider } from "@/components/confirm-provider";
 import { getIdentity } from "@/lib/identity";
 import { cloudAdminListWorkspaces } from "@/lib/drive/admin";
-import { isCloud, isEdge } from "@/lib/edition";
+import { isCloud } from "@/lib/edition";
 import { getTheme } from "@/lib/theme/server";
 
 /**
@@ -32,12 +32,10 @@ export default async function AppLayout({
   const identity = await getIdentity();
   const principal = await identity.getPrincipal();
   if (!principal) {
-    // Edge has no /login surface — the deployer holds the API key and
-    // pastes it into /connect. Cloud sends the user through email-OTP
-    // login with a redirect param so they bounce back where they came.
-    if (isEdge()) {
-      redirect("/connect");
-    }
+    // Both editions now have /login as the entry point — Cloud uses
+    // email-OTP, Edge uses email + password (Phase A onwards). The
+    // legacy /connect paste-key flow still exists for Edge users who
+    // already minted an API key, but is no longer the auth landing.
     const h = await headers();
     const pathname = h.get("x-pathname") ?? "/workspace";
     redirect(`/login?redirect=${encodeURIComponent(pathname)}`);
@@ -45,9 +43,12 @@ export default async function AppLayout({
 
   const workspace = await identity.getPrimaryWorkspace();
   if (!workspace) {
-    // No workspace bound to JWT. In Cloud, distinguish "no memberships
-    // → onboard" from "multiple memberships → pick one". In Edge there's
-    // always exactly one fixed workspace, so just go to /connect.
+    // No workspace bound to the session. Cloud distinguishes "no
+    // memberships → onboard" from "multiple memberships → pick one".
+    // Edge has exactly one workspace pinned at deploy time; reaching
+    // here on Edge means something is misconfigured (e.g.
+    // HUOZI_EDGE_WORKSPACE_SLUG mismatch with D1) — bounce back to
+    // /login so the user can re-auth or re-bootstrap via /admin/setup.
     if (isCloud()) {
       const memberships = await cloudAdminListWorkspaces({
         memberId: principal.userId,
@@ -57,7 +58,7 @@ export default async function AppLayout({
       }
       redirect("/select-workspace");
     }
-    redirect("/connect");
+    redirect("/login");
   }
 
   // List of every workspace the user belongs to — feeds the switcher in
