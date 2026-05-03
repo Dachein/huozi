@@ -30,7 +30,7 @@ export async function GET(): Promise<NextResponse> {
     cloudAdminListKeys(slugToWorkspaceId(ws.slug)).catch(() => []),
   ]);
   const me = members.find((m) => m.user_id === principal.userId);
-  const isOwner = me?.role === "owner";
+  const isOwner = me?.role === "owner" || principal.isAdmin;
 
   const grouped: Record<string, ListedKey[]> = {};
   for (const k of allKeys) {

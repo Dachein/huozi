@@ -13,6 +13,7 @@ import {
   cloudAdminListKeys,
   cloudAdminListMembers,
   slugToWorkspaceId,
+  type MemberRow,
 } from "@/lib/drive/admin";
 import { getServerT } from "@/lib/i18n/server";
 import { MembersClient } from "./members-client";
@@ -25,15 +26,29 @@ export default async function MembersPage() {
     return null;
   }
   const [members, invites, allKeys, _] = await Promise.all([
-    cloudAdminListMembers(principal.workspaceId).catch(() => []),
+    cloudAdminListMembers(principal.workspaceId).catch(() => [] as MemberRow[]),
     cloudAdminListInvites(principal.workspaceId).catch(() => []),
     cloudAdminListKeys(slugToWorkspaceId(ws.slug)).catch(() => []),
     getServerT(),
   ]);
-  const me = members.find((m) => m.user_id === principal.userId);
   // Edge's `principal.isAdmin` is always true for any signed-in user (single
-  // trust boundary). Treat it as owner so the invite form still renders even
-  // when the legacy api-key path leaves no `workspace_members` row to match.
+  // trust boundary). Synthesize a member row so the admin sees themselves —
+  // covers the legacy api-key path and the post-redeploy case where the JWT
+  // outlives the D1 row. Owner check then matches normally.
+  if (
+    principal.isAdmin &&
+    !members.some((m) => m.user_id === principal.userId)
+  ) {
+    members.unshift({
+      user_id: principal.userId,
+      email: principal.email ?? principal.displayLabel,
+      display_name: null,
+      role: "owner",
+      joined_at: Date.now(),
+      invited_by: null,
+    });
+  }
+  const me = members.find((m) => m.user_id === principal.userId);
   const isOwner = me?.role === "owner" || principal.isAdmin;
 
   // Group keys by user. Owners see all groups; members see only their own.

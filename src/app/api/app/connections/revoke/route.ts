@@ -49,7 +49,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
   const me = members.find((m) => m.user_id === principal.userId);
   const role: Role | null =
-    me?.role === "owner" || me?.role === "member" ? me.role : null;
+    me?.role === "owner" || me?.role === "member"
+      ? me.role
+      : principal.isAdmin
+        ? "owner"
+        : null;
   if (!role) {
     return NextResponse.json({ error: "not_a_member" }, { status: 403 });
   }

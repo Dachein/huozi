@@ -18,8 +18,26 @@ export async function GET(): Promise<NextResponse> {
   }
   const members = await cloudAdminListMembers(principal.workspaceId);
   // Anyone in the workspace can see the member list (no secret in there).
-  if (!members.some((m) => m.user_id === principal.userId)) {
+  // Edge admins are trusted regardless of D1 membership — single trust boundary.
+  if (
+    !principal.isAdmin &&
+    !members.some((m) => m.user_id === principal.userId)
+  ) {
     return NextResponse.json({ error: "not_a_member" }, { status: 403 });
+  }
+  // Mirror the page-level synthesis so client refresh stays consistent.
+  if (
+    principal.isAdmin &&
+    !members.some((m) => m.user_id === principal.userId)
+  ) {
+    members.unshift({
+      user_id: principal.userId,
+      email: principal.email ?? principal.displayLabel,
+      display_name: null,
+      role: "owner",
+      joined_at: Date.now(),
+      invited_by: null,
+    });
   }
   return NextResponse.json({ ok: true, members });
 }
@@ -43,7 +61,7 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
   }
   const members = await cloudAdminListMembers(principal.workspaceId);
   const me = members.find((m) => m.user_id === principal.userId);
-  if (!me || me.role !== "owner") {
+  if ((!me || me.role !== "owner") && !principal.isAdmin) {
     return NextResponse.json({ error: "owner_only" }, { status: 403 });
   }
   const result = await cloudAdminRemoveMember({

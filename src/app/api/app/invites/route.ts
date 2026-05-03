@@ -28,12 +28,17 @@ async function requireOwner(): Promise<
   if (!principal.workspaceId) {
     return { ok: false, status: 400, error: "no_workspace" };
   }
-  const members = await cloudAdminListMembers(principal.workspaceId).catch(
-    () => [],
-  );
-  const me = members.find((m) => m.user_id === principal.userId);
-  if (!me || me.role !== "owner") {
-    return { ok: false, status: 403, error: "owner_only" };
+  // Edge's `principal.isAdmin` is the single trust boundary — accept it as
+  // owner so the admin can invite even when no `workspace_members` row
+  // matches their userId (legacy api-key path or wiped/rebootstrapped DB).
+  if (!principal.isAdmin) {
+    const members = await cloudAdminListMembers(principal.workspaceId).catch(
+      () => [],
+    );
+    const me = members.find((m) => m.user_id === principal.userId);
+    if (!me || me.role !== "owner") {
+      return { ok: false, status: 403, error: "owner_only" };
+    }
   }
   return {
     ok: true,
