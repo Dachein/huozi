@@ -653,13 +653,19 @@ async function handleMcp(
 
   // Registry + storage.
   const storage = new CloudflareStorage(env)
-  // Build the blob signer if configured. The Worker's own origin (taken
-  // from this very request) is the URL host; that way Edge deployments work
-  // with whatever workers.dev or custom hostname they're served from
-  // without an extra env var.
+  // Build the blob signer if configured. Origin priority:
+  //   1. env.HUOZI_PUBLIC_BASE — explicit public hostname; required when
+  //      MCP requests arrive via Cloudflare service binding (request.url
+  //      is then a synthetic "huozi-cloud.internal" host that no browser
+  //      can reach). Cloud production sets this to https://cloud.huozi.app.
+  //   2. request.url — fall-back for Edge / standalone deploys where the
+  //      worker isn't fronted by a separate BFF and the request hostname
+  //      is the same one the browser will use.
   const requestUrl = new URL(request.url)
+  const signerOrigin =
+    env.HUOZI_PUBLIC_BASE ?? `${requestUrl.protocol}//${requestUrl.host}`
   const sign = createBlobSigner({
-    origin: `${requestUrl.protocol}//${requestUrl.host}`,
+    origin: signerOrigin,
     secret: env.HUOZI_SIGNING_SECRET,
   })
   const binarySigner = sign
