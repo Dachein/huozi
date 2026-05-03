@@ -63,18 +63,28 @@ function buildTree(paths: string[]): Node {
     }
   }
 
-  // Sort: dirs first, then alpha
-  const sortNode = (n: Node): void => {
+  // Sort: dirs first, then alpha. Exception: at the root, the
+  // `__assets__/` bucket (where ImageRenderTool stores hashed PNG blobs)
+  // always sinks to the bottom — it's an internal asset library, not a
+  // navigable folder, and ASCII-sorting `_` ahead of letters would put it
+  // at the very top, which is the worst possible placement.
+  const sortNode = (n: Node, isRoot: boolean): void => {
     n.children.sort((a, b) => {
+      if (isRoot) {
+        if (a.name === ASSETS_DIR && b.name !== ASSETS_DIR) return 1;
+        if (b.name === ASSETS_DIR && a.name !== ASSETS_DIR) return -1;
+      }
       if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
-    for (const c of n.children) sortNode(c);
+    for (const c of n.children) sortNode(c, false);
   };
-  sortNode(root);
+  sortNode(root, true);
 
   return root;
 }
+
+const ASSETS_DIR = "__assets__";
 
 /** Ancestors of a path like "a/b/c.ts" → ["a", "a/b"]. */
 function ancestorDirs(path: string): string[] {
@@ -309,6 +319,26 @@ function TreeNode({
   const selected = !node.isDir && currentPath === node.path;
   const paddingLeft = 8 + depth * 14;
 
+  // Top-level `__assets__/` renders as a leaf link to the gallery, not as
+  // an expandable tree node. The folder is an internal hash-named blob
+  // bucket; nobody wants to drill into it by filename. The gallery view
+  // (/workspace/assets) shows thumbnails + copy-link affordances.
+  if (node.isDir && depth === 0 && node.name === ASSETS_DIR) {
+    const galleryActive = currentPath?.startsWith(`${ASSETS_DIR}/`) ?? false;
+    return (
+      <li>
+        <FileLeafLink
+          href="/workspace/assets"
+          onNavigate={onNavigate}
+          selected={galleryActive}
+          paddingLeft={paddingLeft}
+          name={node.name}
+          isDir
+        />
+      </li>
+    );
+  }
+
   if (node.isDir) {
     const isPrivate = privatePrefixes?.has(`${node.path}/`) ?? false;
     return (
@@ -388,12 +418,14 @@ function FileLeafLink({
   selected,
   paddingLeft,
   name,
+  isDir = false,
 }: {
   href: string;
   onNavigate?: () => void;
   selected: boolean;
   paddingLeft: number;
   name: string;
+  isDir?: boolean;
 }) {
   const { navigate } = useWorkspaceNav();
   return (
@@ -421,7 +453,7 @@ function FileLeafLink({
       className={`huozi-row flex items-center gap-1.5 py-1.5 rounded transition-colors ${selected ? "bg-accent/10 text-accent" : "hover:bg-muted/60"}`}
       style={{ paddingLeft, paddingRight: 8 }}
     >
-      <FileIcon name={name} isDir={false} />
+      <FileIcon name={name} isDir={isDir} />
       <span className="text-sm font-mono truncate">{name}</span>
     </Link>
   );

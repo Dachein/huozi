@@ -1,0 +1,169 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { CopyButton } from "@/components/copy-button";
+import {
+  cloudGlob,
+  cloudRead,
+  HUOZI_CLOUD_KEY_COOKIE,
+} from "@/lib/drive/mcp-client";
+
+export const metadata: Metadata = {
+  title: "Assets — huozi Cloud",
+};
+
+const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "ico"]);
+
+interface Asset {
+  path: string;
+  fileName: string;
+  url: string | null;
+  mimeType: string | null;
+  size: number | null;
+}
+
+export default async function AssetsGallery() {
+  const cookieStore = await cookies();
+  const key = cookieStore.get(HUOZI_CLOUD_KEY_COOKIE)?.value;
+  if (!key) {
+    redirect(
+      `/api/app/session/refresh?next=${encodeURIComponent("/workspace/assets")}`,
+    );
+  }
+
+  // Glob the assets bucket. Worker stores ImageRenderTool output under
+  // `__assets__/`; users might also have dropped files there manually.
+  const globRes = await cloudGlob(key, "__assets__/**/*");
+  const allPaths = globRes.ok ? globRes.data.filenames : [];
+
+  const imagePaths = allPaths.filter((p) => {
+    const ext = p.split(".").pop()?.toLowerCase() ?? "";
+    return IMAGE_EXTS.has(ext);
+  });
+
+  // Parallel-fire reads to mint signed URLs. Each call is light (Worker
+  // signs against blob_sha; no body bytes). Cap at a reasonable concurrency
+  // by chunking — most workspaces have < 100 images so a single batch is fine.
+  const assets: Asset[] = await Promise.all(
+    imagePaths.map(async (path): Promise<Asset> => {
+      const fileName = path.split("/").pop() ?? path;
+      const r = await cloudRead(key, path);
+      if (r.ok && r.data.type === "binary_ref") {
+        return {
+          path,
+          fileName,
+          url: r.data.file.url ?? null,
+          mimeType: r.data.file.mimeType ?? null,
+          size: r.data.file.size ?? null,
+        };
+      }
+      return { path, fileName, url: null, mimeType: null, size: null };
+    }),
+  );
+
+  // Newest hash-named files often correspond to most recent renders.
+  // Without a real timestamp we sort by path desc as a stable proxy.
+  assets.sort((a, b) => b.path.localeCompare(a.path));
+
+  return (
+    <div className="flex flex-col gap-6 flex-1 min-h-0">
+      <div>
+        <div className="text-xs text-muted-foreground font-mono flex items-center flex-wrap gap-x-1.5 gap-y-1">
+          <Link
+            href="/workspace"
+            className="hover:text-foreground transition-colors"
+          >
+            workspace
+          </Link>
+          <span className="text-border">/</span>
+          <span>__assets__</span>
+        </div>
+        <h1 className="font-mono text-base sm:text-lg">
+          Asset library
+          <span className="ml-2 text-xs text-muted-foreground">
+            {assets.length} {assets.length === 1 ? "image" : "images"}
+          </span>
+        </h1>
+      </div>
+
+      {!globRes.ok && (
+        <div className="rounded-lg border border-red-500/40 bg-red-500/5 px-4 py-3 text-sm">
+          <strong>Couldn&rsquo;t list assets:</strong>{" "}
+          <span className="text-muted-foreground">{globRes.message}</span>
+        </div>
+      )}
+
+      {globRes.ok && assets.length === 0 && (
+        <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+          <p className="font-medium text-foreground">No images yet.</p>
+          <p className="mt-2">
+            When an Agent calls{" "}
+            <code className="font-mono text-xs rounded bg-muted px-1">
+              huozi_image_render
+            </code>{" "}
+            (or uploads a PNG/JPG/etc.), the file lands here under{" "}
+            <code className="font-mono text-xs">__assets__/</code> and shows up
+            in this gallery.
+          </p>
+        </div>
+      )}
+
+      {assets.length > 0 && (
+        <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          {assets.map((a) => (
+            <AssetTile key={a.path} asset={a} />
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-auto rounded-lg border border-dashed border-border p-4 text-xs text-muted-foreground">
+        <strong className="text-foreground">Asset library.</strong> Files in{" "}
+        <code className="font-mono">__assets__/</code> are referenced from
+        Markdown as{" "}
+        <code className="font-mono">![alt](/__assets__/&lt;name&gt;)</code>.
+        Click an image to open the file view; use the copy button on each tile
+        to grab the markdown link.
+      </div>
+    </div>
+  );
+}
+
+function AssetTile({ asset }: { asset: Asset }) {
+  const viewHref = `/workspace/view?path=${encodeURIComponent(asset.path)}`;
+  // Markdown convention: paths under __assets__/ are referenced with a
+  // leading slash (the renderer rewrites them to share-asset URLs at
+  // publish time). See SPEC §4.8 + src/lib/markdown/renderer.ts.
+  const markdownLink = `![${asset.fileName}](/${asset.path})`;
+
+  return (
+    <li className="relative group">
+      <Link
+        href={viewHref}
+        className="block aspect-square rounded-lg border border-border bg-muted/30 overflow-hidden hover:border-accent/60 transition-colors"
+      >
+        {asset.url ? (
+          // Plain <img> — signed URL is short-lived but cacheable; CSP for
+          // the workspace allows the worker origin (see middleware).
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={asset.url}
+            alt={asset.fileName}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+            (preview unavailable)
+          </div>
+        )}
+      </Link>
+      <div className="mt-1.5 flex items-center justify-between gap-2 px-0.5">
+        <span className="font-mono text-xs text-muted-foreground truncate">
+          {asset.fileName}
+        </span>
+      </div>
+      <CopyButton text={markdownLink} />
+    </li>
+  );
+}

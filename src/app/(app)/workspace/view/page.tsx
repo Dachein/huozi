@@ -315,15 +315,34 @@ async function FileBody({
   }
 
   if (data.type === "binary_ref") {
+    const mime = data.file.mimeType ?? "";
+    const url = data.file.url;
+    const fileName = path.split("/").pop() ?? path;
+
+    if (mime.startsWith("image/") && url) {
+      return (
+        <div className="space-y-2">
+          <img
+            src={url}
+            alt={fileName}
+            className="max-w-full h-auto rounded-lg border border-border bg-muted/30"
+          />
+          <p className="text-xs text-muted-foreground font-mono">
+            {(data.file.size ?? 0).toLocaleString()} bytes · {mime}
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className="rounded-lg border border-border bg-muted/30 p-5 text-sm space-y-2">
         <p>
           Binary file · {(data.file.size ?? 0).toLocaleString()} bytes · mime:{" "}
-          <code className="font-mono text-xs">{data.file.mimeType ?? "?"}</code>
+          <code className="font-mono text-xs">{mime || "?"}</code>
         </p>
-        {data.file.url && (
+        {url && (
           <a
-            href={data.file.url}
+            href={url}
             target="_blank"
             rel="noopener noreferrer"
             className="text-accent underline break-all text-xs"

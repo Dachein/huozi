@@ -39,7 +39,7 @@ import {
   READ_TOOL_NAME,
   READ_TOOL_USER_FACING_NAME,
 } from './prompt.js'
-import { guessMime } from './mime.js'
+import { guessMime, isAlwaysBinaryMime } from './mime.js'
 import { readInputSchema, readOutputSchema, type ReadInput, type ReadOutput } from './schema.js'
 
 /**
@@ -182,10 +182,14 @@ export function createReadTool(deps: ReadToolDeps): Tool<ReadInput, ReadOutput> 
         }
       }
 
-      // 4. Large-binary short circuit → binary_ref.
-      //    (Also covers oversize text; 4 MB is safely above the 256 KB text
-      //     cap but gives us a bucket for everything non-text.)
-      if (record.size > MAX_INLINE_BINARY_BYTES) {
+      // 4. Binary short circuit → binary_ref.
+      //    Two triggers:
+      //    (a) any file > MAX_INLINE_BINARY_BYTES (covers oversize text too;
+      //        4 MB is safely above the 256 KB text cap),
+      //    (b) any file with a known-binary mime regardless of size — small
+      //        PNGs / PDFs would otherwise utf-8-decode into garbage and
+      //        render as mojibake in the Web UI viewer.
+      if (record.size > MAX_INLINE_BINARY_BYTES || isAlwaysBinaryMime(path)) {
         const mimeType = guessMime(path)
         let url = `huozi-binary-ref://placeholder/${record.blob_sha}`
         let expiresAt = Date.now() + 20 * 60 * 1000

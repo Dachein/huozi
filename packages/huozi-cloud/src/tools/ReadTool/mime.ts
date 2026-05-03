@@ -51,3 +51,25 @@ export function guessMime(path: string): string {
   if (i < 0) return 'application/octet-stream'
   return MIME_BY_EXT[path.slice(i).toLowerCase()] ?? 'application/octet-stream'
 }
+
+/**
+ * True for mimes that should never be utf-8 text-decoded — images, audio,
+ * video, pdf, archives, office docs. Files matching these extensions skip
+ * the size-based text path in ReadTool and always emit `binary_ref` so the
+ * caller renders/links them instead of garbling the bytes.
+ *
+ * Files with unknown extensions stay on the text path (default-text is the
+ * safer choice — a Makefile shouldn't suddenly need a download URL).
+ */
+export function isAlwaysBinaryMime(path: string): boolean {
+  const mime = guessMime(path)
+  return (
+    mime.startsWith('image/') ||
+    mime.startsWith('video/') ||
+    mime.startsWith('audio/') ||
+    mime === 'application/pdf' ||
+    mime === 'application/zip' ||
+    mime === 'application/gzip' ||
+    mime.includes('officedocument')
+  )
+}
