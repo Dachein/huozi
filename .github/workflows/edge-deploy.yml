@@ -96,11 +96,11 @@ jobs:
 
       - name: Hard-wipe existing resources (optional)
         if: inputs.teardown_first
-        run: bash scripts/edge-deploy-ci-teardown.sh
+        run: bash scripts/edge-teardown.sh
 
       - name: Provision Edge
         id: provision
-        run: bash scripts/edge-deploy-ci.sh
+        run: bash scripts/edge-deploy.sh
 
       - name: Print setup URL
         run: |

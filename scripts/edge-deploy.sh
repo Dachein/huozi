@@ -493,17 +493,25 @@ phase_smoke() {
 }
 
 phase_done() {
+  local setup_url="https://$EDGE_HOSTNAME/admin/setup?secret=$ADMIN_SECRET"
+
   echo
   echo "════════════════════════════════════════════════════════════"
   echo "  ✓ Edge demo deployed."
   echo
   echo "  Open this URL in a browser to set up the first admin:"
   echo
-  echo "    https://$EDGE_HOSTNAME/admin/setup?secret=$ADMIN_SECRET"
+  echo "    $setup_url"
   echo
   echo "  After admin setup the URL self-disables (one-shot guard)."
   echo "  Subsequent sign-ins go through https://$EDGE_HOSTNAME/login"
   echo "════════════════════════════════════════════════════════════"
+
+  # When running under GitHub Actions, expose the setup URL as a job
+  # output so subsequent steps can surface it in the workflow log.
+  if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+    echo "setup_url=$setup_url" >> "$GITHUB_OUTPUT"
+  fi
 }
 
 # ── Drive ───────────────────────────────────────────────────────────
