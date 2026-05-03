@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { CopyButton } from "@/components/copy-button";
+import { AssetsGrid, type Asset } from "@/components/workspace/assets-grid";
 import {
   cloudGlob,
   cloudRead,
@@ -14,14 +14,6 @@ export const metadata: Metadata = {
 };
 
 const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "ico"]);
-
-interface Asset {
-  path: string;
-  fileName: string;
-  url: string | null;
-  mimeType: string | null;
-  size: number | null;
-}
 
 export default async function AssetsGallery() {
   const cookieStore = await cookies();
@@ -109,61 +101,16 @@ export default async function AssetsGallery() {
         </div>
       )}
 
-      {assets.length > 0 && (
-        <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {assets.map((a) => (
-            <AssetTile key={a.path} asset={a} />
-          ))}
-        </ul>
-      )}
+      {assets.length > 0 && <AssetsGrid assets={assets} />}
 
       <div className="mt-auto rounded-lg border border-dashed border-border p-4 text-xs text-muted-foreground">
         <strong className="text-foreground">Asset library.</strong> Files in{" "}
         <code className="font-mono">__assets__/</code> are referenced from
         Markdown as{" "}
         <code className="font-mono">![alt](/__assets__/&lt;name&gt;)</code>.
-        Click an image to open the file view; use the copy button on each tile
-        to grab the markdown link.
+        Click a tile to open a preview — use ←/→ to step through, or delete to
+        remove from the workspace.
       </div>
     </div>
-  );
-}
-
-function AssetTile({ asset }: { asset: Asset }) {
-  const viewHref = `/workspace/view?path=${encodeURIComponent(asset.path)}`;
-  // Markdown convention: paths under __assets__/ are referenced with a
-  // leading slash (the renderer rewrites them to share-asset URLs at
-  // publish time). See SPEC §4.8 + src/lib/markdown/renderer.ts.
-  const markdownLink = `![${asset.fileName}](/${asset.path})`;
-
-  return (
-    <li className="relative group">
-      <Link
-        href={viewHref}
-        className="block aspect-square rounded-lg border border-border bg-muted/30 overflow-hidden hover:border-accent/60 transition-colors"
-      >
-        {asset.url ? (
-          // Plain <img> — signed URL is short-lived but cacheable; CSP for
-          // the workspace allows the worker origin (see middleware).
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={asset.url}
-            alt={asset.fileName}
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
-            (preview unavailable)
-          </div>
-        )}
-      </Link>
-      <div className="mt-1.5 flex items-center justify-between gap-2 px-0.5">
-        <span className="font-mono text-xs text-muted-foreground truncate">
-          {asset.fileName}
-        </span>
-      </div>
-      <CopyButton text={markdownLink} />
-    </li>
   );
 }

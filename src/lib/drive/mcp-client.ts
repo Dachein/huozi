@@ -252,6 +252,26 @@ export function cloudMkdir(
   return callTool<{ created: boolean }>(key, 'huozi_mkdir', { path })
 }
 
+export interface RmData {
+  path: string
+  mode: 'file' | 'prefix'
+  dry_run: boolean
+  deleted_paths: string[]
+  commit_sha: string | null
+}
+
+/**
+ * Delete a single file via the audited MCP path. Used by the Web UI's
+ * `/workspace/assets` lightbox (deliberate exception to "Web is read-only" —
+ * see /api/app/assets/delete/route.ts for scope rationale).
+ */
+export function cloudRm(
+  key: string,
+  path: string,
+): Promise<McpResult<RmData>> {
+  return callTool<RmData>(key, 'huozi_rm', { path })
+}
+
 // ── Helpers for the UI ─────────────────────────────────────────────────
 
 /**
