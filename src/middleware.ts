@@ -17,11 +17,15 @@ import { SESSION_COOKIE_NAME, verifySession } from "@/lib/auth/jwt";
 
 /**
  * Paths that only exist in the Cloud edition. In Edge mode we redirect
- * them to the paste-key connect page so the deployer never sees a broken
- * Supabase-backed surface.
+ * them to /login (the canonical Edge auth entry as of Phase A).
+ * `/signup` is also Cloud-only — Cloud folds signup into /login (any
+ * unrecognized email triggers OTP signup). Edge has no public signup
+ * (closed deployment, invite-only).
  *
- * Note: signup is now folded into /login (one input, OTP creates the user
- * if needed), but we keep the path covered for any old links.
+ * Note: `/auth/*` paths on Edge are owned by the backend Worker (route
+ * patterns in wrangler.edge.toml grab `/auth/*` before this middleware
+ * sees the request). The prefix is kept here as a defensive belt for
+ * configuration drift.
  */
 const CLOUD_ONLY_PREFIXES = ["/signup", "/auth"];
 
@@ -69,7 +73,7 @@ export async function middleware(request: NextRequest) {
     const path = request.nextUrl.pathname;
     if (CLOUD_ONLY_PREFIXES.some((p) => path === p || path.startsWith(p + "/"))) {
       const url = request.nextUrl.clone();
-      url.pathname = "/connect";
+      url.pathname = "/login";
       url.search = "";
       const res = NextResponse.redirect(url);
       applyLocale(request, res);

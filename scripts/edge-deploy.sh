@@ -106,15 +106,19 @@ fi
 echo
 
 # ─── 2. R2 bucket (idempotent) ───────────────────────────────────────
+# Note: R2 GET on a missing bucket returns HTTP 404, so we drop -f and
+# parse `success` from the body instead.
 cyan "▶ 2. R2 bucket: $EDGE_R2_NAME"
-R2_OK=$(curl -fsS "$CF_API/accounts/$ACCOUNT_ID/r2/buckets/$EDGE_R2_NAME" \
+R2_OK=$(curl -sS "$CF_API/accounts/$ACCOUNT_ID/r2/buckets/$EDGE_R2_NAME" \
   -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-  | jq -r '.success')
+  | jq -r '.success // false')
 if [[ "$R2_OK" != "true" ]]; then
-  curl -fsS -X POST "$CF_API/accounts/$ACCOUNT_ID/r2/buckets" \
+  CREATE_RESP=$(curl -sS -X POST "$CF_API/accounts/$ACCOUNT_ID/r2/buckets" \
     -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
     -H "Content-Type: application/json" \
-    -d "{\"name\":\"$EDGE_R2_NAME\"}" >/dev/null
+    -d "{\"name\":\"$EDGE_R2_NAME\"}")
+  CREATE_OK=$(echo "$CREATE_RESP" | jq -r '.success // false')
+  [[ "$CREATE_OK" == "true" ]] || die "R2 create failed: $(echo "$CREATE_RESP" | jq -c '.errors')"
   green "  created"
 else
   green "  reused"
@@ -246,36 +250,40 @@ cyan "▶ 6. Deploy $EDGE_SERV_SCRIPT (backend)"
 green "  deployed"
 echo
 
-# ─── 7. Register routes via API (deterministic) ──────────────────────
-# wrangler can silently fail to register routes when another worker
-# already holds a wider pattern on the same host; the API call surfaces
-# any error explicitly.
-cyan "▶ 7. Register worker routes"
+# ─── 7. Register backend routes via API ──────────────────────────────
+# Routes can only be created against existing scripts. We register the
+# 10 backend path patterns now (serv worker is deployed); the BFF
+# catch-all (edge.huozi.app/*) is registered later in step 9b after
+# the BFF worker exists. wrangler's own route registration has been
+# observed to silently fail when another worker already holds a wider
+# pattern on the same host, so we go direct-to-API for determinism.
+cyan "▶ 7. Register backend routes ($EDGE_SERV_SCRIPT)"
 register_route() {
-  local pattern="$1" script="$2" existing
-  existing=$(curl -fsS "$CF_API/zones/$ZONE_ID/workers/routes" \
+  local pattern="$1" script="$2" existing route_resp ok
+  existing=$(curl -sS "$CF_API/zones/$ZONE_ID/workers/routes" \
     -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-    | jq -r --arg p "$pattern" '.result[] | select(.pattern==$p) | .id' | head -1)
+    | jq -r --arg p "$pattern" '.result[]? | select(.pattern==$p) | .id' | head -1)
   if [[ -n "$existing" ]]; then
-    curl -fsS -X PUT "$CF_API/zones/$ZONE_ID/workers/routes/$existing" \
+    route_resp=$(curl -sS -X PUT "$CF_API/zones/$ZONE_ID/workers/routes/$existing" \
       -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
       -H "Content-Type: application/json" \
-      -d "$(jq -nc --arg p "$pattern" --arg s "$script" '{pattern:$p, script:$s}')" \
-      >/dev/null
+      -d "$(jq -nc --arg p "$pattern" --arg s "$script" '{pattern:$p, script:$s}')")
+    ok=$(echo "$route_resp" | jq -r '.success // false')
+    [[ "$ok" == "true" ]] || die "route update failed for $pattern: $(echo "$route_resp" | jq -c '.errors')"
     printf "  updated  %-40s → %s\n" "$pattern" "$script"
   else
-    curl -fsS -X POST "$CF_API/zones/$ZONE_ID/workers/routes" \
+    route_resp=$(curl -sS -X POST "$CF_API/zones/$ZONE_ID/workers/routes" \
       -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
       -H "Content-Type: application/json" \
-      -d "$(jq -nc --arg p "$pattern" --arg s "$script" '{pattern:$p, script:$s}')" \
-      >/dev/null
+      -d "$(jq -nc --arg p "$pattern" --arg s "$script" '{pattern:$p, script:$s}')")
+    ok=$(echo "$route_resp" | jq -r '.success // false')
+    [[ "$ok" == "true" ]] || die "route create failed for $pattern: $(echo "$route_resp" | jq -c '.errors')"
     printf "  created  %-40s → %s\n" "$pattern" "$script"
   fi
 }
 for p in "${SERV_PATHS[@]}"; do
   register_route "$EDGE_HOSTNAME$p" "$EDGE_SERV_SCRIPT"
 done
-register_route "$EDGE_HOSTNAME/*" "$EDGE_WEB_SCRIPT"
 echo
 
 # ─── 8. Secrets (synced across both workers) ─────────────────────────
@@ -296,9 +304,16 @@ green "  serv worker secrets set"
 echo
 
 # ─── 9. Build + deploy BFF (OpenNext) ────────────────────────────────
+# NEXT_DISABLE_TURBOPACK=1 because Next 16's default Turbopack tries
+# to fetch Google Fonts at build time and dies if fonts.gstatic.com is
+# unreachable (corporate VPN, restricted DNS, etc.). Webpack mode
+# tolerates the same network gap by using cached + locally-bundled
+# fonts. Speed difference is ~30s on a typical build — worth the
+# reliability win for a one-shot self-host script.
 cyan "▶ 9. Build + deploy $EDGE_WEB_SCRIPT (BFF)"
 ( cd "$ROOT_DIR" \
-  && HUOZI_EDITION=edge \
+  && NEXT_DISABLE_TURBOPACK=1 \
+     HUOZI_EDITION=edge \
      CLOUDFLARE_API_TOKEN="$CLOUDFLARE_API_TOKEN" \
      npx --yes @opennextjs/cloudflare build >/dev/null \
   && HUOZI_EDITION=edge \
@@ -308,6 +323,14 @@ cyan "▶ 9. Build + deploy $EDGE_WEB_SCRIPT (BFF)"
 put_secret HUOZI_AUTH_SECRET  "$AUTH_SECRET"  wrangler.edge.jsonc "$ROOT_DIR"
 put_secret HUOZI_ADMIN_SECRET "$ADMIN_SECRET" wrangler.edge.jsonc "$ROOT_DIR"
 green "  deployed + secrets set"
+echo
+
+# ─── 9b. Register BFF catch-all route ────────────────────────────────
+# Now that the BFF worker exists, point edge.huozi.app/* at it.
+# Backend's path-pattern routes already registered in step 7 take
+# precedence on more-specific matches.
+cyan "▶ 9b. Register BFF catch-all route ($EDGE_WEB_SCRIPT)"
+register_route "$EDGE_HOSTNAME/*" "$EDGE_WEB_SCRIPT"
 echo
 
 # ─── 10. Smoke ───────────────────────────────────────────────────────

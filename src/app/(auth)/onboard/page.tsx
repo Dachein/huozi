@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getLocale } from "@/lib/i18n/server";
 import { getIdentity } from "@/lib/identity";
@@ -64,14 +63,6 @@ export default async function CloudOnboardPage() {
             <p>
               You can connect multiple Agents (Claude Code / Cursor / Claude
               Desktop) to this workspace after it&rsquo;s created.
-            </p>
-            <p>
-              <Link
-                href="/connect"
-                className="underline hover:text-foreground"
-              >
-                Already have an API key? Paste it instead →
-              </Link>
             </p>
           </div>
         </div>

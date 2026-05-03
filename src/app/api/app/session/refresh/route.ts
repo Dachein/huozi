@@ -61,7 +61,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     apiKey = minted.api_key;
     keyId = minted.key_id;
   } catch {
-    return NextResponse.redirect(new URL("/connect", req.url), {
+    // Fallback when admin mint fails: send to /login so the user can
+    // re-authenticate. Previously this bounced to /connect (paste-key
+    // page); that surface is gone post-Phase A.
+    return NextResponse.redirect(new URL("/login", req.url), {
       status: 303,
     });
   }
