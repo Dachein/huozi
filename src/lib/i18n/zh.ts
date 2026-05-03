@@ -256,6 +256,7 @@ export const zh = {
   "members.invite.note":
     "对方将收到一封 7 天内有效的邀请邮件，接受后即成为本工作空间的成员。",
   "members.list.heading": "成员（{count}）",
+  "members.list.empty": "暂无成员。邀请协作者后，他们会在这里出现。",
   "members.list.you": "（你）",
   "members.list.remove": "移除",
   "members.list.removeConfirm": "移除该成员？",

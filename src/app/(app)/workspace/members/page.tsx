@@ -31,7 +31,10 @@ export default async function MembersPage() {
     getServerT(),
   ]);
   const me = members.find((m) => m.user_id === principal.userId);
-  const isOwner = me?.role === "owner";
+  // Edge's `principal.isAdmin` is always true for any signed-in user (single
+  // trust boundary). Treat it as owner so the invite form still renders even
+  // when the legacy api-key path leaves no `workspace_members` row to match.
+  const isOwner = me?.role === "owner" || principal.isAdmin;
 
   // Group keys by user. Owners see all groups; members see only their own.
   // We pre-process server-side so the client component renders pure data.

@@ -258,6 +258,7 @@ export const ja = {
   "members.invite.note":
     "7 日間有効な招待リンクを記載したメールを送信します。受諾するとこのワークスペースのメンバーになります。",
   "members.list.heading": "メンバー ({count})",
+  "members.list.empty": "メンバーはまだいません。招待したコラボレーターがここに表示されます。",
   "members.list.you": "(あなた)",
   "members.list.remove": "削除",
   "members.list.removeConfirm": "このメンバーを削除しますか？",

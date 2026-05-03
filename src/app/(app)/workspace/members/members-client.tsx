@@ -256,6 +256,11 @@ export function MembersClient({
         <h2 className="text-xs uppercase tracking-[0.15em] text-muted-foreground mb-3">
           {_("members.list.heading").replace("{count}", String(members.length))}
         </h2>
+        {members.length === 0 ? (
+          <div className="huozi-card rounded-lg border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
+            {_("members.list.empty")}
+          </div>
+        ) : (
         <div className="huozi-card rounded-lg border border-border/60">
           <table className="w-full text-sm">
             <thead className="text-xs uppercase tracking-wider text-muted-foreground border-b border-border/60">
@@ -397,6 +402,7 @@ export function MembersClient({
             </tbody>
           </table>
         </div>
+        )}
       </section>
 
       {isOwner && invites.length > 0 && (

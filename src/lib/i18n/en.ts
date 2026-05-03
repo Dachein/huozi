@@ -260,6 +260,7 @@ export const en = {
   "members.invite.note":
     "They'll get an email with a link valid for 7 days. Accepting it adds them as a member of this workspace.",
   "members.list.heading": "Members ({count})",
+  "members.list.empty": "No members yet. Invited collaborators will show up here.",
   "members.list.you": "(you)",
   "members.list.remove": "remove",
   "members.list.removeConfirm": "Remove this member?",

@@ -261,6 +261,7 @@ export const fr = {
   "members.invite.note":
     "Ils recevront un e-mail avec un lien valide 7 jours. En l'acceptant, ils deviennent membres de cet espace.",
   "members.list.heading": "Membres ({count})",
+  "members.list.empty": "Aucun membre pour le moment. Les collaborateur·trice·s invité·e·s apparaîtront ici.",
   "members.list.you": "(vous)",
   "members.list.remove": "retirer",
   "members.list.removeConfirm": "Retirer ce membre ?",
