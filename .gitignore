@@ -61,3 +61,6 @@ next-env.d.ts
 /wrangler.edge.jsonc
 /.huozi-edge.env
 
+
+# Personal Shadowrocket / Surge configs (deploy-time helper, not project artifact)
+surge.conf
