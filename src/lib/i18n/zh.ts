@@ -53,10 +53,9 @@ export const zh = {
   "recent.op.edited": "编辑",
   "recent.op.deleted": "删除",
   "recent.folderCreated": "新建目录",
-  "recent.filter.assets.label": "Assets",
-  "recent.filter.assets.hidden": "已隐藏 Assets",
-  "recent.filter.assets.hide": "隐藏 Assets",
-  "recent.filter.assets.show": "显示 Assets",
+  "recent.filter.view.label": "过滤",
+  "recent.filter.view.works": "作品",
+  "recent.filter.view.assets": "Assets",
 
   // 云盘 · 文件视图错误 / 提示
   "view.error.label": "错误",

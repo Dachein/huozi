@@ -54,10 +54,9 @@ export const en = {
   "recent.op.edited": "edited",
   "recent.op.deleted": "deleted",
   "recent.folderCreated": "folder created",
-  "recent.filter.assets.label": "Assets",
-  "recent.filter.assets.hidden": "Assets hidden",
-  "recent.filter.assets.hide": "Hide assets",
-  "recent.filter.assets.show": "Show assets",
+  "recent.filter.view.label": "Filter",
+  "recent.filter.view.works": "Works",
+  "recent.filter.view.assets": "Assets",
 
   // Workspace · file view error / hint
   "view.error.label": "Error",

@@ -26,7 +26,9 @@ import type { RecentEntry } from "@/lib/drive/mcp-client";
 
 const DISPLAY_LIMIT = 10;
 const ASSETS_PREFIX = "__assets__/";
-const HIDE_ASSETS_LS_KEY = "huozi-cloud:recent-hide-assets";
+const VIEW_LS_KEY = "huozi-cloud:recent-view";
+
+type RecentView = "works" | "assets";
 
 export interface RecentPanelProps {
   initial: RecentEntry[];
@@ -59,30 +61,29 @@ export function RecentPanel({
   const [entries, setEntries] = useState<LiveEntry[]>(() =>
     dedupByPath(initial),
   );
-  const [hideAssets, setHideAssets] = useState(false);
+  // Default = "works" (non-asset files). The asset bucket is full of
+  // hash-named PNG blobs and dominates Recent if mixed in.
+  const [view, setViewState] = useState<RecentView>("works");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      const raw = window.localStorage.getItem(HIDE_ASSETS_LS_KEY);
-      if (raw === "1") setHideAssets(true);
+      const raw = window.localStorage.getItem(VIEW_LS_KEY);
+      if (raw === "assets" || raw === "works") setViewState(raw);
     } catch {
       // ignore
     }
   }, []);
 
-  const toggleHideAssets = () => {
-    setHideAssets((prev) => {
-      const next = !prev;
-      try {
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(HIDE_ASSETS_LS_KEY, next ? "1" : "0");
-        }
-      } catch {
-        // ignore
+  const setView = (next: RecentView) => {
+    setViewState(next);
+    try {
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(VIEW_LS_KEY, next);
       }
-      return next;
-    });
+    } catch {
+      // ignore
+    }
   };
 
   useEffect(() => {
@@ -119,10 +120,10 @@ export function RecentPanel({
 
   if (entries.length === 0) return null;
 
-  const visible = hideAssets
-    ? entries.filter((e) => !e.path.startsWith(ASSETS_PREFIX))
-    : entries;
-  const hiddenCount = entries.length - visible.length;
+  const visible =
+    view === "works"
+      ? entries.filter((e) => !e.path.startsWith(ASSETS_PREFIX))
+      : entries.filter((e) => e.path.startsWith(ASSETS_PREFIX));
 
   return (
     <div className="border-b border-border/50">
@@ -131,35 +132,27 @@ export function RecentPanel({
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
             {t("recent.title")}
           </div>
-          <button
-            type="button"
-            onClick={toggleHideAssets}
-            aria-pressed={hideAssets}
-            title={
-              hideAssets
-                ? t("recent.filter.assets.show")
-                : t("recent.filter.assets.hide")
-            }
-            className={`text-[10px] rounded px-1.5 py-0.5 border transition-colors shrink-0 ${
-              hideAssets
-                ? "border-accent/40 bg-accent/10 text-accent"
-                : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/40"
-            }`}
+          <div
+            role="tablist"
+            aria-label={t("recent.filter.view.label")}
+            className="inline-flex rounded border border-border overflow-hidden shrink-0"
           >
-            {hideAssets
-              ? t("recent.filter.assets.hidden")
-              : t("recent.filter.assets.label")}
-          </button>
+            <ViewTab
+              active={view === "works"}
+              onClick={() => setView("works")}
+              label={t("recent.filter.view.works")}
+            />
+            <ViewTab
+              active={view === "assets"}
+              onClick={() => setView("assets")}
+              label={t("recent.filter.view.assets")}
+            />
+          </div>
         </div>
         <div className="text-[10px] text-muted-foreground/70 shrink-0">
           {visible.length > DISPLAY_LIMIT
             ? `${DISPLAY_LIMIT}+`
             : visible.length}
-          {hideAssets && hiddenCount > 0 && (
-            <span className="ml-1 text-muted-foreground/50">
-              −{hiddenCount}
-            </span>
-          )}
         </div>
       </div>
       <ul className="px-1 pb-2 space-y-0.5 max-h-64 overflow-y-auto">
@@ -172,6 +165,32 @@ export function RecentPanel({
         ))}
       </ul>
     </div>
+  );
+}
+
+function ViewTab({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={`text-[10px] px-1.5 py-0.5 transition-colors ${
+        active
+          ? "bg-accent/10 text-accent"
+          : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 
