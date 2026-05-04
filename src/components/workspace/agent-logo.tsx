@@ -67,6 +67,34 @@ export function AgentLogo({ kind, size = 20, className }: AgentLogoProps) {
         </svg>
       );
 
+    /* ── OpenAI Codex CLI · 6-petal blossom ──
+       Echoes OpenAI's blossom/asterisk mark. Six rounded petals around
+       a small core, drawn at the same optical weight as the Anthropic
+       8-pointed star above so the two read as siblings, not twins. */
+    case "codex":
+      return (
+        <svg {...common}>
+          <g fill="currentColor">
+            {[0, 60, 120, 180, 240, 300].map((deg) => {
+              const rad = (deg * Math.PI) / 180;
+              const cx = 10 + 4.6 * Math.cos(rad);
+              const cy = 10 + 4.6 * Math.sin(rad);
+              return (
+                <ellipse
+                  key={deg}
+                  cx={cx}
+                  cy={cy}
+                  rx="2.4"
+                  ry="1.4"
+                  transform={`rotate(${deg} ${cx} ${cy})`}
+                />
+              );
+            })}
+            <circle cx="10" cy="10" r="1.4" />
+          </g>
+        </svg>
+      );
+
     /* ── Hermes Agent (Nous Research) · H with orbital ring ──
        Hermes = Mercury; we use a stylized H inside a thin ring. */
     case "hermes":
@@ -137,6 +165,8 @@ export function agentKindName(kind: AgentKind | string): string {
       return "Claude Desktop";
     case "openclaw":
       return "OpenClaw";
+    case "codex":
+      return "Codex";
     case "hermes":
     case "hermes-agent":
       return "Hermes Agent";

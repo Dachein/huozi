@@ -381,6 +381,12 @@ export const ja = {
   "connect.agent.openclaw.tagline": "openclaw.json を編集",
   "connect.agent.openclaw.blurb":
     "~/.openclaw/openclaw.json の mcp.servers 以下に追加し、OpenClaw を再起動。",
+  "connect.agent.codex.tagline": "ターミナル一行コマンド",
+  "connect.agent.codex.blurb":
+    "OpenAI Codex CLI は codex mcp add で登録 —— bearer は env-var 経由で間接読み込みなので token は config.toml に平文で残りません。shell rc で key を export して codex を再起動。",
+  "connect.agent.hermes.tagline": "~/.hermes/config.yaml を編集",
+  "connect.agent.hermes.blurb":
+    "Hermes Agent（Nous Research）。下の YAML を ~/.hermes/config.yaml の mcp_servers に貼り、Hermes セッション内で /reload-mcp を実行。",
 
   "connect.label.title": "この鍵にラベル（Connected Agents に表示）",
   "connect.generate": "{title} 用の鍵を生成",

@@ -40,6 +40,7 @@ export type AgentKind =
   | "cursor"
   | "desktop"
   | "openclaw"
+  | "codex"
   | "hermes"
   | "raw-curl"
   | "other";

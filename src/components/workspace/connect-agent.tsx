@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useT } from "@/lib/i18n/context";
 import { AgentLogo } from "./agent-logo";
 
-type AgentKind = "claude-code" | "cursor" | "openclaw";
+type AgentKind = "claude-code" | "cursor" | "openclaw" | "codex" | "hermes";
 
 interface Device {
   kind: AgentKind;
@@ -22,6 +22,8 @@ const CLIENT_TITLES: Record<AgentKind, string> = {
   "claude-code": "Claude Code",
   cursor: "Cursor",
   openclaw: "OpenClaw",
+  codex: "Codex",
+  hermes: "Hermes Agent",
 };
 
 function buildSnippet(
@@ -71,6 +73,35 @@ function buildSnippet(
           null,
           2,
         ),
+      };
+    // Codex's `mcp add` reads the bearer indirectly via env-var so the
+    // token never ends up in plaintext config.toml. We surface both lines
+    // as one copyable block; the first one is the export the user must
+    // run, the second is the registration command.
+    case "codex":
+      return {
+        lang: "bash",
+        text: `# 1) export the key once in your shell rc
+export HUOZI_API_KEY=${apiKey}
+
+# 2) register the server
+codex mcp add huozi \\
+  --url ${mcpUrl} \\
+  --bearer-token-env-var HUOZI_API_KEY`,
+      };
+    // Hermes Agent uses YAML; bearer is inline (no env-var redirect
+    // documented in their config schema as of Feb 2026). The user pastes
+    // this into ~/.hermes/config.yaml then runs /reload-mcp inside a
+    // session — there's no `mcp add` subcommand yet.
+    case "hermes":
+      return {
+        lang: "yaml",
+        text: `# Append to ~/.hermes/config.yaml
+mcp_servers:
+  huozi:
+    url: "${mcpUrl}"
+    headers:
+      Authorization: "Bearer ${apiKey}"`,
       };
   }
 }

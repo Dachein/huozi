@@ -377,6 +377,12 @@ export const zh = {
   "connect.agent.openclaw.tagline": "改 openclaw.json",
   "connect.agent.openclaw.blurb":
     "加到 ~/.openclaw/openclaw.json 的 mcp.servers 下，重启 OpenClaw 生效。",
+  "connect.agent.codex.tagline": "终端一行命令",
+  "connect.agent.codex.blurb":
+    "OpenAI Codex CLI 用 codex mcp add 注册 —— bearer 通过 env var 间接读，token 不落 plaintext。在 shell rc 里 export 后重启 codex。",
+  "connect.agent.hermes.tagline": "改 ~/.hermes/config.yaml",
+  "connect.agent.hermes.blurb":
+    "Hermes Agent（Nous Research）。把下面的 yaml 段贴进 ~/.hermes/config.yaml 的 mcp_servers，然后在会话里 /reload-mcp 生效。",
 
   "connect.label.title": "给这把 key 起个名（在 Connected Agents 里显示）",
   "connect.generate": "为 {title} 生成 key",

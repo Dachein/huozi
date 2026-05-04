@@ -24,6 +24,7 @@ const VALID_KINDS: ReadonlySet<AgentKind> = new Set([
   "cursor",
   "desktop",
   "openclaw",
+  "codex",
   "hermes",
   "raw-curl",
   "other",

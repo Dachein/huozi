@@ -383,6 +383,12 @@ export const en = {
   "connect.agent.openclaw.tagline": "Edit openclaw.json.",
   "connect.agent.openclaw.blurb":
     "Add this block to ~/.openclaw/openclaw.json under mcp.servers. Restart OpenClaw to pick it up.",
+  "connect.agent.codex.tagline": "One terminal command.",
+  "connect.agent.codex.blurb":
+    "OpenAI Codex CLI registers via codex mcp add — bearer is read indirectly via env-var so the token never lands in config.toml. Export the key in your shell rc, then restart codex.",
+  "connect.agent.hermes.tagline": "Edit ~/.hermes/config.yaml.",
+  "connect.agent.hermes.blurb":
+    "Hermes Agent (Nous Research). Paste the YAML snippet into ~/.hermes/config.yaml under mcp_servers, then run /reload-mcp inside a Hermes session.",
 
   "connect.label.title": "Label this key (shown in Connected Agents)",
   "connect.generate": "Generate key for {title}",
