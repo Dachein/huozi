@@ -4,9 +4,9 @@
   "description": "DEPRECATED — huozi is a remote HTTP MCP server (https://cloud.huozi.app/mcp). Configure your client directly; this wrapper just prints migration instructions.",
   "type": "module",
   "bin": {
-    "huozi-mcp": "./bin.mjs"
+    "huozi-mcp": "bin.mjs"
   },
-  "main": "./bin.mjs",
+  "main": "bin.mjs",
   "files": [
     "bin.mjs"
   ],
