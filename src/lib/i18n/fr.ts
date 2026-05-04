@@ -54,6 +54,10 @@ export const fr = {
   "recent.op.edited": "modifié",
   "recent.op.deleted": "supprimé",
   "recent.folderCreated": "dossier créé",
+  "recent.filter.assets.label": "Assets",
+  "recent.filter.assets.hidden": "Assets masqués",
+  "recent.filter.assets.hide": "Masquer les assets",
+  "recent.filter.assets.show": "Afficher les assets",
 
   // Workspace · erreur / indice de la vue de fichier
   "view.error.label": "Erreur",

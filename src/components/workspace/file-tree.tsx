@@ -63,16 +63,25 @@ function buildTree(paths: string[]): Node {
     }
   }
 
-  // Sort: dirs first, then alpha. Exception: at the root, the
-  // `__assets__/` bucket (where ImageRenderTool stores hashed PNG blobs)
-  // always sinks to the bottom — it's an internal asset library, not a
-  // navigable folder, and ASCII-sorting `_` ahead of letters would put it
-  // at the very top, which is the worst possible placement.
+  // `__assets__/` is the workspace's default folder for image blobs
+  // (ImageRenderTool dumps hashed PNGs here). Always surface it at root —
+  // even when empty — so users see a consistent home for assets.
+  if (!root.children.find((c) => c.name === ASSETS_DIR)) {
+    root.children.push({
+      name: ASSETS_DIR,
+      path: ASSETS_DIR,
+      isDir: true,
+      children: [],
+    });
+  }
+
+  // Sort: dirs first, then alpha. Exception: at the root, `__assets__/`
+  // is pinned at the top so the asset gallery is always one click away.
   const sortNode = (n: Node, isRoot: boolean): void => {
     n.children.sort((a, b) => {
       if (isRoot) {
-        if (a.name === ASSETS_DIR && b.name !== ASSETS_DIR) return 1;
-        if (b.name === ASSETS_DIR && a.name !== ASSETS_DIR) return -1;
+        if (a.name === ASSETS_DIR && b.name !== ASSETS_DIR) return -1;
+        if (b.name === ASSETS_DIR && a.name !== ASSETS_DIR) return 1;
       }
       if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
       return a.name.localeCompare(b.name);

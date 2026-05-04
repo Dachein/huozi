@@ -25,6 +25,8 @@ import { useT } from "@/lib/i18n/context";
 import type { RecentEntry } from "@/lib/drive/mcp-client";
 
 const DISPLAY_LIMIT = 10;
+const ASSETS_PREFIX = "__assets__/";
+const HIDE_ASSETS_LS_KEY = "huozi-cloud:recent-hide-assets";
 
 export interface RecentPanelProps {
   initial: RecentEntry[];
@@ -57,6 +59,31 @@ export function RecentPanel({
   const [entries, setEntries] = useState<LiveEntry[]>(() =>
     dedupByPath(initial),
   );
+  const [hideAssets, setHideAssets] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(HIDE_ASSETS_LS_KEY);
+      if (raw === "1") setHideAssets(true);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const toggleHideAssets = () => {
+    setHideAssets((prev) => {
+      const next = !prev;
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(HIDE_ASSETS_LS_KEY, next ? "1" : "0");
+        }
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     function onCommit(e: Event) {
@@ -92,20 +119,51 @@ export function RecentPanel({
 
   if (entries.length === 0) return null;
 
+  const visible = hideAssets
+    ? entries.filter((e) => !e.path.startsWith(ASSETS_PREFIX))
+    : entries;
+  const hiddenCount = entries.length - visible.length;
+
   return (
     <div className="border-b border-border/50">
-      <div className="px-3 py-2 flex items-center justify-between">
-        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-          {t("recent.title")}
+      <div className="px-3 py-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            {t("recent.title")}
+          </div>
+          <button
+            type="button"
+            onClick={toggleHideAssets}
+            aria-pressed={hideAssets}
+            title={
+              hideAssets
+                ? t("recent.filter.assets.show")
+                : t("recent.filter.assets.hide")
+            }
+            className={`text-[10px] rounded px-1.5 py-0.5 border transition-colors shrink-0 ${
+              hideAssets
+                ? "border-accent/40 bg-accent/10 text-accent"
+                : "border-border text-muted-foreground hover:text-foreground hover:bg-muted/40"
+            }`}
+          >
+            {hideAssets
+              ? t("recent.filter.assets.hidden")
+              : t("recent.filter.assets.label")}
+          </button>
         </div>
-        <div className="text-[10px] text-muted-foreground/70">
-          {entries.length > DISPLAY_LIMIT
+        <div className="text-[10px] text-muted-foreground/70 shrink-0">
+          {visible.length > DISPLAY_LIMIT
             ? `${DISPLAY_LIMIT}+`
-            : entries.length}
+            : visible.length}
+          {hideAssets && hiddenCount > 0 && (
+            <span className="ml-1 text-muted-foreground/50">
+              −{hiddenCount}
+            </span>
+          )}
         </div>
       </div>
       <ul className="px-1 pb-2 space-y-0.5 max-h-64 overflow-y-auto">
-        {entries.slice(0, DISPLAY_LIMIT).map((e) => (
+        {visible.slice(0, DISPLAY_LIMIT).map((e) => (
           <RecentRow
             key={e.path + ":" + e.commit_sha}
             entry={e}

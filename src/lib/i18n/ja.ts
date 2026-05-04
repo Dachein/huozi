@@ -53,6 +53,10 @@ export const ja = {
   "recent.op.edited": "編集",
   "recent.op.deleted": "削除",
   "recent.folderCreated": "フォルダ作成",
+  "recent.filter.assets.label": "Assets",
+  "recent.filter.assets.hidden": "Assets を非表示",
+  "recent.filter.assets.hide": "Assets を隠す",
+  "recent.filter.assets.show": "Assets を表示",
 
   // ワークスペース · ファイルビューのエラー / ヒント
   "view.error.label": "エラー",
