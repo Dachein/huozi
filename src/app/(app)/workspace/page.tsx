@@ -8,6 +8,7 @@ import {
   type StatusSummaryConnection,
 } from "@/components/workspace/status-summary";
 import { OnboardingPrompts } from "@/components/workspace/onboarding-prompts";
+import { ConnectBanner } from "@/components/workspace/connect-banner";
 import { WorkspaceStats } from "@/components/workspace/workspace-stats";
 import { WorkspaceSearch } from "@/components/workspace/workspace-search";
 import { getLocale } from "@/lib/i18n/server";
@@ -118,6 +119,14 @@ export default async function CloudWorkspacePage() {
                 agents: _("ws.stats.agents"),
               }}
             />
+          )}
+
+          {/* Connect-an-Agent banner. Shows only when 0 connections —
+              first-time users land here and need a clear "what to do
+              next" cue. Once at least one Agent is plugged in, the
+              StatusSummary below carries the same info more compactly. */}
+          {connections.rows.length === 0 && (
+            <ConnectBanner mode="prompt" connectHref="/workspace/connect" />
           )}
 
           {/* Agent connection status — shown in both empty and filled states.

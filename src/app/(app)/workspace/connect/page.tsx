@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ConnectAgent } from "@/components/workspace/connect-agent";
 import { CopyButton } from "@/components/copy-button";
+import { getPublicMcpUrl } from "@/lib/cloud-fetch";
 import { getIdentity } from "@/lib/identity";
 import { getLocale } from "@/lib/i18n/server";
 import { t } from "@/lib/i18n";
@@ -30,6 +31,7 @@ export default async function ConnectAgentPage() {
 
   const locale = await getLocale();
   const tx = (key: string) => t(locale, key);
+  const mcpUrl = getPublicMcpUrl();
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -75,7 +77,7 @@ export default async function ConnectAgentPage() {
             </p>
           </div>
 
-          <ConnectAgent />
+          <ConnectAgent mcpUrl={mcpUrl} />
 
           <div className="mt-10 pt-6 border-t border-border/50 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
             <Link

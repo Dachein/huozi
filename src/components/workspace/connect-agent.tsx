@@ -16,7 +16,6 @@ interface Device {
   defaultLabel: string;
 }
 
-const CLOUD_MCP_URL = "https://cloud.huozi.app/mcp";
 const KEY_PLACEHOLDER = "hz_<paste-after-generating>";
 
 const CLIENT_TITLES: Record<AgentKind, string> = {
@@ -28,12 +27,13 @@ const CLIENT_TITLES: Record<AgentKind, string> = {
 function buildSnippet(
   kind: AgentKind,
   apiKey: string,
+  mcpUrl: string,
 ): { lang: string; text: string } {
   switch (kind) {
     case "claude-code":
       return {
         lang: "bash",
-        text: `claude mcp add --transport http huozi ${CLOUD_MCP_URL} \\
+        text: `claude mcp add --transport http huozi ${mcpUrl} \\
   -H "Authorization: Bearer ${apiKey}"`,
       };
     case "cursor":
@@ -43,7 +43,7 @@ function buildSnippet(
           {
             mcpServers: {
               huozi: {
-                url: CLOUD_MCP_URL,
+                url: mcpUrl,
                 headers: { Authorization: `Bearer ${apiKey}` },
               },
             },
@@ -60,7 +60,7 @@ function buildSnippet(
             mcp: {
               servers: {
                 huozi: {
-                  url: CLOUD_MCP_URL,
+                  url: mcpUrl,
                   transport: "streamable-http",
                   headers: { Authorization: `Bearer ${apiKey}` },
                 },
@@ -81,7 +81,7 @@ interface Minted {
   kind: AgentKind;
 }
 
-export function ConnectAgent() {
+export function ConnectAgent({ mcpUrl }: { mcpUrl: string }) {
   const t = useT();
 
   const DEVICES: Device[] = useMemo(
@@ -92,9 +92,9 @@ export function ConnectAgent() {
         tagline: t(`connect.agent.${kind}.tagline`),
         blurb: t(`connect.agent.${kind}.blurb`),
         defaultLabel: CLIENT_TITLES[kind],
-        snippet: (apiKey: string) => buildSnippet(kind, apiKey),
+        snippet: (apiKey: string) => buildSnippet(kind, apiKey, mcpUrl),
       })),
-    [t],
+    [t, mcpUrl],
   );
 
   const [active, setActive] = useState<AgentKind | null>(null);

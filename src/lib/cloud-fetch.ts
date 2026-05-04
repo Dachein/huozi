@@ -14,6 +14,22 @@ import "server-only";
 const PUBLIC_FALLBACK =
   process.env.HUOZI_CLOUD_URL ?? "https://cloud.huozi.app";
 
+/**
+ * The public base URL of the huozi-cloud Worker — what an external Agent
+ * (Claude Code, Cursor, …) should point its MCP client at.
+ *
+ * Cloud production: `https://cloud.huozi.app`. Edge deploys: whatever the
+ * admin set `HUOZI_CLOUD_URL` to (their Worker's hostname). Same code path.
+ */
+export function getPublicCloudBase(): string {
+  return PUBLIC_FALLBACK.replace(/\/+$/, "");
+}
+
+/** Convenience: the MCP endpoint URL surfaced in /connect snippets. */
+export function getPublicMcpUrl(): string {
+  return `${getPublicCloudBase()}/mcp`;
+}
+
 interface CloudBinding {
   fetch: (input: string | Request, init?: RequestInit) => Promise<Response>;
 }

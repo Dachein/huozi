@@ -28,6 +28,10 @@ routes = [
   { pattern = "cloud.huozi.app/blobs/*",  zone_name = "huozi.app" },
   { pattern = "cloud.huozi.app/health",   zone_name = "huozi.app" },
   { pattern = "cloud.huozi.app/debug/*",  zone_name = "huozi.app" },
+  # Self-host install bootstrap. `bash <(curl -sSL https://huozi.app/install)`
+  # — handler in worker/index.ts proxies raw scripts/edge-install.sh from
+  # GitHub. Lives on the marketing zone (huozi.app) for brand cleanliness.
+  { pattern = "huozi.app/install",        zone_name = "huozi.app" },
 ]
 
 # ── Vars ────────────────────────────────────────────────────────────
