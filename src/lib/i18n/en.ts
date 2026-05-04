@@ -410,10 +410,6 @@ export const en = {
   "connect.footer.start": "Let the agent install itself (OAuth device flow) →",
   "connect.footer.docs": "API docs",
 
-  "connect.terminal.title": "Prefer the terminal? One command:",
-  "connect.terminal.desc":
-    "Works in Claude Code, Cursor, OpenClaw — or any agent with a shell. Runs the same OAuth flow and writes the MCP config for you.",
-
   // CSV · row detail
   "csv.rowDetail.title": "Row details",
   "csv.rowDetail.open": "Open row details",

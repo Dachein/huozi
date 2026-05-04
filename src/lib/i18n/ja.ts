@@ -408,10 +408,6 @@ export const ja = {
   "connect.footer.start": "Agent に自分でインストールさせる（OAuth デバイスフロー）→",
   "connect.footer.docs": "API ドキュメント",
 
-  "connect.terminal.title": "ターミナル派？一行で完結：",
-  "connect.terminal.desc":
-    "Claude Code、Cursor、OpenClaw —— シェルを持つ任意の Agent で動きます。同じ OAuth フローを実行し、MCP 設定を自動で書き込みます。",
-
   // CSV · 行の詳細
   "csv.rowDetail.title": "行の詳細",
   "csv.rowDetail.open": "この行の詳細を表示",

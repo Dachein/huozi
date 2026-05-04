@@ -404,10 +404,6 @@ export const zh = {
   "connect.footer.start": "让 Agent 自己装（OAuth 设备流）→",
   "connect.footer.docs": "API 文档",
 
-  "connect.terminal.title": "更喜欢终端？一行命令：",
-  "connect.terminal.desc":
-    "适用于 Claude Code、Cursor、OpenClaw —— 或任何带 shell 的 agent。跑的是同样的 OAuth 流程，自动帮你写好 MCP 配置。",
-
   // CSV · 行详情
   "csv.rowDetail.title": "行详情",
   "csv.rowDetail.open": "查看此行详情",
