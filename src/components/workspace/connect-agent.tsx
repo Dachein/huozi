@@ -43,6 +43,7 @@ function buildSnippet(
           {
             mcpServers: {
               huozi: {
+                type: "http",
                 url: mcpUrl,
                 headers: { Authorization: `Bearer ${apiKey}` },
               },

@@ -1,7 +1,7 @@
 {
   "name": "huozi-mcp",
-  "version": "0.2.0",
-  "description": "Interactive huozi.app installer — signup, browser login, or paste-token, via one state-machine-driven flow. Works for Claude Code, Cursor, OpenClaw.",
+  "version": "0.3.0",
+  "description": "DEPRECATED — huozi is a remote HTTP MCP server (https://cloud.huozi.app/mcp). Configure your client directly; this wrapper just prints migration instructions.",
   "type": "module",
   "bin": {
     "huozi-mcp": "./bin.mjs"
@@ -16,18 +16,14 @@
   "keywords": [
     "huozi",
     "mcp",
-    "claude-code",
-    "cursor",
-    "openclaw",
-    "installer",
-    "oauth",
-    "device-flow"
+    "deprecated"
   ],
   "author": "Dachein",
   "license": "MIT",
-  "homepage": "https://huozi.app",
+  "homepage": "https://huozi.app/start",
   "repository": {
     "type": "git",
     "url": "https://github.com/huozi-app/huozi"
-  }
+  },
+  "deprecated": "huozi-mcp is deprecated. Configure huozi as a remote HTTP MCP server directly — see https://huozi.app/start."
 }

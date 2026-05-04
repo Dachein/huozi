@@ -2,13 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ConnectAgent } from "@/components/workspace/connect-agent";
-import { CopyButton } from "@/components/copy-button";
 import { getPublicMcpUrl } from "@/lib/cloud-fetch";
 import { getIdentity } from "@/lib/identity";
 import { getLocale } from "@/lib/i18n/server";
 import { t } from "@/lib/i18n";
-
-const ONE_LINER = "npx huozi-mcp";
 
 export const metadata: Metadata = {
   title: "Connect an Agent — huozi Cloud",
@@ -58,22 +55,6 @@ export default async function ConnectAgentPage() {
             </h1>
             <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
               {tx("connect.desc")}
-            </p>
-          </div>
-
-          {/* One-liner terminal alternative — same OAuth device flow, no GUI */}
-          <div className="mb-8 rounded-lg border border-border/60 bg-muted/30 p-4">
-            <div className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground mb-2">
-              {tx("connect.terminal.title")}
-            </div>
-            <div className="relative">
-              <pre className="rounded-md border border-border bg-background px-3 py-2 pr-12 font-mono text-sm overflow-x-auto">
-                <code>{ONE_LINER}</code>
-              </pre>
-              <CopyButton text={ONE_LINER} />
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-              {tx("connect.terminal.desc")}
             </p>
           </div>
 
