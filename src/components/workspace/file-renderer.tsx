@@ -35,8 +35,11 @@ export async function FileRenderer({ path, content, raw }: FileRendererProps) {
   }
 
   // Markdown — use the same renderMarkdown as publish flow.
+  // assetBase routes `/__assets__/...` references through the authenticated
+  // workspace asset proxy at /workspace/a/<path> so images, fonts, etc.
+  // resolve via the user's session.
   if (ext === "md" || ext === "mdx") {
-    const html = await renderMarkdown(content);
+    const html = await renderMarkdown(content, { assetBase: "/workspace" });
     return (
       <article
         className="prose prose-sm sm:prose-base max-w-none break-words"
@@ -57,6 +60,11 @@ export async function FileRenderer({ path, content, raw }: FileRendererProps) {
   if (ext === "html" || ext === "htm") {
     const { html } = processHtmlDirect(processChartComponents(content), {
       scopeTo: ".huozi-html-host",
+      // Route `<link href="/__assets__/...">`, `<img src="/__assets__/...">`,
+      // etc. through the authenticated workspace asset proxy. Mirrors the
+      // share path's `assetBase: "/p/<slug>"` — same rewrite, different
+      // auth model. See `/workspace/a/[...path]/route.ts`.
+      assetBase: "/workspace",
     });
     const layout = pickHtmlLayout(content);
     return (

@@ -72,12 +72,19 @@ const processor = unified()
 export interface RenderOptions {
   /**
    * If set, `/__assets__/<path>` URLs are rewritten to
-   * `${assetBase}/a/<path>`. Used by the `/p/<slug>` share renderer.
+   * `${assetBase}/a/<path>`. Two callers today:
+   *   - `/p/<slug>` share renderer → `assetBase: "/p/<slug>"`, proxied
+   *     by `src/app/p/[slug]/a/[...path]/route.ts`.
+   *   - `/workspace/view` renderer → `assetBase: "/workspace"`, proxied
+   *     by `src/app/(app)/workspace/a/[...path]/route.ts` (cookie-auth).
+   *
+   * Leave undefined ONLY for renders that won't end up in a browser
+   * (e.g. server-side text extraction). Browser renders without
+   * `assetBase` will 404 every `/__assets__/...` reference — there is
+   * no global route serving that prefix.
+   *
    * See `packages/huozi-cloud/SPEC.md` §4.8 → "URL 约定" for the
    * canonical four-layer URL shape.
-   *
-   * Leave undefined for in-app workspace view, where `/__assets__/...`
-   * is already a routable path.
    */
   assetBase?: string;
 }

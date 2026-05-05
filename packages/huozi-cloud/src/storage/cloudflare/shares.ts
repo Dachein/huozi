@@ -26,6 +26,7 @@
 
 import type { HuoziCloudflareBindings } from './bindings.js'
 import { resolveBearer } from './auth.js'
+import { canAccess } from './folder-acl.js'
 import { blobKey } from './sha.js'
 import { sha256Hex } from './sha.js'
 
@@ -565,6 +566,92 @@ export async function handleGetShareAsset(
       // once we add ETag from blob_sha.
       'Content-Length': String(blob.size),
       'Cache-Control': 'public, max-age=3600',
+      'X-Content-Type-Options': 'nosniff',
+      ETag: `"${current.blob_sha}"`,
+    },
+  })
+}
+
+// ── GET /me/asset/__assets__/:path (Bearer-auth, workspace asset proxy) ─
+
+/**
+ * Authenticated sibling of `handleGetShareAsset`: serves an asset from the
+ * caller's own workspace. Used by the Web UI's `/workspace/view` renderer
+ * so an HTML or markdown file can `<link>` / `<script>` / `<img>` against
+ * `/__assets__/<path>` exactly the way `/p/<slug>` shares do, but resolved
+ * through the user's session instead of a public share row.
+ *
+ * Security model:
+ *   - Bearer-auth via `api_keys`. Identifies workspace + principal.
+ *   - Path MUST live under `/__assets__/` — same hard guard as the share
+ *     endpoint so we never become a "GET arbitrary workspace file" tunnel.
+ *   - Honors folder ACLs (same `canAccess` check the read tool uses), so
+ *     a scoped key can only fetch assets it would also be allowed to
+ *     huozi_read.
+ *   - `Cache-Control: private` — bytes are user-scoped; no shared CDN
+ *     caching across users on the same edge.
+ */
+export async function handleGetWorkspaceAsset(
+  request: Request,
+  env: HuoziCloudflareBindings,
+  assetPath: string,
+): Promise<Response> {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return new Response('method not allowed', { status: 405 })
+  }
+  if (!assetPath.startsWith('__assets__/') || assetPath.includes('..')) {
+    return Response.json({ error: 'bad_asset_path' }, { status: 400 })
+  }
+
+  const auth = await resolveBearer(request.headers.get('Authorization'), env)
+  if (!auth.ok) {
+    return Response.json(
+      { error: auth.failure.message },
+      { status: auth.failure.status },
+    )
+  }
+
+  const access = await canAccess(
+    env,
+    auth.principal.workspaceId,
+    assetPath,
+    auth.principal.principalId,
+  )
+  if (!access.allow) {
+    return Response.json({ error: 'acl_denied' }, { status: 403 })
+  }
+
+  const current = await currentBlobForPath(
+    env,
+    auth.principal.workspaceId,
+    assetPath,
+  )
+  if (!current) {
+    return Response.json({ error: 'asset_not_found' }, { status: 404 })
+  }
+  const blob = await fetchBlobContent(env, current.blob_sha)
+  if (!blob) {
+    return Response.json({ error: 'blob_missing' }, { status: 410 })
+  }
+
+  const contentRow = await env.DB.prepare(
+    'SELECT content_type FROM files_current WHERE workspace_id = ? AND path = ?',
+  )
+    .bind(auth.principal.workspaceId, assetPath)
+    .first<{ content_type: string | null }>()
+  const contentType = contentRow?.content_type ?? guessAssetMime(assetPath)
+
+  const body =
+    request.method === 'HEAD'
+      ? null
+      : (blob.bytes.buffer as ArrayBuffer)
+  return new Response(body, {
+    status: 200,
+    headers: {
+      'Content-Type': contentType,
+      'Content-Length': String(blob.size),
+      // Per-user content; CDN edges must not share across sessions.
+      'Cache-Control': 'private, max-age=300',
       'X-Content-Type-Options': 'nosniff',
       ETag: `"${current.blob_sha}"`,
     },

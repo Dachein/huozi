@@ -154,14 +154,16 @@ export interface ProcessHtmlOptions {
   scopeTo?: string;
   /**
    * If set, rewrite `/__assets__/<path>` references in HTML attributes
-   * (`href`, `src`, `poster`) to `<assetBase>/a/<path>` — the share-scoped
-   * asset proxy. Mirrors the markdown renderer's `assetBase` option so an
-   * author can reference workspace assets the same way from either format:
+   * (`href`, `src`, `poster`) to `<assetBase>/a/<path>`. Mirrors the
+   * markdown renderer's `assetBase` option so an author can reference
+   * workspace assets the same way from either format:
    *
    *   <link rel="stylesheet" href="/__assets__/blog/v1.css">
    *   <img src="/__assets__/cover.png">
    *
-   * Pass `/p/<slug>` to scope through this share's proxy.
+   * Two callers today:
+   *   - `/p/<slug>` share view → `assetBase: "/p/<slug>"` (public proxy)
+   *   - `/workspace/view` →    `assetBase: "/workspace"`   (cookie-auth proxy)
    */
   assetBase?: string;
 }

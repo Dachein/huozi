@@ -55,6 +55,7 @@ import {
   handleCreateShare,
   handleGetShare,
   handleGetShareAsset,
+  handleGetWorkspaceAsset,
   handleListShares,
   handleRevokeShare,
   handleUnlockShare,
@@ -605,6 +606,17 @@ const handler: ExportedHandler<HuoziCloudflareBindings> = {
       } catch (r) {
         if (r instanceof Response) return r
         throw r
+      }
+    }
+
+    // GET /me/asset/__assets__/<...> — Bearer-auth workspace asset proxy.
+    // The authenticated sibling of /shares/<slug>/asset/...; lets the
+    // /workspace/view renderer resolve `<link href="/__assets__/foo.css">`
+    // and friends without having to publish the file as a share first.
+    {
+      const m = url.pathname.match(/^\/me\/asset\/(.+)$/)
+      if (m) {
+        return handleGetWorkspaceAsset(request, env, m[1]!)
       }
     }
 
