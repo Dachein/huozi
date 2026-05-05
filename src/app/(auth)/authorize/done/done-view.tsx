@@ -33,9 +33,38 @@ function isSafeUrl(u: string): boolean {
   }
 }
 
+/** Is the callback URL a local loopback (RFC 8252) — i.e. Claude Code
+ *  / Cursor / Codex listening on localhost, not a remote host like
+ *  claude.ai? Loopback callbacks need the hidden-iframe trick (we
+ *  stay on huozi's branded page); remote callbacks need a real
+ *  top-level navigation (the user's destination IS the remote host). */
+function isLoopbackUrl(u: string): boolean {
+  try {
+    const parsed = new URL(u);
+    return (
+      parsed.hostname === "localhost" ||
+      parsed.hostname === "127.0.0.1" ||
+      parsed.hostname === "[::1]"
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function AuthorizeDoneView({ to, clientName, workspaceName }: Props) {
+  const safe = isSafeUrl(to);
+  // Two delivery modes:
+  //   loopback (Claude Code / Cursor / Codex) — iframe GET to localhost,
+  //     stay on this branded page. The user's "primary surface" is the
+  //     terminal they came from; the browser is auxiliary.
+  //   remote   (Cowork / Claude.ai web / Desktop > Connectors) — top-level
+  //     navigation to the remote callback. The user's "primary surface"
+  //     IS the browser; we have to send it home or they're stuck staring
+  //     at huozi forever wondering where Claude went.
+  const isRemote = safe && !isLoopbackUrl(to);
+
   const [phase, setPhase] = useState<Phase>(
-    isSafeUrl(to) ? "counting" : "done", // bad URL → just show static done state
+    safe ? "counting" : "done", // bad URL → just show static done state
   );
   const [secondsLeft, setSecondsLeft] = useState(COUNTDOWN_SECONDS);
 
@@ -54,12 +83,20 @@ export function AuthorizeDoneView({ to, clientName, workspaceName }: Props) {
     };
   }, [phase]);
 
-  // Phase 2: iframe is in flight. Failsafe timer in case onload never fires.
+  // Phase 2: deliver the code.
+  //   remote   → top-level navigation; this page unloads. No failsafe
+  //              needed — the browser carries the user away.
+  //   loopback → iframe is in flight; failsafe flips to "done" if the
+  //              iframe's onload never fires.
   useEffect(() => {
     if (phase !== "triggering") return;
+    if (isRemote) {
+      window.location.assign(to);
+      return;
+    }
     const t = setTimeout(() => setPhase("done"), IFRAME_DONE_TIMEOUT_MS);
     return () => clearTimeout(t);
-  }, [phase]);
+  }, [phase, isRemote, to]);
 
   function handleIframeLoad() {
     // onload fires whether the iframe rendered the localhost response or
@@ -108,6 +145,7 @@ export function AuthorizeDoneView({ to, clientName, workspaceName }: Props) {
           phase={phase}
           secondsLeft={secondsLeft}
           clientName={clientName}
+          isRemote={isRemote}
           onReturnNow={returnNow}
         />
 
@@ -135,8 +173,10 @@ export function AuthorizeDoneView({ to, clientName, workspaceName }: Props) {
           localhost callback. We never need to render its response —
           the GET request reaching the server is what completes OAuth.
           Mounted only during/after the trigger phase so the request
-          fires exactly once. */}
-      {isSafeUrl(to) && phase !== "counting" && (
+          fires exactly once. Skipped for remote callbacks — those use
+          a top-level navigation instead (the iframe trick fails for
+          claude.ai because the parent window can't observe completion). */}
+      {safe && !isRemote && phase !== "counting" && (
         <iframe
           src={to}
           onLoad={handleIframeLoad}
@@ -170,19 +210,35 @@ function PhaseLine({
   phase,
   secondsLeft,
   clientName,
+  isRemote,
   onReturnNow,
 }: {
   phase: Phase;
   secondsLeft: number;
   clientName: string;
+  isRemote: boolean;
   onReturnNow: () => void;
 }) {
+  // Wording diverges between the two delivery modes:
+  //   loopback → "send token to <client>" (terminal lives elsewhere)
+  //   remote   → "return to <client>" (browser is the destination)
+  const verbCounting = isRemote ? "跳回" : "向";
+  const verbTriggering = isRemote ? "正在跳回" : "正在向";
+  const tail = isRemote ? "" : " 写入令牌";
+  const buttonLabel = isRemote ? "立即跳转" : "立即发送";
+  const doneLine = isRemote
+    ? `已发送授权，正在返回 ${clientName}…`
+    : `令牌已发送，可返回 ${clientName} 终端继续`;
+
   if (phase === "counting") {
     return (
       <>
         <div className="mt-10 inline-flex items-center gap-2 text-sm text-muted-foreground">
           <Spinner />
-          <span>{secondsLeft} 秒后向 {clientName} 发送令牌…</span>
+          <span>
+            {secondsLeft} 秒后{verbCounting} {clientName}
+            {isRemote ? "…" : " 发送令牌…"}
+          </span>
         </div>
         <div className="mt-3">
           <button
@@ -190,7 +246,7 @@ function PhaseLine({
             onClick={onReturnNow}
             className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors"
           >
-            立即发送
+            {buttonLabel}
           </button>
         </div>
       </>
@@ -200,7 +256,7 @@ function PhaseLine({
     return (
       <div className="mt-10 inline-flex items-center gap-2 text-sm text-muted-foreground">
         <Spinner />
-        <span>正在向 {clientName} 写入令牌…</span>
+        <span>{verbTriggering} {clientName}{tail}…</span>
       </div>
     );
   }
@@ -208,7 +264,7 @@ function PhaseLine({
   return (
     <div className="mt-10 inline-flex items-center gap-2 text-sm font-medium text-accent">
       <span aria-hidden>✓</span>
-      <span>令牌已发送，可返回 {clientName} 终端继续</span>
+      <span>{doneLine}</span>
     </div>
   );
 }
