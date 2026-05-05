@@ -33,6 +33,11 @@ export interface StatusSummaryConnection {
 
 interface StatusSummaryProps {
   connections: StatusSummaryConnection[];
+  /** Public URL to point the agent's MCP client at — surfaced in the
+   *  empty-state copy block so first-time users can plug in directly
+   *  without a separate /connect page. Cloud: cloud.huozi.app/mcp;
+   *  Edge: <deployer>/mcp. */
+  mcpUrl: string;
   labels: {
     title: string;
     connectedAgents: string;
@@ -57,9 +62,14 @@ interface StatusSummaryProps {
  * `/workspace/keys` page has been removed. Inline management here is
  * enough because the bulk case (many rows) also fits this layout.
  */
-export function StatusSummary({ connections, labels }: StatusSummaryProps) {
+export function StatusSummary({
+  connections,
+  mcpUrl,
+  labels,
+}: StatusSummaryProps) {
   const t = useT();
   const [openId, setOpenId] = useState<string | null>(null);
+  const [showConnect, setShowConnect] = useState(false);
 
   const active = connections.filter((c) => !c.revoked);
   const lastActivity = active.reduce<number | null>((acc, c) => {
@@ -68,24 +78,29 @@ export function StatusSummary({ connections, labels }: StatusSummaryProps) {
     return acc;
   }, null);
 
+  const isEmpty = active.length === 0;
+  const showPicker = isEmpty || showConnect;
+
   return (
     <section className="huozi-card rounded-xl border border-border/60 bg-muted/30 p-5 sm:p-6">
       <div className="flex items-center justify-between gap-3 mb-4">
         <div className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
           {labels.connectedAgents} · {active.length}
         </div>
-        <Link
-          href="/workspace/connect"
-          className="huozi-button-primary shrink-0 rounded-md bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:opacity-90 transition-opacity"
-        >
-          + {labels.connectNew}
-        </Link>
+        {!isEmpty && (
+          <button
+            type="button"
+            onClick={() => setShowConnect((v) => !v)}
+            aria-expanded={showConnect}
+            className="huozi-button-primary shrink-0 rounded-md bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:opacity-90 transition-opacity"
+          >
+            {showConnect ? `× ${t("ws.status.collapse")}` : `+ ${labels.connectNew}`}
+          </button>
+        )}
       </div>
 
+      {showPicker && <EmptyConnect mcpUrl={mcpUrl} />}
       <ul className="space-y-1.5">
-        {active.length === 0 && (
-          <li className="text-xs text-muted-foreground italic py-2">—</li>
-        )}
         {active.map((c) => (
           <ConnectionRow
             key={c.id}
@@ -103,7 +118,9 @@ export function StatusSummary({ connections, labels }: StatusSummaryProps) {
         {active.length === 1
           ? labels.activeKeys.slice(0, -1)
           : labels.activeKeys}
-        {lastActivity !== null && (
+        {lastActivity !== null && active.length > 1 && (
+          // With a single connection the row above already shows this
+          // exact timestamp — repeating it in the footer reads as noise.
           <>
             {" · "}
             <span className="font-mono">
@@ -114,6 +131,198 @@ export function StatusSummary({ connections, labels }: StatusSummaryProps) {
         )}
       </div>
     </section>
+  );
+}
+
+/**
+ * Empty-state for the connections card. OAuth-first: every snippet just
+ * points the agent at the MCP URL — first call returns 401, the agent
+ * auto-discovers our authorization server, opens browser, the user
+ * consents, the token comes back. No api_key in any snippet.
+ *
+ * Five agents covered. Snippet shape per ecosystem:
+ *   - claude-code, codex   → terminal one-liner
+ *   - cursor, desktop, hermes → config-file paste
+ */
+type AgentKey = "claude-code" | "cursor" | "codex" | "hermes" | "desktop";
+
+const AGENT_LABELS: Record<AgentKey, string> = {
+  "claude-code": "Claude Code",
+  cursor: "Cursor",
+  codex: "Codex",
+  hermes: "Hermes",
+  desktop: "Claude Desktop",
+};
+
+/** AgentLogo's kind taxonomy — map our short keys to its values. */
+const AGENT_LOGO_KIND: Record<AgentKey, string> = {
+  "claude-code": "claude-code",
+  cursor: "cursor",
+  codex: "other",
+  hermes: "hermes",
+  desktop: "desktop",
+};
+
+interface Snippet {
+  /** Free-form heading shown above the code block. */
+  heading: string;
+  /** The thing that actually goes into the user's clipboard. */
+  body: string;
+  /** Short note above the heading explaining where this snippet runs. */
+  note: string;
+}
+
+function snippetFor(agent: AgentKey, mcpUrl: string): Snippet {
+  switch (agent) {
+    case "claude-code":
+      // Two-step chain: register the MCP server, then immediately
+      // launch a Claude Code session with a prompt that asks for
+      // a huozi tool. The first tool call triggers OAuth → browser
+      // pops open with the consent page → token round-trip → Agent
+      // returns a whoami response. End-to-end from a single paste.
+      //
+      // Why "check who I am" instead of "list files": works for
+      // empty workspaces too — new users see a structured "who you
+      // are + which workspace + role" summary rather than a sad
+      // empty-list message.
+      return {
+        note: "终端粘贴一次：注册 + 触发授权 + 确认身份",
+        heading: "TERMINAL",
+        body: `claude mcp add --transport http huozi ${mcpUrl} && claude "use huozi to check who I am"`,
+      };
+    case "codex":
+      return {
+        note: "终端粘贴一次：注册 + 触发授权 + 确认身份",
+        heading: "TERMINAL",
+        body: `codex mcp add huozi --url ${mcpUrl} && codex "use huozi to check who I am"`,
+      };
+    case "cursor":
+      return {
+        note: "添加到 ~/.cursor/mcp.json，重启 Cursor，然后让 Agent 用一下 huozi 触发授权",
+        heading: "MCP.JSON",
+        body: JSON.stringify(
+          {
+            mcpServers: {
+              huozi: { type: "http", url: mcpUrl },
+            },
+          },
+          null,
+          2,
+        ),
+      };
+    case "desktop":
+      return {
+        note: "添加到 claude_desktop_config.json，重启 Claude Desktop，然后让 Agent 用一下 huozi 触发授权",
+        heading: "CLAUDE_DESKTOP_CONFIG.JSON",
+        body: JSON.stringify(
+          {
+            mcpServers: {
+              huozi: { type: "http", url: mcpUrl },
+            },
+          },
+          null,
+          2,
+        ),
+      };
+    case "hermes":
+      return {
+        note: "追加到 ~/.hermes/config.yaml，重启 Hermes，然后让 Agent 用一下 huozi 触发授权",
+        heading: "CONFIG.YAML",
+        body: `mcp_servers:
+  huozi:
+    url: "${mcpUrl}"`,
+      };
+  }
+}
+
+function EmptyConnect({ mcpUrl }: { mcpUrl: string }) {
+  const [agent, setAgent] = useState<AgentKey>("claude-code");
+  const [copied, setCopied] = useState(false);
+  const snippet = snippetFor(agent, mcpUrl);
+  const isOneLiner = agent === "claude-code" || agent === "codex";
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(snippet.body);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  return (
+    <div className="rounded-md border border-border/60 bg-background/40 p-5 mb-3">
+      <p className="text-sm text-foreground mb-4">
+        粘贴下面这段。Claude Code / Codex 一次完成；其他 Agent
+        贴完配置后让它"use huozi"即可触发浏览器授权 —— 不需要在这里 mint key。
+      </p>
+
+      {/* Agent picker tabs */}
+      <div className="mb-4 flex flex-wrap gap-1 border-b border-border">
+        {(Object.keys(AGENT_LABELS) as AgentKey[]).map((k) => {
+          const active = k === agent;
+          return (
+            <button
+              key={k}
+              type="button"
+              onClick={() => {
+                setAgent(k);
+                setCopied(false);
+              }}
+              className={`-mb-px inline-flex items-center gap-2 px-3 py-2 border-b-2 text-xs font-medium transition-colors ${
+                active
+                  ? "border-accent text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+              }`}
+            >
+              <AgentLogo kind={AGENT_LOGO_KIND[k]} size={14} />
+              <span>{AGENT_LABELS[k]}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground mb-1.5">
+        {snippet.note}
+      </div>
+
+      <div className="relative rounded-lg border-2 border-accent/40 bg-muted/40 group">
+        <pre
+          className={`overflow-x-auto px-4 py-3 pr-14 text-xs font-mono leading-relaxed ${
+            isOneLiner ? "whitespace-pre-wrap break-all" : "whitespace-pre"
+          }`}
+        >
+          {snippet.body}
+        </pre>
+        <button
+          type="button"
+          onClick={copy}
+          className={`absolute top-2 right-2 inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-all ${
+            copied
+              ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
+              : "bg-foreground text-background hover:opacity-90 shadow-sm"
+          }`}
+        >
+          {copied ? "✓ 已复制" : "复制"}
+        </button>
+      </div>
+
+      <p className="mt-3 text-[11px] text-muted-foreground leading-relaxed">
+        Endpoint:{" "}
+        <code className="font-mono">{mcpUrl}</code>
+        {" · "}
+        授权令牌由 MCP 客户端持有，不会进入对话上下文。
+        {" · "}
+        需要旧版静态 API key？{" "}
+        <Link
+          href="/workspace/connect"
+          className="underline hover:text-foreground"
+        >
+          手动模式
+        </Link>
+      </p>
+    </div>
   );
 }
 
@@ -132,10 +341,21 @@ function ConnectionRow({
 }) {
   const t = useT();
   const kindLabel = agentKindName(conn.agentKind);
-  const isDistinguishingLabel =
-    conn.label &&
-    !/^Device\b/i.test(conn.label) &&
-    conn.label !== kindLabel;
+  // The kind name is already shown as the title above, so don't repeat it
+  // in the subtitle. Strip a leading "<kindLabel>" prefix and unwrap a
+  // surrounding "(...)" so "Claude Code (huozi)" becomes just "huozi".
+  const subtitle = (() => {
+    if (!conn.label) return "";
+    if (/^Device\b/i.test(conn.label)) return "";
+    if (conn.label === kindLabel) return "";
+    let rest = conn.label;
+    if (rest.startsWith(kindLabel)) {
+      rest = rest.slice(kindLabel.length).trim();
+      const wrapped = rest.match(/^\((.*)\)$/);
+      if (wrapped) rest = wrapped[1].trim();
+    }
+    return rest;
+  })();
 
   return (
     <li
@@ -167,21 +387,25 @@ function ConnectionRow({
           <span className="block truncate font-medium text-foreground">
             {kindLabel}
           </span>
-          {isDistinguishingLabel && (
+          {subtitle && (
             <span className="block text-xs text-muted-foreground truncate">
-              {conn.label}
+              {subtitle}
             </span>
           )}
         </span>
         {/* Presence dot moved to end-of-row (sits next to the relative
             timestamp instead of overlapping the agent logo). Cleaner
-            reading order: "who · when · how alive". */}
+            reading order: "who · when · how alive". When the row is
+            expanded the timestamp also appears in LastActionLine below,
+            so we drop it here to avoid showing the same "3m" twice. */}
         <PresenceDot bucket={presenceBucket(conn.lastUsedAt)} />
-        <span className="text-xs text-muted-foreground whitespace-nowrap tabular-nums">
-          {conn.lastUsedAt === null
-            ? neverLabel
-            : formatRelative(conn.lastUsedAt, nowLabel)}
-        </span>
+        {!open && (
+          <span className="text-xs text-muted-foreground whitespace-nowrap tabular-nums">
+            {conn.lastUsedAt === null
+              ? neverLabel
+              : formatRelative(conn.lastUsedAt, nowLabel)}
+          </span>
+        )}
         <svg
           viewBox="0 0 12 12"
           width="10"

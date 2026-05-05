@@ -45,6 +45,7 @@ SERV_PATHS=(
   "/auth/*" "/admin/*" "/me/*" "/mcp"
   "/events/*" "/shares" "/shares/*"
   "/blobs/*" "/health" "/debug/*"
+  "/.well-known/*" "/oauth/*"
 )
 
 # ── Output helpers ──────────────────────────────────────────────────
@@ -495,23 +496,33 @@ phase_smoke() {
 
 phase_done() {
   local setup_url="https://$EDGE_HOSTNAME/admin/setup?secret=$ADMIN_SECRET"
+  local mcp_cmd="claude mcp add --transport http huozi https://$EDGE_HOSTNAME/mcp"
 
   echo
   echo "════════════════════════════════════════════════════════════"
   echo "  ✓ Edge demo deployed."
   echo
-  echo "  Open this URL in a browser to set up the first admin:"
+  echo "  STEP 1 — set up the first admin (one-shot URL):"
   echo
   echo "    $setup_url"
   echo
-  echo "  After admin setup the URL self-disables (one-shot guard)."
-  echo "  Subsequent sign-ins go through https://$EDGE_HOSTNAME/login"
+  echo "  STEP 2 — connect your Agent. Run this in any Agent terminal:"
+  echo
+  echo "    $mcp_cmd"
+  echo
+  echo "  The first MCP call returns 401 with WWW-Authenticate; your Agent"
+  echo "  will open the consent page in your browser. Sign in with the admin"
+  echo "  password you just set, click Authorize, and the Agent receives a"
+  echo "  short-lived OAuth token automatically. (No api_key to copy.)"
+  echo
+  echo "  Subsequent browser sign-ins: https://$EDGE_HOSTNAME/login"
   echo "════════════════════════════════════════════════════════════"
 
-  # When running under GitHub Actions, expose the setup URL as a job
-  # output so subsequent steps can surface it in the workflow log.
+  # When running under GitHub Actions, expose the setup URL + mcp command
+  # as job outputs so subsequent steps can surface them in the workflow log.
   if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     echo "setup_url=$setup_url" >> "$GITHUB_OUTPUT"
+    echo "mcp_cmd=$mcp_cmd" >> "$GITHUB_OUTPUT"
   fi
 }
 

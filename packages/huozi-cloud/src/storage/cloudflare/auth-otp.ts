@@ -247,6 +247,39 @@ export async function handleOtpVerify(
       .run()
   }
 
+  // Auto-redeem pending invites addressed to this email. Lets an invitee
+  // either click the invite URL OR just log in normally — both paths land
+  // them in the workspace. Without this, an invitee logging in via /authorize
+  // (OAuth flow) would create their OWN brand-new workspace instead of
+  // joining the inviter's. Idempotent via INSERT OR IGNORE.
+  const { results: pendingInvites = [] } = await env.DB.prepare(
+    `SELECT token, workspace_id, role, invited_by
+     FROM workspace_invites
+     WHERE LOWER(email) = LOWER(?)
+       AND accepted_at IS NULL
+       AND revoked_at IS NULL
+       AND expires_at > ?`,
+  )
+    .bind(email, now)
+    .all<{
+      token: string
+      workspace_id: string
+      role: string
+      invited_by: string
+    }>()
+  for (const inv of pendingInvites) {
+    await env.DB.batch([
+      env.DB.prepare(
+        `INSERT OR IGNORE INTO workspace_members
+         (workspace_id, user_id, role, joined_at, invited_by)
+         VALUES (?, ?, ?, ?, ?)`,
+      ).bind(inv.workspace_id, user.id, inv.role, now, inv.invited_by),
+      env.DB.prepare(
+        `UPDATE workspace_invites SET accepted_at = ? WHERE token = ?`,
+      ).bind(now, inv.token),
+    ])
+  }
+
   // Look up workspaces this user belongs to. Branch behaviour:
   //   0 → wsid-less JWT, UI bounces to /onboard
   //   1 → bake wsid into JWT, UI lands directly in /workspace

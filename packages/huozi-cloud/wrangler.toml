@@ -18,16 +18,21 @@ fallthrough = true
 # land here, and everything else (login, /workspace/*, /p/<slug>, /api/*)
 # falls through to huozi's catch-all "cloud.huozi.app/*".
 routes = [
-  { pattern = "cloud.huozi.app/auth/*",   zone_name = "huozi.app" },
-  { pattern = "cloud.huozi.app/admin/*",  zone_name = "huozi.app" },
-  { pattern = "cloud.huozi.app/me/*",     zone_name = "huozi.app" },
-  { pattern = "cloud.huozi.app/mcp",      zone_name = "huozi.app" },
-  { pattern = "cloud.huozi.app/events/*", zone_name = "huozi.app" },
-  { pattern = "cloud.huozi.app/shares",   zone_name = "huozi.app" },
-  { pattern = "cloud.huozi.app/shares/*", zone_name = "huozi.app" },
-  { pattern = "cloud.huozi.app/blobs/*",  zone_name = "huozi.app" },
-  { pattern = "cloud.huozi.app/health",   zone_name = "huozi.app" },
-  { pattern = "cloud.huozi.app/debug/*",  zone_name = "huozi.app" },
+  { pattern = "cloud.huozi.app/auth/*",       zone_name = "huozi.app" },
+  { pattern = "cloud.huozi.app/admin/*",      zone_name = "huozi.app" },
+  { pattern = "cloud.huozi.app/me/*",         zone_name = "huozi.app" },
+  { pattern = "cloud.huozi.app/mcp",          zone_name = "huozi.app" },
+  { pattern = "cloud.huozi.app/events/*",     zone_name = "huozi.app" },
+  { pattern = "cloud.huozi.app/shares",       zone_name = "huozi.app" },
+  { pattern = "cloud.huozi.app/shares/*",     zone_name = "huozi.app" },
+  { pattern = "cloud.huozi.app/blobs/*",      zone_name = "huozi.app" },
+  { pattern = "cloud.huozi.app/health",       zone_name = "huozi.app" },
+  { pattern = "cloud.huozi.app/debug/*",      zone_name = "huozi.app" },
+  # OAuth 2.1 + PKCE endpoints (RFC 6749/7591/8414/9728). MCP clients
+  # discover the AS via /.well-known/oauth-protected-resource, register
+  # at /oauth/register, then GET /oauth/authorize and POST /oauth/token.
+  { pattern = "cloud.huozi.app/.well-known/*", zone_name = "huozi.app" },
+  { pattern = "cloud.huozi.app/oauth/*",       zone_name = "huozi.app" },
   # Self-host install bootstrap. `bash <(curl -sSL https://huozi.app/install)`
   # — handler in worker/index.ts proxies raw scripts/edge-install.sh from
   # GitHub. Lives on the marketing zone (huozi.app) for brand cleanliness.

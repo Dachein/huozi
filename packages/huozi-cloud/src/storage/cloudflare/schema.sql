@@ -229,7 +229,12 @@ CREATE TABLE IF NOT EXISTS api_keys (
   -- workspace_members.role caps. Non-null = JSON array, intersected with
   -- role caps so a key can never escalate beyond its creator. v1 always
   -- writes NULL; advanced "narrow my key" UI lights this up later.
-  caps               TEXT
+  caps               TEXT,
+  -- OAuth 2.1 link: when this key was minted by /oauth/token (vs. legacy
+  -- direct mint or device-flow mint), this points at the oauth_clients
+  -- row so we can show "issued to: Cursor (OAuth)" in audit. NULL for
+  -- non-OAuth keys (the vast majority of legacy rows).
+  oauth_client_id    TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_api_keys_ws ON api_keys (workspace_id);
@@ -339,3 +344,82 @@ CREATE VIRTUAL TABLE IF NOT EXISTS file_fts USING fts5(
   content,
   tokenize = 'trigram'
 );
+
+-- ── OAuth 2.1 + PKCE (RFC 6749 §4.1, RFC 7636, RFC 7591) ────────────────
+--
+-- Primary auth path for MCP clients (Claude Code, Cursor, Codex, Hermes…).
+-- Access tokens themselves piggyback on `api_keys` (with `oauth_client_id`
+-- column tagging the row); these auxiliary tables hold the OAuth state
+-- machine — registered clients, in-flight authorize sessions, single-use
+-- auth codes, and refresh tokens.
+--
+-- Token shape on the wire:
+--   - Legacy:    Authorization: Bearer hz_<48hex>
+--   - OAuth:     Authorization: Bearer oat_<48hex>   (oat = OAuth Access Token)
+--   - Refresh:   ort_<48hex>  (only at /oauth/token, never to /mcp)
+
+CREATE TABLE IF NOT EXISTS oauth_clients (
+  client_id        TEXT PRIMARY KEY,
+  client_name      TEXT,
+  client_uri       TEXT,
+  redirect_uris    TEXT NOT NULL,              -- JSON array
+  grant_types      TEXT NOT NULL,              -- JSON array
+  token_endpoint_auth_method TEXT NOT NULL,    -- 'none' (PKCE-only public client) is the only accepted value
+  scope            TEXT,
+  created_at       INTEGER NOT NULL,
+  last_used_at     INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_clients_name
+  ON oauth_clients (client_name);
+
+CREATE TABLE IF NOT EXISTS oauth_authorization_codes (
+  code                  TEXT PRIMARY KEY,
+  client_id             TEXT NOT NULL,
+  user_id               TEXT NOT NULL,
+  workspace_id          TEXT NOT NULL,         -- 'ws_<slug>' form (matches api_keys)
+  redirect_uri          TEXT NOT NULL,
+  scope                 TEXT,
+  code_challenge        TEXT NOT NULL,
+  code_challenge_method TEXT NOT NULL,         -- 'S256' only
+  created_at            INTEGER NOT NULL,
+  expires_at            INTEGER NOT NULL,
+  consumed_at           INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_codes_expires
+  ON oauth_authorization_codes (expires_at);
+
+CREATE TABLE IF NOT EXISTS oauth_refresh_tokens (
+  token_hash            TEXT PRIMARY KEY,
+  client_id             TEXT NOT NULL,
+  user_id               TEXT NOT NULL,
+  workspace_id          TEXT NOT NULL,
+  scope                 TEXT,
+  current_access_key_id TEXT,
+  previous_token_hash   TEXT,
+  created_at            INTEGER NOT NULL,
+  expires_at            INTEGER NOT NULL,
+  revoked_at            INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_refresh_user
+  ON oauth_refresh_tokens (user_id, workspace_id);
+CREATE INDEX IF NOT EXISTS idx_oauth_refresh_client
+  ON oauth_refresh_tokens (client_id);
+
+CREATE TABLE IF NOT EXISTS oauth_pending_authorizations (
+  session_id            TEXT PRIMARY KEY,
+  client_id             TEXT NOT NULL,
+  redirect_uri          TEXT NOT NULL,
+  scope                 TEXT,
+  state                 TEXT,
+  code_challenge        TEXT NOT NULL,
+  code_challenge_method TEXT NOT NULL,
+  created_at            INTEGER NOT NULL,
+  expires_at            INTEGER NOT NULL,
+  consumed_at           INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_pending_expires
+  ON oauth_pending_authorizations (expires_at);

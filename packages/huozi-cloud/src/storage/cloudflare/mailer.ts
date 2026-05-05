@@ -59,23 +59,39 @@ export async function sendInviteEmail(
     workspaceName: string
     inviterEmail: string
     acceptUrl: string
+    /** Public host for the MCP endpoint (e.g. cloud.huozi.app). Used in
+     *  the Agent-first paragraph so the invitee can paste a one-line
+     *  `claude mcp add` and let our auto-redeem do the rest. */
+    mcpHost: string
   },
 ): Promise<void> {
   const brand = env.HUOZI_BRAND ?? 'huozi'
+  const mcpUrl = `https://${input.mcpHost}/mcp`
+  const mcpCmd = `claude mcp add --transport http huozi ${mcpUrl}`
   const subject = `${input.inviterEmail} invited you to "${input.workspaceName}" on ${brand}`
   const text =
     `${input.inviterEmail} has invited you to join the ${brand} workspace "${input.workspaceName}".\n\n` +
-    `Accept the invite: ${input.acceptUrl}\n\n` +
-    `This link expires in 7 days. If you didn't expect this invite, you can ignore this email.`
+    `Path A — open in browser:\n  ${input.acceptUrl}\n\n` +
+    `Path B — let your Agent set it up. In any Agent terminal run:\n  ${mcpCmd}\n` +
+    `Then say "use huozi". The Agent will open the consent page; sign in with this email\n` +
+    `(${input.to}) and we'll auto-link your invite.\n\n` +
+    `This link expires in 7 days. If you didn't expect this invite, ignore this email.`
   const html = `<!doctype html>
-<html><body style="font-family: -apple-system, system-ui, sans-serif; max-width: 480px; margin: 40px auto; padding: 0 24px; color: #333;">
+<html><body style="font-family: -apple-system, system-ui, sans-serif; max-width: 520px; margin: 40px auto; padding: 0 24px; color: #333;">
   <h1 style="font-size: 18px; font-weight: 500; margin-bottom: 8px;">You've been invited to ${brand}</h1>
   <p style="font-size: 14px; line-height: 1.5; color: #666;">${input.inviterEmail} added you to the workspace <strong>${input.workspaceName}</strong>.</p>
-  <p style="margin: 32px 0;">
+
+  <p style="margin: 28px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #999;">Option A · open in browser</p>
+  <p style="margin: 0 0 12px;">
     <a href="${input.acceptUrl}" style="display: inline-block; padding: 12px 20px; background: #111; color: #fff; text-decoration: none; border-radius: 999px; font-size: 14px; font-weight: 500;">Accept invite</a>
   </p>
-  <p style="font-size: 13px; color: #888; line-height: 1.5;">Or copy this URL into your browser:<br/><span style="font-family: ui-monospace, Menlo, monospace;">${input.acceptUrl}</span></p>
-  <p style="font-size: 13px; color: #888; line-height: 1.5; margin-top: 24px;">This link expires in 7 days. If you didn't expect this invite, you can ignore this email.</p>
+
+  <p style="margin: 28px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #999;">Option B · agent-first</p>
+  <p style="font-size: 13px; line-height: 1.5; color: #555; margin: 0 0 8px;">If you'd rather wire it up through your AI Agent (Claude Code, Cursor, Codex…), paste this once:</p>
+  <pre style="background: #f4f4f4; border-radius: 6px; padding: 10px 12px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: #111; white-space: pre-wrap; word-break: break-all; margin: 0 0 8px;">${mcpCmd}</pre>
+  <p style="font-size: 13px; line-height: 1.5; color: #555; margin: 0;">Then ask the Agent to use huozi. It opens the consent page in your browser; sign in as <strong>${input.to}</strong> and we'll automatically link this invite.</p>
+
+  <p style="font-size: 13px; color: #888; line-height: 1.5; margin-top: 32px;">This link expires in 7 days. If you didn't expect this invite, ignore this email.</p>
 </body></html>`
   await sendEmail(env, { to: input.to, subject, text, html })
 }

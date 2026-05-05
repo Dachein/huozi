@@ -119,12 +119,27 @@ export async function handleMintInvite(
     .run()
 
   const acceptUrl = `${body.accept_url_base.replace(/\/$/, '')}/${token}`
+  // mcpHost is whatever public hostname this deployment serves /mcp on
+  // (cloud.huozi.app for Cloud, the deployer's Edge host for Edge). We
+  // pull it out of HUOZI_PUBLIC_BASE so the invite email's "Option B"
+  // command works on every edition without a separate env var.
+  const publicBase = (env.HUOZI_PUBLIC_BASE ?? 'https://huozi.app').replace(
+    /\/+$/,
+    '',
+  )
+  let mcpHost = 'cloud.huozi.app'
+  try {
+    mcpHost = new URL(publicBase).host
+  } catch {
+    /* keep default */
+  }
   try {
     await sendInviteEmail(env, {
       to: email,
       workspaceName: ws.name,
       inviterEmail: inviter.email,
       acceptUrl,
+      mcpHost,
     })
   } catch (err) {
     // Roll back the invite row so the user can retry cleanly.

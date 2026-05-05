@@ -8,9 +8,9 @@ import {
   type StatusSummaryConnection,
 } from "@/components/workspace/status-summary";
 import { OnboardingPrompts } from "@/components/workspace/onboarding-prompts";
-import { ConnectBanner } from "@/components/workspace/connect-banner";
 import { WorkspaceStats } from "@/components/workspace/workspace-stats";
 import { WorkspaceSearch } from "@/components/workspace/workspace-search";
+import { getPublicMcpUrl } from "@/lib/cloud-fetch";
 import { getLocale } from "@/lib/i18n/server";
 import { t } from "@/lib/i18n";
 import { getIdentity } from "@/lib/identity";
@@ -121,20 +121,13 @@ export default async function CloudWorkspacePage() {
             />
           )}
 
-          {/* Connect-an-Agent banner. Shows only when 0 connections —
-              first-time users land here and need a clear "what to do
-              next" cue. Once at least one Agent is plugged in, the
-              StatusSummary below carries the same info more compactly. */}
-          {connections.rows.length === 0 && (
-            <ConnectBanner mode="prompt" connectHref="/workspace/connect" />
-          )}
-
-          {/* Agent connection status — shown in both empty and filled states.
-              It's the user's answer to "who is plugged into this workspace
-              right now?" and that question matters regardless of whether
-              there are files yet. */}
+          {/* Agent connection status — shown in both empty and filled
+              states. The empty state inlines a one-line "ask your Agent
+              to connect" hint (with the MCP URL to copy), so we no
+              longer need a separate stand-alone Connect banner above. */}
           <StatusSummary
             connections={connections.rows}
+            mcpUrl={getPublicMcpUrl()}
             labels={{
               title: _("ws.status.title"),
               connectedAgents: _("ws.status.connectedAgents"),
@@ -234,12 +227,18 @@ async function loadConnectionsForStatusSummary(currentKey: string): Promise<{
   // Filters:
   //   - principal_id == current user (own keys only)
   //   - principal_type='agent' (skip browser sessions / system keys)
-  //   - last_used_at IS NOT NULL (minted but never used = dangling)
+  //
+  // We used to also gate on `last_used_at IS NOT NULL` to hide
+  // "minted-never-used dangling keys" from the legacy mint UI. That
+  // gate is wrong for OAuth-issued keys: by the time we have a row,
+  // the user already clicked "Authorize" in the browser — the
+  // connection is real even if no tool call has been made yet
+  // (`/mcp` interactive auth flow doesn't auto-fire a tool call).
+  // Surface those rows so the workspace shows "Claude Code · just
+  // connected" right away, not five minutes after the first prompt.
   const workerKeys = workerKeysAll.filter(
     (k) =>
-      k.principal_id === principal.userId &&
-      k.principal_type === "agent" &&
-      k.last_used_at !== null,
+      k.principal_id === principal.userId && k.principal_type === "agent",
   );
 
   const sessionKeyId = pickCurrentSessionKeyId(workerKeys, currentKey);

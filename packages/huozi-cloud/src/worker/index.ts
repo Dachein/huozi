@@ -67,6 +67,16 @@ import {
   handleDeviceToken,
 } from '../storage/cloudflare/device-auth.js'
 import {
+  handleOauthApprove,
+  handleOauthAuthorize,
+  handleOauthDeny,
+  handleOauthInspectPending,
+  handleOauthMetadata,
+  handleOauthRegister,
+  handleOauthToken,
+  handleProtectedResourceMetadata,
+} from '../storage/cloudflare/oauth.js'
+import {
   handleAuthLogout,
   handleAuthMe,
   handleOtpRequest,
@@ -503,6 +513,50 @@ const handler: ExportedHandler<HuoziCloudflareBindings> = {
       return handleDeviceToken(request, env)
     }
 
+    // OAuth 2.1 + PKCE primary path (RFC 6749/7636/7591/8414/9728).
+    // All endpoints publicly callable; tokens are protected by PKCE.
+    if (url.pathname === '/.well-known/oauth-authorization-server') {
+      return handleOauthMetadata(request, env)
+    }
+    if (url.pathname === '/.well-known/oauth-protected-resource') {
+      return handleProtectedResourceMetadata(request, env)
+    }
+    if (url.pathname === '/oauth/register') {
+      return handleOauthRegister(request, env)
+    }
+    if (url.pathname === '/oauth/authorize') {
+      return handleOauthAuthorize(request, env)
+    }
+    if (url.pathname === '/oauth/token') {
+      return handleOauthToken(request, env)
+    }
+    // Admin-secret-protected: called by the Next.js /authorize page after
+    // user consent. Not a browser-facing endpoint.
+    if (url.pathname === '/admin/oauth/inspect-pending') {
+      try {
+        return await handleOauthInspectPending(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/admin/oauth/approve') {
+      try {
+        return await handleOauthApprove(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/admin/oauth/deny') {
+      try {
+        return await handleOauthDeny(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+
     // Email-OTP login (humans). Wraps in try/catch so misconfig (missing
     // HUOZI_AUTH_SECRET) surfaces as a 501 rather than crashing the Worker.
     if (url.pathname === '/auth/otp/request') {
@@ -671,7 +725,27 @@ async function handleMcp(
     env,
   )
   if (!authRes.ok) {
-    return rpcError(reqId, -32001, authRes.failure.message)
+    // OAuth 2.1 / RFC 6750 §3 / MCP authorization spec require a real HTTP
+    // 401 with WWW-Authenticate so OAuth-aware clients (Claude Code, Cursor,
+    // Codex, Hermes) can auto-discover our authorization server. Body is
+    // still JSON-RPC-shaped so legacy clients display a sensible message.
+    const issuer = (env.HUOZI_PUBLIC_BASE ?? `${new URL(request.url).protocol}//${new URL(request.url).host}`).replace(/\/+$/, '')
+    const wwwAuth =
+      `Bearer error="invalid_token", ` +
+      `error_description="${authRes.failure.message.replace(/"/g, "'")}", ` +
+      `resource_metadata="${issuer}/.well-known/oauth-protected-resource"`
+    const body: JsonRpcResponse = {
+      jsonrpc: '2.0',
+      id: reqId,
+      error: { code: -32001, message: authRes.failure.message },
+    }
+    return new Response(JSON.stringify(body), {
+      status: 401,
+      headers: {
+        'content-type': 'application/json',
+        'www-authenticate': wwwAuth,
+      },
+    })
   }
   const principal = authRes.principal
 
