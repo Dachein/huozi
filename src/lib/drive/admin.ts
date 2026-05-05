@@ -75,6 +75,12 @@ export interface ListedKey {
    *  The default list-keys call filters revoked rows server-side;
    *  callers that opt into `include_revoked=1` will see them here. */
   revoked_at: number | null;
+  /** Non-null when this key was minted via the OAuth 2.1 + PKCE flow
+   *  (prefix `oak_*`). Points at the issuing oauth_clients row. Null
+   *  for statically-minted `hz_*` keys. The UI uses this to render an
+   *  "OAuth" vs "API key" chip and to hide the TTL editor on
+   *  OAuth-managed rows. */
+  oauth_client_id: string | null;
 }
 
 /** Canonical TTL presets shown in the UI. `null` = never expires. */

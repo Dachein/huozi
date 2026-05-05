@@ -315,13 +315,13 @@ export async function handleListKeys(
   const sql = includeRevoked
     ? `SELECT key_id, workspace_id, scope_path, principal_type, principal_id,
               created_at, expires_at, last_used_at, ttl_seconds, name,
-              last_action_tool, last_action_target, revoked_at
+              last_action_tool, last_action_target, revoked_at, oauth_client_id
        FROM api_keys
        WHERE workspace_id = ?
        ORDER BY created_at DESC`
     : `SELECT key_id, workspace_id, scope_path, principal_type, principal_id,
               created_at, expires_at, last_used_at, ttl_seconds, name,
-              last_action_tool, last_action_target, revoked_at
+              last_action_tool, last_action_target, revoked_at, oauth_client_id
        FROM api_keys
        WHERE workspace_id = ? AND revoked_at IS NULL
        ORDER BY created_at DESC`
@@ -382,13 +382,30 @@ export async function handleUpdateKeyTtl(
   }
 
   const row = await env.DB.prepare(
-    'SELECT last_used_at, created_at FROM api_keys WHERE key_id = ?',
+    'SELECT last_used_at, created_at, oauth_client_id FROM api_keys WHERE key_id = ?',
   )
     .bind(body.key_id)
-    .first<{ last_used_at: number | null; created_at: number }>()
+    .first<{
+      last_used_at: number | null
+      created_at: number
+      oauth_client_id: string | null
+    }>()
 
   if (!row) {
     return Response.json({ error: 'unknown_key_id' }, { status: 404 })
+  }
+
+  // OAuth-issued access keys carry a fixed lifetime set at token-exchange
+  // time. Mutating their TTL via this admin path would break the OAuth
+  // model's "host owns the token lifecycle" invariant — refresh-token
+  // rotation, revocation, and audit all assume the original `expires_at`.
+  // The UI hides the TTL editor for these rows; this is the defensive
+  // backstop for direct admin calls.
+  if (row.oauth_client_id) {
+    return Response.json(
+      { error: 'oauth_managed_ttl_immutable' },
+      { status: 400 },
+    )
   }
 
   const anchor = row.last_used_at ?? row.created_at

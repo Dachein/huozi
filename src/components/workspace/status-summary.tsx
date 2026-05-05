@@ -7,6 +7,26 @@ import { KeyTtlSelect } from "./key-ttl-select";
 import { RevokeKeyButton } from "./revoke-key-button";
 import { useT } from "@/lib/i18n/context";
 
+function AuthKindChip({ kind }: { kind: "oauth" | "key" }) {
+  // Subtle tone differentiation — OAuth gets the accent (it's the
+  // recommended modern path), API key reads as muted/legacy. Both stay
+  // mono-weight so the chip never out-shouts the agent name beside it.
+  const cls =
+    kind === "oauth"
+      ? "border-accent/40 text-accent bg-accent/5"
+      : "border-border text-muted-foreground bg-muted/40";
+  const label = kind === "oauth" ? "OAuth" : "API key";
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-1.5 py-0
+                  text-[10px] font-medium uppercase tracking-[0.08em]
+                  leading-[1.6] whitespace-nowrap ${cls}`}
+    >
+      {label}
+    </span>
+  );
+}
+
 export interface StatusSummaryConnection {
   /** Supabase row id — stable React key. */
   id: string;
@@ -29,6 +49,11 @@ export interface StatusSummaryConnection {
   ttlSeconds: number | null;
   /** Effective deadline (ms). Null when ttlSeconds is null. */
   expiresAt: number | null;
+  /** "oauth"  → OAuth-issued access key (prefix `oak_*`); fixed lifetime
+   *           set at token-exchange time, user can't edit TTL.
+   *  "key"    → statically-minted api_key (prefix `hz_*`); user-managed
+   *           TTL, sliding-window inactivity expiry. */
+  authKind: "oauth" | "key";
 }
 
 interface StatusSummaryProps {
@@ -192,8 +217,11 @@ function ConnectionRow({
           <AgentLogo kind={conn.agentKind} size={18} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-medium text-foreground">
-            {kindLabel}
+          <span className="flex items-center gap-2 truncate">
+            <span className="truncate font-medium text-foreground">
+              {kindLabel}
+            </span>
+            <AuthKindChip kind={conn.authKind} />
           </span>
           {subtitle && (
             <span className="block text-xs text-muted-foreground truncate">
@@ -240,31 +268,41 @@ function ConnectionRow({
         >
           <div className="ml-7 space-y-2.5">
             <LastActionLine conn={conn} nowLabel={nowLabel} />
+            {/* Expiry / TTL row.
+                  authKind === "key"   → user-editable TTL + countdown
+                  authKind === "oauth" → fixed lifetime set at token-exchange
+                                         time; show countdown read-only.
+                Neither row exposes the raw key value — leaking it through
+                the UI is a footgun (screen-share, screenshots, browser
+                history). Copy is gone for the same reason. */}
             <div className="flex items-center gap-2 flex-wrap">
-              <KeyTtlSelect
-                keyId={conn.keyId}
-                currentTtlSeconds={conn.ttlSeconds}
-              />
-              {conn.ttlSeconds !== null && (
-                // Only render the relative countdown when there IS a
-                // finite expiry. "Never" in the dropdown already says
-                // "never expires" — a second text tag would be noise.
+              {conn.authKind === "key" ? (
+                <>
+                  <KeyTtlSelect
+                    keyId={conn.keyId}
+                    currentTtlSeconds={conn.ttlSeconds}
+                  />
+                  {conn.ttlSeconds !== null && (
+                    <span
+                      className="text-xs text-muted-foreground"
+                      title={t("ws.expiry.hint")}
+                    >
+                      {formatExpiry(conn.expiresAt, t)}
+                    </span>
+                  )}
+                </>
+              ) : (
                 <span
                   className="text-xs text-muted-foreground"
-                  title={t("ws.expiry.hint")}
+                  title="OAuth-issued tokens have a fixed lifetime; the agent rotates them via refresh-token automatically"
                 >
-                  {formatExpiry(conn.expiresAt, t)}
+                  {conn.expiresAt !== null
+                    ? formatExpiry(conn.expiresAt, t)
+                    : t("ws.expiry.never")}
                 </span>
               )}
             </div>
             <div className="flex items-center gap-2">
-              <code
-                className="flex-1 min-w-0 text-xs text-muted-foreground font-mono truncate"
-                title={conn.keyId}
-              >
-                {conn.keyId}
-              </code>
-              <CopyButton value={conn.keyId} />
               <CheckStatusButton keyId={conn.keyId} />
               <RevokeKeyButton keyId={conn.keyId} label={conn.label} />
             </div>
@@ -272,29 +310,6 @@ function ConnectionRow({
         </div>
       )}
     </li>
-  );
-}
-
-function CopyButton({ value }: { value: string }) {
-  const t = useT();
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      type="button"
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(value);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1200);
-        } catch {
-          /* ignore */
-        }
-      }}
-      className="text-xs rounded border border-border px-2 py-1
-                 text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors"
-    >
-      {copied ? t("ws.action.copied") : t("ws.action.copy")}
-    </button>
   );
 }
 

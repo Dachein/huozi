@@ -258,6 +258,7 @@ async function loadConnectionsForStatusSummary(currentKey: string): Promise<{
       revoked: false,
       ttlSeconds: k.ttl_seconds ?? null,
       expiresAt: k.expires_at ?? null,
+      authKind: k.oauth_client_id ? "oauth" : "key",
     };
   });
 
