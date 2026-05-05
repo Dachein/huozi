@@ -431,4 +431,102 @@ export const fr = {
   "csv.rowDetail.close": "Fermer",
   "csv.rowDetail.rowOf": "Ligne {n} sur {total}",
   "csv.rowDetail.empty": "—",
+
+  // ConnectPicker — carte de connexion sur /workspace (ordre des onglets :
+  // Claude Code / OpenClaw / Hermes / Codex / Cursor / Claude Cowork / Generic Agent)
+  "connect.picker.intro":
+    "Choisissez votre client, collez l'extrait. Claude Code / Codex sont des commandes en une ligne. Hermes / OpenClaw / Generic Agent sont des prompts d'agent — collez dans le chat, l'agent exécute le device flow RFC 8628. Cursor / Claude Cowork utilisent une GUI ou un fichier de config.",
+  "connect.picker.note.claude-code":
+    "Collez une fois dans le terminal : inscription + déclenchement OAuth + vérification d'identité",
+  "connect.picker.note.openclaw":
+    "Collez dans le chat OpenClaw : l'agent exécute le device flow → vous cliquez Approve → openclaw mcp set",
+  "connect.picker.note.hermes":
+    "Collez dans le chat Hermes : l'agent exécute le device flow → vous cliquez Approve → écrit la config → /reload-mcp",
+  "connect.picker.note.codex":
+    "Collez une fois dans le terminal : inscription + déclenchement OAuth + vérification d'identité",
+  "connect.picker.note.cursor":
+    "Ajoutez à ~/.cursor/mcp.json, redémarrez Cursor, puis demandez à l'agent d'utiliser huozi pour déclencher OAuth",
+  "connect.picker.note.cowork":
+    "Dans Cowork : Customize → Connectors → + Add custom connector. Collez l'URL ci-dessous ; le premier appel ouvre un navigateur pour autoriser.",
+  "connect.picker.note.generic":
+    "Prompt d'agent universel pour tout hôte compatible MCP. Collez dans le chat — l'agent s'adapte à l'hôte dans lequel il s'exécute.",
+  "connect.picker.body.hermes": `TÂCHE : Installer huozi MCP dans Hermes. Tâche de configuration — pas de codage. Ne demandez pas la stack technique, n'écrivez pas de code.
+
+1. POST {apiBase}/auth/device-code
+   body : {"client_name":"Hermes","agent_kind":"hermes"}
+   Capturez device_code et verification_url_complete.
+
+2. Affichez verification_url_complete comme lien cliquable. Je l'ouvrirai, me connecterai si nécessaire, cliquerai Approve.
+
+3. Sondez toutes les 5 s (en parallèle avec l'étape 2) :
+   POST {apiBase}/auth/token
+   body : {"device_code":"<de l'étape 1>"}
+   - 202 authorization_pending → continuez à sonder
+   - 200 {api_key, key_id, workspace} → capturez api_key
+   - 400 expired_token → recommencez à l'étape 1
+   - 400 access_denied → arrêtez
+
+4. Ajoutez à ~/.hermes/config.yaml (créez si absent, préservez l'existant) :
+   mcp_servers:
+     huozi:
+       url: "{mcpUrl}"
+       headers:
+         Authorization: "Bearer <api_key>"
+   N'utilisez PAS \`hermes mcp add\` — il nécessite un TTY et échoue dans un shell de chat.
+
+5. Demandez-moi de taper /reload-mcp ici (les commandes slash doivent être tapées par l'utilisateur).
+
+6. Appelez huozi_whoami via le MCP. Identité de workspace dans la réponse = terminé.
+
+Sécurité : ne jamais afficher device_code ou api_key dans le chat.`,
+  "connect.picker.body.openclaw": `TÂCHE : Installer huozi MCP dans OpenClaw. Tâche de configuration — pas de codage. Ne demandez pas la stack technique, n'écrivez pas de code.
+
+1. POST {apiBase}/auth/device-code
+   body : {"client_name":"OpenClaw","agent_kind":"openclaw"}
+   Capturez device_code et verification_url_complete.
+
+2. Affichez verification_url_complete comme lien cliquable. Je l'ouvrirai, me connecterai, cliquerai Approve.
+
+3. Sondez toutes les 5 s (en parallèle avec l'étape 2) :
+   POST {apiBase}/auth/token
+   body : {"device_code":"<de l'étape 1>"}
+   - 202 authorization_pending → continuez à sonder
+   - 200 {api_key, key_id, workspace} → capturez api_key
+   - 400 expired_token → recommencez à l'étape 1
+   - 400 access_denied → arrêtez
+
+4. Enregistrez le serveur MCP avec cette api_key :
+   openclaw mcp set huozi '{"url":"{mcpUrl}","transport":"streamable-http","headers":{"Authorization":"Bearer <api_key>"}}'
+
+5. Appelez huozi_whoami via le MCP. Identité de workspace dans la réponse = terminé.
+
+Sécurité : ne jamais afficher device_code ou api_key dans le chat.`,
+  "connect.picker.body.generic": `TÂCHE : Installer huozi MCP dans mon hôte d'agent. Tâche de configuration — pas de codage. Ne demandez pas la stack technique.
+
+1. POST {apiBase}/auth/device-code
+   body : {"client_name":"<nom de l'hôte>","agent_kind":"generic"}
+   Capturez device_code et verification_url_complete.
+
+2. Affichez verification_url_complete comme lien cliquable. Je l'ouvrirai, me connecterai, cliquerai Approve.
+
+3. Sondez toutes les 5 s (en parallèle avec l'étape 2) :
+   POST {apiBase}/auth/token
+   body : {"device_code":"<de l'étape 1>"}
+   - 202 authorization_pending → continuez à sonder
+   - 200 {api_key, ...} → capturez api_key
+   - 400 expired_token / access_denied → signalez et arrêtez
+
+4. Enregistrez ce serveur MCP dans la config de l'hôte :
+   - URL : {mcpUrl}
+   - En-tête Authorization : Bearer <api_key>
+   Selon la doc de l'hôte, écrivez-le dans le fichier de config (JSON/YAML/TOML) ou utilisez la CLI de l'hôte. Rechargez selon ce que demande l'hôte (redémarrage / commande slash / reconnexion).
+
+5. Appelez huozi_whoami via le MCP. Identité de workspace dans la réponse = terminé.
+
+Sécurité : ne jamais afficher device_code ou api_key dans le chat.`,
+  "connect.picker.endpointLabel": "Endpoint :",
+  "connect.picker.tokenSecurity":
+    "Le jeton reste dans le client MCP. Il n'entre jamais dans le contexte de la conversation.",
+  "connect.picker.copy": "Copier",
+  "connect.picker.copied": "✓ Copié",
 } as const;

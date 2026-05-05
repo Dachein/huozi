@@ -423,4 +423,101 @@ export const zh = {
   "csv.rowDetail.close": "关闭",
   "csv.rowDetail.rowOf": "第 {n} 行 / 共 {total} 行",
   "csv.rowDetail.empty": "—",
+
+  // ConnectPicker —— /workspace 顶部的连接卡 (7 tab 顺序: Claude Code / OpenClaw / Hermes / Codex / Cursor / Claude Cowork / Generic Agent)
+  "connect.picker.intro":
+    "选你用的客户端,按提示装。Claude Code / Codex 在终端一行命令;Hermes / OpenClaw / Generic Agent 是 Agent prompt 粘到 chat 让它自己跑 RFC 8628 device flow;Cursor / Claude Cowork 走 GUI 或配置文件。",
+  "connect.picker.note.claude-code":
+    "终端粘贴一次:注册 + 触发 OAuth + 确认身份",
+  "connect.picker.note.openclaw":
+    "粘进 OpenClaw chat:Agent 走 device flow → 你点链接 Approve → openclaw mcp set",
+  "connect.picker.note.hermes":
+    "粘进 Hermes chat:Agent 走 device flow → 你点链接 Approve → 写 config → /reload-mcp",
+  "connect.picker.note.codex":
+    "终端粘贴一次:注册 + 触发 OAuth + 确认身份",
+  "connect.picker.note.cursor":
+    "加到 ~/.cursor/mcp.json,重启 Cursor,让 Agent 用一下 huozi 触发授权",
+  "connect.picker.note.cowork":
+    "在 Cowork:Customize → Connectors → + Add custom connector,粘下面的 URL,首次调用弹浏览器授权",
+  "connect.picker.note.generic":
+    "通用 Agent prompt(适用任意支持 MCP 的 host):粘到 chat,Agent 自适应你的 host 类型完成安装",
+  "connect.picker.body.hermes": `任务: 把 huozi MCP 装进 Hermes。这是 setup 任务,不是写代码,别问技术栈,别写代码。
+
+1. POST {apiBase}/auth/device-code
+   body: {"client_name":"Hermes","agent_kind":"hermes"}
+   保存 device_code 和 verification_url_complete。
+
+2. 把 verification_url_complete 作为可点击链接打印给我。我打开、登录、点 Approve。
+
+3. 每 5 秒轮询(可与第 2 步并行):
+   POST {apiBase}/auth/token
+   body: {"device_code":"<来自第 1 步>"}
+   - 202 authorization_pending → 继续轮询
+   - 200 {api_key, key_id, workspace} → 保存 api_key
+   - 400 expired_token → 回到第 1 步重来
+   - 400 access_denied → 停止
+
+4. 追加到 ~/.hermes/config.yaml(不存在则新建,保留已有内容):
+   mcp_servers:
+     huozi:
+       url: "{mcpUrl}"
+       headers:
+         Authorization: "Bearer <api_key>"
+   不要用 \`hermes mcp add\` —— 它需要 TTY,在 chat 里会直接退出。
+
+5. 让我自己输入 /reload-mcp 命令(slash 命令必须用户手输)。
+
+6. 通过 MCP 调用 huozi_whoami。返回 workspace 身份信息即完成。
+
+安全: 绝不在 chat 里打印 device_code 或 api_key。`,
+  "connect.picker.body.openclaw": `任务: 把 huozi MCP 装进 OpenClaw。这是 setup 任务,不是写代码,别问技术栈,别写代码。
+
+1. POST {apiBase}/auth/device-code
+   body: {"client_name":"OpenClaw","agent_kind":"openclaw"}
+   保存 device_code 和 verification_url_complete。
+
+2. 把 verification_url_complete 作为可点击链接打印给我。我打开、登录、点 Approve。
+
+3. 每 5 秒轮询(可与第 2 步并行):
+   POST {apiBase}/auth/token
+   body: {"device_code":"<来自第 1 步>"}
+   - 202 authorization_pending → 继续轮询
+   - 200 {api_key, key_id, workspace} → 保存 api_key
+   - 400 expired_token → 回到第 1 步重来
+   - 400 access_denied → 停止
+
+4. 用 api_key 注册 MCP server:
+   openclaw mcp set huozi '{"url":"{mcpUrl}","transport":"streamable-http","headers":{"Authorization":"Bearer <api_key>"}}'
+
+5. 通过 MCP 调用 huozi_whoami。返回 workspace 身份信息即完成。
+
+安全: 绝不在 chat 里打印 device_code 或 api_key。`,
+  "connect.picker.body.generic": `任务: 把 huozi MCP 装进我的 Agent host。这是 setup 任务,不是写代码,别问技术栈。
+
+1. POST {apiBase}/auth/device-code
+   body: {"client_name":"<host name>","agent_kind":"generic"}
+   保存 device_code 和 verification_url_complete。
+
+2. 把 verification_url_complete 作为可点击链接打印给我。我打开、登录、点 Approve。
+
+3. 每 5 秒轮询(可与第 2 步并行):
+   POST {apiBase}/auth/token
+   body: {"device_code":"<来自第 1 步>"}
+   - 202 authorization_pending → 继续轮询
+   - 200 {api_key, ...} → 保存 api_key
+   - 400 expired_token / access_denied → 报告并停止
+
+4. 把这个 MCP server 注册进 host 的配置:
+   - URL: {mcpUrl}
+   - Authorization 头: Bearer <api_key>
+   按 host 文档把它写进配置文件(JSON/YAML/TOML)或用 host CLI 注册。写完按 host 要求重载(重启进程 / slash 命令 / 重连)。
+
+5. 通过 MCP 调用 huozi_whoami。返回 workspace 身份信息即完成。
+
+安全: 绝不在 chat 里打印 device_code 或 api_key。`,
+  "connect.picker.endpointLabel": "Endpoint:",
+  "connect.picker.tokenSecurity":
+    "授权令牌由 MCP 客户端持有,不会进入对话上下文。",
+  "connect.picker.copy": "复制",
+  "connect.picker.copied": "✓ 已复制",
 } as const;

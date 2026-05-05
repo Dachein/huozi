@@ -1,91 +1,114 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { AgentLogo } from "./agent-logo";
+import { useT } from "@/lib/i18n/context";
 
 /**
- * ConnectPicker — the OAuth-first agent install card.
+ * ConnectPicker — the connection card on /workspace.
  *
- * Five tabs, each shows the snippet that this agent's MCP host needs.
- * No api_key minting in this UI: the snippets just point the host at
- * the MCP URL. First tool call returns 401, the host follows
- * /.well-known/oauth-protected-resource → /.well-known/oauth-authorization-server,
- * pops a browser consent, and the token round-trips back into the host's
- * own credential store. Token never enters the conversation context.
+ * Seven tabs in this canonical order:
+ *   1. Claude Code      — local terminal, OAuth-on-first-use (RFC 8252)
+ *   2. OpenClaw         — chat-mode, RFC 8628 device flow Agent prompt
+ *   3. Hermes Agent     — chat-mode, RFC 8628 device flow Agent prompt
+ *   4. Codex            — local terminal, OAuth-on-first-use
+ *   5. Cursor           — local config file (~/.cursor/mcp.json), OAuth on first use
+ *   6. Claude Cowork    — GUI: Customize → Connectors → + Add custom connector
+ *   7. Generic Agent    — host-agnostic device-flow Agent prompt (Hermes/OpenClaw pattern)
  *
- * Used by /workspace's connection-status panel (empty state + "+ connect new").
- * Lives standalone so it can also drop into onboarding / docs surfaces without
- * dragging the surrounding management UI along.
+ * Two parallel install pipelines:
  *
- * For users who need the legacy static api_key flow (custom MCP clients that
- * don't speak OAuth), the bottom-line link routes to /workspace/connect where
- * the older mint-key picker still lives.
+ *   A. Local terminal / IDE config (RFC 8252 / OAuth on first use)
+ *      Used by: Claude Code, Codex, Cursor, Cowork (Cowork uses GUI to
+ *      same effect). The user runs a CLI or pastes a config file; the
+ *      MCP client opens a system browser and binds a localhost callback.
+ *
+ *   B. Chat-mode Agent prompt (RFC 8628 device authorization grant)
+ *      Used by: OpenClaw, Hermes, Generic Agent. The user pastes a
+ *      numbered prompt into the agent's chat. The agent calls
+ *      /auth/device-code, hands the user verification_url_complete, polls
+ *      /auth/token, writes the host's MCP config, verifies via
+ *      huozi_whoami. Works in non-TTY / headless / sandboxed shells where
+ *      pipeline A cannot.
+ *
+ * The api/MCP base URL is env-driven via the `mcpUrl` prop (Cloud =
+ * cloud.huozi.app/mcp; Edge = whatever the deployer's worker URL is).
+ * Templates use `{mcpUrl}` and `{apiBase}` placeholders so a string
+ * pulled from i18n still resolves to the right deploy target.
  */
+
 type AgentKey =
   | "claude-code"
-  | "cursor"
-  | "codex"
-  | "hermes"
   | "openclaw"
-  | "desktop";
+  | "hermes"
+  | "codex"
+  | "cursor"
+  | "cowork"
+  | "generic";
+
+const AGENTS: AgentKey[] = [
+  "claude-code",
+  "openclaw",
+  "hermes",
+  "codex",
+  "cursor",
+  "cowork",
+  "generic",
+];
 
 const AGENT_LABELS: Record<AgentKey, string> = {
   "claude-code": "Claude Code",
-  cursor: "Cursor",
-  codex: "Codex",
-  hermes: "Hermes",
   openclaw: "OpenClaw",
-  desktop: "Claude Desktop",
+  hermes: "Hermes Agent",
+  codex: "Codex",
+  cursor: "Cursor",
+  cowork: "Claude Cowork",
+  generic: "Generic Agent",
 };
 
 /** AgentLogo's kind taxonomy — map our short keys to its values. */
 const AGENT_LOGO_KIND: Record<AgentKey, string> = {
   "claude-code": "claude-code",
-  cursor: "cursor",
-  codex: "other",
+  openclaw: "openclaw",
   hermes: "hermes",
-  openclaw: "other",
-  desktop: "desktop",
+  codex: "codex",
+  cursor: "cursor",
+  cowork: "cowork",
+  generic: "generic",
 };
 
 interface Snippet {
-  /** Free-form heading shown above the code block. */
-  heading: string;
-  /** The thing that actually goes into the user's clipboard. */
+  /** What goes into the user's clipboard. */
   body: string;
-  /** Short note above the heading explaining where this snippet runs. */
+  /** Short note above the snippet (localized). */
   note: string;
 }
 
-function snippetFor(agent: AgentKey, mcpUrl: string): Snippet {
+function snippetFor(
+  agent: AgentKey,
+  mcpUrl: string,
+  apiBase: string,
+  t: (key: string) => string,
+): Snippet {
+  const note = t(`connect.picker.note.${agent}`);
+
   switch (agent) {
     case "claude-code":
-      // Two-step chain: register the MCP server, then immediately
-      // launch a Claude Code session with a prompt that asks for
-      // a huozi tool. The first tool call triggers OAuth → browser
-      // pops open with the consent page → token round-trip → Agent
-      // returns a whoami response. End-to-end from a single paste.
-      //
-      // Why "check who I am" instead of "list files": works for
-      // empty workspaces too — new users see a structured "who you
-      // are + which workspace + role" summary rather than a sad
-      // empty-list message.
+      // Single shell line: register MCP server + immediately invoke a
+      // huozi tool so the OAuth dance fires on the first call. Browser
+      // pops, user clicks Approve, token returns, identity printed.
       return {
-        note: "终端粘贴一次：注册 + 触发授权 + 确认身份",
-        heading: "TERMINAL",
+        note,
         body: `claude mcp add --transport http huozi ${mcpUrl} && claude "use huozi to check who I am"`,
       };
     case "codex":
       return {
-        note: "终端粘贴一次：注册 + 触发授权 + 确认身份",
-        heading: "TERMINAL",
+        note,
         body: `codex mcp add huozi --url ${mcpUrl} && codex "use huozi to check who I am"`,
       };
     case "cursor":
       return {
-        note: "添加到 ~/.cursor/mcp.json，重启 Cursor，然后让 Agent 用一下 huozi 触发授权",
-        heading: "MCP.JSON",
+        note,
         body: JSON.stringify(
           {
             mcpServers: {
@@ -96,117 +119,43 @@ function snippetFor(agent: AgentKey, mcpUrl: string): Snippet {
           2,
         ),
       };
-    case "desktop":
+    case "cowork":
+      // Cowork (Anthropic's chat agent inside Claude Desktop) accepts
+      // custom MCP connectors via Customize → Connectors → + Add custom
+      // connector. The "snippet" is just the URL the user pastes into
+      // that dialog; OAuth on first use is handled inside Cowork.
       return {
-        note: "添加到 claude_desktop_config.json，重启 Claude Desktop，然后让 Agent 用一下 huozi 触发授权",
-        heading: "CLAUDE_DESKTOP_CONFIG.JSON",
-        body: JSON.stringify(
-          {
-            mcpServers: {
-              huozi: { type: "http", url: mcpUrl },
-            },
-          },
-          null,
-          2,
-        ),
+        note,
+        body: mcpUrl,
       };
     case "hermes":
-      // Chat-mode install for Hermes uses the device authorization flow
-      // (RFC 8628). Why not OAuth-on-first-use (RFC 8252) here: in chat
-      // mode the agent's shell tool is non-TTY, often headless, and
-      // can't receive a localhost callback — `hermes mcp add --auth oauth`
-      // exits immediately. Why not email OTP: device flow gives the user
-      // a single clickable URL where the user_code is pre-filled, the
-      // /device page handles login (Cloud OTP / Edge password) AND grant
-      // approval in one screen, no email round-trip. Local-terminal users
-      // who want OAuth still have `hermes mcp add ... --auth oauth` —
-      // that path is surfaced in /docs, not here.
-      return {
-        note: "粘进 Hermes chat：Agent 走 RFC 8628 device flow → 你点链接 Approve → 写 config → /reload-mcp",
-        heading: "AGENT PROMPT",
-        body: `TASK: Install the huozi MCP server in Hermes. This is a setup task — not a coding project. Do not ask about tech stack, do not write code.
-
-We use the OAuth 2.0 device authorization flow (RFC 8628). Authorization happens in the user's browser on any device — no localhost callback, no TTY required. The /device page handles login (OTP for Cloud, password for Edge) and grant approval together.
-
-1. REQUEST DEVICE CODE:
-   curl -sS -X POST https://cloud.huozi.app/auth/device-code \\
-     -H 'content-type: application/json' \\
-     -d '{"client_name":"Hermes","agent_kind":"hermes"}'
-   Response: { device_code, user_code, verification_url_complete, expires_in: 900, interval: 5 }
-   Capture device_code into your scratch.
-
-2. SHOW LINK — print verification_url_complete to me as a clickable link. Tell me to open it: the page may ask me to sign in (one-tap if I'm already logged in to cloud.huozi.app), then it shows an Approve button. Wait until I tell you I clicked Approve, OR start polling now (step 3) — whichever fits your tool model.
-
-3. POLL FOR TOKEN — every 5 seconds (the "interval" from step 1):
-   curl -sS -X POST https://cloud.huozi.app/auth/token \\
-     -H 'content-type: application/json' \\
-     -d '{"device_code":"<device_code from step 1>"}'
-   Responses:
-     - 202 { error: "authorization_pending" } → keep polling
-     - 200 { api_key, key_id, workspace } → done, capture api_key into scratch
-     - 400 { error: "expired_token" } → grant timed out, restart from step 1
-     - 400 { error: "access_denied" } → user clicked Deny, stop and tell me
-
-4. WRITE CONFIG — append to ~/.hermes/config.yaml (create the file if it does not exist; preserve existing entries):
-   mcp_servers:
-     huozi:
-       url: "${mcpUrl}"
-       headers:
-         Authorization: "Bearer <api_key>"
-
-   Do NOT use "hermes mcp add" — the CLI requires a TTY and exits in chat shells.
-
-5. RELOAD — tell me to type "/reload-mcp" in this chat. Hermes hot-reloads MCP config on that command without restart.
-
-6. VERIFY — call huozi_whoami through the MCP. A workspace identity in the reply means done.
-
-Security: never print device_code or api_key in chat. Keep them in your tool scratch only. The user can revoke any key at cloud.huozi.app/workspace.`,
-      };
     case "openclaw":
-      // Same RFC 8628 device flow as Hermes — only the install step
-      // differs (OpenClaw uses its own \`mcp set\` CLI, no reload needed
-      // because OpenClaw applies config changes immediately).
+    case "generic":
+      // Device-flow Agent prompt. Pulled from i18n so each locale renders
+      // its own translation; placeholders resolve to the live deploy URL.
       return {
-        note: "粘进 OpenClaw chat：Agent 走 RFC 8628 device flow → 你点链接 Approve → openclaw mcp set",
-        heading: "AGENT PROMPT",
-        body: `TASK: Install the huozi MCP server in OpenClaw. This is a setup task — not a coding project. Do not ask about tech stack, do not write code.
-
-We use the OAuth 2.0 device authorization flow (RFC 8628). Authorization happens in the user's browser on any device — no localhost callback, no TTY required. The /device page handles login (OTP for Cloud, password for Edge) and grant approval together.
-
-1. REQUEST DEVICE CODE:
-   curl -sS -X POST https://cloud.huozi.app/auth/device-code \\
-     -H 'content-type: application/json' \\
-     -d '{"client_name":"OpenClaw","agent_kind":"openclaw"}'
-   Response: { device_code, user_code, verification_url_complete, expires_in: 900, interval: 5 }
-   Capture device_code into your scratch.
-
-2. SHOW LINK — print verification_url_complete to me as a clickable link. Tell me to open it: the page may ask me to sign in, then it shows an Approve button. Wait until I tell you I clicked Approve, OR start polling now (step 3).
-
-3. POLL FOR TOKEN — every 5 seconds:
-   curl -sS -X POST https://cloud.huozi.app/auth/token \\
-     -H 'content-type: application/json' \\
-     -d '{"device_code":"<device_code>"}'
-   Responses:
-     - 202 { error: "authorization_pending" } → keep polling
-     - 200 { api_key, key_id, workspace } → done, capture api_key
-     - 400 { error: "expired_token" } → restart from step 1
-     - 400 { error: "access_denied" } → user clicked Deny, stop
-
-4. INSTALL MCP — register the server in OpenClaw with the api_key:
-   openclaw mcp set huozi '{"url":"${mcpUrl}","transport":"streamable-http","headers":{"Authorization":"Bearer <api_key>"}}'
-
-5. VERIFY — call huozi_whoami through the MCP. A workspace identity in the reply means done.
-
-Security: never print device_code or api_key in chat. Keep them in your tool scratch only. The user can revoke any key at cloud.huozi.app/workspace.`,
+        note,
+        body: t(`connect.picker.body.${agent}`)
+          .replaceAll("{apiBase}", apiBase)
+          .replaceAll("{mcpUrl}", mcpUrl),
       };
   }
 }
 
 export function ConnectPicker({ mcpUrl }: { mcpUrl: string }) {
+  const t = useT();
   const [agent, setAgent] = useState<AgentKey>("claude-code");
   const [copied, setCopied] = useState(false);
-  const snippet = snippetFor(agent, mcpUrl);
+
+  // Derive the auth API base by stripping the /mcp suffix off mcpUrl.
+  // Auth endpoints (/auth/device-code, /auth/token) live at the worker
+  // root, not under /mcp. This keeps Edge deployments correct without
+  // a separate prop.
+  const apiBase = mcpUrl.replace(/\/mcp\/?$/, "");
+
+  const snippet = snippetFor(agent, mcpUrl, apiBase, t);
   const isOneLiner = agent === "claude-code" || agent === "codex";
+  const isJustUrl = agent === "cowork";
 
   async function copy() {
     try {
@@ -221,15 +170,12 @@ export function ConnectPicker({ mcpUrl }: { mcpUrl: string }) {
   return (
     <div className="rounded-md border border-border/60 bg-background/40 p-5 mb-3">
       <p className="text-sm text-foreground mb-4">
-        两条平行路径。**本地终端**用 Claude Code / Codex / Hermes CLI：一行命令自动 OAuth (RFC 8252)。
-        **Agent chat 模式** Hermes / OpenClaw：粘 prompt 走 device flow (RFC 8628) ——
-        Agent 拿 user_code、给你一个链接，你点开授权,Agent 轮询拿 key、写 config。
-        Cursor / Claude Desktop 走配置文件 + use huozi 触发 OAuth。
+        {t("connect.picker.intro")}
       </p>
 
       {/* Agent picker tabs */}
       <div className="mb-4 flex flex-wrap gap-1 border-b border-border">
-        {(Object.keys(AGENT_LABELS) as AgentKey[]).map((k) => {
+        {AGENTS.map((k) => {
           const active = k === agent;
           return (
             <button
@@ -259,7 +205,9 @@ export function ConnectPicker({ mcpUrl }: { mcpUrl: string }) {
       <div className="relative rounded-lg border-2 border-accent/40 bg-muted/40 group">
         <pre
           className={`overflow-x-auto px-4 py-3 pr-14 text-xs font-mono leading-relaxed ${
-            isOneLiner ? "whitespace-pre-wrap break-all" : "whitespace-pre"
+            isOneLiner || isJustUrl
+              ? "whitespace-pre-wrap break-all"
+              : "whitespace-pre"
           }`}
         >
           {snippet.body}
@@ -273,23 +221,15 @@ export function ConnectPicker({ mcpUrl }: { mcpUrl: string }) {
               : "bg-foreground text-background hover:opacity-90 shadow-sm"
           }`}
         >
-          {copied ? "✓ 已复制" : "复制"}
+          {copied ? t("connect.picker.copied") : t("connect.picker.copy")}
         </button>
       </div>
 
       <p className="mt-3 text-[11px] text-muted-foreground leading-relaxed">
-        Endpoint:{" "}
+        {t("connect.picker.endpointLabel")}{" "}
         <code className="font-mono">{mcpUrl}</code>
         {" · "}
-        授权令牌由 MCP 客户端持有，不会进入对话上下文。
-        {" · "}
-        需要旧版静态 API key？{" "}
-        <Link
-          href="/workspace/connect"
-          className="underline hover:text-foreground"
-        >
-          手动模式
-        </Link>
+        {t("connect.picker.tokenSecurity")}
       </p>
     </div>
   );

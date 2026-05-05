@@ -46,8 +46,7 @@ export default async function SharesPage() {
     <div className="flex flex-col min-h-screen">
       <main className="flex-1">
         <div className="mx-auto max-w-3xl px-6 py-12">
-          {/* Top-of-page "← Workspace" return link.  Same pattern as
-              /workspace/connect — primary escape hatch at the top. */}
+          {/* Top-of-page "← Workspace" return link — primary escape hatch. */}
           <Link
             href="/workspace"
             className="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-accent hover:text-foreground transition-colors mb-6"

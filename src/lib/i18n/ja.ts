@@ -427,4 +427,101 @@ export const ja = {
   "csv.rowDetail.close": "閉じる",
   "csv.rowDetail.rowOf": "{total} 行中 {n} 行目",
   "csv.rowDetail.empty": "—",
+
+  // ConnectPicker —— /workspace の接続カード (タブ順: Claude Code / OpenClaw / Hermes / Codex / Cursor / Claude Cowork / Generic Agent)
+  "connect.picker.intro":
+    "使うクライアントを選んで貼り付け。Claude Code / Codex はターミナルでワンライナー。Hermes / OpenClaw / Generic Agent はエージェント用プロンプト —— チャットに貼ると RFC 8628 device flow を実行。Cursor / Claude Cowork は GUI または設定ファイル。",
+  "connect.picker.note.claude-code":
+    "ターミナルに一度貼り付け: 登録 + OAuth トリガー + 身元確認",
+  "connect.picker.note.openclaw":
+    "OpenClaw チャットに貼り付け: エージェントが device flow → リンクをクリック Approve → openclaw mcp set",
+  "connect.picker.note.hermes":
+    "Hermes チャットに貼り付け: エージェントが device flow → リンクをクリック Approve → config 書込 → /reload-mcp",
+  "connect.picker.note.codex":
+    "ターミナルに一度貼り付け: 登録 + OAuth トリガー + 身元確認",
+  "connect.picker.note.cursor":
+    "~/.cursor/mcp.json に追加し Cursor を再起動、その後エージェントに huozi を使うよう頼んで OAuth トリガー",
+  "connect.picker.note.cowork":
+    "Cowork で: Customize → Connectors → + Add custom connector。下の URL を貼り付け、初回呼び出し時にブラウザで認可",
+  "connect.picker.note.generic":
+    "あらゆる MCP 対応ホスト向け汎用エージェントプロンプト。チャットに貼ると、ホストに合わせて適応",
+  "connect.picker.body.hermes": `タスク: huozi MCP を Hermes にインストール。これはセットアップ作業 — コーディング作業ではない。技術スタックを聞かない、コードを書かない。
+
+1. POST {apiBase}/auth/device-code
+   body: {"client_name":"Hermes","agent_kind":"hermes"}
+   device_code と verification_url_complete を保存。
+
+2. verification_url_complete をクリック可能なリンクとして印字。ユーザーが開いてサインインし、Approve をクリックする。
+
+3. 5 秒ごとにポーリング(ステップ 2 と並行可):
+   POST {apiBase}/auth/token
+   body: {"device_code":"<ステップ 1 から>"}
+   - 202 authorization_pending → ポーリング継続
+   - 200 {api_key, key_id, workspace} → api_key を保存
+   - 400 expired_token → ステップ 1 から再開
+   - 400 access_denied → 停止
+
+4. ~/.hermes/config.yaml に追記(無ければ新規作成、既存内容は保持):
+   mcp_servers:
+     huozi:
+       url: "{mcpUrl}"
+       headers:
+         Authorization: "Bearer <api_key>"
+   \`hermes mcp add\` を使わない —— TTY が必要で chat シェルでは即終了する。
+
+5. ユーザーに /reload-mcp と入力するよう伝える(slash コマンドはユーザーが直接入力)。
+
+6. MCP 経由で huozi_whoami を呼び出す。workspace の身元情報が返れば完了。
+
+セキュリティ: device_code や api_key を chat に印字しない。`,
+  "connect.picker.body.openclaw": `タスク: huozi MCP を OpenClaw にインストール。これはセットアップ作業 — コーディング作業ではない。技術スタックを聞かない、コードを書かない。
+
+1. POST {apiBase}/auth/device-code
+   body: {"client_name":"OpenClaw","agent_kind":"openclaw"}
+   device_code と verification_url_complete を保存。
+
+2. verification_url_complete をクリック可能なリンクとして印字。ユーザーが開いてサインインし、Approve をクリックする。
+
+3. 5 秒ごとにポーリング(ステップ 2 と並行可):
+   POST {apiBase}/auth/token
+   body: {"device_code":"<ステップ 1 から>"}
+   - 202 authorization_pending → ポーリング継続
+   - 200 {api_key, key_id, workspace} → api_key を保存
+   - 400 expired_token → ステップ 1 から再開
+   - 400 access_denied → 停止
+
+4. その api_key で MCP サーバーを登録:
+   openclaw mcp set huozi '{"url":"{mcpUrl}","transport":"streamable-http","headers":{"Authorization":"Bearer <api_key>"}}'
+
+5. MCP 経由で huozi_whoami を呼び出す。workspace の身元情報が返れば完了。
+
+セキュリティ: device_code や api_key を chat に印字しない。`,
+  "connect.picker.body.generic": `タスク: huozi MCP を私のエージェントホストにインストール。これはセットアップ作業 — コーディング作業ではない。技術スタックを聞かない。
+
+1. POST {apiBase}/auth/device-code
+   body: {"client_name":"<host name>","agent_kind":"generic"}
+   device_code と verification_url_complete を保存。
+
+2. verification_url_complete をクリック可能なリンクとして印字。ユーザーが開いてサインインし、Approve をクリック。
+
+3. 5 秒ごとにポーリング(ステップ 2 と並行可):
+   POST {apiBase}/auth/token
+   body: {"device_code":"<ステップ 1 から>"}
+   - 202 authorization_pending → ポーリング継続
+   - 200 {api_key, ...} → api_key を保存
+   - 400 expired_token / access_denied → 報告して停止
+
+4. この MCP サーバーをホストの設定に登録:
+   - URL: {mcpUrl}
+   - Authorization ヘッダ: Bearer <api_key>
+   ホストのドキュメントに従って設定ファイル(JSON/YAML/TOML)に書き込むか、ホスト CLI で登録。書き終わったらホストの方法でリロード(プロセス再起動 / slash コマンド / 再接続)。
+
+5. MCP 経由で huozi_whoami を呼び出す。workspace の身元情報が返れば完了。
+
+セキュリティ: device_code や api_key を chat に印字しない。`,
+  "connect.picker.endpointLabel": "Endpoint:",
+  "connect.picker.tokenSecurity":
+    "トークンは MCP クライアントが保持。チャットの文脈には入りません。",
+  "connect.picker.copy": "コピー",
+  "connect.picker.copied": "✓ コピー済み",
 } as const;
