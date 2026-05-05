@@ -81,7 +81,9 @@ async function renderForPath(
     return await renderMarkdown(content, { assetBase: `/p/${slug}` });
   }
   if (e === "html" || e === "htm") {
-    const { html } = processHtmlDirect(processChartComponents(text));
+    const { html } = processHtmlDirect(processChartComponents(text), {
+      assetBase: `/p/${slug}`,
+    });
     return html;
   }
   // CSV / TSV: null → ShareViewer mounts the interactive client table.

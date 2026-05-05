@@ -574,6 +574,7 @@ export async function handleGetShareAsset(
 function guessAssetMime(path: string): string {
   const ext = path.split('.').pop()?.toLowerCase() ?? ''
   switch (ext) {
+    // Images
     case 'png':
       return 'image/png'
     case 'jpg':
@@ -585,6 +586,48 @@ function guessAssetMime(path: string): string {
       return 'image/gif'
     case 'svg':
       return 'image/svg+xml'
+    case 'avif':
+      return 'image/avif'
+    case 'ico':
+      return 'image/x-icon'
+    // Web docs / styling / scripting — needed for HTML pages that reference
+    // workspace assets via <link>, <script>, etc.
+    case 'css':
+      return 'text/css; charset=utf-8'
+    case 'js':
+    case 'mjs':
+      return 'text/javascript; charset=utf-8'
+    case 'json':
+      return 'application/json; charset=utf-8'
+    case 'map':
+      return 'application/json; charset=utf-8'
+    // Fonts
+    case 'woff':
+      return 'font/woff'
+    case 'woff2':
+      return 'font/woff2'
+    case 'ttf':
+      return 'font/ttf'
+    case 'otf':
+      return 'font/otf'
+    case 'eot':
+      return 'application/vnd.ms-fontobject'
+    // Media
+    case 'mp3':
+      return 'audio/mpeg'
+    case 'wav':
+      return 'audio/wav'
+    case 'ogg':
+      return 'audio/ogg'
+    case 'mp4':
+      return 'video/mp4'
+    case 'webm':
+      return 'video/webm'
+    // Misc text
+    case 'txt':
+      return 'text/plain; charset=utf-8'
+    case 'xml':
+      return 'application/xml; charset=utf-8'
     default:
       return 'application/octet-stream'
   }

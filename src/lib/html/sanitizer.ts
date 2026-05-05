@@ -23,6 +23,7 @@ function sanitizeCssValue(value: string): string {
 // Extract <style> content and body from full HTML document
 function parseHtmlDocument(html: string): {
   styles: string[];
+  links: string[];
   body: string;
   metaDescription?: string;
   metaOgTitle?: string;
@@ -30,6 +31,7 @@ function parseHtmlDocument(html: string): {
   metaOgImage?: string;
 } {
   const styles: string[] = [];
+  const links: string[] = [];
   const meta: Record<string, string> = {};
 
   // Extract <style> tags from anywhere in the document
@@ -40,6 +42,16 @@ function parseHtmlDocument(html: string): {
     if (cssContent) {
       styles.push(cssContent);
     }
+  }
+
+  // Extract <link> tags from anywhere in the document. We re-emit them so
+  // authors can reference workspace CSS / icons / fonts via /__assets__/...
+  // The asset-path rewrite (below in processHtmlDirect) repoints those at
+  // the share-scoped /p/<slug>/a/... proxy.
+  const linkRegex = /<link\b[^>]*\/?>/gi;
+  let linkMatch;
+  while ((linkMatch = linkRegex.exec(html)) !== null) {
+    links.push(linkMatch[0]);
   }
 
   // Extract meta tags
@@ -69,11 +81,13 @@ function parseHtmlDocument(html: string): {
       .replace(/<\/?body[^>]*>/gi, "");
   }
 
-  // Remove <style> tags from body (already extracted)
+  // Remove <style> and <link> tags from body (already extracted)
   body = body.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
+  body = body.replace(/<link\b[^>]*\/?>/gi, "");
 
   return {
     styles,
+    links,
     body: body.trim(),
     metaDescription: meta["description"],
     metaOgTitle: meta["og:title"],
@@ -138,6 +152,39 @@ export interface ProcessHtmlOptions {
    * file IS the page and global CSS is intentional.
    */
   scopeTo?: string;
+  /**
+   * If set, rewrite `/__assets__/<path>` references in HTML attributes
+   * (`href`, `src`, `poster`) to `<assetBase>/a/<path>` — the share-scoped
+   * asset proxy. Mirrors the markdown renderer's `assetBase` option so an
+   * author can reference workspace assets the same way from either format:
+   *
+   *   <link rel="stylesheet" href="/__assets__/blog/v1.css">
+   *   <img src="/__assets__/cover.png">
+   *
+   * Pass `/p/<slug>` to scope through this share's proxy.
+   */
+  assetBase?: string;
+}
+
+const ASSET_PREFIX = "/__assets__/";
+
+/**
+ * Rewrite `/__assets__/<path>` URLs in HTML attributes to share-scoped
+ * proxy URLs. Targets `href`, `src`, `poster`. Leaves srcset, inline
+ * style url(), and CSS @import alone — those can be added later if a
+ * real use case appears.
+ */
+function rewriteAssetRefs(html: string, assetBase: string): string {
+  const target = `${assetBase.replace(/\/$/, "")}/a/`;
+  // Match: attr= "/__assets__/x"  or  attr= '/__assets__/x'  or  attr=/__assets__/x
+  // Capture the attribute name + opening quote, the path tail, and the closing quote.
+  return html.replace(
+    /(\b(?:href|src|poster)\s*=\s*)(["']?)\/__assets__\/([^"'\s>]+)\2/gi,
+    (_m, head: string, quote: string, tail: string) => {
+      void ASSET_PREFIX; // kept for grep-ability of the constant
+      return `${head}${quote}${target}${tail}${quote}`;
+    },
+  );
 }
 
 /** Rewrite top-level `:root` / `html` / `body` selectors to `:scope` so
@@ -172,8 +219,11 @@ export function processHtmlDirect(
 
   if (isFullDocument) {
     const parsed = parseHtmlDocument(html);
-    // Rebuild: styles + body
+    // Rebuild: links + styles + body
     const parts: string[] = [];
+    for (const link of parsed.links) {
+      parts.push(link);
+    }
     for (const css of parsed.styles) {
       const clean = sanitizeCss(css);
       if (!clean) continue;
@@ -190,6 +240,12 @@ export function processHtmlDirect(
       ogDescription: parsed.metaOgDescription,
       ogImage: parsed.metaOgImage,
     };
+  }
+
+  // Rewrite workspace asset refs (`/__assets__/foo`) to the share-scoped
+  // proxy so <link>, <img>, etc. resolve against this share's workspace.
+  if (opts.assetBase) {
+    html = rewriteAssetRefs(html, opts.assetBase);
   }
 
   // Strip dangerous tags and their content
