@@ -4,6 +4,7 @@ import "./globals.css";
 import { getLocale } from "@/lib/i18n/server";
 import { LocaleProvider } from "@/lib/i18n/context";
 import { getTheme } from "@/lib/theme/server";
+import { SITE_URL } from "@/lib/constants";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,7 +25,7 @@ export const metadata: Metadata = {
   },
   description:
     "Markdown & HTML Publisher for Agents. Turn your content into beautiful, shareable web pages via API.",
-  metadataBase: new URL("https://huozi.app"),
+  metadataBase: new URL(SITE_URL),
   openGraph: {
     type: "website",
     siteName: "活字 Huozi",

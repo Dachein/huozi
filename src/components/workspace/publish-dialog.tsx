@@ -22,6 +22,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useT } from "@/lib/i18n/context";
+import { SITE_URL } from "@/lib/constants";
 
 export interface PublishDialogProps {
   path: string;
@@ -165,7 +166,7 @@ export function PublishDialog({ path, open, onClose }: PublishDialogProps) {
   }
 
   const shareUrl = minted
-    ? `${typeof window !== "undefined" ? window.location.origin : "https://huozi.app"}/p/${minted.slug}`
+    ? `${typeof window !== "undefined" ? window.location.origin : SITE_URL}/p/${minted.slug}`
     : "";
 
   return (
