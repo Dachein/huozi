@@ -13,11 +13,41 @@
  * derive that from the incoming request URL so this route works
  * unmodified on every deploy without a separate env-var lookup.
  *
+ * Query parameters:
+ *   ?for=<kind>   Filter Step 4 to a single host's snippet. <kind> is
+ *                 one of: claude-code | cursor | hermes | openclaw |
+ *                 codex | cowork | desktop | generic. Cuts the doc by
+ *                 ~70% — small-context-window models stop choking on
+ *                 the full 6 KB. The agent-driven flow (Choice 1 in
+ *                 the UI) passes this when the user picks an agent.
+ *
  * Cache: text/plain, public 5 min — agents fetch this often, content
- * changes are rare.
+ * changes are rare. Vary on query string so the ?for variants don't
+ * stomp each other in the CDN cache.
  */
 
 export const dynamic = "force-dynamic";
+
+type AgentKind =
+  | "claude-code"
+  | "cursor"
+  | "hermes"
+  | "openclaw"
+  | "codex"
+  | "cowork"
+  | "desktop"
+  | "generic";
+
+const KNOWN_KINDS: AgentKind[] = [
+  "claude-code",
+  "cursor",
+  "hermes",
+  "openclaw",
+  "codex",
+  "cowork",
+  "desktop",
+  "generic",
+];
 
 export async function GET(request: Request): Promise<Response> {
   const requestUrl = new URL(request.url);
@@ -29,18 +59,139 @@ export async function GET(request: Request): Promise<Response> {
   // get the right hostname back.
   const base = `${requestUrl.protocol}//${requestUrl.host}`;
 
-  return new Response(buildLlmsTxt(base), {
+  const rawFor = requestUrl.searchParams.get("for")?.trim().toLowerCase();
+  const forKind: AgentKind | null =
+    rawFor && (KNOWN_KINDS as readonly string[]).includes(rawFor)
+      ? (rawFor as AgentKind)
+      : null;
+
+  return new Response(buildLlmsTxt(base, forKind), {
     headers: {
       "content-type": "text/plain; charset=utf-8",
+      // Vary on query string so ?for=hermes doesn't get cached as
+      // the bare /llms.txt response.
       "cache-control": "public, max-age=300",
+      vary: "accept-language",
     },
   });
 }
 
-function buildLlmsTxt(base: string): string {
-  // host without protocol — used in prose where the full URL would
-  // read clunky (e.g. "Cloud → cloud.huozi.app").
+// ── Per-client Step 4 snippets ──────────────────────────────────────
+//
+// Kept as a map so `?for=<kind>` can render just one. The {base} token
+// is interpolated to this deploy's URL at render time.
+
+function step4Snippet(kind: AgentKind, base: string): string {
+  switch (kind) {
+    case "claude-code":
+      return `#### claude-code
+
+\`\`\`
+claude mcp add --transport http huozi ${base}/mcp \\
+  --header "Authorization: Bearer <api_key>"
+\`\`\``;
+    case "cursor":
+      return `#### cursor
+
+Merge into \`~/.cursor/mcp.json\` (or project-level \`.cursor/mcp.json\`):
+
+\`\`\`json
+{
+  "mcpServers": {
+    "huozi": {
+      "type": "http",
+      "url": "${base}/mcp",
+      "headers": { "Authorization": "Bearer <api_key>" }
+    }
+  }
+}
+\`\`\``;
+    case "hermes":
+      return `#### hermes
+
+Append to \`~/.hermes/config.yaml\` (create if missing, preserve
+existing entries):
+
+\`\`\`yaml
+mcp_servers:
+  huozi:
+    url: "${base}/mcp"
+    headers:
+      Authorization: "Bearer <api_key>"
+\`\`\`
+
+Then tell the user to type \`/reload-mcp\` in chat — slash commands
+must be user-typed; you can't issue them. Do NOT use
+\`hermes mcp add\`: it requires a TTY and exits in chat shells.`;
+    case "openclaw":
+      return `#### openclaw
+
+\`\`\`
+openclaw mcp set huozi '{"url":"${base}/mcp","transport":"streamable-http","headers":{"Authorization":"Bearer <api_key>"}}'
+\`\`\``;
+    case "codex":
+      return `#### codex
+
+Two lines, run both:
+
+\`\`\`
+export HUOZI_API_KEY=<api_key>
+codex mcp add huozi --url ${base}/mcp \\
+  --bearer-token-env-var HUOZI_API_KEY
+\`\`\``;
+    case "cowork":
+      return `#### cowork
+
+Cowork has no CLI. Tell the user to:
+1. Open Claude Cowork (third tab in Claude Desktop)
+2. Customize → Connectors → + Add custom connector
+3. Paste URL \`${base}/mcp\` → Add
+
+Cowork drives RFC 8252 OAuth on first call automatically. The
+api_key from step 3 is unused for cowork — you can revoke it after
+the user finishes setup if you minted it.`;
+    case "desktop":
+      return `#### desktop (Claude Desktop without Cowork)
+
+Merge into \`claude_desktop_config.json\` (per-OS path), then tell
+the user to restart Claude Desktop:
+
+\`\`\`json
+{
+  "mcpServers": {
+    "huozi": {
+      "type": "http",
+      "url": "${base}/mcp",
+      "headers": { "Authorization": "Bearer <api_key>" }
+    }
+  }
+}
+\`\`\``;
+    case "generic":
+      return `#### generic
+
+No specific syntax — adapt to your host's config conventions:
+
+- URL: \`${base}/mcp\`
+- Authorization header: \`Bearer <api_key>\`
+
+Per the host's docs, write to its config file (JSON / YAML / TOML)
+or use its CLI. Reload as the host requires (process restart /
+slash command / reconnect).`;
+  }
+}
+
+function buildLlmsTxt(base: string, forKind: AgentKind | null): string {
   const host = base.replace(/^https?:\/\//, "");
+
+  // Step 4 body: one host if `?for=<kind>`, all 8 hosts otherwise.
+  const step4Body = forKind
+    ? step4Snippet(forKind, base)
+    : KNOWN_KINDS.map((k) => step4Snippet(k, base)).join("\n\n");
+
+  const filterNote = forKind
+    ? `\n_(Filtered to \`${forKind}\` because the request URL had \`?for=${forKind}\`. The full host menu is at \`${base}/llms.txt\` without the query.)_\n`
+    : "";
 
   return `# huozi MCP — install protocol
 
@@ -51,6 +202,32 @@ section that matches your environment.
 
 This is a setup task — not a coding project. Do not ask the user about
 tech stack, do not write code. Run the steps below verbatim.
+
+---
+
+## Before you start (self-check)
+
+To drive Choice 1 (the Agent-driven device flow) you need:
+
+- An HTTP request tool that can POST JSON. Anything works: \`curl\`,
+  the host runtime's \`fetch\`, Python \`requests\`, Node's
+  \`fetch\` / \`http\`, your platform's built-in HTTP client. The
+  protocol is plain HTTP; pick the tool you have.
+- A way to print a clickable link to the user (almost every chat
+  agent does this by default).
+- For Step 4 below: a file-write tool, **or** a shell tool that can
+  invoke the host's \`mcp add\` CLI. Either is fine.
+
+If you don't have any HTTP tool at all, stop and tell the user:
+
+> I can't drive a full install from this surface. Open ${host}/start
+> and pick Choice 2 — your client has its own \`mcp add\` command
+> (or GUI add-connector dialog) that handles the rest.
+
+If you do have a shell + HTTP request tool but you're about to ask
+a clarifying question first ("what tech stack?", "should I do X?"),
+**don't**. Skip directly to Step 1 with placeholder values; the
+protocol is self-contained.
 
 ---
 
@@ -93,12 +270,25 @@ If you are a chat-mode agent, you are almost certainly Choice 1.
 
 ## Choice 1 — verbatim 5 steps
 
+The protocol uses **plain HTTP** (POST + JSON). All examples below
+are shown as request shape (method · URL · body) plus a curl
+example for clarity. Use whatever HTTP tool you have; the wire
+format is what matters.
+
 ### Step 1 — Request a device code
 
-\`\`\`
-POST ${base}/auth/device-code
-Content-Type: application/json
-Body: {"client_name": "<your name>", "agent_kind": "<see kinds below>"}
+| | |
+|---|---|
+| Method | \`POST\` |
+| URL | \`${base}/auth/device-code\` |
+| Headers | \`Content-Type: application/json\` |
+| Body (JSON) | \`{"client_name": "<your name>", "agent_kind": "<kind>"}\` |
+
+\`\`\`bash
+# curl example
+curl -sS -X POST ${base}/auth/device-code \\
+  -H "content-type: application/json" \\
+  -d '{"client_name": "Hermes", "agent_kind": "hermes"}'
 \`\`\`
 
 Response:
@@ -120,7 +310,7 @@ self-hosted deploys use the deployer's own worker domain, not
 \`cloud.huozi.app\`.
 
 \`agent_kind\` enum (use the value matching your host):
-\`claude-code | openclaw | hermes | codex | cursor | cowork | generic\`
+\`claude-code | cursor | hermes | openclaw | codex | cowork | desktop | generic\`
 
 ### Step 2 — Hand the user a clickable link
 
@@ -139,10 +329,18 @@ invite required).
 
 Every \`interval\` seconds (default 5) until terminal:
 
-\`\`\`
-POST ${base}/auth/token
-Content-Type: application/json
-Body: {"device_code": "<from step 1>"}
+| | |
+|---|---|
+| Method | \`POST\` |
+| URL | \`${base}/auth/token\` |
+| Headers | \`Content-Type: application/json\` |
+| Body (JSON) | \`{"device_code": "<from step 1>"}\` |
+
+\`\`\`bash
+# curl example
+curl -sS -X POST ${base}/auth/token \\
+  -H "content-type: application/json" \\
+  -d '{"device_code": "<from step 1>"}'
 \`\`\`
 
 Responses:
@@ -155,101 +353,8 @@ Responses:
 
 Pick the snippet matching your \`agent_kind\`. NEVER print api_key in
 chat — keep it in your tool scratch only.
-
-#### claude-code
-
-\`\`\`
-claude mcp add --transport http huozi ${base}/mcp \\
-  --header "Authorization: Bearer <api_key>"
-\`\`\`
-
-#### cursor
-
-Merge into \`~/.cursor/mcp.json\` (or project-level \`.cursor/mcp.json\`):
-
-\`\`\`json
-{
-  "mcpServers": {
-    "huozi": {
-      "type": "http",
-      "url": "${base}/mcp",
-      "headers": { "Authorization": "Bearer <api_key>" }
-    }
-  }
-}
-\`\`\`
-
-#### hermes
-
-Append to \`~/.hermes/config.yaml\` (create if missing, preserve
-existing entries):
-
-\`\`\`yaml
-mcp_servers:
-  huozi:
-    url: "${base}/mcp"
-    headers:
-      Authorization: "Bearer <api_key>"
-\`\`\`
-
-Then tell the user to type \`/reload-mcp\` in chat — slash commands
-must be user-typed; you can't issue them. Do NOT use
-\`hermes mcp add\`: it requires a TTY and exits in chat shells.
-
-#### openclaw
-
-\`\`\`
-openclaw mcp set huozi '{"url":"${base}/mcp","transport":"streamable-http","headers":{"Authorization":"Bearer <api_key>"}}'
-\`\`\`
-
-#### codex
-
-Two lines, run both:
-
-\`\`\`
-export HUOZI_API_KEY=<api_key>
-codex mcp add huozi --url ${base}/mcp \\
-  --bearer-token-env-var HUOZI_API_KEY
-\`\`\`
-
-#### cowork
-
-Cowork has no CLI. Tell the user to:
-1. Open Claude Cowork (third tab in Claude Desktop)
-2. Customize → Connectors → + Add custom connector
-3. Paste URL \`${base}/mcp\` → Add
-
-Cowork drives RFC 8252 OAuth on first call automatically. The
-api_key from step 3 is unused for cowork — you can revoke it after
-the user finishes setup if you minted it.
-
-#### desktop (Claude Desktop without Cowork)
-
-Merge into \`claude_desktop_config.json\` (per-OS path), then tell the
-user to restart Claude Desktop:
-
-\`\`\`json
-{
-  "mcpServers": {
-    "huozi": {
-      "type": "http",
-      "url": "${base}/mcp",
-      "headers": { "Authorization": "Bearer <api_key>" }
-    }
-  }
-}
-\`\`\`
-
-#### generic
-
-No specific syntax — adapt to your host's config conventions:
-
-- URL: \`${base}/mcp\`
-- Authorization header: \`Bearer <api_key>\`
-
-Per the host's docs, write to its config file (JSON / YAML / TOML)
-or use its CLI. Reload as the host requires (process restart /
-slash command / reconnect).
+${filterNote}
+${step4Body}
 
 ### Step 5 — Verify
 

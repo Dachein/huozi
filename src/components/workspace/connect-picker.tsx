@@ -172,7 +172,12 @@ export function ConnectPicker({ mcpUrl }: { mcpUrl: string }) {
   // /llms.txt and the /auth/* endpoints all live under this base.
   const apiBase = mcpUrl.replace(/\/mcp\/?$/, "");
 
-  const choice1Body = `Install huozi from ${apiBase.replace(/^https?:\/\//, "")}/llms.txt.`;
+  // Choice 1's paste prompt: "Install huozi from <host>/llms.txt?for=<kind>."
+  // The ?for=<kind> filter cuts /llms.txt down to just this client's
+  // Step 4 snippet — small-context-window models stop choking on the
+  // full 8-host menu, and the agent gets a doc that's already aimed
+  // at the host it actually runs in.
+  const choice1Body = `Install huozi from ${apiBase.replace(/^https?:\/\//, "")}/llms.txt?for=${agent}.`;
   const snippet = snippetFor(agent, mcpUrl, t);
   const isOneLiner =
     agent === "claude-code" ||
