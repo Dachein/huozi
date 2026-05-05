@@ -23,11 +23,12 @@ The huozi MCP server can already be installed in three host families:
 |---|---|---|
 | Claude Code (CLI / Desktop > Code) | `claude mcp add ...` + `/mcp` OAuth | ✅ works today |
 | Cursor / Codex CLI | one-line `mcp.json` / `codex mcp add` | ✅ works today |
-| **Claude.ai web / Cowork / Desktop > Connectors** | **registry-gated picker** — search a directory | ❌ **huozi not listed** |
+| Claude.ai web / Cowork / Desktop > Connectors (manual add) | **Customize → Connectors → +** UI; paste `https://cloud.huozi.app/mcp` | ✅ works today |
+| Claude.ai web / Cowork / Desktop > Connectors (search) | registry-gated picker — search a directory | ❌ **huozi not in directory yet** |
 
-The third row is the gap. Inside Cowork, `search_mcp_registry` returns nothing for `huozi`, so a Cowork user has no path to install — the connector picker only lists entries Anthropic has accepted into the directory. Plain `claude mcp add` syntax doesn't work in Cowork; the host architecture is different.
+Important nuance: `search_mcp_registry` inside Cowork returns nothing for `huozi`, so Cowork users *can't discover* huozi from the built-in search. But the **Customize → Connectors → +** UI accepts any HTTPS MCP URL on every paid plan (Free / Pro / Max / Team / Enterprise). So the practical Cowork install today is "paste this URL into the +" — exactly what `huozi.app/start` now teaches in the new **Claude Cowork tab** (added 2026-05-05).
 
-Closing this gap means submitting huozi for Connectors Directory review at https://clau.de/mcp-directory-submission. Once accepted, Cowork users can one-click install huozi from the same picker that lists Gmail / Drive / Notion / Slack today.
+The Connectors Directory submission solves a different problem: discoverability. Once accepted, huozi shows up in the same picker that lists Gmail / Drive / Notion / Slack today, so a Cowork user can install it without knowing the URL. Submission target: https://clau.de/mcp-directory-submission.
 
 ---
 
