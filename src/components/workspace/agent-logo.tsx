@@ -95,41 +95,26 @@ export function AgentLogo({ kind, size = 20, className }: AgentLogoProps) {
         </svg>
       );
 
-    /* ── Hermes Agent (Nous Research) · Mercury / ☿ ──
-       Hermes = the Greek messenger god, identified with Roman Mercury
-       and the planet ☿. The astronomical / alchemical glyph is small,
-       distinctive, and reads cleanly at 20×20 — crescent on top, circle
-       in the middle, cross at the bottom. Replaces the previous H-in-
-       ring placeholder which read as too generic. */
+    /* ── Hermes Agent (Nous Research) · classical bust silhouette ──
+       Hermes Agent's actual brand at hermes-agent.nousresearch.com is
+       rooted in classical figurative imagery — the favicon is a
+       portrait, the og:image features a Renaissance-style figure of
+       Hermes himself. So we render a head + shoulders silhouette here
+       (the only human-figure mark in the lineup, also distinguishes it
+       from the abstract glyphs around it) instead of the alchemical
+       ☿ Mercury glyph the slot used to carry. Per the file-level
+       comment we still don't pixel-reproduce their mark — just match
+       its spirit at 20×20. */
     case "hermes":
     case "hermes-agent":
       return (
         <svg {...common}>
-          {/* Crescent (horns above the head) */}
-          <path
-            d="M6 4 Q10 1.5 14 4"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            strokeLinecap="round"
-            fill="none"
-          />
-          {/* Circle (head) */}
-          <circle
-            cx="10"
-            cy="8.2"
-            r="2.5"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            fill="none"
-          />
-          {/* Cross (staff) */}
-          <path
-            d="M10 10.7 L10 17 M7.4 14 L12.6 14"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            strokeLinecap="round"
-            fill="none"
-          />
+          <g fill="currentColor">
+            {/* Head */}
+            <circle cx="10" cy="6.5" r="3.2" />
+            {/* Bust / shoulders */}
+            <path d="M3 18 Q5 11.5 10 11 Q15 11.5 17 18 Z" />
+          </g>
         </svg>
       );
 
