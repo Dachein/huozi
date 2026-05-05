@@ -80,7 +80,6 @@ export const fr = {
   "ws.search.noContentMatch": "Aucune correspondance dans les contenus.",
   "ws.search.truncated": "Résultats tronqués — essayez un terme plus précis.",
   "ws.search.error": "Échec de la recherche, veuillez réessayer.",
-  "ws.search.totalMatches": "{n} occurrences",
 
   // Dialogue de partage — expiration
   "share.expiry.label": "Le lien expire dans",

@@ -79,7 +79,6 @@ export const zh = {
   "ws.search.noContentMatch": "没有内容命中。",
   "ws.search.truncated": "结果已截断,请输入更具体的关键词。",
   "ws.search.error": "搜索出错,请稍后重试。",
-  "ws.search.totalMatches": "共 {n} 处",
 
   // 发布 / 分享弹窗 —— 有效期
   "share.expiry.label": "链接有效期",

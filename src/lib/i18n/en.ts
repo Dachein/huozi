@@ -80,7 +80,6 @@ export const en = {
   "ws.search.noContentMatch": "No content matches.",
   "ws.search.truncated": "Results truncated — try a more specific term.",
   "ws.search.error": "Search failed, please try again.",
-  "ws.search.totalMatches": "{n} matches",
 
   // Publish / share dialog — TTL picker
   "share.expiry.label": "Link expires in",

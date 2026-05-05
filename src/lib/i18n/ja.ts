@@ -79,7 +79,6 @@ export const ja = {
   "ws.search.noContentMatch": "コンテンツの一致なし。",
   "ws.search.truncated": "結果が切り詰められました。より具体的なキーワードで再検索してください。",
   "ws.search.error": "検索に失敗しました、もう一度お試しください。",
-  "ws.search.totalMatches": "計 {n} 件",
 
   // 共有ダイアログ — 有効期限
   "share.expiry.label": "リンクの有効期限",
