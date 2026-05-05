@@ -198,11 +198,61 @@ export function ConnectPicker({ mcpUrl }: { mcpUrl: string }) {
 
   return (
     <div className="rounded-md border border-border/60 bg-background/40 p-5 mb-3 space-y-6">
-      {/* Choice 1 · Agent-driven install (RFC 8628 device flow) — paste
-          this into a chat-mode agent's chat. The agent fetches
-          /llms.txt at this deploy's base, follows the device-flow
-          steps, hands the user a /device link to click. Works in
-          non-TTY shells, headless / sandboxed agents, remote hosts. */}
+      {/* Step 1: pick the Agent. The single dropdown drives BOTH
+          Choice 1 (its ?for=<agent> filter) and Choice 2 (the per-
+          client snippet) below. Selected agent's logo stays visible
+          to the left of the trigger. */}
+      <div>
+        <label
+          htmlFor="connect-picker-agent"
+          className="block text-[11px] uppercase tracking-[0.15em] text-muted-foreground mb-2"
+        >
+          {t("connect.picker.dropdown.label")}
+        </label>
+        <div className="relative inline-flex items-center">
+          <span className="absolute left-3 pointer-events-none text-foreground">
+            <AgentLogo kind={AGENT_LOGO_KIND[agent]} size={16} />
+          </span>
+          <select
+            id="connect-picker-agent"
+            value={agent}
+            onChange={(e) => {
+              setAgent(e.target.value as AgentKey);
+              setCopiedKind(null);
+            }}
+            className="appearance-none rounded-md border border-border bg-background pl-9 pr-9 py-1.5 text-sm font-medium hover:border-foreground/40 focus:outline-none focus:border-foreground/60 transition-colors cursor-pointer"
+          >
+            {AGENTS.map((k) => (
+              <option key={k} value={k}>
+                {AGENT_LABELS[k]}
+              </option>
+            ))}
+          </select>
+          <svg
+            viewBox="0 0 12 12"
+            width="10"
+            height="10"
+            className="absolute right-3 pointer-events-none text-muted-foreground"
+            aria-hidden="true"
+          >
+            <path
+              d="M2 4 L6 8 L10 4"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
+      </div>
+
+      {/* Choice 1 · Agent-driven install (RFC 8628 device flow) —
+          paste into a chat-mode agent. The agent fetches /llms.txt
+          at this deploy's base (filtered to ?for=<agent>), follows
+          the device-flow steps, hands the user a /device link.
+          Works in non-TTY shells, headless / sandboxed agents,
+          remote hosts. */}
       <section>
         <div className="flex items-baseline justify-between gap-3 mb-1.5">
           <h3 className="font-medium text-sm text-foreground">
@@ -235,9 +285,10 @@ export function ConnectPicker({ mcpUrl }: { mcpUrl: string }) {
         </div>
       </section>
 
-      {/* Choice 2 · Native CLI / GUI install (RFC 8252 OAuth on first
-          use) — pick a client; first MCP call opens a browser, user
-          Approves, host stores OAuth token in its own credential store. */}
+      {/* Choice 2 · Native CLI / GUI install (RFC 8252 OAuth on
+          first use) — driven by the same dropdown above. First MCP
+          call opens a browser, user Approves, host stores OAuth
+          token in its own credential store. */}
       <section>
         <div className="flex items-baseline justify-between gap-3 mb-1.5">
           <h3 className="font-medium text-sm text-foreground">
@@ -250,48 +301,6 @@ export function ConnectPicker({ mcpUrl }: { mcpUrl: string }) {
         <p className="text-xs text-muted-foreground leading-relaxed mb-3">
           {t("connect.picker.choice2.desc")}
         </p>
-
-        {/* Agent picker — native <select>. One row, scales without
-            layout shift; selected agent's logo stays visible to the
-            left of the trigger. */}
-        <div className="mb-3 flex items-center gap-2">
-          <div className="relative inline-flex items-center">
-            <span className="absolute left-3 pointer-events-none text-foreground">
-              <AgentLogo kind={AGENT_LOGO_KIND[agent]} size={16} />
-            </span>
-            <select
-              id="connect-picker-agent"
-              value={agent}
-              onChange={(e) => {
-                setAgent(e.target.value as AgentKey);
-                setCopiedKind(null);
-              }}
-              className="appearance-none rounded-md border border-border bg-background pl-9 pr-9 py-1.5 text-sm font-medium hover:border-foreground/40 focus:outline-none focus:border-foreground/60 transition-colors cursor-pointer"
-            >
-              {AGENTS.map((k) => (
-                <option key={k} value={k}>
-                  {AGENT_LABELS[k]}
-                </option>
-              ))}
-            </select>
-            <svg
-              viewBox="0 0 12 12"
-              width="10"
-              height="10"
-              className="absolute right-3 pointer-events-none text-muted-foreground"
-              aria-hidden="true"
-            >
-              <path
-                d="M2 4 L6 8 L10 4"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
-        </div>
 
         <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground mb-1.5">
           {snippet.note}

@@ -426,6 +426,7 @@ export const zh = {
 
   // ConnectPicker — /workspace 顶部连接卡。两段对照 huozi.app/start:
   // 选择一 = Agent driven device flow (RFC 8628), 选择二 = 客户端原生 CLI/GUI (RFC 8252)
+  "connect.picker.dropdown.label": "1. 选你用的 Agent",
   "connect.picker.choice1.title": "选择一 · 让 Agent 自己装",
   "connect.picker.choice1.badge": "RFC 8628 · 适合云端/headless Agent",
   "connect.picker.choice1.desc":

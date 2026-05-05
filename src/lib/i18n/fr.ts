@@ -435,6 +435,7 @@ export const fr = {
   // ConnectPicker — carte de connexion sur /workspace. Mirroir de
   // huozi.app/start : Choix 1 = device flow piloté par l'agent (RFC 8628),
   // Choix 2 = CLI/GUI native par client (RFC 8252).
+  "connect.picker.dropdown.label": "1. Choisissez votre Agent",
   "connect.picker.choice1.title": "Choix 1 · Laissez l'Agent s'installer",
   "connect.picker.choice1.badge":
     "RFC 8628 · pour agents cloud / headless",

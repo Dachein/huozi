@@ -430,6 +430,7 @@ export const ja = {
 
   // ConnectPicker — /workspace の接続カード。huozi.app/start と対応:
   // 選択 1 = エージェント駆動の device flow (RFC 8628)、選択 2 = 各クライアント原生の CLI/GUI (RFC 8252)
+  "connect.picker.dropdown.label": "1. エージェントを選択",
   "connect.picker.choice1.title": "選択 1 · Agent に自動でインストールさせる",
   "connect.picker.choice1.badge": "RFC 8628 · クラウド/headless 向け",
   "connect.picker.choice1.desc":
