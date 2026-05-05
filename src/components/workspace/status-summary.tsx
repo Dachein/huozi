@@ -292,13 +292,23 @@ function ConnectionRow({
                   )}
                 </>
               ) : (
+                // OAuth: deliberately NO countdown. The access token
+                // expires in ~1h, but the agent host transparently mints
+                // a new one via refresh_token before then — exposing that
+                // 1h figure would make users think "this connection is
+                // about to die" when in practice it's rotating silently.
+                // The refresh-token's own 30-day inactivity window is
+                // the real ceiling, but user can't influence it from
+                // here either (using the agent resets the clock; not
+                // using it for 30 days is itself the revocation). So
+                // we just say "the host owns the lifecycle, you don't
+                // need to babysit it" and move the actionable bits
+                // (Check / Revoke) below.
                 <span
-                  className="text-xs text-muted-foreground"
-                  title="OAuth-issued tokens have a fixed lifetime; the agent rotates them via refresh-token automatically"
+                  className="text-xs text-muted-foreground italic"
+                  title="The MCP host (agent) automatically rotates this token via refresh_token. You never need to renew it; revoking ends the OAuth grant entirely."
                 >
-                  {conn.expiresAt !== null
-                    ? formatExpiry(conn.expiresAt, t)
-                    : t("ws.expiry.never")}
+                  Auto-managed by host
                 </span>
               )}
             </div>
