@@ -430,97 +430,32 @@ export const en = {
   "csv.rowDetail.rowOf": "Row {n} of {total}",
   "csv.rowDetail.empty": "—",
 
-  // ConnectPicker — connection card on /workspace (7 tabs in this order:
-  // Claude Code / OpenClaw / Hermes / Codex / Cursor / Claude Cowork / Generic Agent)
-  "connect.picker.intro": "Pick your Agent",
+  // ConnectPicker — connection card on /workspace. Two sections mirror
+  // huozi.app/start: Choice 1 = Agent-driven device flow (RFC 8628),
+  // Choice 2 = native CLI/GUI per client (RFC 8252).
+  "connect.picker.choice1.title": "Choice 1 · Let the Agent install itself",
+  "connect.picker.choice1.badge":
+    "RFC 8628 · for cloud / headless agents",
+  "connect.picker.choice1.desc":
+    "Paste this into any chat-mode Agent (Hermes / OpenClaw / Cowork / Claude Code etc.). It fetches /llms.txt from this deploy, runs the RFC 8628 device flow on its own — prints you a /device link, you click Approve once, the Agent picks up the key, writes the config, verifies via huozi_whoami.",
+  "connect.picker.choice2.title": "Choice 2 · Native CLI / GUI install",
+  "connect.picker.choice2.badge": "RFC 8252 · for local-terminal users",
+  "connect.picker.choice2.desc":
+    "Pick your client and grab a one-liner (or config snippet). Each client has its own native `mcp add` CLI or GUI entry; the first huozi call auto-opens a browser for OAuth.",
   "connect.picker.note.claude-code":
     "Paste once in terminal: register + trigger OAuth + confirm identity",
   "connect.picker.note.openclaw":
-    "Paste into OpenClaw chat: agent runs device flow → you click Approve → openclaw mcp set",
+    "Paste once in terminal: registers huozi to ~/.openclaw/openclaw.json; first call pops the browser for OAuth",
   "connect.picker.note.hermes":
-    "Paste into Hermes chat: agent runs device flow → you click Approve → writes config → /reload-mcp",
+    "Paste once in terminal: --auth oauth triggers RFC 8252 PKCE in the browser (needs a TTY and a local browser)",
   "connect.picker.note.codex":
     "Paste once in terminal: register + trigger OAuth + confirm identity",
   "connect.picker.note.cursor":
-    "Add to ~/.cursor/mcp.json, restart Cursor, then ask the agent to use huozi to trigger OAuth",
+    "Add to ~/.cursor/mcp.json, Reload Window (⌘⇧P); first call to huozi auto-opens the browser for OAuth",
   "connect.picker.note.cowork":
-    "In Cowork: Customize → Connectors → + Add custom connector. Paste the URL below; first call opens a browser to authorize.",
+    "In Cowork: Customize → Connectors → + Add custom connector. Paste the URL below.",
   "connect.picker.note.generic":
-    "Universal Agent prompt for any MCP-capable host. Paste into chat — the agent adapts to whichever host it runs in.",
-  "connect.picker.body.hermes": `TASK: Install huozi MCP in Hermes. This is a setup task — not a coding project. Don't ask about tech stack, don't write code.
-
-1. POST {apiBase}/auth/device-code
-   body: {"client_name":"Hermes","agent_kind":"hermes"}
-   Capture device_code and verification_url_complete.
-
-2. Print verification_url_complete to me as a clickable link. I'll open it, sign in if asked, click Approve.
-
-3. Poll every 5s (in parallel with step 2):
-   POST {apiBase}/auth/token
-   body: {"device_code":"<from step 1>"}
-   - 202 authorization_pending → keep polling
-   - 200 {api_key, key_id, workspace} → capture api_key
-   - 400 expired_token → restart step 1
-   - 400 access_denied → stop
-
-4. Append to ~/.hermes/config.yaml (create if missing, preserve existing):
-   mcp_servers:
-     huozi:
-       url: "{mcpUrl}"
-       headers:
-         Authorization: "Bearer <api_key>"
-   Do NOT use \`hermes mcp add\` — it requires a TTY and exits in chat shells.
-
-5. Tell me to type /reload-mcp here (slash commands must be user-typed).
-
-6. Call huozi_whoami via the MCP. Workspace identity in the reply = done.
-
-Security: never print device_code or api_key in chat.`,
-  "connect.picker.body.openclaw": `TASK: Install huozi MCP in OpenClaw. This is a setup task — not a coding project. Don't ask about tech stack, don't write code.
-
-1. POST {apiBase}/auth/device-code
-   body: {"client_name":"OpenClaw","agent_kind":"openclaw"}
-   Capture device_code and verification_url_complete.
-
-2. Print verification_url_complete to me as a clickable link. I'll open it, sign in if asked, click Approve.
-
-3. Poll every 5s (in parallel with step 2):
-   POST {apiBase}/auth/token
-   body: {"device_code":"<from step 1>"}
-   - 202 authorization_pending → keep polling
-   - 200 {api_key, key_id, workspace} → capture api_key
-   - 400 expired_token → restart step 1
-   - 400 access_denied → stop
-
-4. Register the MCP server with that api_key:
-   openclaw mcp set huozi '{"url":"{mcpUrl}","transport":"streamable-http","headers":{"Authorization":"Bearer <api_key>"}}'
-
-5. Call huozi_whoami via the MCP. Workspace identity in the reply = done.
-
-Security: never print device_code or api_key in chat.`,
-  "connect.picker.body.generic": `TASK: Install huozi MCP in my Agent host. This is a setup task — not a coding project. Don't ask about tech stack.
-
-1. POST {apiBase}/auth/device-code
-   body: {"client_name":"<host name>","agent_kind":"generic"}
-   Capture device_code and verification_url_complete.
-
-2. Print verification_url_complete to me as a clickable link. I'll open it, sign in, click Approve.
-
-3. Poll every 5s (in parallel with step 2):
-   POST {apiBase}/auth/token
-   body: {"device_code":"<from step 1>"}
-   - 202 authorization_pending → keep polling
-   - 200 {api_key, ...} → capture api_key
-   - 400 expired_token / access_denied → report and stop
-
-4. Register this MCP server in the host's config:
-   - URL: {mcpUrl}
-   - Authorization header: Bearer <api_key>
-   Per the host's docs, write it into the config file (JSON/YAML/TOML) or use the host CLI. Reload as the host requires (restart / slash command / reconnect).
-
-5. Call huozi_whoami via the MCP. Workspace identity in the reply = done.
-
-Security: never print device_code or api_key in chat.`,
+    "Paste this URL into your host's MCP config; the host handles OAuth-on-first-use itself",
   "connect.picker.endpointLabel": "Endpoint:",
   "connect.picker.tokenSecurity":
     "Token stays with the MCP client. It never enters the chat context.",

@@ -87,16 +87,15 @@ interface Snippet {
 function snippetFor(
   agent: AgentKey,
   mcpUrl: string,
-  apiBase: string,
   t: (key: string) => string,
 ): Snippet {
   const note = t(`connect.picker.note.${agent}`);
 
   switch (agent) {
     case "claude-code":
-      // Single shell line: register MCP server + immediately invoke a
-      // huozi tool so the OAuth dance fires on the first call. Browser
-      // pops, user clicks Approve, token returns, identity printed.
+      // Register + immediately invoke a huozi tool so the OAuth flow
+      // fires on the first call. Browser pops, user clicks Approve,
+      // identity prints. Single line of paste.
       return {
         note,
         body: `claude mcp add --transport http huozi ${mcpUrl} && claude "use huozi to check who I am"`,
@@ -106,7 +105,27 @@ function snippetFor(
         note,
         body: `codex mcp add huozi --url ${mcpUrl} && codex "use huozi to check who I am"`,
       };
+    case "hermes":
+      // --auth oauth is mandatory: it tells Hermes to run PKCE + DCR
+      // + /.well-known discovery instead of expecting a static Bearer
+      // header. Without it the connect hangs at 401.
+      return {
+        note,
+        body: `hermes mcp add huozi --url ${mcpUrl} --auth oauth`,
+      };
+    case "openclaw":
+      // OpenClaw's `mcp set` takes the server JSON inline. No
+      // Authorization header — relies on RFC 8252 OAuth-on-first-use
+      // (upstream WIP). If the first call returns 401 with no browser
+      // popping, users fall back to Choice 1 above.
+      return {
+        note,
+        body: `openclaw mcp set huozi '{"url":"${mcpUrl}","transport":"streamable-http"}'`,
+      };
     case "cursor":
+      // Cursor lacks a one-line CLI; it gets a config-file paste. No
+      // Authorization header — Cursor opens a browser on the first
+      // huozi call (OAuth-on-first-use).
       return {
         note,
         body: JSON.stringify(
@@ -121,23 +140,22 @@ function snippetFor(
       };
     case "cowork":
       // Cowork (Anthropic's chat agent inside Claude Desktop) accepts
-      // custom MCP connectors via Customize → Connectors → + Add custom
-      // connector. The "snippet" is just the URL the user pastes into
-      // that dialog; OAuth on first use is handled inside Cowork.
+      // custom MCP connectors via Customize → Connectors → + Add
+      // custom connector. The "snippet" is just the URL the user
+      // pastes; Cowork drives OAuth itself.
       return {
         note,
         body: mcpUrl,
       };
-    case "hermes":
-    case "openclaw":
     case "generic":
-      // Device-flow Agent prompt. Pulled from i18n so each locale renders
-      // its own translation; placeholders resolve to the live deploy URL.
+      // Generic = any MCP-capable host we don't have a specific
+      // recipe for. The minimal universal handle is the URL itself;
+      // the user pastes it into their host's config and the host's
+      // own MCP layer handles auth (OAuth-on-first-use if it
+      // supports the spec, otherwise Choice 1's device flow path).
       return {
         note,
-        body: t(`connect.picker.body.${agent}`)
-          .replaceAll("{apiBase}", apiBase)
-          .replaceAll("{mcpUrl}", mcpUrl),
+        body: mcpUrl,
       };
   }
 }
@@ -145,113 +163,167 @@ function snippetFor(
 export function ConnectPicker({ mcpUrl }: { mcpUrl: string }) {
   const t = useT();
   const [agent, setAgent] = useState<AgentKey>("claude-code");
-  const [copied, setCopied] = useState(false);
+  const [copiedKind, setCopiedKind] = useState<"choice1" | "choice2" | null>(
+    null,
+  );
 
-  // Derive the auth API base by stripping the /mcp suffix off mcpUrl.
-  // Auth endpoints (/auth/device-code, /auth/token) live at the worker
-  // root, not under /mcp. This keeps Edge deployments correct without
-  // a separate prop.
+  // Derive the deploy's worker base by stripping /mcp off mcpUrl.
+  // Cloud → https://cloud.huozi.app; Edge → https://<deployer>.workers.dev.
+  // /llms.txt and the /auth/* endpoints all live under this base.
   const apiBase = mcpUrl.replace(/\/mcp\/?$/, "");
 
-  const snippet = snippetFor(agent, mcpUrl, apiBase, t);
-  const isOneLiner = agent === "claude-code" || agent === "codex";
-  const isJustUrl = agent === "cowork";
+  const choice1Body = `Install huozi from ${apiBase.replace(/^https?:\/\//, "")}/llms.txt.`;
+  const snippet = snippetFor(agent, mcpUrl, t);
+  const isOneLiner =
+    agent === "claude-code" ||
+    agent === "codex" ||
+    agent === "hermes" ||
+    agent === "openclaw";
+  const isJustUrl = agent === "cowork" || agent === "generic";
 
-  async function copy() {
+  async function copyText(text: string, kind: "choice1" | "choice2") {
     try {
-      await navigator.clipboard.writeText(snippet.body);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      await navigator.clipboard.writeText(text);
+      setCopiedKind(kind);
+      setTimeout(() => setCopiedKind(null), 1500);
     } catch {
       /* ignore */
     }
   }
 
   return (
-    <div className="rounded-md border border-border/60 bg-background/40 p-5 mb-3">
-      {/* Agent picker — native <select> instead of a tab row.
-          7 clients wrap to two rows as tabs and read as visually heavy.
-          A select is one line, scales to more clients without a layout
-          shift, and keeps the chosen agent's logo in front so the
-          identity stays visible at a glance. */}
-      <div className="mb-4 flex items-center gap-3">
-        <label
-          htmlFor="connect-picker-agent"
-          className="text-sm text-foreground"
-        >
-          {t("connect.picker.intro")}
-        </label>
-        <div className="relative inline-flex items-center">
-          <span className="absolute left-3 pointer-events-none text-foreground">
-            <AgentLogo kind={AGENT_LOGO_KIND[agent]} size={16} />
+    <div className="rounded-md border border-border/60 bg-background/40 p-5 mb-3 space-y-6">
+      {/* Choice 1 · Agent-driven install (RFC 8628 device flow) — paste
+          this into a chat-mode agent's chat. The agent fetches
+          /llms.txt at this deploy's base, follows the device-flow
+          steps, hands the user a /device link to click. Works in
+          non-TTY shells, headless / sandboxed agents, remote hosts. */}
+      <section>
+        <div className="flex items-baseline justify-between gap-3 mb-1.5">
+          <h3 className="font-medium text-sm text-foreground">
+            {t("connect.picker.choice1.title")}
+          </h3>
+          <span className="text-[10px] uppercase tracking-[0.15em] text-accent">
+            {t("connect.picker.choice1.badge")}
           </span>
-          <select
-            id="connect-picker-agent"
-            value={agent}
-            onChange={(e) => {
-              setAgent(e.target.value as AgentKey);
-              setCopied(false);
-            }}
-            className="appearance-none rounded-md border border-border bg-background pl-9 pr-9 py-1.5 text-sm font-medium hover:border-foreground/40 focus:outline-none focus:border-foreground/60 transition-colors cursor-pointer"
-          >
-            {AGENTS.map((k) => (
-              <option key={k} value={k}>
-                {AGENT_LABELS[k]}
-              </option>
-            ))}
-          </select>
-          <svg
-            viewBox="0 0 12 12"
-            width="10"
-            height="10"
-            className="absolute right-3 pointer-events-none text-muted-foreground"
-            aria-hidden="true"
-          >
-            <path
-              d="M2 4 L6 8 L10 4"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
         </div>
-      </div>
+        <p className="text-xs text-muted-foreground leading-relaxed mb-2.5">
+          {t("connect.picker.choice1.desc")}
+        </p>
+        <div className="relative rounded-lg border-2 border-accent/40 bg-muted/40">
+          <pre className="overflow-x-auto px-4 py-3 pr-14 text-xs font-mono leading-relaxed whitespace-pre-wrap break-all">
+            {choice1Body}
+          </pre>
+          <button
+            type="button"
+            onClick={() => copyText(choice1Body, "choice1")}
+            className={`absolute top-2 right-2 inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-all ${
+              copiedKind === "choice1"
+                ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
+                : "bg-foreground text-background hover:opacity-90 shadow-sm"
+            }`}
+          >
+            {copiedKind === "choice1"
+              ? t("connect.picker.copied")
+              : t("connect.picker.copy")}
+          </button>
+        </div>
+      </section>
 
-      <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground mb-1.5">
-        {snippet.note}
-      </div>
+      {/* Choice 2 · Native CLI / GUI install (RFC 8252 OAuth on first
+          use) — pick a client; first MCP call opens a browser, user
+          Approves, host stores OAuth token in its own credential store. */}
+      <section>
+        <div className="flex items-baseline justify-between gap-3 mb-1.5">
+          <h3 className="font-medium text-sm text-foreground">
+            {t("connect.picker.choice2.title")}
+          </h3>
+          <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+            {t("connect.picker.choice2.badge")}
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed mb-3">
+          {t("connect.picker.choice2.desc")}
+        </p>
 
-      <div className="relative rounded-lg border-2 border-accent/40 bg-muted/40 group">
-        <pre
-          className={`overflow-x-auto px-4 py-3 pr-14 text-xs font-mono leading-relaxed ${
-            isOneLiner || isJustUrl
-              ? "whitespace-pre-wrap break-all"
-              : "whitespace-pre"
-          }`}
-        >
-          {snippet.body}
-        </pre>
-        <button
-          type="button"
-          onClick={copy}
-          className={`absolute top-2 right-2 inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-all ${
-            copied
-              ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
-              : "bg-foreground text-background hover:opacity-90 shadow-sm"
-          }`}
-        >
-          {copied ? t("connect.picker.copied") : t("connect.picker.copy")}
-        </button>
-      </div>
+        {/* Agent picker — native <select>. One row, scales without
+            layout shift; selected agent's logo stays visible to the
+            left of the trigger. */}
+        <div className="mb-3 flex items-center gap-2">
+          <div className="relative inline-flex items-center">
+            <span className="absolute left-3 pointer-events-none text-foreground">
+              <AgentLogo kind={AGENT_LOGO_KIND[agent]} size={16} />
+            </span>
+            <select
+              id="connect-picker-agent"
+              value={agent}
+              onChange={(e) => {
+                setAgent(e.target.value as AgentKey);
+                setCopiedKind(null);
+              }}
+              className="appearance-none rounded-md border border-border bg-background pl-9 pr-9 py-1.5 text-sm font-medium hover:border-foreground/40 focus:outline-none focus:border-foreground/60 transition-colors cursor-pointer"
+            >
+              {AGENTS.map((k) => (
+                <option key={k} value={k}>
+                  {AGENT_LABELS[k]}
+                </option>
+              ))}
+            </select>
+            <svg
+              viewBox="0 0 12 12"
+              width="10"
+              height="10"
+              className="absolute right-3 pointer-events-none text-muted-foreground"
+              aria-hidden="true"
+            >
+              <path
+                d="M2 4 L6 8 L10 4"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+        </div>
 
-      <p className="mt-3 text-[11px] text-muted-foreground leading-relaxed">
-        {t("connect.picker.endpointLabel")}{" "}
-        <code className="font-mono">{mcpUrl}</code>
-        {" · "}
-        {t("connect.picker.tokenSecurity")}
-      </p>
+        <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground mb-1.5">
+          {snippet.note}
+        </div>
+
+        <div className="relative rounded-lg border-2 border-accent/40 bg-muted/40">
+          <pre
+            className={`overflow-x-auto px-4 py-3 pr-14 text-xs font-mono leading-relaxed ${
+              isOneLiner || isJustUrl
+                ? "whitespace-pre-wrap break-all"
+                : "whitespace-pre"
+            }`}
+          >
+            {snippet.body}
+          </pre>
+          <button
+            type="button"
+            onClick={() => copyText(snippet.body, "choice2")}
+            className={`absolute top-2 right-2 inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-all ${
+              copiedKind === "choice2"
+                ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
+                : "bg-foreground text-background hover:opacity-90 shadow-sm"
+            }`}
+          >
+            {copiedKind === "choice2"
+              ? t("connect.picker.copied")
+              : t("connect.picker.copy")}
+          </button>
+        </div>
+
+        <p className="mt-3 text-[11px] text-muted-foreground leading-relaxed">
+          {t("connect.picker.endpointLabel")}{" "}
+          <code className="font-mono">{mcpUrl}</code>
+          {" · "}
+          {t("connect.picker.tokenSecurity")}
+        </p>
+      </section>
     </div>
   );
 }

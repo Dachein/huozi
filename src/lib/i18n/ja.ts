@@ -428,96 +428,30 @@ export const ja = {
   "csv.rowDetail.rowOf": "{total} 行中 {n} 行目",
   "csv.rowDetail.empty": "—",
 
-  // ConnectPicker —— /workspace の接続カード (タブ順: Claude Code / OpenClaw / Hermes / Codex / Cursor / Claude Cowork / Generic Agent)
-  "connect.picker.intro": "エージェントを選択",
+  // ConnectPicker — /workspace の接続カード。huozi.app/start と対応:
+  // 選択 1 = エージェント駆動の device flow (RFC 8628)、選択 2 = 各クライアント原生の CLI/GUI (RFC 8252)
+  "connect.picker.choice1.title": "選択 1 · Agent に自動でインストールさせる",
+  "connect.picker.choice1.badge": "RFC 8628 · クラウド/headless 向け",
+  "connect.picker.choice1.desc":
+    "この一言を任意の chat-mode エージェント(Hermes / OpenClaw / Cowork / Claude Code 等)に貼り付け。本デプロイの /llms.txt から完全な手順を読み取り、自身で RFC 8628 device flow を実行 —— /device リンクを表示するので、Approve を 1 回クリック、エージェントが key を取得し config を書き込み、huozi_whoami で検証。",
+  "connect.picker.choice2.title": "選択 2 · クライアント別 CLI / GUI インストール",
+  "connect.picker.choice2.badge": "RFC 8252 · ローカル端末ユーザー向け",
+  "connect.picker.choice2.desc":
+    "クライアントを選んでワンライナー(または設定スニペット)を取得。各クライアントには自身の `mcp add` CLI または GUI エントリがあり、初回 huozi 呼び出しでブラウザを自動起動して OAuth を実行。",
   "connect.picker.note.claude-code":
     "ターミナルに一度貼り付け: 登録 + OAuth トリガー + 身元確認",
   "connect.picker.note.openclaw":
-    "OpenClaw チャットに貼り付け: エージェントが device flow → リンクをクリック Approve → openclaw mcp set",
+    "ターミナルに一度貼り付け: huozi を ~/.openclaw/openclaw.json に登録、初回呼び出しでブラウザ OAuth",
   "connect.picker.note.hermes":
-    "Hermes チャットに貼り付け: エージェントが device flow → リンクをクリック Approve → config 書込 → /reload-mcp",
+    "ターミナルに一度貼り付け: --auth oauth で RFC 8252 PKCE ブラウザ OAuth(TTY とローカルブラウザが必要)",
   "connect.picker.note.codex":
     "ターミナルに一度貼り付け: 登録 + OAuth トリガー + 身元確認",
   "connect.picker.note.cursor":
-    "~/.cursor/mcp.json に追加し Cursor を再起動、その後エージェントに huozi を使うよう頼んで OAuth トリガー",
+    "~/.cursor/mcp.json に追加し Reload Window(⌘⇧P);初回 huozi 呼び出しで自動でブラウザ OAuth",
   "connect.picker.note.cowork":
-    "Cowork で: Customize → Connectors → + Add custom connector。下の URL を貼り付け、初回呼び出し時にブラウザで認可",
+    "Cowork で: Customize → Connectors → + Add custom connector、下の URL を貼り付け",
   "connect.picker.note.generic":
-    "あらゆる MCP 対応ホスト向け汎用エージェントプロンプト。チャットに貼ると、ホストに合わせて適応",
-  "connect.picker.body.hermes": `タスク: huozi MCP を Hermes にインストール。これはセットアップ作業 — コーディング作業ではない。技術スタックを聞かない、コードを書かない。
-
-1. POST {apiBase}/auth/device-code
-   body: {"client_name":"Hermes","agent_kind":"hermes"}
-   device_code と verification_url_complete を保存。
-
-2. verification_url_complete をクリック可能なリンクとして印字。ユーザーが開いてサインインし、Approve をクリックする。
-
-3. 5 秒ごとにポーリング(ステップ 2 と並行可):
-   POST {apiBase}/auth/token
-   body: {"device_code":"<ステップ 1 から>"}
-   - 202 authorization_pending → ポーリング継続
-   - 200 {api_key, key_id, workspace} → api_key を保存
-   - 400 expired_token → ステップ 1 から再開
-   - 400 access_denied → 停止
-
-4. ~/.hermes/config.yaml に追記(無ければ新規作成、既存内容は保持):
-   mcp_servers:
-     huozi:
-       url: "{mcpUrl}"
-       headers:
-         Authorization: "Bearer <api_key>"
-   \`hermes mcp add\` を使わない —— TTY が必要で chat シェルでは即終了する。
-
-5. ユーザーに /reload-mcp と入力するよう伝える(slash コマンドはユーザーが直接入力)。
-
-6. MCP 経由で huozi_whoami を呼び出す。workspace の身元情報が返れば完了。
-
-セキュリティ: device_code や api_key を chat に印字しない。`,
-  "connect.picker.body.openclaw": `タスク: huozi MCP を OpenClaw にインストール。これはセットアップ作業 — コーディング作業ではない。技術スタックを聞かない、コードを書かない。
-
-1. POST {apiBase}/auth/device-code
-   body: {"client_name":"OpenClaw","agent_kind":"openclaw"}
-   device_code と verification_url_complete を保存。
-
-2. verification_url_complete をクリック可能なリンクとして印字。ユーザーが開いてサインインし、Approve をクリックする。
-
-3. 5 秒ごとにポーリング(ステップ 2 と並行可):
-   POST {apiBase}/auth/token
-   body: {"device_code":"<ステップ 1 から>"}
-   - 202 authorization_pending → ポーリング継続
-   - 200 {api_key, key_id, workspace} → api_key を保存
-   - 400 expired_token → ステップ 1 から再開
-   - 400 access_denied → 停止
-
-4. その api_key で MCP サーバーを登録:
-   openclaw mcp set huozi '{"url":"{mcpUrl}","transport":"streamable-http","headers":{"Authorization":"Bearer <api_key>"}}'
-
-5. MCP 経由で huozi_whoami を呼び出す。workspace の身元情報が返れば完了。
-
-セキュリティ: device_code や api_key を chat に印字しない。`,
-  "connect.picker.body.generic": `タスク: huozi MCP を私のエージェントホストにインストール。これはセットアップ作業 — コーディング作業ではない。技術スタックを聞かない。
-
-1. POST {apiBase}/auth/device-code
-   body: {"client_name":"<host name>","agent_kind":"generic"}
-   device_code と verification_url_complete を保存。
-
-2. verification_url_complete をクリック可能なリンクとして印字。ユーザーが開いてサインインし、Approve をクリック。
-
-3. 5 秒ごとにポーリング(ステップ 2 と並行可):
-   POST {apiBase}/auth/token
-   body: {"device_code":"<ステップ 1 から>"}
-   - 202 authorization_pending → ポーリング継続
-   - 200 {api_key, ...} → api_key を保存
-   - 400 expired_token / access_denied → 報告して停止
-
-4. この MCP サーバーをホストの設定に登録:
-   - URL: {mcpUrl}
-   - Authorization ヘッダ: Bearer <api_key>
-   ホストのドキュメントに従って設定ファイル(JSON/YAML/TOML)に書き込むか、ホスト CLI で登録。書き終わったらホストの方法でリロード(プロセス再起動 / slash コマンド / 再接続)。
-
-5. MCP 経由で huozi_whoami を呼び出す。workspace の身元情報が返れば完了。
-
-セキュリティ: device_code や api_key を chat に印字しない。`,
+    "この URL をホストの MCP 設定に貼り付け;ホスト側が OAuth-on-first-use を処理",
   "connect.picker.endpointLabel": "Endpoint:",
   "connect.picker.tokenSecurity":
     "トークンは MCP クライアントが保持。チャットの文脈には入りません。",
