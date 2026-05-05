@@ -169,33 +169,54 @@ export function ConnectPicker({ mcpUrl }: { mcpUrl: string }) {
 
   return (
     <div className="rounded-md border border-border/60 bg-background/40 p-5 mb-3">
-      <p className="text-sm text-foreground mb-4">
-        {t("connect.picker.intro")}
-      </p>
-
-      {/* Agent picker tabs */}
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-border">
-        {AGENTS.map((k) => {
-          const active = k === agent;
-          return (
-            <button
-              key={k}
-              type="button"
-              onClick={() => {
-                setAgent(k);
-                setCopied(false);
-              }}
-              className={`-mb-px inline-flex items-center gap-2 px-3 py-2 border-b-2 text-xs font-medium transition-colors ${
-                active
-                  ? "border-accent text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-              }`}
-            >
-              <AgentLogo kind={AGENT_LOGO_KIND[k]} size={14} />
-              <span>{AGENT_LABELS[k]}</span>
-            </button>
-          );
-        })}
+      {/* Agent picker — native <select> instead of a tab row.
+          7 clients wrap to two rows as tabs and read as visually heavy.
+          A select is one line, scales to more clients without a layout
+          shift, and keeps the chosen agent's logo in front so the
+          identity stays visible at a glance. */}
+      <div className="mb-4 flex items-center gap-3">
+        <label
+          htmlFor="connect-picker-agent"
+          className="text-sm text-foreground"
+        >
+          {t("connect.picker.intro")}
+        </label>
+        <div className="relative inline-flex items-center">
+          <span className="absolute left-3 pointer-events-none text-foreground">
+            <AgentLogo kind={AGENT_LOGO_KIND[agent]} size={16} />
+          </span>
+          <select
+            id="connect-picker-agent"
+            value={agent}
+            onChange={(e) => {
+              setAgent(e.target.value as AgentKey);
+              setCopied(false);
+            }}
+            className="appearance-none rounded-md border border-border bg-background pl-9 pr-9 py-1.5 text-sm font-medium hover:border-foreground/40 focus:outline-none focus:border-foreground/60 transition-colors cursor-pointer"
+          >
+            {AGENTS.map((k) => (
+              <option key={k} value={k}>
+                {AGENT_LABELS[k]}
+              </option>
+            ))}
+          </select>
+          <svg
+            viewBox="0 0 12 12"
+            width="10"
+            height="10"
+            className="absolute right-3 pointer-events-none text-muted-foreground"
+            aria-hidden="true"
+          >
+            <path
+              d="M2 4 L6 8 L10 4"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
       </div>
 
       <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground mb-1.5">

@@ -429,8 +429,7 @@ export const ja = {
   "csv.rowDetail.empty": "—",
 
   // ConnectPicker —— /workspace の接続カード (タブ順: Claude Code / OpenClaw / Hermes / Codex / Cursor / Claude Cowork / Generic Agent)
-  "connect.picker.intro":
-    "使うクライアントを選んで貼り付け。Claude Code / Codex はターミナルでワンライナー。Hermes / OpenClaw / Generic Agent はエージェント用プロンプト —— チャットに貼ると RFC 8628 device flow を実行。Cursor / Claude Cowork は GUI または設定ファイル。",
+  "connect.picker.intro": "エージェントを選択",
   "connect.picker.note.claude-code":
     "ターミナルに一度貼り付け: 登録 + OAuth トリガー + 身元確認",
   "connect.picker.note.openclaw":

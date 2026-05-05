@@ -425,8 +425,7 @@ export const zh = {
   "csv.rowDetail.empty": "—",
 
   // ConnectPicker —— /workspace 顶部的连接卡 (7 tab 顺序: Claude Code / OpenClaw / Hermes / Codex / Cursor / Claude Cowork / Generic Agent)
-  "connect.picker.intro":
-    "选你用的客户端,按提示装。Claude Code / Codex 在终端一行命令;Hermes / OpenClaw / Generic Agent 是 Agent prompt 粘到 chat 让它自己跑 RFC 8628 device flow;Cursor / Claude Cowork 走 GUI 或配置文件。",
+  "connect.picker.intro": "选你用的 Agent",
   "connect.picker.note.claude-code":
     "终端粘贴一次:注册 + 触发 OAuth + 确认身份",
   "connect.picker.note.openclaw":

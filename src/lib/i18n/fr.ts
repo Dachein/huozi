@@ -434,8 +434,7 @@ export const fr = {
 
   // ConnectPicker — carte de connexion sur /workspace (ordre des onglets :
   // Claude Code / OpenClaw / Hermes / Codex / Cursor / Claude Cowork / Generic Agent)
-  "connect.picker.intro":
-    "Choisissez votre client, collez l'extrait. Claude Code / Codex sont des commandes en une ligne. Hermes / OpenClaw / Generic Agent sont des prompts d'agent — collez dans le chat, l'agent exécute le device flow RFC 8628. Cursor / Claude Cowork utilisent une GUI ou un fichier de config.",
+  "connect.picker.intro": "Choisissez votre Agent",
   "connect.picker.note.claude-code":
     "Collez une fois dans le terminal : inscription + déclenchement OAuth + vérification d'identité",
   "connect.picker.note.openclaw":

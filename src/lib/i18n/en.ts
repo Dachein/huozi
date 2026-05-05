@@ -432,8 +432,7 @@ export const en = {
 
   // ConnectPicker — connection card on /workspace (7 tabs in this order:
   // Claude Code / OpenClaw / Hermes / Codex / Cursor / Claude Cowork / Generic Agent)
-  "connect.picker.intro":
-    "Pick the client you use, paste the snippet. Claude Code / Codex are one-line terminal commands. Hermes / OpenClaw / Generic Agent are Agent prompts — paste into chat, the agent runs the RFC 8628 device flow. Cursor / Claude Cowork use GUI or config files.",
+  "connect.picker.intro": "Pick your Agent",
   "connect.picker.note.claude-code":
     "Paste once in terminal: register + trigger OAuth + confirm identity",
   "connect.picker.note.openclaw":
