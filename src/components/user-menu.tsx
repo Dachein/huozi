@@ -268,15 +268,22 @@ export function UserMenu({
             />
           </nav>
 
-          {/* huozi.app home */}
-          <Link
-            href="/"
+          {/* huozi.app marketing site — always points at the brand origin
+              regardless of edition. On Cloud, "/" would land on
+              cloud.huozi.app/ (the product); on Edge, it would land on
+              the self-hosted worker. Neither is the homepage users want
+              when they click "go to huozi.app". Hard-code huozi.app/
+              and open in a new tab — they're leaving the product surface. */}
+          <a
+            href="https://huozi.app/"
+            target="_blank"
+            rel="noopener noreferrer"
             onClick={() => setOpen(false)}
             className="huozi-row flex items-center justify-between px-3 py-2 text-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors border-b border-border/60"
           >
             <span>{t("menu.home")}</span>
             <Icon name="external" className="text-muted-foreground" />
-          </Link>
+          </a>
 
           {/* Exit */}
           <form method="POST" action="/api/app/disconnect">

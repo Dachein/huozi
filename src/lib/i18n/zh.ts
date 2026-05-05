@@ -236,7 +236,7 @@ export const zh = {
   "confirm.makePublic.body": "取消锁定？所有工作空间成员都将可以读写此目录。",
   "confirm.makePublic.action": "确认",
   "confirm.cancel": "取消",
-  "menu.home": "回到 huozi.app",
+  "menu.home": "huozi.app 官网",
   "menu.exit": "退出",
   "menu.disconnect": "断开连接",
 

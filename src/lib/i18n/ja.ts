@@ -239,7 +239,7 @@ export const ja = {
   "confirm.makePublic.body": "ロックを解除しますか？すべてのワークスペースメンバーがこのフォルダを読み書きできるようになります。",
   "confirm.makePublic.action": "公開する",
   "confirm.cancel": "キャンセル",
-  "menu.home": "huozi.app に戻る",
+  "menu.home": "huozi.app 公式サイト",
   "menu.exit": "ログアウト",
   "menu.disconnect": "切断",
 

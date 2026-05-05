@@ -242,7 +242,7 @@ export const fr = {
   "confirm.makePublic.body": "Déverrouiller ce dossier ? Tous les membres pourront le lire et écrire.",
   "confirm.makePublic.action": "Rendre public",
   "confirm.cancel": "Annuler",
-  "menu.home": "Retour à huozi.app",
+  "menu.home": "Site huozi.app",
   "menu.exit": "Quitter",
   "menu.disconnect": "Déconnecter",
 

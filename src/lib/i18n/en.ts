@@ -241,7 +241,7 @@ export const en = {
   "confirm.makePublic.body": "Unlock this folder? All workspace members will be able to read and write to it.",
   "confirm.makePublic.action": "Make public",
   "confirm.cancel": "Cancel",
-  "menu.home": "huozi.app home",
+  "menu.home": "huozi.app site",
   "menu.exit": "Exit",
   "menu.disconnect": "Disconnect",
 
