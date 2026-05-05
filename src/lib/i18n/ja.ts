@@ -71,8 +71,15 @@ export const ja = {
   "ws.stats.recent": "最近の編集",
   "ws.stats.agents": "Agent",
   "ws.search.title": "ワークスペース内を検索",
-  "ws.search.placeholder": "ファイル名やパスを入力…",
+  "ws.search.placeholder": "ファイル名やファイル内容を検索…",
   "ws.search.noMatch": "一致するファイルがありません。",
+  "ws.search.fileMatches": "ファイル名一致",
+  "ws.search.contentMatches": "コンテンツ一致",
+  "ws.search.searching": "コンテンツを検索中…",
+  "ws.search.noContentMatch": "コンテンツの一致なし。",
+  "ws.search.truncated": "結果が切り詰められました。より具体的なキーワードで再検索してください。",
+  "ws.search.error": "検索に失敗しました、もう一度お試しください。",
+  "ws.search.totalMatches": "計 {n} 件",
 
   // 共有ダイアログ — 有効期限
   "share.expiry.label": "リンクの有効期限",
@@ -95,6 +102,7 @@ export const ja = {
   "ws.status.lastActivity": "最終アクティビティ",
   "ws.status.manage": "管理",
   "ws.status.connectNew": "新規接続",
+  "ws.status.collapse": "閉じる",
 
   // キー期限ラベル (sliding-window TTL)
   "ws.expiry.never": "期限なし",

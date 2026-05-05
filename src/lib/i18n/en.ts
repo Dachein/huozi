@@ -72,8 +72,15 @@ export const en = {
   "ws.stats.recent": "Recent edits",
   "ws.stats.agents": "Agents",
   "ws.search.title": "Search the workspace",
-  "ws.search.placeholder": "Type a file name or path…",
+  "ws.search.placeholder": "Search file names or file contents…",
   "ws.search.noMatch": "No files match.",
+  "ws.search.fileMatches": "Filename matches",
+  "ws.search.contentMatches": "Content matches",
+  "ws.search.searching": "Searching contents…",
+  "ws.search.noContentMatch": "No content matches.",
+  "ws.search.truncated": "Results truncated — try a more specific term.",
+  "ws.search.error": "Search failed, please try again.",
+  "ws.search.totalMatches": "{n} matches",
 
   // Publish / share dialog — TTL picker
   "share.expiry.label": "Link expires in",
@@ -96,6 +103,7 @@ export const en = {
   "ws.status.lastActivity": "last activity",
   "ws.status.manage": "Manage",
   "ws.status.connectNew": "New Connection",
+  "ws.status.collapse": "Collapse",
 
   // Key-expiry labels (sliding-window TTL).  {n} is interpolated.
   "ws.expiry.never": "never expires",

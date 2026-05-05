@@ -71,8 +71,15 @@ export const zh = {
   "ws.stats.recent": "最近编辑",
   "ws.stats.agents": "Agent",
   "ws.search.title": "在云盘中搜索",
-  "ws.search.placeholder": "输入文件名或路径…",
+  "ws.search.placeholder": "搜索文件名或文件内容…",
   "ws.search.noMatch": "没有匹配的文件。",
+  "ws.search.fileMatches": "文件名匹配",
+  "ws.search.contentMatches": "内容匹配",
+  "ws.search.searching": "正在搜索内容…",
+  "ws.search.noContentMatch": "没有内容命中。",
+  "ws.search.truncated": "结果已截断,请输入更具体的关键词。",
+  "ws.search.error": "搜索出错,请稍后重试。",
+  "ws.search.totalMatches": "共 {n} 处",
 
   // 发布 / 分享弹窗 —— 有效期
   "share.expiry.label": "链接有效期",
@@ -95,6 +102,7 @@ export const zh = {
   "ws.status.lastActivity": "最近活动",
   "ws.status.manage": "管理",
   "ws.status.connectNew": "新建连接",
+  "ws.status.collapse": "收起",
 
   // Key-expiry labels (sliding-window TTL)
   "ws.expiry.never": "永不过期",

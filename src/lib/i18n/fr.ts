@@ -72,8 +72,15 @@ export const fr = {
   "ws.stats.recent": "Modifs récentes",
   "ws.stats.agents": "Agents",
   "ws.search.title": "Rechercher dans le workspace",
-  "ws.search.placeholder": "Tapez un nom de fichier ou chemin…",
+  "ws.search.placeholder": "Rechercher noms ou contenus de fichiers…",
   "ws.search.noMatch": "Aucun fichier ne correspond.",
+  "ws.search.fileMatches": "Noms correspondants",
+  "ws.search.contentMatches": "Contenus correspondants",
+  "ws.search.searching": "Recherche dans les contenus…",
+  "ws.search.noContentMatch": "Aucune correspondance dans les contenus.",
+  "ws.search.truncated": "Résultats tronqués — essayez un terme plus précis.",
+  "ws.search.error": "Échec de la recherche, veuillez réessayer.",
+  "ws.search.totalMatches": "{n} occurrences",
 
   // Dialogue de partage — expiration
   "share.expiry.label": "Le lien expire dans",
@@ -96,6 +103,7 @@ export const fr = {
   "ws.status.lastActivity": "dernière activité",
   "ws.status.manage": "Gérer",
   "ws.status.connectNew": "Nouvelle connexion",
+  "ws.status.collapse": "Réduire",
 
   // Étiquettes d'expiration de clé (TTL à fenêtre glissante)
   "ws.expiry.never": "n'expire jamais",

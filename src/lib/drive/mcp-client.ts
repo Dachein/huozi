@@ -176,6 +176,47 @@ export function cloudGlob(
   })
 }
 
+export interface GrepData {
+  mode?: 'content' | 'files_with_matches' | 'count'
+  numFiles: number
+  filenames: string[]
+  content?: string
+  numLines?: number
+  numMatches?: number
+  appliedLimit?: number
+  appliedOffset?: number
+}
+
+export interface GrepOpts {
+  path?: string
+  glob?: string
+  type?: string
+  output_mode?: 'content' | 'files_with_matches' | 'count'
+  '-i'?: boolean
+  '-n'?: boolean
+  '-A'?: number
+  '-B'?: number
+  '-C'?: number
+  context?: number
+  multiline?: boolean
+  head_limit?: number
+  offset?: number
+}
+
+export function cloudGrep(
+  key: string,
+  pattern: string,
+  opts?: GrepOpts,
+): Promise<McpResult<GrepData>> {
+  const args: Record<string, unknown> = { pattern }
+  if (opts) {
+    for (const [k, v] of Object.entries(opts)) {
+      if (v !== undefined) args[k] = v
+    }
+  }
+  return callTool<GrepData>(key, 'huozi_grep', args)
+}
+
 export function cloudRead(
   key: string,
   file_path: string,
