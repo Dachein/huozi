@@ -95,25 +95,23 @@ export function AgentLogo({ kind, size = 20, className }: AgentLogoProps) {
         </svg>
       );
 
-    /* ── Hermes Agent (Nous Research) · classical bust silhouette ──
-       Hermes Agent's actual brand at hermes-agent.nousresearch.com is
-       rooted in classical figurative imagery — the favicon is a
-       portrait, the og:image features a Renaissance-style figure of
-       Hermes himself. So we render a head + shoulders silhouette here
-       (the only human-figure mark in the lineup, also distinguishes it
-       from the abstract glyphs around it) instead of the alchemical
-       ☿ Mercury glyph the slot used to carry. Per the file-level
-       comment we still don't pixel-reproduce their mark — just match
-       its spirit at 20×20. */
+    /* ── Hermes Agent (Nous Research) · headbanded bob silhouette ──
+       The Hermes Agent installer + brand assets all carry an anime-style
+       portrait of a girl with a short black bob and a thin headband
+       across the crown. Two stacked black masses with a horizontal gap
+       between them — the gap reads as the headband against any
+       background. The rest (face, eyes, fringe) doesn't survive 20×20
+       so we skip it; the headband cut alone is enough silhouette to
+       say "this character", not "a generic bust". */
     case "hermes":
     case "hermes-agent":
       return (
         <svg {...common}>
           <g fill="currentColor">
-            {/* Head */}
-            <circle cx="10" cy="6.5" r="3.2" />
-            {/* Bust / shoulders */}
-            <path d="M3 18 Q5 11.5 10 11 Q15 11.5 17 18 Z" />
+            {/* Top crown of hair, above the headband */}
+            <path d="M4.5 6 Q4 2 10 2 Q16 2 15.5 6 Z" />
+            {/* Bob below the headband (the gap is the band) */}
+            <path d="M4.5 7.5 Q4 12 5 15 Q6.5 17.5 10 17.8 Q13.5 17.5 15 15 Q16 12 15.5 7.5 Z" />
           </g>
         </svg>
       );
