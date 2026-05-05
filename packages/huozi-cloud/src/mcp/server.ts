@@ -82,6 +82,16 @@ export function createHuoziMcpServer(
           target: 'openApi3',
           $refStrategy: 'none',
         }) as Record<string, unknown>,
+        // Anthropic Connectors Directory: every tool needs `title` plus
+        // either readOnlyHint or destructiveHint. Each ToolDef already
+        // carries `userFacingName` + `isReadOnly`; surface them here so
+        // the registry-review pipeline (and other MCP hosts) can render
+        // confirmation UIs around destructive operations.
+        annotations: {
+          title: t.userFacingName,
+          readOnlyHint: t.isReadOnly,
+          destructiveHint: !t.isReadOnly,
+        },
       })),
     )
     return { tools }
