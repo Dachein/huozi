@@ -113,8 +113,21 @@ export function handleOauthMetadata(
       authorization_endpoint: `${issuer}/oauth/authorize`,
       token_endpoint: `${issuer}/oauth/token`,
       registration_endpoint: `${issuer}/oauth/register`,
+      // RFC 8628 device authorization grant. Endpoint takes
+      //   POST { client_name?, agent_kind? }  → { device_code, user_code,
+      //   verification_url, verification_url_complete, expires_in,
+      //   interval }
+      // Token poll happens at token_endpoint with
+      //   grant_type=urn:ietf:params:oauth:grant-type:device_code
+      // (form-encoded). Lets MCP clients that support device flow auto-
+      // discover and use it when localhost callback isn't viable.
+      device_authorization_endpoint: `${issuer}/auth/device-code`,
       response_types_supported: ['code'],
-      grant_types_supported: ['authorization_code', 'refresh_token'],
+      grant_types_supported: [
+        'authorization_code',
+        'refresh_token',
+        'urn:ietf:params:oauth:grant-type:device_code',
+      ],
       code_challenge_methods_supported: ['S256'],
       token_endpoint_auth_methods_supported: ['none'],
       scopes_supported: ['mcp'],
@@ -623,6 +636,8 @@ interface TokenBody {
   code_verifier?: string
   // refresh grant
   refresh_token?: string
+  // RFC 8628 device flow grant
+  device_code?: string
 }
 
 export async function handleOauthToken(
@@ -660,10 +675,120 @@ export async function handleOauthToken(
   if (body.grant_type === 'refresh_token') {
     return handleRefreshGrant(body, env)
   }
+  if (body.grant_type === 'urn:ietf:params:oauth:grant-type:device_code') {
+    return handleDeviceCodeGrant(body, env)
+  }
   return jsonError(
     'unsupported_grant_type',
     `grant_type=${body.grant_type ?? '(missing)'} not supported`,
     400,
+  )
+}
+
+// ── Device-code grant (RFC 8628) ─────────────────────────────────────────
+//
+// Companion to /auth/device-code: a client polling the standardized
+// token_endpoint with the device-code grant. The legacy /auth/token
+// JSON endpoint is preserved separately for our chat-mode Agent prompts
+// (it returns the static api_key directly so the Agent can splice it
+// into a config file). This grant returns the OAuth-shape envelope —
+// `{access_token, token_type, expires_in}` — so MCP clients that
+// auto-discover RFC 8628 from /.well-known/oauth-authorization-server
+// can use it without bespoke wiring.
+//
+// Trade-off: the access_token returned here IS the same `hz_*` static
+// api_key minted by /admin/device-authorize, just wrapped in the OAuth
+// shape. So `expires_in` is omitted (api_key has no TTL by default) and
+// no refresh_token is issued (static keys don't rotate). Clients that
+// need short-lived rotating tokens should use the authorization_code
+// grant instead. If we ever switch device flow to true OAuth-issued
+// access_tokens, the change is contained to this function plus the
+// admin authorize handler — `/auth/token` JSON polling stays put for
+// the chat Agent flow.
+async function handleDeviceCodeGrant(
+  body: TokenBody,
+  env: HuoziCloudflareBindings,
+): Promise<Response> {
+  const deviceCode = (body.device_code ?? '').trim()
+  if (!deviceCode || !/^[a-f0-9]{48}$/.test(deviceCode)) {
+    return jsonError('invalid_grant', 'invalid device_code', 400)
+  }
+
+  const row = await env.DB.prepare(
+    `SELECT * FROM device_grants WHERE device_code = ?`,
+  )
+    .bind(deviceCode)
+    .first<{
+      device_code: string
+      user_code: string
+      status: 'pending' | 'authorized' | 'denied' | 'expired' | 'consumed'
+      api_key: string | null
+      api_key_id: string | null
+      created_at: number
+      expires_at: number
+    }>()
+  if (!row) {
+    return jsonError('invalid_grant', 'device_code not found', 400)
+  }
+
+  const now = Date.now()
+
+  if (row.status === 'pending' && row.expires_at < now) {
+    await env.DB.prepare(
+      `UPDATE device_grants SET status='expired' WHERE device_code = ?`,
+    )
+      .bind(deviceCode)
+      .run()
+    return jsonError('expired_token', 'device code expired', 400)
+  }
+  if (row.status === 'pending') {
+    // RFC 8628 §3.5: server SHOULD respond with `authorization_pending`
+    // and the client SHOULD respect the `interval` returned at start.
+    return jsonError('authorization_pending', 'user has not completed authorization yet', 400)
+  }
+  if (row.status === 'denied') {
+    return jsonError('access_denied', 'user denied authorization', 400)
+  }
+  if (row.status === 'expired') {
+    return jsonError('expired_token', 'device code expired', 400)
+  }
+  if (row.status === 'consumed') {
+    // Either the legacy /auth/token JSON endpoint already consumed it,
+    // or this is a replay after a successful poll. Either way, the
+    // backing api_key has been scrubbed — we can't deliver again.
+    return jsonError('expired_token', 'device code already consumed', 400)
+  }
+
+  // status === 'authorized'. Atomic consume + scrub.
+  if (!row.api_key) {
+    return jsonError('server_error', 'missing api_key on authorized grant', 500)
+  }
+  const accessToken = row.api_key
+  const scrubRes = await env.DB.prepare(
+    `UPDATE device_grants
+     SET status='consumed', consumed_at=?, api_key=NULL
+     WHERE device_code = ? AND status='authorized'`,
+  )
+    .bind(now, deviceCode)
+    .run()
+  const changes = scrubRes.meta?.changes ?? 0
+  if (changes === 0) {
+    // Raced with /auth/token JSON polling.
+    return jsonError('expired_token', 'device code already consumed', 400)
+  }
+
+  return Response.json(
+    {
+      access_token: accessToken,
+      token_type: 'Bearer',
+      scope: 'mcp',
+    },
+    {
+      headers: {
+        'cache-control': 'no-store',
+        pragma: 'no-cache',
+      },
+    },
   )
 }
 
