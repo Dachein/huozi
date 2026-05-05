@@ -21,6 +21,7 @@ import type { Metadata } from "next";
 import { getIdentity } from "@/lib/identity";
 import { slugToWorkspaceId } from "@/lib/drive/admin";
 import { oauthInspectPending } from "@/lib/drive/oauth-admin";
+import { getServerT } from "@/lib/i18n/server";
 import { ConsentForm } from "./consent-form";
 import { AuthorizeError } from "./authorize-error";
 
@@ -36,12 +37,13 @@ interface Props {
 export default async function AuthorizePage({ searchParams }: Props) {
   const params = (await searchParams) ?? {};
   const sessionId = (params.session ?? "").trim();
+  const _ = await getServerT();
 
   if (!sessionId) {
     return (
       <AuthorizeError
-        title="Missing session"
-        body="This URL is missing the session parameter. Re-trigger the connection from your Agent."
+        title={_("auth.authorize.error.missingSession.title")}
+        body={_("auth.authorize.error.missingSession.body")}
       />
     );
   }
@@ -50,11 +52,13 @@ export default async function AuthorizePage({ searchParams }: Props) {
   if (!inspect.ok) {
     const reason =
       inspect.error === "expired"
-        ? "This authorization request has expired (15 min limit). Please re-trigger from your Agent."
+        ? _("auth.authorize.error.expired")
         : inspect.error === "already_consumed"
-          ? "This authorization request has already been used."
-          : "We couldn't find this authorization request.";
-    return <AuthorizeError title="Cannot authorize" body={reason} />;
+          ? _("auth.authorize.error.alreadyConsumed")
+          : _("auth.authorize.error.notFound");
+    return (
+      <AuthorizeError title={_("auth.authorize.error.title")} body={reason} />
+    );
   }
 
   const pending = inspect.data;

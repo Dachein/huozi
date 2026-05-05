@@ -181,6 +181,55 @@ export const ja = {
   "auth.selectWorkspace.subtitle":
     "あなたは {count} 個のワークスペースに所属しています。1つ選んでください。",
 
+  // /authorize — OAuth 認可ページ
+  "auth.authorize.error.title": "認可できません",
+  "auth.authorize.error.missingSession.title": "セッションがありません",
+  "auth.authorize.error.missingSession.body":
+    "URL に session パラメータがありません。Agent から接続を再実行してください。",
+  "auth.authorize.error.expired":
+    "この認可リクエストは期限切れです（15 分制限）。Agent から再度実行してください。",
+  "auth.authorize.error.alreadyConsumed": "この認可リクエストは使用済みです。",
+  "auth.authorize.error.notFound": "この認可リクエストが見つかりません。",
+  "auth.authorize.connectTitle": "{client} に接続",
+  "auth.authorize.workspaceLabel": "アクセス先のワークスペース",
+  "auth.authorize.permissionsLabel": "権限",
+  "auth.authorize.tokenReturnsToLabel": "トークンの返送先",
+  "auth.authorize.deny": "拒否",
+  "auth.authorize.approve": "承認",
+  "auth.authorize.processing": "処理中…",
+  "auth.authorize.tokenSecurity":
+    "承認後、{client} は短期 access token（1 時間）と取り消し可能な refresh token を受け取ります。",
+  "auth.authorize.tokenContext":
+    "トークンは MCP クライアントが保持し、会話コンテキストには入りません。",
+  "auth.authorize.scope.mcp":
+    "このワークスペースのファイルを読み取り・書き込み・共有",
+  "auth.authorize.scope.read": "このワークスペースのファイルを読み取り",
+  "auth.authorize.scope.write": "このワークスペースのファイルを書き込み",
+  "auth.authorize.scope.share": "公開共有リンクを作成",
+
+  // /authorize/done — 認可完了ランディング
+  "auth.authorize.done.heading": "{client} に接続しました",
+  "auth.authorize.done.workspaceLabel": "ワークスペース",
+  "auth.authorize.done.countingLoopback":
+    "{seconds} 秒後に {client} へトークンを送信します…",
+  "auth.authorize.done.countingRemote":
+    "{seconds} 秒後に {client} へ戻ります…",
+  "auth.authorize.done.buttonRemote": "今すぐ戻る",
+  "auth.authorize.done.buttonLoopback": "今すぐ送信",
+  "auth.authorize.done.triggeringRemote": "{client} へ戻っています…",
+  "auth.authorize.done.triggeringLoopback":
+    "{client} へトークンを書き込んでいます…",
+  "auth.authorize.done.doneRemote":
+    "認可を送信しました。{client} へ戻っています…",
+  "auth.authorize.done.doneLoopback":
+    "トークンを送信しました。{client} のターミナルに戻って続行できます。",
+  "auth.authorize.done.openWorkspace": "またはワークスペースを開く",
+  "auth.authorize.done.viewWorkspace": "ワークスペースを表示",
+  "auth.authorize.done.tokenSecurity":
+    "トークンは {client} が保持し、会話コンテキストには入りません。",
+  "auth.authorize.done.tokenContext":
+    "ワークスペースの「接続済み Agent」からいつでも取り消せます。",
+
   // 招待ページ
   "invite.notFound.title": "招待が見つかりません",
   "invite.notFound.message": "この招待リンクは無効か削除されています。",

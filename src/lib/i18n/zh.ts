@@ -180,6 +180,48 @@ export const zh = {
   "auth.selectWorkspace.title": "选择工作空间",
   "auth.selectWorkspace.subtitle": "你属于 {count} 个工作空间，挑一个进入。",
 
+  // /authorize — OAuth 同意页（consent）
+  "auth.authorize.error.title": "无法授权",
+  "auth.authorize.error.missingSession.title": "缺少 session",
+  "auth.authorize.error.missingSession.body":
+    "URL 缺少 session 参数。请从你的 Agent 重新发起连接。",
+  "auth.authorize.error.expired":
+    "此授权请求已过期（15 分钟限制）。请从你的 Agent 重新发起。",
+  "auth.authorize.error.alreadyConsumed": "此授权请求已被使用过。",
+  "auth.authorize.error.notFound": "找不到此授权请求。",
+  "auth.authorize.connectTitle": "连接 {client}",
+  "auth.authorize.workspaceLabel": "将访问的工作区",
+  "auth.authorize.permissionsLabel": "权限",
+  "auth.authorize.tokenReturnsToLabel": "令牌将返回到",
+  "auth.authorize.deny": "拒绝",
+  "auth.authorize.approve": "授权",
+  "auth.authorize.processing": "处理中…",
+  "auth.authorize.tokenSecurity":
+    "授权后，{client} 将获得短期 access token（1 小时）+ 可吊销的 refresh token。",
+  "auth.authorize.tokenContext": "token 由 MCP 客户端持有，不进入对话上下文。",
+  "auth.authorize.scope.mcp": "读取 · 写入 · 分享此工作区文件",
+  "auth.authorize.scope.read": "读取此工作区文件",
+  "auth.authorize.scope.write": "写入此工作区文件",
+  "auth.authorize.scope.share": "创建公开分享链接",
+
+  // /authorize/done — 授权成功落地页（branded "成"）
+  "auth.authorize.done.heading": "已连接 {client}",
+  "auth.authorize.done.workspaceLabel": "工作区",
+  "auth.authorize.done.countingLoopback": "{seconds} 秒后向 {client} 发送令牌…",
+  "auth.authorize.done.countingRemote": "{seconds} 秒后跳回 {client}…",
+  "auth.authorize.done.buttonRemote": "立即跳转",
+  "auth.authorize.done.buttonLoopback": "立即发送",
+  "auth.authorize.done.triggeringRemote": "正在跳回 {client}…",
+  "auth.authorize.done.triggeringLoopback": "正在向 {client} 写入令牌…",
+  "auth.authorize.done.doneRemote": "已发送授权，正在返回 {client}…",
+  "auth.authorize.done.doneLoopback": "令牌已发送，可返回 {client} 终端继续",
+  "auth.authorize.done.openWorkspace": "或者打开工作区",
+  "auth.authorize.done.viewWorkspace": "查看工作区",
+  "auth.authorize.done.tokenSecurity":
+    "授权令牌由 {client} 持有，不会进入对话上下文。",
+  "auth.authorize.done.tokenContext":
+    "可在工作区「已连接 Agent」中随时吊销。",
+
   // 邀请链接落地页
   "invite.notFound.title": "邀请不存在",
   "invite.notFound.message": "这个邀请链接无效或已被删除。",

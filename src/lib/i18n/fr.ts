@@ -182,6 +182,55 @@ export const fr = {
   "auth.selectWorkspace.subtitle":
     "Vous appartenez à {count} espaces de travail. Choisissez-en un.",
 
+  // /authorize — page de consentement OAuth
+  "auth.authorize.error.title": "Autorisation impossible",
+  "auth.authorize.error.missingSession.title": "Session manquante",
+  "auth.authorize.error.missingSession.body":
+    "Cette URL n'a pas de paramètre session. Relancez la connexion depuis votre Agent.",
+  "auth.authorize.error.expired":
+    "Cette demande d'autorisation a expiré (limite de 15 min). Relancez-la depuis votre Agent.",
+  "auth.authorize.error.alreadyConsumed":
+    "Cette demande d'autorisation a déjà été utilisée.",
+  "auth.authorize.error.notFound": "Demande d'autorisation introuvable.",
+  "auth.authorize.connectTitle": "Connecter {client}",
+  "auth.authorize.workspaceLabel": "Espace de travail concerné",
+  "auth.authorize.permissionsLabel": "Permissions",
+  "auth.authorize.tokenReturnsToLabel": "Le jeton sera renvoyé vers",
+  "auth.authorize.deny": "Refuser",
+  "auth.authorize.approve": "Autoriser",
+  "auth.authorize.processing": "Traitement…",
+  "auth.authorize.tokenSecurity":
+    "Une fois autorisé, {client} recevra un access token court (1 heure) + un refresh token révocable.",
+  "auth.authorize.tokenContext":
+    "Le jeton reste chez le client MCP ; il n'entre jamais dans le contexte de conversation.",
+  "auth.authorize.scope.mcp":
+    "Lire · Écrire · Partager les fichiers de cet espace",
+  "auth.authorize.scope.read": "Lire les fichiers de cet espace",
+  "auth.authorize.scope.write": "Écrire dans les fichiers de cet espace",
+  "auth.authorize.scope.share": "Créer des liens de partage publics",
+
+  // /authorize/done — page de confirmation après autorisation
+  "auth.authorize.done.heading": "Connecté à {client}",
+  "auth.authorize.done.workspaceLabel": "Espace de travail",
+  "auth.authorize.done.countingLoopback":
+    "Envoi du jeton à {client} dans {seconds} s…",
+  "auth.authorize.done.countingRemote":
+    "Retour vers {client} dans {seconds} s…",
+  "auth.authorize.done.buttonRemote": "Revenir maintenant",
+  "auth.authorize.done.buttonLoopback": "Envoyer maintenant",
+  "auth.authorize.done.triggeringRemote": "Retour vers {client}…",
+  "auth.authorize.done.triggeringLoopback": "Envoi du jeton à {client}…",
+  "auth.authorize.done.doneRemote":
+    "Autorisation envoyée. Retour vers {client}…",
+  "auth.authorize.done.doneLoopback":
+    "Jeton envoyé. Vous pouvez revenir au terminal {client}.",
+  "auth.authorize.done.openWorkspace": "Ou ouvrir l'espace de travail",
+  "auth.authorize.done.viewWorkspace": "Voir l'espace de travail",
+  "auth.authorize.done.tokenSecurity":
+    "Le jeton est détenu par {client} ; il n'entre jamais dans le contexte de conversation.",
+  "auth.authorize.done.tokenContext":
+    "Révocable à tout moment depuis « Agents connectés » dans votre espace de travail.",
+
   // Page d'invitation
   "invite.notFound.title": "Invitation introuvable",
   "invite.notFound.message":

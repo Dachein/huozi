@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "@/lib/i18n/context";
 
 interface Props {
   sessionId: string;
@@ -15,14 +16,15 @@ interface Props {
   principalEmail: string;
 }
 
-const SCOPE_LABELS: Record<string, string> = {
-  mcp: "Read · Write · Share files in this workspace",
-  read: "Read files in this workspace",
-  write: "Write files in this workspace",
-  share: "Create public share links",
+const SCOPE_KEYS: Record<string, string> = {
+  mcp: "auth.authorize.scope.mcp",
+  read: "auth.authorize.scope.read",
+  write: "auth.authorize.scope.write",
+  share: "auth.authorize.scope.share",
 };
 
 export function ConsentForm(props: Props) {
+  const _ = useT();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -83,7 +85,10 @@ export function ConsentForm(props: Props) {
     <div className="w-full max-w-md mx-auto">
       <div className="text-center mb-6">
         <h1 className="font-serif text-2xl font-bold tracking-[0.08em] mb-1">
-          连接 {props.clientName}
+          {_("auth.authorize.connectTitle").replace(
+            "{client}",
+            props.clientName,
+          )}
         </h1>
         <p className="text-xs text-muted-foreground">
           {props.principalEmail}
@@ -93,7 +98,7 @@ export function ConsentForm(props: Props) {
       <div className="rounded-lg border border-border bg-card/40 p-5 space-y-4 text-sm">
         <div>
           <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
-            将访问的工作区
+            {_("auth.authorize.workspaceLabel")}
           </div>
           <div className="font-medium">{props.workspaceName}</div>
           <div className="text-xs text-muted-foreground font-mono">
@@ -103,18 +108,18 @@ export function ConsentForm(props: Props) {
 
         <div>
           <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
-            权限
+            {_("auth.authorize.permissionsLabel")}
           </div>
           <ul className="text-xs space-y-1">
             {scopes.map((s) => (
-              <li key={s}>• {SCOPE_LABELS[s] ?? s}</li>
+              <li key={s}>• {SCOPE_KEYS[s] ? _(SCOPE_KEYS[s]) : s}</li>
             ))}
           </ul>
         </div>
 
         <div>
           <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
-            令牌将返回到
+            {_("auth.authorize.tokenReturnsToLabel")}
           </div>
           <div className="text-xs font-mono text-muted-foreground">
             {props.redirectUriHost}
@@ -142,7 +147,7 @@ export function ConsentForm(props: Props) {
           onClick={() => submit("deny")}
           className="text-sm px-4 py-2 rounded-md text-muted-foreground hover:bg-muted/50 disabled:opacity-50 transition-colors"
         >
-          拒绝
+          {_("auth.authorize.deny")}
         </button>
         <button
           type="button"
@@ -150,7 +155,7 @@ export function ConsentForm(props: Props) {
           onClick={() => submit("approve")}
           className="text-sm px-4 py-2 rounded-md bg-foreground text-background hover:opacity-90 disabled:opacity-50 transition-opacity"
         >
-          {busy ? "处理中…" : "授权"}
+          {busy ? _("auth.authorize.processing") : _("auth.authorize.approve")}
         </button>
       </div>
 
@@ -159,9 +164,12 @@ export function ConsentForm(props: Props) {
       )}
 
       <p className="mt-6 text-[11px] text-muted-foreground/80 text-center leading-relaxed">
-        授权后，{props.clientName} 将获得短期 access token（1 小时）+ 可吊销的 refresh token。
+        {_("auth.authorize.tokenSecurity").replace(
+          "{client}",
+          props.clientName,
+        )}
         <br />
-        token 由 MCP 客户端持有，不进入对话上下文。
+        {_("auth.authorize.tokenContext")}
       </p>
     </div>
   );

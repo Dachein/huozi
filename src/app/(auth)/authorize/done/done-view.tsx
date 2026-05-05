@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useT } from "@/lib/i18n/context";
 
 interface Props {
   /** Localhost callback URL (with code + state) the OAuth client is
@@ -52,6 +53,7 @@ function isLoopbackUrl(u: string): boolean {
 }
 
 export function AuthorizeDoneView({ to, clientName, workspaceName }: Props) {
+  const _ = useT();
   const safe = isSafeUrl(to);
   // Two delivery modes:
   //   loopback (Claude Code / Cursor / Codex) — iframe GET to localhost,
@@ -134,10 +136,10 @@ export function AuthorizeDoneView({ to, clientName, workspaceName }: Props) {
         <CheckMark />
 
         <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-[0.08em] mt-6">
-          已连接 {clientName}
+          {_("auth.authorize.done.heading").replace("{client}", clientName)}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          工作区 ·{" "}
+          {_("auth.authorize.done.workspaceLabel")} ·{" "}
           <span className="font-mono text-foreground">{workspaceName}</span>
         </p>
 
@@ -150,22 +152,27 @@ export function AuthorizeDoneView({ to, clientName, workspaceName }: Props) {
         />
 
         <div className="mt-12 pt-6 border-t border-border/60">
-          <p className="text-xs text-muted-foreground mb-2">或者打开工作区</p>
+          <p className="text-xs text-muted-foreground mb-2">
+            {_("auth.authorize.done.openWorkspace")}
+          </p>
           <Link
             href="/workspace"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-sm font-medium hover:text-accent transition-colors"
           >
-            <span>查看工作区</span>
+            <span>{_("auth.authorize.done.viewWorkspace")}</span>
             <span aria-hidden>↗</span>
           </Link>
         </div>
 
         <p className="mt-10 text-[11px] text-muted-foreground/80 leading-relaxed">
-          授权令牌由 {clientName} 持有，不会进入对话上下文。
+          {_("auth.authorize.done.tokenSecurity").replace(
+            "{client}",
+            clientName,
+          )}
           <br />
-          可在工作区"已连接 Agent"中随时吊销。
+          {_("auth.authorize.done.tokenContext")}
         </p>
       </div>
 
@@ -219,26 +226,30 @@ function PhaseLine({
   isRemote: boolean;
   onReturnNow: () => void;
 }) {
+  const _ = useT();
+
   // Wording diverges between the two delivery modes:
   //   loopback → "send token to <client>" (terminal lives elsewhere)
   //   remote   → "return to <client>" (browser is the destination)
-  const verbCounting = isRemote ? "跳回" : "向";
-  const verbTriggering = isRemote ? "正在跳回" : "正在向";
-  const tail = isRemote ? "" : " 写入令牌";
-  const buttonLabel = isRemote ? "立即跳转" : "立即发送";
-  const doneLine = isRemote
-    ? `已发送授权，正在返回 ${clientName}…`
-    : `令牌已发送，可返回 ${clientName} 终端继续`;
+  const buttonLabel = _(
+    isRemote
+      ? "auth.authorize.done.buttonRemote"
+      : "auth.authorize.done.buttonLoopback",
+  );
 
   if (phase === "counting") {
+    const countingLine = _(
+      isRemote
+        ? "auth.authorize.done.countingRemote"
+        : "auth.authorize.done.countingLoopback",
+    )
+      .replace("{seconds}", String(secondsLeft))
+      .replace("{client}", clientName);
     return (
       <>
         <div className="mt-10 inline-flex items-center gap-2 text-sm text-muted-foreground">
           <Spinner />
-          <span>
-            {secondsLeft} 秒后{verbCounting} {clientName}
-            {isRemote ? "…" : " 发送令牌…"}
-          </span>
+          <span>{countingLine}</span>
         </div>
         <div className="mt-3">
           <button
@@ -253,14 +264,24 @@ function PhaseLine({
     );
   }
   if (phase === "triggering") {
+    const triggeringLine = _(
+      isRemote
+        ? "auth.authorize.done.triggeringRemote"
+        : "auth.authorize.done.triggeringLoopback",
+    ).replace("{client}", clientName);
     return (
       <div className="mt-10 inline-flex items-center gap-2 text-sm text-muted-foreground">
         <Spinner />
-        <span>{verbTriggering} {clientName}{tail}…</span>
+        <span>{triggeringLine}</span>
       </div>
     );
   }
   // done
+  const doneLine = _(
+    isRemote
+      ? "auth.authorize.done.doneRemote"
+      : "auth.authorize.done.doneLoopback",
+  ).replace("{client}", clientName);
   return (
     <div className="mt-10 inline-flex items-center gap-2 text-sm font-medium text-accent">
       <span aria-hidden>✓</span>

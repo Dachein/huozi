@@ -182,6 +182,55 @@ export const en = {
   "auth.selectWorkspace.subtitle":
     "You belong to {count} workspaces. Pick one to enter.",
 
+  // /authorize — OAuth consent
+  "auth.authorize.error.title": "Cannot authorize",
+  "auth.authorize.error.missingSession.title": "Missing session",
+  "auth.authorize.error.missingSession.body":
+    "This URL is missing the session parameter. Re-trigger the connection from your Agent.",
+  "auth.authorize.error.expired":
+    "This authorization request has expired (15 min limit). Please re-trigger from your Agent.",
+  "auth.authorize.error.alreadyConsumed":
+    "This authorization request has already been used.",
+  "auth.authorize.error.notFound":
+    "We couldn't find this authorization request.",
+  "auth.authorize.connectTitle": "Connect {client}",
+  "auth.authorize.workspaceLabel": "Workspace to access",
+  "auth.authorize.permissionsLabel": "Permissions",
+  "auth.authorize.tokenReturnsToLabel": "Token returns to",
+  "auth.authorize.deny": "Deny",
+  "auth.authorize.approve": "Approve",
+  "auth.authorize.processing": "Processing…",
+  "auth.authorize.tokenSecurity":
+    "After approval, {client} receives a short-lived access token (1 hour) plus a revocable refresh token.",
+  "auth.authorize.tokenContext":
+    "The token stays with the MCP client; it never enters the conversation context.",
+  "auth.authorize.scope.mcp": "Read · Write · Share files in this workspace",
+  "auth.authorize.scope.read": "Read files in this workspace",
+  "auth.authorize.scope.write": "Write files in this workspace",
+  "auth.authorize.scope.share": "Create public share links",
+
+  // /authorize/done — branded success landing
+  "auth.authorize.done.heading": "Connected to {client}",
+  "auth.authorize.done.workspaceLabel": "Workspace",
+  "auth.authorize.done.countingLoopback":
+    "Sending token to {client} in {seconds}s…",
+  "auth.authorize.done.countingRemote":
+    "Returning to {client} in {seconds}s…",
+  "auth.authorize.done.buttonRemote": "Return now",
+  "auth.authorize.done.buttonLoopback": "Send now",
+  "auth.authorize.done.triggeringRemote": "Returning to {client}…",
+  "auth.authorize.done.triggeringLoopback": "Sending token to {client}…",
+  "auth.authorize.done.doneRemote":
+    "Authorization sent. Returning to {client}…",
+  "auth.authorize.done.doneLoopback":
+    "Token sent. You can return to the {client} terminal.",
+  "auth.authorize.done.openWorkspace": "Or open your workspace",
+  "auth.authorize.done.viewWorkspace": "View workspace",
+  "auth.authorize.done.tokenSecurity":
+    "The token is held by {client} and never enters the conversation context.",
+  "auth.authorize.done.tokenContext":
+    "Revoke any time from \"Connected Agents\" in your workspace.",
+
   // Invite landing page
   "invite.notFound.title": "Invite not found",
   "invite.notFound.message":
