@@ -17,6 +17,7 @@ import { getIdentity } from "@/lib/identity";
 import {
   cloudAdminListKeys,
   cloudAdminUpdateKeyTtl,
+  slugToWorkspaceId,
 } from "@/lib/drive/admin";
 
 interface Body {
@@ -37,7 +38,8 @@ const ALLOWED_TTL_SECONDS = new Set<number | null>([
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const identity = await getIdentity();
   const principal = await identity.getPrincipal();
-  if (!principal) {
+  const ws = await identity.getPrimaryWorkspace();
+  if (!principal || !ws) {
     return NextResponse.json({ error: "not_authenticated" }, { status: 401 });
   }
 
@@ -70,7 +72,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!principal.workspaceId) {
     return NextResponse.json({ error: "not_authenticated" }, { status: 401 });
   }
-  const keys = await cloudAdminListKeys(principal.workspaceId).catch(() => []);
+  // api_keys.workspace_id is the `ws_<slug>` form, not the workspaces.id UUID.
+  const keys = await cloudAdminListKeys(slugToWorkspaceId(ws.slug)).catch(
+    () => [],
+  );
   const key = keys.find((k) => k.key_id === keyId);
   if (!key) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });

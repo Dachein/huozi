@@ -13,6 +13,7 @@ import {
   cloudAdminListKeys,
   cloudAdminListMembers,
   cloudAdminRevokeKey,
+  slugToWorkspaceId,
 } from "@/lib/drive/admin";
 import { ROLE_CAPS, type Role } from "@/lib/permissions";
 
@@ -23,7 +24,8 @@ interface RevokeBody {
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const identity = await getIdentity();
   const principal = await identity.getPrincipal();
-  if (!principal || !principal.workspaceId) {
+  const ws = await identity.getPrimaryWorkspace();
+  if (!principal || !principal.workspaceId || !ws) {
     return NextResponse.json({ error: "not_authenticated" }, { status: 401 });
   }
 
@@ -38,9 +40,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "missing_key_id" }, { status: 400 });
   }
 
-  // Look up the key in the workspace and the caller's role in parallel.
+  // api_keys.workspace_id stores the `ws_<slug>` form (R2 prefix), while
+  // workspace_members.workspace_id is the workspaces.id UUID — so the two
+  // lookups need different identifiers.
   const [keys, members] = await Promise.all([
-    cloudAdminListKeys(principal.workspaceId).catch(() => []),
+    cloudAdminListKeys(slugToWorkspaceId(ws.slug)).catch(() => []),
     cloudAdminListMembers(principal.workspaceId).catch(() => []),
   ]);
   const key = keys.find((k) => k.key_id === keyId);
