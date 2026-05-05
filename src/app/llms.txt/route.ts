@@ -17,15 +17,16 @@
  * changes are rare.
  */
 
-import type { NextRequest } from "next/server";
+export const dynamic = "force-dynamic";
 
-export const runtime = "edge";
-
-export function GET(request: NextRequest) {
+export async function GET(request: Request): Promise<Response> {
   const requestUrl = new URL(request.url);
   // base = "https://<host>" with no trailing slash. For Cloud this is
-  // https://cloud.huozi.app; for an Edge deploy on
-  // myco.workers.dev it's https://myco.workers.dev.
+  // https://cloud.huozi.app; for an Edge deploy on myco.workers.dev
+  // it's https://myco.workers.dev. Derived from the request itself
+  // so the route works unchanged on every deploy without an env-var
+  // lookup, and so that custom domains in front of an Edge worker
+  // get the right hostname back.
   const base = `${requestUrl.protocol}//${requestUrl.host}`;
 
   return new Response(buildLlmsTxt(base), {
