@@ -182,21 +182,29 @@ export interface ProcessHtmlOptions {
    */
   assetBase?: string;
   /**
-   * SSR fetcher for stylesheet bytes. Called once per `<link rel="stylesheet"
-   * href="/__assets__/...">` when `scopeTo` is also set, so that external
-   * stylesheets get inlined as `<style>` and routed through the same `@scope`
-   * wrapper as inline `<style>` blocks. Returns the CSS text or `null` to
-   * drop the link silently.
+   * SSR fetcher for stylesheet bytes. Invoked once per `<link rel="stylesheet"
+   * href="/__assets__/...">` so the bytes ride the same sanitize / scope /
+   * dual-emit pipeline as inline `<style>` blocks instead of being loaded
+   * by the browser at runtime (where `<link>` ignores `@scope` and the
+   * dual-emit transform).
    *
-   * Without this, scoped contexts would leak — `<link>` tags ignore `@scope`,
-   * so author rules like `body { ... }` would still hit the workspace shell.
-   *
-   * Only invoked for hrefs starting with `/__assets__/`. Cross-origin
-   * stylesheets are dropped in scoped contexts (we can't isolate what we
-   * can't fetch). Unscoped contexts (`/p/<slug>` share view) keep `<link>`
-   * tags untouched and never hit this hook.
+   * Returns the CSS text or `null` to drop the link silently. Only invoked
+   * for hrefs starting with `/__assets__/`; cross-origin stylesheets are
+   * left alone (we can't transform what we can't fetch).
    */
   fetchAsset?: (url: string) => Promise<string | null>;
+  /**
+   * Unscoped sibling of `scopeTo`. When set, every `body > X` selector in
+   * the emitted CSS is dual-emitted as `body > X, <hostAsBody> > X` so the
+   * same author CSS works in BOTH the standalone context (real `<body>`)
+   * and the embedded context (`<article class="huozi-html-host">` inside a
+   * larger page). Used by `/p/<slug>` where author intent is "the file IS
+   * the page" but the article actually lives one DOM level below body.
+   *
+   * No-op when `scopeTo` is set — that path uses `@scope` to reach the
+   * same outcome more strictly (and rewrites `body` selectors to `:scope`).
+   */
+  hostAsBody?: string;
 }
 
 const ASSET_PREFIX = "/__assets__/";
@@ -220,14 +228,46 @@ function rewriteAssetRefs(html: string, assetBase: string): string {
   );
 }
 
+/** Dual-emit `body > X` selectors so they ALSO match `<hostAsBody> > X`.
+ *
+ * Unscoped contexts (the `/p/<slug>` share page) emit author CSS as-is to a
+ * page that has its own real `<body>`, but the article HTML is wrapped in
+ * an `<article class="huozi-html-host">` — so author rules like
+ * `body > nav { … }` silently fail to match (article isn't a direct child
+ * of body). This pass adds a parallel selector targeting the host wrapper:
+ *
+ *   body > nav, body > header { … }
+ *     →  body > nav, .huozi-html-host > nav,
+ *        body > header, .huozi-html-host > header { … }
+ *
+ * The original selectors are kept so the same CSS still works in standalone
+ * contexts (file:// or any host without huozi's wrapper). Compound prefixes
+ * like `.foo body > nav` are intentionally NOT rewritten — `body` must be a
+ * fresh selector token to qualify. */
+function dualEmitBodyChildren(css: string, hostAsBody: string): string {
+  // Selector list ends at `,` or `{`. Capture leading boundary char so we
+  // don't match `body` that's part of a longer selector chain.
+  return css.replace(
+    /(?<=^|[,{}])(\s*)(body\s*>\s*[^,{}]+?)(?=\s*[,{])/g,
+    (_match, ws: string, sel: string) => {
+      const childPart = sel.replace(/^body\s*>\s*/, "");
+      return `${ws}${sel}, ${hostAsBody} > ${childPart}`;
+    },
+  );
+}
+
 /** Rewrite top-level `:root` / `html` / `body` selectors to `:scope` so
  *  they target the scope root (the host wrapper) instead of being dead
- *  inside `@scope`. Only matches whole-token selectors followed by `,`
- *  or `{`; compound selectors like `body.dark` or `html > body` are left
- *  alone (they won't match anything in scope, which is the safe default). */
+ *  inside `@scope`. Matches whole-token selectors followed by:
+ *    `,` `{`  — `body { … }` or `body, html { … }`
+ *    `>`      — `body > nav { … }` (becomes `:scope > nav` so the author's
+ *                "direct child of the page" intent attaches to the host)
+ *    `:`      — `body::before { … }` / `body:hover { … }`
+ *  Compound selectors like `body.dark` or `body[lang]` are left alone
+ *  (they wouldn't match in scope; safe default). */
 function rewriteRootSelectorsToScope(css: string): string {
   return css.replace(
-    /(?<=^|[\s,{}])(:root|html|body)(?=\s*[,{])/g,
+    /(?<=^|[\s,{}])(:root|html|body)(?=\s*[,{>:])/g,
     ":scope",
   );
 }
@@ -253,37 +293,51 @@ export async function processHtmlDirect(
   if (isFullDocument) {
     const parsed = parseHtmlDocument(html);
     const styles: string[] = [...parsed.styles];
+    const consumedHrefs = new Set<string>();
 
-    // Scoped contexts (workspace inline preview): `<link rel="stylesheet">`
-    // bypasses `@scope`, so author rules like `body { ... }` would leak to
-    // the host shell. We fix that by SSR-fetching `/__assets__/*` stylesheets
-    // and folding their bytes into `styles[]` — they then ride the same
-    // sanitize + `@scope` path as inline `<style>` blocks. Cross-origin and
-    // non-stylesheet `<link>` tags get dropped in scoped mode (we can't
-    // isolate what we can't inline).
-    //
-    // Unscoped contexts (`/p/<slug>` share view, where the file IS the page)
-    // keep all `<link>` tags untouched — global CSS is intentional there.
-    if (opts.scopeTo && opts.fetchAsset) {
+    // SSR-inline workspace stylesheets (hrefs under /__assets__/) so the
+    // bytes ride the same sanitize / scope / dual-emit pipeline as inline
+    // `<style>` blocks. Critical for two reasons:
+    //   - Scoped (workspace): `<link>` bypasses `@scope`, so leaving stylesheets
+    //     external would leak `body { ... }` to the host shell.
+    //   - Unscoped (share): `<link>` bytes loaded by the browser at runtime
+    //     wouldn't be touched by our `body > X` dual-emit transform either,
+    //     so the author's reading column would silently fail to apply.
+    // External (non-/__assets__) hrefs are left untouched — we can't rewrite
+    // what we can't fetch, and they're the author's choice to load globally.
+    if (opts.fetchAsset) {
       for (const sheet of parsed.stylesheets) {
         if (!sheet.href.startsWith("/__assets__/")) continue;
         const css = await opts.fetchAsset(sheet.href);
-        if (css) styles.push(css);
+        if (css) {
+          styles.push(css);
+          consumedHrefs.add(sheet.href);
+        }
       }
     }
 
     // Rebuild: links + styles + body
     const parts: string[] = [];
     if (!opts.scopeTo) {
-      for (const sheet of parsed.stylesheets) parts.push(sheet.tag);
+      // Unscoped: keep stylesheets we couldn't (or didn't try to) inline,
+      // plus all other <link> tags (icon / alternate / manifest / …).
+      for (const sheet of parsed.stylesheets) {
+        if (!consumedHrefs.has(sheet.href)) parts.push(sheet.tag);
+      }
       for (const link of parsed.otherLinks) parts.push(link);
     }
-    for (const css of styles) {
-      const clean = sanitizeCss(css);
+    // Scoped mode drops every <link> regardless — we can't isolate them.
+
+    for (const rawCss of styles) {
+      const clean = sanitizeCss(rawCss);
       if (!clean) continue;
+      let css = clean;
+      if (opts.hostAsBody && !opts.scopeTo) {
+        css = dualEmitBodyChildren(css, opts.hostAsBody);
+      }
       const final = opts.scopeTo
-        ? `@scope (${opts.scopeTo}) {\n${rewriteRootSelectorsToScope(clean)}\n}`
-        : clean;
+        ? `@scope (${opts.scopeTo}) {\n${rewriteRootSelectorsToScope(css)}\n}`
+        : css;
       parts.push(`<style>${final}</style>`);
     }
     parts.push(parsed.body);

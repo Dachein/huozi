@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getShare } from "@/lib/drive/shares";
+import { cloudFetch } from "@/lib/cloud-fetch";
 import { renderMarkdown } from "@/lib/markdown/renderer";
 import { processHtmlDirect } from "@/lib/html/sanitizer";
 import { processChartComponents } from "@/lib/html/chart-components";
@@ -81,8 +82,34 @@ async function renderForPath(
     return await renderMarkdown(content, { assetBase: `/p/${slug}` });
   }
   if (e === "html" || e === "htm") {
+    // SSR-inline workspace stylesheets via the share-asset proxy so the
+    // bytes go through the dual-emit transform below. Without this the
+    // browser would fetch the CSS at runtime and `body > nav { ... }`
+    // wouldn't match — the article HTML lives inside a `huozi-html-host`
+    // wrapper, one DOM level below body.
+    const fetchAsset = async (url: string): Promise<string | null> => {
+      if (!url.startsWith("/__assets__/")) return null;
+      try {
+        const upstream = `/shares/${slug}/asset${url}`;
+        const res = await cloudFetch(upstream);
+        if (!res.ok) return null;
+        const ct = res.headers.get("Content-Type") ?? "";
+        if (!ct.toLowerCase().startsWith("text/css")) return null;
+        return await res.text();
+      } catch {
+        return null;
+      }
+    };
     const { html } = await processHtmlDirect(processChartComponents(text), {
       assetBase: `/p/${slug}`,
+      fetchAsset,
+      // Author writes `body > nav { … }` thinking the file IS the page.
+      // Share embeds article HTML inside `<article class="huozi-html-host">`,
+      // so the platform aliases the host wrapper as "body" via dual-emit:
+      // every `body > X` selector is also emitted as `.huozi-html-host > X`.
+      // Original selectors stay so the same CSS still works in standalone
+      // contexts (file://, GitHub Pages, …).
+      hostAsBody: ".huozi-html-host",
     });
     return html;
   }
