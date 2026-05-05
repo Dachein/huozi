@@ -23,7 +23,10 @@ function sanitizeCssValue(value: string): string {
 // Extract <style> content and body from full HTML document
 function parseHtmlDocument(html: string): {
   styles: string[];
-  links: string[];
+  /** External stylesheet links — split out so callers can inline+scope. */
+  stylesheets: { tag: string; href: string }[];
+  /** Non-stylesheet links (icon, alternate, manifest, …). */
+  otherLinks: string[];
   body: string;
   metaDescription?: string;
   metaOgTitle?: string;
@@ -31,7 +34,8 @@ function parseHtmlDocument(html: string): {
   metaOgImage?: string;
 } {
   const styles: string[] = [];
-  const links: string[] = [];
+  const stylesheets: { tag: string; href: string }[] = [];
+  const otherLinks: string[] = [];
   const meta: Record<string, string> = {};
 
   // Extract <style> tags from anywhere in the document
@@ -44,14 +48,24 @@ function parseHtmlDocument(html: string): {
     }
   }
 
-  // Extract <link> tags from anywhere in the document. We re-emit them so
-  // authors can reference workspace CSS / icons / fonts via /__assets__/...
-  // The asset-path rewrite (below in processHtmlDirect) repoints those at
-  // the share-scoped /p/<slug>/a/... proxy.
+  // Extract <link> tags from anywhere in the document. We split rel=stylesheet
+  // out from icon / alternate / manifest / etc.: stylesheets are the ones a
+  // scoped (`scopeTo`) caller may need to inline server-side so author CSS
+  // can't escape the host wrapper. Other links re-emit unchanged in unscoped
+  // contexts and get dropped in scoped contexts.
   const linkRegex = /<link\b[^>]*\/?>/gi;
   let linkMatch;
   while ((linkMatch = linkRegex.exec(html)) !== null) {
-    links.push(linkMatch[0]);
+    const tag = linkMatch[0];
+    const relMatch = tag.match(/\srel\s*=\s*["']?([^"'\s>]+)/i);
+    const rel = (relMatch?.[1] ?? "").toLowerCase();
+    if (rel === "stylesheet") {
+      const hrefMatch = tag.match(/\shref\s*=\s*["']([^"']+)["']/i);
+      const href = hrefMatch?.[1] ?? "";
+      stylesheets.push({ tag, href });
+    } else {
+      otherLinks.push(tag);
+    }
   }
 
   // Extract meta tags
@@ -87,7 +101,8 @@ function parseHtmlDocument(html: string): {
 
   return {
     styles,
-    links,
+    stylesheets,
+    otherLinks,
     body: body.trim(),
     metaDescription: meta["description"],
     metaOgTitle: meta["og:title"],
@@ -166,6 +181,22 @@ export interface ProcessHtmlOptions {
    *   - `/workspace/view` →    `assetBase: "/workspace"`   (cookie-auth proxy)
    */
   assetBase?: string;
+  /**
+   * SSR fetcher for stylesheet bytes. Called once per `<link rel="stylesheet"
+   * href="/__assets__/...">` when `scopeTo` is also set, so that external
+   * stylesheets get inlined as `<style>` and routed through the same `@scope`
+   * wrapper as inline `<style>` blocks. Returns the CSS text or `null` to
+   * drop the link silently.
+   *
+   * Without this, scoped contexts would leak — `<link>` tags ignore `@scope`,
+   * so author rules like `body { ... }` would still hit the workspace shell.
+   *
+   * Only invoked for hrefs starting with `/__assets__/`. Cross-origin
+   * stylesheets are dropped in scoped contexts (we can't isolate what we
+   * can't fetch). Unscoped contexts (`/p/<slug>` share view) keep `<link>`
+   * tags untouched and never hit this hook.
+   */
+  fetchAsset?: (url: string) => Promise<string | null>;
 }
 
 const ASSET_PREFIX = "/__assets__/";
@@ -207,10 +238,10 @@ function rewriteRootSelectorsToScope(css: string): string {
  * on* event handlers, and javascript: URLs. Everything else passes through
  * including <style>, inline style attributes, and all HTML tags.
  */
-export function processHtmlDirect(
+export async function processHtmlDirect(
   rawHtml: string,
   opts: ProcessHtmlOptions = {},
-): SanitizeResult {
+): Promise<SanitizeResult> {
   let html = rawHtml;
   let meta: SanitizeResult["meta"];
 
@@ -221,12 +252,33 @@ export function processHtmlDirect(
 
   if (isFullDocument) {
     const parsed = parseHtmlDocument(html);
+    const styles: string[] = [...parsed.styles];
+
+    // Scoped contexts (workspace inline preview): `<link rel="stylesheet">`
+    // bypasses `@scope`, so author rules like `body { ... }` would leak to
+    // the host shell. We fix that by SSR-fetching `/__assets__/*` stylesheets
+    // and folding their bytes into `styles[]` — they then ride the same
+    // sanitize + `@scope` path as inline `<style>` blocks. Cross-origin and
+    // non-stylesheet `<link>` tags get dropped in scoped mode (we can't
+    // isolate what we can't inline).
+    //
+    // Unscoped contexts (`/p/<slug>` share view, where the file IS the page)
+    // keep all `<link>` tags untouched — global CSS is intentional there.
+    if (opts.scopeTo && opts.fetchAsset) {
+      for (const sheet of parsed.stylesheets) {
+        if (!sheet.href.startsWith("/__assets__/")) continue;
+        const css = await opts.fetchAsset(sheet.href);
+        if (css) styles.push(css);
+      }
+    }
+
     // Rebuild: links + styles + body
     const parts: string[] = [];
-    for (const link of parsed.links) {
-      parts.push(link);
+    if (!opts.scopeTo) {
+      for (const sheet of parsed.stylesheets) parts.push(sheet.tag);
+      for (const link of parsed.otherLinks) parts.push(link);
     }
-    for (const css of parsed.styles) {
+    for (const css of styles) {
       const clean = sanitizeCss(css);
       if (!clean) continue;
       const final = opts.scopeTo

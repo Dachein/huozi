@@ -1,7 +1,10 @@
+import { cookies } from "next/headers";
 import { renderMarkdown } from "@/lib/markdown/renderer";
 import { processHtmlDirect } from "@/lib/html/sanitizer";
 import { processChartComponents } from "@/lib/html/chart-components";
 import { detectHuoziFormat } from "@/lib/html/detect-format";
+import { cloudFetch } from "@/lib/cloud-fetch";
+import { HUOZI_CLOUD_KEY_COOKIE } from "@/lib/drive/mcp-client";
 import { CsvGrid } from "@/components/csv-grid";
 
 /**
@@ -58,13 +61,37 @@ export async function FileRenderer({ path, content, raw }: FileRendererProps) {
   // workspace inline preview (root = sized wrapper), and Fullscreen
   // (FullscreenContent overrides the wrapper to viewport).
   if (ext === "html" || ext === "htm") {
-    const { html } = processHtmlDirect(processChartComponents(content), {
+    // SSR fetcher for inlined+scoped stylesheets. Only resolves /__assets__/*;
+    // pulls bytes via the same authenticated /me/asset endpoint that backs the
+    // browser-facing /workspace/a proxy, using the user's huozi-cloud-key.
+    // Returns null on auth miss / non-CSS / fetch error so the link silently
+    // disappears instead of leaking through to the host shell.
+    const cookieStore = await cookies();
+    const sessionKey = cookieStore.get(HUOZI_CLOUD_KEY_COOKIE)?.value;
+    const fetchAsset = async (url: string): Promise<string | null> => {
+      if (!sessionKey || !url.startsWith("/__assets__/")) return null;
+      const upstream = "/me/asset" + url;
+      try {
+        const res = await cloudFetch(upstream, {
+          headers: { Authorization: `Bearer ${sessionKey}` },
+        });
+        if (!res.ok) return null;
+        const ct = res.headers.get("Content-Type") ?? "";
+        if (!ct.toLowerCase().startsWith("text/css")) return null;
+        return await res.text();
+      } catch {
+        return null;
+      }
+    };
+
+    const { html } = await processHtmlDirect(processChartComponents(content), {
       scopeTo: ".huozi-html-host",
       // Route `<link href="/__assets__/...">`, `<img src="/__assets__/...">`,
       // etc. through the authenticated workspace asset proxy. Mirrors the
       // share path's `assetBase: "/p/<slug>"` — same rewrite, different
       // auth model. See `/workspace/a/[...path]/route.ts`.
       assetBase: "/workspace",
+      fetchAsset,
     });
     const layout = pickHtmlLayout(content);
     return (
