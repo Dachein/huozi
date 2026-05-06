@@ -486,7 +486,8 @@ export const zh = {
   "connect.picker.note.codex":
     "终端粘贴一次:注册 + 触发 OAuth + 确认身份",
   "connect.picker.note.cursor":
-    "加到 ~/.cursor/mcp.json,Reload Window(⌘⇧P);首次调用 huozi 自动弹浏览器 OAuth",
+    "一键添加到 Cursor,Cursor 原生接管;首次调用 huozi 自动弹浏览器 OAuth,无需 reload",
+  "connect.picker.cursor.button": "一键添加到 Cursor",
   "connect.picker.note.cowork":
     "在 Cowork:Customize → Connectors → + Add custom connector,粘下面的 URL",
   "connect.picker.note.generic":

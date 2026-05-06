@@ -84,6 +84,19 @@ interface Snippet {
   note: string;
 }
 
+/** Cursor's "Add to Cursor" deeplink — Cursor IDE handles the URL natively
+ *  (no Reload Window required). Spec:
+ *    cursor://anysphere.cursor-deeplink/mcp/install?name=<NAME>&config=<base64>
+ *  config is base64-encoded JSON of just the inner server entry (no
+ *  `mcpServers` wrapper). No Authorization header here — Choice 2 is
+ *  OAuth-on-first-use; static keys belong to Choice 1. */
+function cursorDeeplink(mcpUrl: string): string {
+  const inner = JSON.stringify({ type: "http", url: mcpUrl });
+  // btoa is fine in client components; mcpUrl is ASCII (host + /mcp)
+  const b64 = typeof btoa === "function" ? btoa(inner) : "";
+  return `cursor://anysphere.cursor-deeplink/mcp/install?name=huozi&config=${b64}`;
+}
+
 function snippetFor(
   agent: AgentKey,
   mcpUrl: string,
@@ -306,30 +319,45 @@ export function ConnectPicker({ mcpUrl }: { mcpUrl: string }) {
           {snippet.note}
         </div>
 
-        <div className="relative rounded-lg border-2 border-accent/40 bg-muted/40">
-          <pre
-            className={`overflow-x-auto px-4 py-3 pr-14 text-xs font-mono leading-relaxed ${
-              isOneLiner || isJustUrl
-                ? "whitespace-pre-wrap break-all"
-                : "whitespace-pre"
-            }`}
+        {agent === "cursor" ? (
+          /* Cursor's deeplink is handled by the IDE via the cursor:// OS
+             protocol handler — clicking adds the server to Cursor's own
+             config without touching ~/.cursor/mcp.json and without
+             requiring Reload Window. No Authorization header; Cursor
+             runs OAuth-on-first-use on the next MCP call. */
+          <a
+            href={cursorDeeplink(mcpUrl)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity shadow-sm"
           >
-            {snippet.body}
-          </pre>
-          <button
-            type="button"
-            onClick={() => copyText(snippet.body, "choice2")}
-            className={`absolute top-2 right-2 inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-all ${
-              copiedKind === "choice2"
-                ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
-                : "bg-foreground text-background hover:opacity-90 shadow-sm"
-            }`}
-          >
-            {copiedKind === "choice2"
-              ? t("connect.picker.copied")
-              : t("connect.picker.copy")}
-          </button>
-        </div>
+            <AgentLogo kind="cursor" size={16} />
+            <span>{t("connect.picker.cursor.button")}</span>
+          </a>
+        ) : (
+          <div className="relative rounded-lg border-2 border-accent/40 bg-muted/40">
+            <pre
+              className={`overflow-x-auto px-4 py-3 pr-14 text-xs font-mono leading-relaxed ${
+                isOneLiner || isJustUrl
+                  ? "whitespace-pre-wrap break-all"
+                  : "whitespace-pre"
+              }`}
+            >
+              {snippet.body}
+            </pre>
+            <button
+              type="button"
+              onClick={() => copyText(snippet.body, "choice2")}
+              className={`absolute top-2 right-2 inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                copiedKind === "choice2"
+                  ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
+                  : "bg-foreground text-background hover:opacity-90 shadow-sm"
+              }`}
+            >
+              {copiedKind === "choice2"
+                ? t("connect.picker.copied")
+                : t("connect.picker.copy")}
+            </button>
+          </div>
+        )}
 
         <p className="mt-3 text-[11px] text-muted-foreground leading-relaxed">
           {t("connect.picker.endpointLabel")}{" "}

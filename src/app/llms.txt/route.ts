@@ -181,6 +181,16 @@ slash command / reconnect).`;
   }
 }
 
+/** Base64'd JSON config for the Cursor "Add to Cursor" deeplink. The
+ *  inner config carries just the server entry (no `mcpServers` wrapper)
+ *  per Cursor's deeplink spec, with no Authorization header — Choice 2
+ *  is OAuth-on-first-use, so static keys belong to Choice 1. */
+function cursorDeeplinkConfig(base: string): string {
+  const inner = JSON.stringify({ type: "http", url: `${base}/mcp` });
+  // Workers runtime exposes btoa globally.
+  return btoa(inner);
+}
+
 function buildLlmsTxt(base: string, forKind: AgentKind | null): string {
   const host = base.replace(/^https?:\/\//, "");
 
@@ -359,8 +369,11 @@ ${step4Body}
 ### Step 5 — Verify
 
 Call \`huozi_whoami\` via the MCP. A workspace identity in the reply
-means done. A 401 means the api_key didn't land — re-check step 4
-and ask the user to reload their host (or \`/reload-mcp\` for Hermes).
+means done. A 401 means the api_key didn't land — re-check step 4.
+Most hosts pick up MCP config changes immediately (Cursor, Claude
+Code, Codex). Hermes needs the user to type \`/reload-mcp\` in chat;
+Claude Desktop needs an app restart. Don't ask for a reload until
+you've actually seen a 401.
 
 ### Security rules (always)
 
@@ -384,7 +397,7 @@ these snippets.
 | Codex         | \`codex mcp add huozi --url ${base}/mcp\` |
 | Hermes        | \`hermes mcp add huozi --url ${base}/mcp --auth oauth\` |
 | OpenClaw      | \`openclaw mcp set huozi '{"url":"${base}/mcp","transport":"streamable-http"}'\` |
-| Cursor        | Merge \`{"mcpServers":{"huozi":{"type":"http","url":"${base}/mcp"}}}\` into \`~/.cursor/mcp.json\`. Reload Window. |
+| Cursor        | One-click deeplink: \`cursor://anysphere.cursor-deeplink/mcp/install?name=huozi&config=${cursorDeeplinkConfig(base)}\` — Cursor handles it natively, no Reload needed. (Manual fallback: merge \`{"mcpServers":{"huozi":{"type":"http","url":"${base}/mcp"}}}\` into \`~/.cursor/mcp.json\`.) |
 | Cowork        | Customize → Connectors → + Add custom connector → URL \`${base}/mcp\` |
 
 ---

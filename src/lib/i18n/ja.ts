@@ -497,7 +497,8 @@ export const ja = {
   "connect.picker.note.codex":
     "ターミナルに一度貼り付け: 登録 + OAuth トリガー + 身元確認",
   "connect.picker.note.cursor":
-    "~/.cursor/mcp.json に追加し Reload Window(⌘⇧P);初回 huozi 呼び出しで自動でブラウザ OAuth",
+    "ワンクリック追加;Cursor がネイティブで処理,リロード不要;初回 huozi 呼び出しで自動でブラウザ OAuth",
+  "connect.picker.cursor.button": "Cursor に追加",
   "connect.picker.note.cowork":
     "Cowork で: Customize → Connectors → + Add custom connector、下の URL を貼り付け",
   "connect.picker.note.generic":

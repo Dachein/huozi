@@ -501,7 +501,8 @@ export const en = {
   "connect.picker.note.codex":
     "Paste once in terminal: register + trigger OAuth + confirm identity",
   "connect.picker.note.cursor":
-    "Add to ~/.cursor/mcp.json, Reload Window (⌘⇧P); first call to huozi auto-opens the browser for OAuth",
+    "One click — Cursor adds it natively, no reload needed; first call to huozi auto-opens the browser for OAuth",
+  "connect.picker.cursor.button": "Add to Cursor",
   "connect.picker.note.cowork":
     "In Cowork: Customize → Connectors → + Add custom connector. Paste the URL below.",
   "connect.picker.note.generic":
