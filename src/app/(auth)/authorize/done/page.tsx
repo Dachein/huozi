@@ -21,9 +21,10 @@
  *     handler, which only emits a URL pointing at the redirect_uri
  *     the client registered (and re-validated at /oauth/authorize).
  *     So the URL is trustworthy in the happy path.
- *   - As an extra safety net, we still hard-restrict the protocol to
- *     http/https on the client side before location.assign(). Defends
- *     against `javascript:` if any future bug let one slip through.
+ *   - As an extra safety net, the client gates protocols before
+ *     location.assign(): http/https or RFC 8252 private-use URI
+ *     schemes (e.g. cursor://) are allowed; javascript:/data:/file:/…
+ *     are explicitly denied if any future bug let one slip through.
  */
 
 import type { Metadata } from "next";

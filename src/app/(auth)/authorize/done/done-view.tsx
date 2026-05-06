@@ -22,13 +22,26 @@ const IFRAME_DONE_TIMEOUT_MS = 2500;
 
 type Phase = "counting" | "triggering" | "done";
 
-/** Allow only http(s) navigation. Belt-and-suspenders against URL
- *  injection — the worker already validated this URL, but the client
- *  is the last gate before we shove it into an iframe. */
+/** Belt-and-suspenders against URL injection — the worker already
+ *  validated this URL, but the client is the last gate before we shove
+ *  it into an iframe / window.location. We accept:
+ *    - http: / https:                    (loopback or remote web callback)
+ *    - private-use URI schemes           (RFC 8252, e.g. cursor://, com.x.app://)
+ *  and explicitly deny schemes that could execute in-page if mishandled. */
 function isSafeUrl(u: string): boolean {
   try {
     const parsed = new URL(u);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
+    const proto = parsed.protocol;
+    if (proto === "http:" || proto === "https:") return true;
+    const dangerous = new Set([
+      "javascript:",
+      "data:",
+      "vbscript:",
+      "file:",
+      "about:",
+      "blob:",
+    ]);
+    return !dangerous.has(proto);
   } catch {
     return false;
   }
