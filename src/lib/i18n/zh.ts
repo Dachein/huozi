@@ -484,7 +484,7 @@ export const zh = {
   "connect.picker.note.hermes":
     "终端粘贴一次:`--auth oauth` 触发 RFC 8252 PKCE 浏览器 OAuth(需 TTY 与本地浏览器)",
   "connect.picker.note.codex":
-    "终端粘贴一次:注册 + 触发 OAuth + 确认身份",
+    "把 TOML 块写进 ~/.codex/config.toml,然后跑 codex mcp login huozi 走浏览器 OAuth(token 由 codex 本地持有)",
   "connect.picker.note.cursor":
     "一键添加到 Cursor,Cursor 原生接管;首次调用 huozi 自动弹浏览器 OAuth,无需 reload",
   "connect.picker.cursor.button": "一键添加到 Cursor",

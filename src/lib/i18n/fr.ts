@@ -502,7 +502,7 @@ export const fr = {
   "connect.picker.note.hermes":
     "Collez une fois dans le terminal : --auth oauth déclenche RFC 8252 PKCE dans le navigateur (TTY et navigateur local requis)",
   "connect.picker.note.codex":
-    "Collez une fois dans le terminal : inscription + déclenchement OAuth + vérification d'identité",
+    "Ajoutez le bloc TOML à ~/.codex/config.toml, puis exécutez codex mcp login huozi pour l'OAuth navigateur (le jeton reste dans codex)",
   "connect.picker.note.cursor":
     "En un clic — Cursor l'ajoute nativement, sans rechargement ; le premier appel à huozi ouvre automatiquement le navigateur pour OAuth",
   "connect.picker.cursor.button": "Ajouter à Cursor",

@@ -132,13 +132,24 @@ openclaw mcp set huozi '{"url":"${base}/mcp","transport":"streamable-http","head
     case "codex":
       return `#### codex
 
-Two lines, run both:
+Codex configures HTTP MCP servers by editing \`~/.codex/config.toml\`
+(the \`codex mcp add\` CLI is stdio-only). Append this TOML block —
+preserve any existing entries:
 
+\`\`\`toml
+[mcp_servers.huozi]
+url = "${base}/mcp"
+bearer_token_env_var = "HUOZI_API_KEY"
 \`\`\`
+
+Then export the api_key from step 3 so codex picks it up on next start:
+
+\`\`\`bash
 export HUOZI_API_KEY=<api_key>
-codex mcp add huozi --url ${base}/mcp \\
-  --bearer-token-env-var HUOZI_API_KEY
-\`\`\``;
+\`\`\`
+
+Tell the user to add the \`export\` to their shell rc (zshrc / bashrc)
+so it persists, then restart codex.`;
     case "cowork":
       return `#### cowork
 
@@ -395,7 +406,7 @@ these snippets.
 | Host          | Command / action |
 |---------------|------------------|
 | Claude Code   | \`claude mcp add --transport http huozi ${base}/mcp\` |
-| Codex         | \`codex mcp add huozi --url ${base}/mcp\` |
+| Codex         | Add \`[mcp_servers.huozi] url="${base}/mcp"\` to \`~/.codex/config.toml\`, then \`codex mcp login huozi\` (browser OAuth, no api_key) |
 | Hermes        | \`hermes mcp add huozi --url ${base}/mcp --auth oauth\` |
 | OpenClaw      | \`openclaw mcp set huozi '{"url":"${base}/mcp","transport":"streamable-http"}'\` |
 | Cursor        | One-click deeplink: \`cursor://anysphere.cursor-deeplink/mcp/install?name=huozi&config=${cursorDeeplinkConfig(base)}\` — Cursor handles it natively, no Reload needed. (Manual fallback: merge \`{"mcpServers":{"huozi":{"type":"http","url":"${base}/mcp"}}}\` into \`~/.cursor/mcp.json\`.) |

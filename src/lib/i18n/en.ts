@@ -499,7 +499,7 @@ export const en = {
   "connect.picker.note.hermes":
     "Paste once in terminal: --auth oauth triggers RFC 8252 PKCE in the browser (needs a TTY and a local browser)",
   "connect.picker.note.codex":
-    "Paste once in terminal: register + trigger OAuth + confirm identity",
+    "Add the TOML block to ~/.codex/config.toml, then run codex mcp login huozi for browser OAuth (token stays inside codex)",
   "connect.picker.note.cursor":
     "One click — Cursor adds it natively, no reload needed; first call to huozi auto-opens the browser for OAuth",
   "connect.picker.cursor.button": "Add to Cursor",

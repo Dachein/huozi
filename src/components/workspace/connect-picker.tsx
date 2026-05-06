@@ -115,9 +115,17 @@ function snippetFor(
         body: `claude mcp add --transport http huozi ${mcpUrl} && claude "use huozi to check who I am"`,
       };
     case "codex":
+      // Codex's `mcp add` CLI only supports stdio servers. HTTP MCP
+      // servers are configured via ~/.codex/config.toml; OAuth-on-
+      // first-use is triggered explicitly via `codex mcp login`.
       return {
         note,
-        body: `codex mcp add huozi --url ${mcpUrl} && codex "use huozi to check who I am"`,
+        body: `# Add to ~/.codex/config.toml
+[mcp_servers.huozi]
+url = "${mcpUrl}"
+
+# Then trigger OAuth in the terminal:
+codex mcp login huozi`,
       };
     case "hermes":
       // --auth oauth is mandatory: it tells Hermes to run PKCE + DCR
@@ -192,7 +200,6 @@ export function ConnectPicker({ mcpUrl }: { mcpUrl: string }) {
   const snippet = snippetFor(agent, mcpUrl, t);
   const isOneLiner =
     agent === "claude-code" ||
-    agent === "codex" ||
     agent === "hermes" ||
     agent === "openclaw";
   const isJustUrl = agent === "cowork" || agent === "generic";

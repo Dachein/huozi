@@ -495,7 +495,7 @@ export const ja = {
   "connect.picker.note.hermes":
     "ターミナルに一度貼り付け: --auth oauth で RFC 8252 PKCE ブラウザ OAuth(TTY とローカルブラウザが必要)",
   "connect.picker.note.codex":
-    "ターミナルに一度貼り付け: 登録 + OAuth トリガー + 身元確認",
+    "TOML ブロックを ~/.codex/config.toml に追記、その後 codex mcp login huozi を実行してブラウザ OAuth(トークンは codex がローカル保持)",
   "connect.picker.note.cursor":
     "ワンクリック追加;Cursor がネイティブで処理,リロード不要;初回 huozi 呼び出しで自動でブラウザ OAuth",
   "connect.picker.cursor.button": "Cursor に追加",
