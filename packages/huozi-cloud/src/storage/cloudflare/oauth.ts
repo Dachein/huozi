@@ -209,19 +209,53 @@ export async function handleOauthRegister(
     }
     try {
       const parsed = new URL(u)
-      // Allow https:// or http://localhost (RFC 8252 native-app pattern).
-      const isHttps = parsed.protocol === 'https:'
+      // RFC 8252 allows three redirect-URI patterns for native apps:
+      //   1. Claimed HTTPS scheme        (https://app.example.com/cb)
+      //   2. Loopback IP                 (http://127.0.0.1:port/cb)
+      //   3. Private-use URI scheme      (cursor://…, com.example.app://…)
+      // We reject http://* on non-loopback hosts and a denylist of schemes
+      // that are dangerous as redirect targets (XSS / data exfil vectors).
+      const proto = parsed.protocol
+      const isHttps = proto === 'https:'
       const isLoopback =
-        parsed.protocol === 'http:' &&
+        proto === 'http:' &&
         (parsed.hostname === 'localhost' ||
           parsed.hostname === '127.0.0.1' ||
           parsed.hostname === '::1')
-      if (!isHttps && !isLoopback) {
+      const isPlainHttp = proto === 'http:' && !isLoopback
+      const dangerousSchemes = new Set([
+        'javascript:',
+        'data:',
+        'vbscript:',
+        'file:',
+        'about:',
+        'blob:',
+      ])
+      if (isPlainHttp) {
         return jsonError(
           'invalid_redirect_uri',
-          `redirect_uri ${u} must be https:// or http://localhost`,
+          `redirect_uri ${u} must be https:// (or http://localhost for dev)`,
           400,
         )
+      }
+      if (dangerousSchemes.has(proto)) {
+        return jsonError(
+          'invalid_redirect_uri',
+          `redirect_uri scheme ${proto} is not allowed`,
+          400,
+        )
+      }
+      if (!isHttps && !isLoopback) {
+        // Private-use URI scheme (RFC 8252 §7.1). Require a non-empty scheme
+        // followed by a colon — URL parser already enforced that. Disallow
+        // bare schemes (no authority/path) since those can't carry a code.
+        if (!parsed.pathname && !parsed.host && !parsed.hostname) {
+          return jsonError(
+            'invalid_redirect_uri',
+            `redirect_uri ${u} has no path or authority`,
+            400,
+          )
+        }
       }
     } catch {
       return jsonError('invalid_redirect_uri', `redirect_uri ${u} is not a URL`, 400)
