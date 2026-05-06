@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AgentLogo } from "./agent-logo";
+import { CopyButton } from "@/components/copy-button";
 import { useT } from "@/lib/i18n/context";
 
 /**
@@ -176,9 +177,6 @@ function snippetFor(
 export function ConnectPicker({ mcpUrl }: { mcpUrl: string }) {
   const t = useT();
   const [agent, setAgent] = useState<AgentKey>("claude-code");
-  const [copiedKind, setCopiedKind] = useState<"choice1" | "choice2" | null>(
-    null,
-  );
 
   // Derive the deploy's worker base by stripping /mcp off mcpUrl.
   // Cloud → https://cloud.huozi.app; Edge → https://<deployer>.workers.dev.
@@ -198,16 +196,6 @@ export function ConnectPicker({ mcpUrl }: { mcpUrl: string }) {
     agent === "hermes" ||
     agent === "openclaw";
   const isJustUrl = agent === "cowork" || agent === "generic";
-
-  async function copyText(text: string, kind: "choice1" | "choice2") {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedKind(kind);
-      setTimeout(() => setCopiedKind(null), 1500);
-    } catch {
-      /* ignore */
-    }
-  }
 
   return (
     <div className="rounded-md border border-border/60 bg-background/40 p-5 mb-3 space-y-6">
@@ -231,7 +219,6 @@ export function ConnectPicker({ mcpUrl }: { mcpUrl: string }) {
             value={agent}
             onChange={(e) => {
               setAgent(e.target.value as AgentKey);
-              setCopiedKind(null);
             }}
             className="appearance-none rounded-md border border-border bg-background pl-9 pr-9 py-1.5 text-sm font-medium hover:border-foreground/40 focus:outline-none focus:border-foreground/60 transition-colors cursor-pointer"
           >
@@ -282,19 +269,7 @@ export function ConnectPicker({ mcpUrl }: { mcpUrl: string }) {
           <pre className="overflow-x-auto px-4 py-3 pr-14 text-xs font-mono leading-relaxed whitespace-pre-wrap break-all">
             {choice1Body}
           </pre>
-          <button
-            type="button"
-            onClick={() => copyText(choice1Body, "choice1")}
-            className={`absolute top-2 right-2 inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-all ${
-              copiedKind === "choice1"
-                ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
-                : "bg-foreground text-background hover:opacity-90 shadow-sm"
-            }`}
-          >
-            {copiedKind === "choice1"
-              ? t("connect.picker.copied")
-              : t("connect.picker.copy")}
-          </button>
+          <CopyButton text={choice1Body} />
         </div>
       </section>
 
@@ -343,19 +318,7 @@ export function ConnectPicker({ mcpUrl }: { mcpUrl: string }) {
             >
               {snippet.body}
             </pre>
-            <button
-              type="button"
-              onClick={() => copyText(snippet.body, "choice2")}
-              className={`absolute top-2 right-2 inline-flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-all ${
-                copiedKind === "choice2"
-                  ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-400"
-                  : "bg-foreground text-background hover:opacity-90 shadow-sm"
-              }`}
-            >
-              {copiedKind === "choice2"
-                ? t("connect.picker.copied")
-                : t("connect.picker.copy")}
-            </button>
+            <CopyButton text={snippet.body} />
           </div>
         )}
 
