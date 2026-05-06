@@ -221,8 +221,9 @@ To drive Choice 1 (the Agent-driven device flow) you need:
 
 - An HTTP request tool that can POST JSON. Anything works: \`curl\`,
   the host runtime's \`fetch\`, Python \`requests\`, Node's
-  \`fetch\` / \`http\`, your platform's built-in HTTP client. The
-  protocol is plain HTTP; pick the tool you have.
+  \`fetch\` / \`http\`. **Avoid Python's stdlib \`urllib\`** — its
+  default User-Agent is on Cloudflare's bot-signature list and gets
+  403'd. Prefer \`requests\` / \`httpx\` / \`aiohttp\`, or just \`curl\`.
 - A way to print a clickable link to the user (almost every chat
   agent does this by default).
 - For Step 4 below: a file-write tool, **or** a shell tool that can
