@@ -40,7 +40,11 @@ export function parseName(raw: string | null): {
   if (m) {
     const candidate = m[1] as AgentKind;
     const kind = VALID_KINDS.has(candidate) ? candidate : "other";
-    return { label: raw.slice(m[0].length) || "(unnamed)", agentKind: kind };
+    // Empty label after a valid `[kind]` prefix is intentional —
+    // OAuth-minted keys store just `[<kind>]` and rely on the renderer
+    // to use kind-as-display-name. Don't substitute "(unnamed)" here;
+    // an empty string lets the UI hide the subtitle row entirely.
+    return { label: raw.slice(m[0].length), agentKind: kind };
   }
   // Pre-migration rows have no [kind] prefix — fall back to "other" and
   // surface the raw text as the label.

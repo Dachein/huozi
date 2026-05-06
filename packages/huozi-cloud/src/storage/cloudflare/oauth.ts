@@ -905,8 +905,12 @@ async function handleAuthCodeGrant(
   const refreshHash = await sha256Hex(refreshToken)
   const refreshExpiresAt = now + REFRESH_TOKEN_TTL_SECONDS * 1000
 
+  // Mint with just `[<kind>]` — the renderer derives the bold display
+  // name from the kind taxonomy, and the client_name suffix here was
+  // pure noise (e.g. "[claude-code] Claude Code (huozi)" produced a
+  // redundant "huozi" subtitle in the UI).
   const labelKind = inferAgentKind(client?.client_name ?? null)
-  const apiKeyName = `[${labelKind}] ${client?.client_name ?? 'OAuth client'}`
+  const apiKeyName = `[${labelKind}]`
 
   await env.DB.batch([
     env.DB.prepare(
@@ -1018,8 +1022,12 @@ async function handleRefreshGrant(
   )
     .bind(clientId)
     .first<{ client_name: string | null }>()
+  // Mint with just `[<kind>]` — the renderer derives the bold display
+  // name from the kind taxonomy, and the client_name suffix here was
+  // pure noise (e.g. "[claude-code] Claude Code (huozi)" produced a
+  // redundant "huozi" subtitle in the UI).
   const labelKind = inferAgentKind(client?.client_name ?? null)
-  const apiKeyName = `[${labelKind}] ${client?.client_name ?? 'OAuth client'}`
+  const apiKeyName = `[${labelKind}]`
 
   await env.DB.batch([
     env.DB.prepare(
@@ -1174,7 +1182,7 @@ function inferAgentKind(clientName: string | null): string {
   if (n.includes('claude code') || n === 'claude-code') return 'claude-code'
   if (n.includes('claude')) return 'desktop'
   if (n.includes('cursor')) return 'cursor'
-  if (n.includes('codex')) return 'other'
+  if (n.includes('codex')) return 'codex'
   if (n.includes('hermes')) return 'hermes'
   if (n.includes('openclaw')) return 'openclaw'
   return 'other'

@@ -293,7 +293,9 @@ function parseKeyName(raw: string | null): {
   if (!raw) return { label: "(unnamed)", agentKind: "other" };
   const m = raw.match(/^\[([a-z-]+)\]\s*(.*)$/);
   if (m) {
-    return { label: m[2] || "(unnamed)", agentKind: m[1]! };
+    // Empty label after `[kind]` is intentional (OAuth mint stores only
+    // the kind) — let it pass as "" so the renderer hides the subtitle.
+    return { label: m[2], agentKind: m[1]! };
   }
   return { label: raw, agentKind: "other" };
 }
