@@ -143,7 +143,7 @@ export const fr = {
   "ws.types.table": "Tableur",
   "ws.types.document": "Document",
   "ws.types.collection": "Collection",
-  "ws.types.page": "Page",
+  "ws.types.page": "Édition",
   "ws.types.other": "Autre",
 
   // Rendu Collection (.jsonl)
@@ -165,7 +165,7 @@ export const fr = {
   "ws.coll.historicalView": "version historique",
 
   "ws.onboard.heading": "Construisons votre CRM",
-  "ws.onboard.subheading": "Copiez un scénario, collez-le dans votre agent. Ces quatre cartes sont les quatre types de données qui travaillent ensemble — Tableur, Document, Collection, Page — chacune produit un fichier réel dans un mini espace de gestion clients.",
+  "ws.onboard.subheading": "Copiez un scénario, collez-le dans votre agent. Ces quatre cartes sont les quatre types de données qui travaillent ensemble — Tableur, Document, Collection, Édition — chacune produit un fichier réel dans un mini espace de gestion clients.",
 
   "ws.onboard.md.badge": ".md",
   "ws.onboard.md.title": "Un manuel de vente",
@@ -184,7 +184,7 @@ export const fr = {
 
   "ws.onboard.html.badge": ".html",
   "ws.onboard.html.title": "Une page de proposition",
-  "ws.onboard.html.scenario": "Page — artefact visuel fini. HTML assaini, 5 sous-formats.",
+  "ws.onboard.html.scenario": "Édition — artefact visuel fini. HTML assaini, 5 sous-formats.",
   "ws.onboard.html.prompt": "Crée une page de proposition de service annuel dans crm/proposals/acme-2026-q2.html pour le client Acme. Fond beige chaud, typographie serif, 3 pages : couverture (thème), arguments de valeur (3 points), tarifs (52 000 € annuels, 4 services inclus).",
 
   "ws.onboard.copy": "Copier le prompt",
