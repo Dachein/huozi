@@ -544,4 +544,26 @@ export const en = {
     "Token stays with the MCP client. It never enters the chat context.",
   "connect.picker.copy": "Copy",
   "connect.picker.copied": "✓ Copied",
+
+  // Inline edit (workspace view)
+  "editor.inline.button": "Edit",
+  "editor.inline.title": "Edit selection",
+  "editor.inline.save": "Save",
+  "editor.inline.saving": "Saving…",
+  "editor.inline.cancel": "Cancel",
+  "editor.inline.scope.md": "Editing markdown block",
+  "editor.inline.scope.html": "Editing element",
+  "editor.inline.scope.csv": "Editing cell",
+  "editor.inline.scope.jsonl": "Editing field",
+  "editor.inline.hint.jsonl":
+    "JSONL edits replace the field's value on the entity's latest line.",
+  "editor.inline.error.stale":
+    "File changed since the page loaded. Refresh and try again.",
+  "editor.inline.error.notfound":
+    "Selection no longer matches the file. Refresh and re-select.",
+  "editor.inline.error.ambiguous":
+    "Selection isn't unique in the file — pick a longer span.",
+  "editor.inline.error.forbidden":
+    "You don't have write access to this file.",
+  "editor.inline.error.generic": "Edit failed: {message}",
 } as const;

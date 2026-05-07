@@ -9,13 +9,49 @@
  */
 
 export function parseDelimited(text: string, delim = ","): string[][] {
-  if (text.length === 0) return [];
-  // Strip UTF-8 BOM if present.
-  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+  return parseDelimitedWithSpans(text, delim).values;
+}
+
+/** [startOffset, endOffset] byte range of a single cell in the original
+ *  source (post-BOM-strip). End is exclusive. The range covers the cell's
+ *  raw bytes including any enclosing quotes — replacement of the range
+ *  in the source preserves CSV grammar. */
+export type CellSpan = [number, number];
+
+export interface ParsedCsv {
+  values: string[][];
+  /** Per-row, per-column source byte spans, parallel to `values`. */
+  spans: CellSpan[][];
+  /** Bytes stripped from the head before parsing (0 or 1 — the BOM). Use
+   *  this to translate spans back to the *original* (pre-strip) bytes when
+   *  the caller needs to round-trip into a file edit. */
+  bomBytes: number;
+}
+
+/**
+ * Same parser as `parseDelimited` but also tracks the byte span of every
+ * cell in the source. Used by the workspace inline-edit feature to map a
+ * (rowIndex, colIndex) selection back to a unique substring for
+ * `huozi_edit`. Independent function (rather than an opts argument) so
+ * the hot zero-overhead read path stays untouched.
+ */
+export function parseDelimitedWithSpans(
+  text: string,
+  delim = ",",
+): ParsedCsv {
+  if (text.length === 0) return { values: [], spans: [], bomBytes: 0 };
+  let bomBytes = 0;
+  if (text.charCodeAt(0) === 0xfeff) {
+    text = text.slice(1);
+    bomBytes = 1;
+  }
 
   const rows: string[][] = [];
+  const spans: CellSpan[][] = [];
   let row: string[] = [];
+  let rowSpans: CellSpan[] = [];
   let field = "";
+  let fieldStart = 0;
   let inQuotes = false;
   let i = 0;
   const n = text.length;
@@ -47,26 +83,36 @@ export function parseDelimited(text: string, delim = ","): string[][] {
 
     if (c === delim) {
       row.push(field);
+      rowSpans.push([fieldStart, i]);
       field = "";
       i++;
+      fieldStart = i;
       continue;
     }
 
     if (c === "\r") {
       row.push(field);
+      rowSpans.push([fieldStart, i]);
       rows.push(row);
+      spans.push(rowSpans);
       row = [];
+      rowSpans = [];
       field = "";
       i += text[i + 1] === "\n" ? 2 : 1;
+      fieldStart = i;
       continue;
     }
 
     if (c === "\n") {
       row.push(field);
+      rowSpans.push([fieldStart, i]);
       rows.push(row);
+      spans.push(rowSpans);
       row = [];
+      rowSpans = [];
       field = "";
       i++;
+      fieldStart = i;
       continue;
     }
 
@@ -78,10 +124,12 @@ export function parseDelimited(text: string, delim = ","): string[][] {
   // row from a file that ends with a newline).
   if (field.length > 0 || row.length > 0) {
     row.push(field);
+    rowSpans.push([fieldStart, i]);
     rows.push(row);
+    spans.push(rowSpans);
   }
 
-  return rows;
+  return { values: rows, spans, bomBytes };
 }
 
 /** True when a value looks numeric (int, float, signed, scientific, percent). */

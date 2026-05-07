@@ -80,7 +80,7 @@ function buildProcessor(withSourcePos: boolean) {
   // Conditional `.use()` lives inside the chain via a no-op stub when
   // disabled — keeps unified's chained generic types stable across both
   // branches.
-  const noop = () => (_tree: unknown) => {};
+  const noop = () => () => {};
   return unified()
     .use(remarkParse)
     .use(remarkGfm)

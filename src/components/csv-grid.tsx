@@ -24,12 +24,15 @@ const EMPTY_GRID_SELECTION: GridSelection = Object.freeze({
 }) as GridSelection;
 import "@glideapps/glide-data-grid/dist/index.css";
 import {
-  parseDelimited,
+  parseDelimitedWithSpans,
   inferNumericColumns,
   isNumeric,
+  type CellSpan,
 } from "@/lib/csv/parse";
 import { useT } from "@/lib/i18n/context";
 import { useFullscreen } from "@/components/workspace/fullscreen-context";
+import { useEditableSurface } from "@/components/workspace/inline-edit";
+import type { EditRequest } from "@/components/workspace/inline-edit";
 
 export interface CsvGridProps {
   /** Raw file content. */
@@ -66,20 +69,31 @@ function measureColWidth(head: string, body: string[][], col: number): number {
 export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps) {
   const t = useT();
 
-  const { header, rows, numericCols } = useMemo(() => {
-    const all = parseDelimited(content, delim);
-    if (all.length === 0) {
+  const { header, rows, numericCols, headerSpans, bodySpans, bomBytes } = useMemo(() => {
+    const parsed = parseDelimitedWithSpans(content, delim);
+    if (parsed.values.length === 0) {
       return {
         header: [] as string[],
         rows: [] as string[][],
         numericCols: [] as boolean[],
+        headerSpans: [] as CellSpan[],
+        bodySpans: [] as CellSpan[][],
+        bomBytes: parsed.bomBytes,
       };
     }
-    const head = all[0]!;
-    const body = all.slice(1);
+    const head = parsed.values[0]!;
+    const body = parsed.values.slice(1);
     const nums = inferNumericColumns(body, head.length);
-    return { header: head, rows: body, numericCols: nums };
+    return {
+      header: head,
+      rows: body,
+      numericCols: nums,
+      headerSpans: parsed.spans[0] ?? [],
+      bodySpans: parsed.spans.slice(1),
+      bomBytes: parsed.bomBytes,
+    };
   }, [content, delim]);
+  void headerSpans; // header cell editing not in v1; keep parsed for future use.
 
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<{ col: number; dir: "asc" | "desc" } | null>(
@@ -102,11 +116,25 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
 
   const { fullscreen } = useFullscreen();
 
+  // `sourceIndex` is the row's position in the unfiltered, unsorted body
+  // — what `bodySpans[i]` indexes against. We thread it through filter
+  // + sort so the inline-edit modal can resolve a displayed-row click
+  // back to the right source bytes.
+  interface IndexedRow {
+    values: string[];
+    sourceIndex: number;
+  }
+  const indexed = useMemo<IndexedRow[]>(
+    () => rows.map((values, sourceIndex) => ({ values, sourceIndex })),
+    [rows],
+  );
   const filtered = useMemo(() => {
-    if (!query.trim()) return rows;
+    if (!query.trim()) return indexed;
     const q = query.toLowerCase();
-    return rows.filter((r) => r.some((cell) => cell.toLowerCase().includes(q)));
-  }, [rows, query]);
+    return indexed.filter((r) =>
+      r.values.some((cell) => cell.toLowerCase().includes(q)),
+    );
+  }, [indexed, query]);
 
   const sorted = useMemo(() => {
     if (!sort) return filtered;
@@ -114,8 +142,8 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
     const numeric = numericCols[col];
     const copy = filtered.slice();
     copy.sort((a, b) => {
-      const av = a[col] ?? "";
-      const bv = b[col] ?? "";
+      const av = a.values[col] ?? "";
+      const bv = b.values[col] ?? "";
       let cmp: number;
       if (numeric) {
         const an = isNumeric(av)
@@ -177,7 +205,7 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
 
   const getCellContent = useCallback(
     ([col, row]: Item): GridCell => {
-      const value = sorted[row]?.[col] ?? "";
+      const value = sorted[row]?.values[col] ?? "";
       return {
         kind: GridCellKind.Text,
         data: value,
@@ -384,13 +412,17 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
     </div>
   );
 
-  const detailValues =
+  const detailRow =
     detailRowIndex !== null ? sorted[detailRowIndex] : undefined;
 
-  const modal = detailValues ? (
+  const modal = detailRow ? (
     <RowDetailModal
       header={header}
-      values={detailValues}
+      values={detailRow.values}
+      sourceRowIndex={detailRow.sourceIndex}
+      bodySpans={bodySpans}
+      bomBytes={bomBytes}
+      delim={delim}
       numericCols={numericCols}
       rowNumber={detailRowIndex! + 1}
       totalRows={sorted.length}
@@ -409,6 +441,10 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
 interface RowDetailModalProps {
   header: string[];
   values: string[];
+  sourceRowIndex: number;
+  bodySpans: CellSpan[][];
+  bomBytes: number;
+  delim: string;
   numericCols: boolean[];
   rowNumber: number;
   totalRows: number;
@@ -418,6 +454,10 @@ interface RowDetailModalProps {
 function RowDetailModal({
   header,
   values,
+  sourceRowIndex,
+  bodySpans,
+  bomBytes,
+  delim,
   numericCols,
   rowNumber,
   totalRows,
@@ -425,6 +465,7 @@ function RowDetailModal({
 }: RowDetailModalProps) {
   const t = useT();
   const panelRef = useRef<HTMLDivElement>(null);
+  const surface = useEditableSurface();
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -433,6 +474,34 @@ function RowDetailModal({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  const requestCellEdit = useCallback(
+    (col: number, value: string) => {
+      if (!surface) return;
+      const span = bodySpans[sourceRowIndex]?.[col];
+      if (!span) return;
+      // Spans are post-BOM; absolute file offsets need bomBytes added
+      // back so the source-side `huozi_edit` matches the right bytes.
+      const fileStart = span[0] + bomBytes;
+      const fileEnd = span[1] + bomBytes;
+      const req: EditRequest = {
+        objectKind: "csv-cell",
+        // Show the parsed value (without surrounding quotes / un-escaped)
+        // so the user edits the human-readable text. The save flow
+        // re-encodes it for CSV via the csv-cell locator branch.
+        initialText: value,
+        locator: {
+          kind: "csv-cell",
+          start: fileStart,
+          end: fileEnd,
+          delim,
+        },
+      };
+      surface.requestEdit(req);
+      onClose();
+    },
+    [surface, bodySpans, sourceRowIndex, bomBytes, delim, onClose],
+  );
 
   const subtitle = t("csv.rowDetail.rowOf")
     .replace("{n}", rowNumber.toLocaleString())
@@ -476,21 +545,34 @@ function RowDetailModal({
             const value = values[i] ?? "";
             const isEmpty = value.length === 0;
             return (
-              <div key={i}>
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                  {name || `col ${i + 1}`}
+              <div key={i} className="group flex items-start gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                    {name || `col ${i + 1}`}
+                  </div>
+                  <div
+                    className={`mt-1 text-sm break-words whitespace-pre-wrap ${
+                      isEmpty
+                        ? "text-muted-foreground"
+                        : numericCols[i]
+                          ? "font-mono"
+                          : ""
+                    }`}
+                  >
+                    {isEmpty ? emptyPlaceholder : value}
+                  </div>
                 </div>
-                <div
-                  className={`mt-1 text-sm break-words whitespace-pre-wrap ${
-                    isEmpty
-                      ? "text-muted-foreground"
-                      : numericCols[i]
-                        ? "font-mono"
-                        : ""
-                  }`}
-                >
-                  {isEmpty ? emptyPlaceholder : value}
-                </div>
+                {surface && (
+                  <button
+                    type="button"
+                    onClick={() => requestCellEdit(i, value)}
+                    title={t("editor.inline.button")}
+                    aria-label={t("editor.inline.button")}
+                    className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity text-muted-foreground hover:text-foreground mt-1"
+                  >
+                    <PencilIcon />
+                  </button>
+                )}
               </div>
             );
           })}
@@ -499,6 +581,7 @@ function RowDetailModal({
     </div>
   );
 }
+
 
 /** Convert a CSS color string into rgba(...) with the given alpha.
  *  Accepts #rgb, #rrggbb, or any rgb()/hsl() — for non-hex inputs we
@@ -539,6 +622,25 @@ function HandleIcon() {
       <circle cx="10" cy="8" r="1.1" />
       <circle cx="6" cy="12" r="1.1" />
       <circle cx="10" cy="12" r="1.1" />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="12"
+      height="12"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M11 2 L14 5 L5 14 L2 14 L2 11 Z" />
+      <path d="M9 4 L12 7" />
     </svg>
   );
 }

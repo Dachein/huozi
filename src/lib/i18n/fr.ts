@@ -547,4 +547,26 @@ export const fr = {
     "Le jeton reste dans le client MCP. Il n'entre jamais dans le contexte de la conversation.",
   "connect.picker.copy": "Copier",
   "connect.picker.copied": "✓ Copié",
+
+  // Inline edit (workspace view)
+  "editor.inline.button": "Modifier",
+  "editor.inline.title": "Modifier la sélection",
+  "editor.inline.save": "Enregistrer",
+  "editor.inline.saving": "Enregistrement…",
+  "editor.inline.cancel": "Annuler",
+  "editor.inline.scope.md": "Modification d'un bloc markdown",
+  "editor.inline.scope.html": "Modification d'un élément",
+  "editor.inline.scope.csv": "Modification d'une cellule",
+  "editor.inline.scope.jsonl": "Modification d'un champ",
+  "editor.inline.hint.jsonl":
+    "Les modifications JSONL remplacent la valeur du champ sur la dernière ligne de l'entité.",
+  "editor.inline.error.stale":
+    "Le fichier a changé. Actualisez et réessayez.",
+  "editor.inline.error.notfound":
+    "La sélection ne correspond plus au fichier. Actualisez et resélectionnez.",
+  "editor.inline.error.ambiguous":
+    "La sélection n'est pas unique dans le fichier — choisissez une portion plus longue.",
+  "editor.inline.error.forbidden":
+    "Vous n'avez pas l'accès en écriture à ce fichier.",
+  "editor.inline.error.generic": "Échec de la modification : {message}",
 } as const;

@@ -529,4 +529,21 @@ export const zh = {
     "授权令牌由 MCP 客户端持有,不会进入对话上下文。",
   "connect.picker.copy": "复制",
   "connect.picker.copied": "✓ 已复制",
+
+  // Inline edit (workspace view)
+  "editor.inline.button": "编辑",
+  "editor.inline.title": "编辑选区",
+  "editor.inline.save": "保存",
+  "editor.inline.saving": "保存中…",
+  "editor.inline.cancel": "取消",
+  "editor.inline.scope.md": "正在编辑 markdown 段落",
+  "editor.inline.scope.html": "正在编辑元素",
+  "editor.inline.scope.csv": "正在编辑单元格",
+  "editor.inline.scope.jsonl": "正在编辑字段",
+  "editor.inline.hint.jsonl": "JSONL 编辑会替换该实体最新行的字段值。",
+  "editor.inline.error.stale": "文件已变化，请刷新后重试。",
+  "editor.inline.error.notfound": "选区已不在文件中，请刷新后重新选择。",
+  "editor.inline.error.ambiguous": "选区在文件中不唯一，请选长一点。",
+  "editor.inline.error.forbidden": "你没有写权限。",
+  "editor.inline.error.generic": "编辑失败: {message}",
 } as const;

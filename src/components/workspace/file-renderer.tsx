@@ -7,6 +7,8 @@ import { cloudFetch } from "@/lib/cloud-fetch";
 import { HUOZI_CLOUD_KEY_COOKIE } from "@/lib/drive/mcp-client";
 import { CsvGrid } from "@/components/csv-grid";
 import { CollectionView } from "@/components/collection-view";
+import { EditableSurface } from "@/components/workspace/inline-edit";
+import type { ObjectKind } from "@/components/workspace/inline-edit";
 
 /**
  * Renders a file's content based on its extension.
@@ -23,6 +25,13 @@ export interface FileRendererProps {
   content: string;
   /** When true, force raw/source view regardless of file type. */
   raw?: boolean;
+  /**
+   * When true, wrap renderable types in an EditableSurface so the user
+   * can select text and run an inline edit. Defaults to false; the
+   * workspace view enables it, the public `/p/<slug>` viewer leaves it
+   * off so unauthenticated readers don't see the affordance.
+   */
+  inlineEditable?: boolean;
 }
 
 function getExt(path: string): string {
@@ -31,7 +40,12 @@ function getExt(path: string): string {
   return path.slice(i + 1).toLowerCase();
 }
 
-export async function FileRenderer({ path, content, raw }: FileRendererProps) {
+export async function FileRenderer({
+  path,
+  content,
+  raw,
+  inlineEditable = false,
+}: FileRendererProps) {
   const ext = getExt(path);
 
   if (raw) {
@@ -43,13 +57,23 @@ export async function FileRenderer({ path, content, raw }: FileRendererProps) {
   // workspace asset proxy at /workspace/a/<path> so images, fonts, etc.
   // resolve via the user's session.
   if (ext === "md" || ext === "mdx") {
-    const html = await renderMarkdown(content, { assetBase: "/workspace" });
-    return (
+    const html = await renderMarkdown(content, {
+      assetBase: "/workspace",
+      withSourcePos: inlineEditable,
+    });
+    const rendered = (
       <article
         className="prose prose-sm sm:prose-base max-w-none break-words"
         dangerouslySetInnerHTML={{ __html: html }}
       />
     );
+    return wrapEditable({
+      enabled: inlineEditable,
+      path,
+      content,
+      kind: "md-block",
+      children: rendered,
+    });
   }
 
   // HTML — sanitize + chart processing, same as publish flow.
@@ -93,15 +117,23 @@ export async function FileRenderer({ path, content, raw }: FileRendererProps) {
       // auth model. See `/workspace/a/[...path]/route.ts`.
       assetBase: "/workspace",
       fetchAsset,
+      injectSourcePos: inlineEditable,
     });
     const layout = pickHtmlLayout(content);
-    return (
+    const rendered = (
       <div
         className={`huozi-html-host block ${layout.className}`}
         style={layout.style}
         dangerouslySetInnerHTML={{ __html: html }}
       />
     );
+    return wrapEditable({
+      enabled: inlineEditable,
+      path,
+      content,
+      kind: "html-element",
+      children: rendered,
+    });
   }
 
   // JSON — pretty-print.
@@ -117,14 +149,30 @@ export async function FileRenderer({ path, content, raw }: FileRendererProps) {
 
   // CSV / TSV — interactive table view.
   if (ext === "csv" || ext === "tsv") {
-    return <CsvGrid content={content} delim={ext === "tsv" ? "\t" : ","} />;
+    const grid = (
+      <CsvGrid content={content} delim={ext === "tsv" ? "\t" : ","} />
+    );
+    return wrapEditable({
+      enabled: inlineEditable,
+      path,
+      content,
+      kind: "csv-cell",
+      children: grid,
+    });
   }
 
   // JSONL — Collection: cards / stream / table / timeline. See
   // app/docs/four-types.md for the framing and src/lib/jsonl/ for the
   // parser + fold algorithm.
   if (ext === "jsonl") {
-    return <CollectionView content={content} />;
+    const view = <CollectionView content={content} />;
+    return wrapEditable({
+      enabled: inlineEditable,
+      path,
+      content,
+      kind: "jsonl-field",
+      children: view,
+    });
   }
 
   // Everything else: show as source. Code files get monospace + light wrap.
@@ -141,6 +189,40 @@ export async function FileRenderer({ path, content, raw }: FileRendererProps) {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
+
+interface WrapEditableArgs {
+  enabled: boolean;
+  path: string;
+  content: string;
+  kind: ObjectKind;
+  children: React.ReactNode;
+}
+
+/**
+ * Wrap a renderer's output in an EditableSurface when the caller asked
+ * for inline editing. The content string is inlined into a `data-source`
+ * attribute on the surface so the client can byte-slice into it without
+ * a separate fetch — small files only, but the workspace inline reader
+ * is already capped at the same 10 MB inline limit so this is no extra
+ * cost.
+ *
+ * When disabled (e.g. public /p/<slug>), returns the raw children with
+ * no wrapper.
+ */
+function wrapEditable({
+  enabled,
+  path,
+  content,
+  kind,
+  children,
+}: WrapEditableArgs): React.ReactElement {
+  if (!enabled) return <>{children}</>;
+  return (
+    <EditableSurface filePath={path} fileKind={kind} sourceContent={content}>
+      {children}
+    </EditableSurface>
+  );
+}
 
 interface HtmlLayout {
   className: string;

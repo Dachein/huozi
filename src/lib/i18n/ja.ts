@@ -541,4 +541,25 @@ export const ja = {
     "トークンは MCP クライアントが保持。チャットの文脈には入りません。",
   "connect.picker.copy": "コピー",
   "connect.picker.copied": "✓ コピー済み",
+
+  // Inline edit (workspace view)
+  "editor.inline.button": "編集",
+  "editor.inline.title": "選択範囲を編集",
+  "editor.inline.save": "保存",
+  "editor.inline.saving": "保存中…",
+  "editor.inline.cancel": "キャンセル",
+  "editor.inline.scope.md": "markdown ブロックを編集中",
+  "editor.inline.scope.html": "要素を編集中",
+  "editor.inline.scope.csv": "セルを編集中",
+  "editor.inline.scope.jsonl": "フィールドを編集中",
+  "editor.inline.hint.jsonl":
+    "JSONL の編集はエンティティの最新行のフィールド値を置き換えます。",
+  "editor.inline.error.stale":
+    "ファイルが変更されました。再読み込みしてやり直してください。",
+  "editor.inline.error.notfound":
+    "選択範囲がファイルと一致しません。再読み込みして選び直してください。",
+  "editor.inline.error.ambiguous":
+    "選択範囲がファイル内で一意ではありません — もっと長く選択してください。",
+  "editor.inline.error.forbidden": "このファイルへの書き込み権限がありません。",
+  "editor.inline.error.generic": "編集に失敗しました: {message}",
 } as const;

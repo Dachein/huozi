@@ -1,3 +1,5 @@
+import { injectSourcePositions } from "./source-pos";
+
 // Dangerous CSS patterns that can execute code or load external resources
 const DANGEROUS_CSS_PATTERNS = [
   /expression\s*\(/i, // IE CSS expressions
@@ -205,6 +207,16 @@ export interface ProcessHtmlOptions {
    * same outcome more strictly (and rewrites `body` selectors to `:scope`).
    */
   hostAsBody?: string;
+  /**
+   * When true, run `injectSourcePositions` over the input HTML before
+   * sanitization so every element carries a `data-obj-src="<start>,<end>"`
+   * attribute referencing its bounds in the **original** input bytes.
+   *
+   * Powers the workspace inline-edit feature. The existing sanitizer
+   * doesn't strip arbitrary attributes (`data-*` survives unchanged), so
+   * the injected attributes ride through to the rendered DOM.
+   */
+  injectSourcePos?: boolean;
 }
 
 const ASSET_PREFIX = "/__assets__/";
@@ -282,7 +294,10 @@ export async function processHtmlDirect(
   rawHtml: string,
   opts: ProcessHtmlOptions = {},
 ): Promise<SanitizeResult> {
-  let html = rawHtml;
+  // Inject `data-obj-src` on every open tag BEFORE any other rewriting.
+  // Offsets reference the original bytes — workspace inline-edit reads
+  // them client-side and slices into the unmodified `data-source`.
+  let html = opts.injectSourcePos ? injectSourcePositions(rawHtml) : rawHtml;
   let meta: SanitizeResult["meta"];
 
   const isFullDocument =
