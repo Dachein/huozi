@@ -113,8 +113,10 @@ async function renderForPath(
     });
     return html;
   }
-  // CSV / TSV: null → ShareViewer mounts the interactive client table.
-  if (e === "csv" || e === "tsv") {
+  // CSV / TSV / JSONL: null → ShareViewer mounts the matching interactive
+  // client viewer (CsvGrid for csv/tsv, CollectionView for jsonl). Server-
+  // side prerender doesn't help here — these viewers run in the browser.
+  if (e === "csv" || e === "tsv" || e === "jsonl") {
     return null;
   }
   // JSON / TXT / other: wrap in a preformatted block with minimal escaping.

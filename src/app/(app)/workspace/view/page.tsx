@@ -127,14 +127,14 @@ async function FileView({
     ? path.slice(0, path.lastIndexOf("/"))
     : "";
   const ext = (path.split(".").pop() ?? "").toLowerCase();
-  const canRender = ["md", "mdx", "html", "htm", "json", "csv", "tsv"].includes(ext);
+  const canRender = ["md", "mdx", "html", "htm", "json", "csv", "tsv", "jsonl"].includes(ext);
   const fullscreenMode: FullscreenMode = wantRaw
     ? null
     : ext === "md" || ext === "mdx"
       ? "reader"
       : ext === "html" || ext === "htm"
         ? "raw"
-        : ext === "csv" || ext === "tsv"
+        : ext === "csv" || ext === "tsv" || ext === "jsonl"
           ? "grid"
           : null;
 
@@ -388,7 +388,12 @@ async function FileBody({
           looks off.
         </div>
       )}
-      <FileRenderer path={path} content={raw} raw={wantRaw} />
+      <FileRenderer
+        path={path}
+        content={raw}
+        raw={wantRaw}
+        inlineEditable={!wantRaw && !paginated}
+      />
     </div>
   );
 }

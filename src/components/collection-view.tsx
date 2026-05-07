@@ -30,6 +30,8 @@ import {
   type ParseError,
 } from "@/lib/jsonl/parse";
 import { foldByEntity, foldSchema, type EntityState } from "@/lib/jsonl/fold";
+import { useEditableSurface } from "@/components/workspace/inline-edit";
+import type { EditRequest } from "@/components/workspace/inline-edit";
 
 /** A select-type option as declared in the schema. */
 interface FieldOption {
@@ -256,7 +258,7 @@ export function CollectionView({ content }: CollectionViewProps) {
   const filterFieldKeys = schema?.list_view?.filters ?? [];
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 flex-1 min-h-0">
       {/* Header: counts + (when in detail) back / prev / next */}
       <header className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-border/50">
         <div className="text-xs text-muted-foreground flex items-center gap-3">
@@ -678,6 +680,39 @@ function DetailView({
   const subtitleField = schema?.entity?.subtitle_field;
   const avatarField = schema?.entity?.avatar_field;
 
+  // Inline-edit surface (workspace view only; null on /p/<slug>).
+  // We only enable the per-field edit affordance when looking at the
+  // **latest** snapshot — editing an "as-of-T" historical view would
+  // surprise the user (the line we'd modify is the latest line, not
+  // the as-of one). The latest line is also the one that wins on fold,
+  // so editing it is the cleanest small-surgery.
+  const surface = useEditableSurface();
+  const latestLine = entity.history[entity.history.length - 1];
+  const requestFieldEdit = useCallback(
+    (fieldKey: string, value: unknown) => {
+      if (!surface || !latestLine) return;
+      // Restrict v1 to string-typed fields — non-strings (numbers,
+      // booleans, arrays, objects) can't safely round-trip through a
+      // plain textarea without exposing JSON syntax to the user.
+      if (typeof value !== "string") return;
+      const req: EditRequest = {
+        objectKind: "jsonl-field",
+        initialText: value,
+        locator: {
+          kind: "jsonl-field",
+          lineNumber: latestLine.lineNumber,
+          lineText: latestLine.originalText,
+          lineRaw: latestLine.raw,
+          fieldKey,
+        },
+      };
+      surface.requestEdit(req);
+    },
+    [surface, latestLine],
+  );
+  const canEditField = (value: unknown): value is string =>
+    isLatest && surface !== null && typeof value === "string";
+
   const title = (titleField && pickString(fields, titleField)) ?? entity.id;
   const subtitle = subtitleField ? pickString(fields, subtitleField) : null;
   const avatar = avatarField ? pickString(fields, avatarField) : null;
@@ -697,7 +732,7 @@ function DetailView({
   }, [entity.history, historyIndex]);
 
   return (
-    <div className="flex flex-col gap-8 min-h-[calc(100vh-14rem)]">
+    <div className="flex flex-col gap-8 flex-1 min-h-[calc(100vh-14rem)]">
     <div className="grid grid-cols-1 md:grid-cols-[1fr_280px] gap-6">
       {/* Main column */}
       <main className="space-y-4">
@@ -729,11 +764,20 @@ function DetailView({
           <section className="space-y-3 min-w-0">
             {slotted.body.map(([k, v, label]) => {
               const status = peekDiff ? fieldDiffStatus(k, v, priorState) : null;
+              const editable = canEditField(v);
               return (
-                <div key={k} className="min-w-0">
-                  <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
-                    {label}
-                  </h3>
+                <div key={k} className="min-w-0 group">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                      {label}
+                    </h3>
+                    {editable && (
+                      <EditPencil
+                        title={t("editor.inline.button")}
+                        onClick={() => requestFieldEdit(k, v)}
+                      />
+                    )}
+                  </div>
                   <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
                     <DiffValue
                       value={v}
@@ -756,18 +800,27 @@ function DetailView({
             <dl className="space-y-1.5">
               {slotted.unslotted.map(([k, v, label]) => {
                 const status = peekDiff ? fieldDiffStatus(k, v, priorState) : null;
+                const editable = canEditField(v);
                 return (
-                  <div key={k} className="flex gap-3 text-xs min-w-0">
+                  <div key={k} className="flex gap-3 text-xs min-w-0 group">
                     <dt className="text-muted-foreground shrink-0 w-32 font-mono">
                       {label}
                     </dt>
-                    <dd className="text-foreground font-mono break-all min-w-0 flex-1">
-                      <DiffValue
-                        value={v}
-                        priorValue={priorState[k]}
-                        status={status}
-                        type={schema?.fields?.[k]?.type}
-                      />
+                    <dd className="text-foreground font-mono break-all min-w-0 flex-1 flex items-start gap-2">
+                      <span className="min-w-0 break-all">
+                        <DiffValue
+                          value={v}
+                          priorValue={priorState[k]}
+                          status={status}
+                          type={schema?.fields?.[k]?.type}
+                        />
+                      </span>
+                      {editable && (
+                        <EditPencil
+                          title={t("editor.inline.button")}
+                          onClick={() => requestFieldEdit(k, v)}
+                        />
+                      )}
                     </dd>
                   </div>
                 );
@@ -792,11 +845,20 @@ function DetailView({
           <dl className="space-y-3">
             {slotted.aside.map(([k, v, label]) => {
               const status = peekDiff ? fieldDiffStatus(k, v, priorState) : null;
+              const editable = canEditField(v);
               return (
-                <div key={k} className="min-w-0">
-                  <dt className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
-                    {label}
-                  </dt>
+                <div key={k} className="min-w-0 group">
+                  <div className="flex items-center gap-2 mb-1">
+                    <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                      {label}
+                    </dt>
+                    {editable && (
+                      <EditPencil
+                        title={t("editor.inline.button")}
+                        onClick={() => requestFieldEdit(k, v)}
+                      />
+                    )}
+                  </div>
                   <dd className="break-words min-w-0">
                     <DiffValue
                       value={v}
@@ -1405,4 +1467,38 @@ function shortAt(at: string): string {
   const m = at.match(/^(\d{4}-\d{2}-\d{2})(?:T(\d{2}:\d{2}))?/);
   if (!m) return at;
   return m[2] ? `${m[1]} ${m[2]}` : m[1]!;
+}
+
+/** Hover-revealed pencil button for inline-editing a JSONL field. */
+function EditPencil({
+  onClick,
+  title,
+}: {
+  onClick(): void;
+  title: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+    >
+      <svg
+        viewBox="0 0 16 16"
+        width="12"
+        height="12"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M11 2 L14 5 L5 14 L2 14 L2 11 Z" />
+        <path d="M9 4 L12 7" />
+      </svg>
+    </button>
+  );
 }

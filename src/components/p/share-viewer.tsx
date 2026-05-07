@@ -16,6 +16,7 @@
 import { useState } from "react";
 import { PasscodeForm } from "./passcode-form";
 import { CsvGrid } from "@/components/csv-grid";
+import { CollectionView } from "@/components/collection-view";
 import {
   FullscreenContent,
   type FullscreenMode,
@@ -41,13 +42,14 @@ interface ShareViewerProps {
   htmlFormat?: "web" | "mobile" | "deck" | "story" | "paper";
 }
 
-type Kind = "csv" | "tsv" | "prose" | "source";
+type Kind = "csv" | "tsv" | "jsonl" | "prose" | "source";
 
 function kindFor(filePath: string, hasPrerendered: boolean): Kind {
   const i = filePath.lastIndexOf(".");
   const ext = i < 0 ? "" : filePath.slice(i + 1).toLowerCase();
   if (ext === "csv") return "csv";
   if (ext === "tsv") return "tsv";
+  if (ext === "jsonl") return "jsonl";
   if (hasPrerendered) return "prose";
   return "source";
 }
@@ -60,7 +62,7 @@ function fullscreenModeFor(filePath: string): FullscreenMode {
   const i = filePath.lastIndexOf(".");
   const ext = i < 0 ? "" : filePath.slice(i + 1).toLowerCase();
   if (ext === "html" || ext === "htm") return "raw";
-  if (ext === "csv" || ext === "tsv") return "grid";
+  if (ext === "csv" || ext === "tsv" || ext === "jsonl") return "grid";
   return "reader";
 }
 
@@ -91,15 +93,15 @@ export function ShareViewer(props: ShareViewerProps) {
   }
 
   // After client-side unlock we only have raw text — route by extension into
-  // the same source / csv path. Prose stays as source here (server-side
-  // sanitizer / chart pipeline isn't available client-side).
+  // the same source / csv / jsonl path. Prose stays as source here (server-
+  // side sanitizer / chart pipeline isn't available client-side).
   if (unlocked) {
     const filePath = unlocked.file_path;
     const text = unlocked.text ?? "";
     const kind = kindFor(filePath, false);
     return (
       <FullscreenContent
-        mode={kind === "csv" || kind === "tsv" ? "grid" : "reader"}
+        mode={fullscreenModeFor(filePath)}
         pages={[]}
         pageUnit="page"
         htmlFormat="web"
@@ -108,6 +110,8 @@ export function ShareViewer(props: ShareViewerProps) {
       >
         {kind === "csv" || kind === "tsv" ? (
           <CsvGrid content={text} delim={kind === "tsv" ? "\t" : ","} />
+        ) : kind === "jsonl" ? (
+          <CollectionView content={text} />
         ) : (
           <SourceBlock content={text || "(binary)"} />
         )}
@@ -133,6 +137,12 @@ export function ShareViewer(props: ShareViewerProps) {
             content={props.rawText}
             delim={kind === "tsv" ? "\t" : ","}
           />
+        ) : (
+          <EmptyHint />
+        )
+      ) : kind === "jsonl" ? (
+        props.rawText ? (
+          <CollectionView content={props.rawText} />
         ) : (
           <EmptyHint />
         )
