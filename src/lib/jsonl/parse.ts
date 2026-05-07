@@ -24,6 +24,11 @@
 export interface CollectionLine {
   /** 1-based line number within the source file. */
   lineNumber: number;
+  /** The exact source bytes of this line (post-BOM-strip, no trailing
+   *  newline). Round-tripping into a `huozi_edit` requires the original
+   *  bytes — re-serializing `raw` would normalize whitespace and drop
+   *  authoring choices. */
+  originalText: string;
   /** Required identity. */
   id: string;
   /** Optional RFC 3339 timestamp string (kept as-is, not parsed). */
@@ -49,6 +54,8 @@ export interface CollectionLine {
 export interface SchemaLine {
   /** 1-based line number within the source file. */
   lineNumber: number;
+  /** The exact source bytes of this line (post-BOM-strip, no trailing newline). */
+  originalText: string;
   /** Optional RFC 3339 timestamp; orders schemas chronologically. */
   at?: string;
   /** Optional actor who wrote this schema event. */
@@ -142,6 +149,7 @@ export function parseJsonl(content: string): ParseResult {
           : {};
       schemas.push({
         lineNumber,
+        originalText: text,
         at,
         by,
         version,
@@ -172,6 +180,7 @@ export function parseJsonl(content: string): ParseResult {
 
     lines.push({
       lineNumber,
+      originalText: text,
       id,
       at,
       by,
