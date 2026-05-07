@@ -697,6 +697,7 @@ function DetailView({
   }, [entity.history, historyIndex]);
 
   return (
+    <div className="space-y-8">
     <div className="grid grid-cols-1 md:grid-cols-[1fr_280px] gap-6">
       {/* Main column */}
       <main className="space-y-4">
@@ -765,74 +766,6 @@ function DetailView({
           </section>
         )}
 
-        <section>
-          <header className="flex items-center justify-between gap-2 mb-2">
-            <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              {t("ws.coll.view.timeline")} · {entity.history.length}
-            </h3>
-            {entity.history.length > 1 && (
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={onOlder}
-                  disabled={!canGoOlder}
-                  className="text-[11px] px-2 py-0.5 rounded border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
-                  title="↑"
-                  aria-label="Older version"
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  onClick={onNewer}
-                  disabled={!canGoNewer}
-                  className="text-[11px] px-2 py-0.5 rounded border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
-                  title="↓"
-                  aria-label="Newer version"
-                >
-                  ↓
-                </button>
-                <span className="text-[10px] text-muted-foreground/60 font-mono ml-1">
-                  v{historyIndex + 1}/{entity.history.length}
-                  {!isLatest && (
-                    <span className="ml-1 text-amber-600 dark:text-amber-400">
-                      · {t("ws.coll.historicalView")}
-                    </span>
-                  )}
-                </span>
-                <span
-                  className={`hidden md:inline text-[10px] font-mono ml-2 transition-colors ${
-                    peekDiff
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-muted-foreground/40"
-                  }`}
-                  title="Hold Space to highlight added / modified fields"
-                >
-                  {peekDiff ? "▣" : "□"} {t("ws.coll.peekDiff")}
-                </span>
-              </div>
-            )}
-          </header>
-          <div className="relative">
-            {/* Older versions, peeking from behind/above the active card. */}
-            {historyIndex >= 2 && (
-              <StackPeek position="above" depth={2} onClick={onOlder} />
-            )}
-            {historyIndex >= 1 && (
-              <StackPeek position="above" depth={1} onClick={onOlder} />
-            )}
-
-            {activeEvent && <EventBanner line={activeEvent} />}
-
-            {/* Newer versions, peeking from below/in front. */}
-            {historyIndex < entity.history.length - 1 && (
-              <StackPeek position="below" depth={1} onClick={onNewer} />
-            )}
-            {historyIndex < entity.history.length - 2 && (
-              <StackPeek position="below" depth={2} onClick={onNewer} />
-            )}
-          </div>
-        </section>
       </main>
 
       {/* Aside */}
@@ -863,6 +796,78 @@ function DetailView({
           </dl>
         )}
       </aside>
+    </div>
+
+    {/* History controls — moved to the bottom so they don't interrupt
+        reading the snapshot. Acts as a footer-style nav strip. */}
+    <section className="pt-4 border-t border-border/40">
+      <header className="flex items-center justify-between gap-2 mb-2">
+        <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground">
+          {t("ws.coll.view.timeline")} · {entity.history.length}
+        </h3>
+        {entity.history.length > 1 && (
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={onOlder}
+              disabled={!canGoOlder}
+              className="text-[11px] px-2 py-0.5 rounded border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+              title="↑"
+              aria-label="Older version"
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              onClick={onNewer}
+              disabled={!canGoNewer}
+              className="text-[11px] px-2 py-0.5 rounded border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+              title="↓"
+              aria-label="Newer version"
+            >
+              ↓
+            </button>
+            <span className="text-[10px] text-muted-foreground/60 font-mono ml-1">
+              v{historyIndex + 1}/{entity.history.length}
+              {!isLatest && (
+                <span className="ml-1 text-amber-600 dark:text-amber-400">
+                  · {t("ws.coll.historicalView")}
+                </span>
+              )}
+            </span>
+            <span
+              className={`hidden md:inline text-[10px] font-mono ml-2 transition-colors ${
+                peekDiff
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-muted-foreground/40"
+              }`}
+              title="Hold Space to highlight added / modified fields"
+            >
+              {peekDiff ? "▣" : "□"} {t("ws.coll.peekDiff")}
+            </span>
+          </div>
+        )}
+      </header>
+      <div className="relative">
+        {/* Older versions, peeking from behind/above the active card. */}
+        {historyIndex >= 2 && (
+          <StackPeek position="above" depth={2} onClick={onOlder} />
+        )}
+        {historyIndex >= 1 && (
+          <StackPeek position="above" depth={1} onClick={onOlder} />
+        )}
+
+        {activeEvent && <EventBanner line={activeEvent} />}
+
+        {/* Newer versions, peeking from below/in front. */}
+        {historyIndex < entity.history.length - 1 && (
+          <StackPeek position="below" depth={1} onClick={onNewer} />
+        )}
+        {historyIndex < entity.history.length - 2 && (
+          <StackPeek position="below" depth={2} onClick={onNewer} />
+        )}
+      </div>
+    </section>
     </div>
   );
 }
