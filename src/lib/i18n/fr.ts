@@ -56,7 +56,7 @@ export const fr = {
   "recent.folderCreated": "dossier créé",
   "recent.filter.view.label": "Filtre",
   "recent.filter.view.works": "Œuvres",
-  "recent.filter.view.assets": "Assets",
+  "recent.filter.view.assets": "Ressources",
 
   // Workspace · erreur / indice de la vue de fichier
   "view.error.label": "Erreur",

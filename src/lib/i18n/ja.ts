@@ -55,7 +55,7 @@ export const ja = {
   "recent.folderCreated": "フォルダ作成",
   "recent.filter.view.label": "フィルター",
   "recent.filter.view.works": "作品",
-  "recent.filter.view.assets": "Assets",
+  "recent.filter.view.assets": "素材",
 
   // ワークスペース · ファイルビューのエラー / ヒント
   "view.error.label": "エラー",

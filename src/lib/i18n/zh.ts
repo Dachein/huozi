@@ -55,7 +55,7 @@ export const zh = {
   "recent.folderCreated": "新建目录",
   "recent.filter.view.label": "过滤",
   "recent.filter.view.works": "作品",
-  "recent.filter.view.assets": "Assets",
+  "recent.filter.view.assets": "素材",
 
   // 云盘 · 文件视图错误 / 提示
   "view.error.label": "错误",
@@ -141,7 +141,7 @@ export const zh = {
   "ws.types.all": "全部",
   "ws.types.table": "表",
   "ws.types.document": "文",
-  "ws.types.collection": "本",
+  "ws.types.collection": "集",
   "ws.types.page": "页",
   "ws.types.other": "其他",
 
@@ -153,7 +153,7 @@ export const zh = {
   "ws.coll.entities": "{n} 个实体",
   "ws.coll.events": "{n} 行事件",
   "ws.coll.errors": "{n} 行解析错误",
-  "ws.coll.empty.title": "这是一本 Collection",
+  "ws.coll.empty.title": "这是一集 Collection",
   "ws.coll.empty.body": "Collection 是 huozi 的 4 件套之一,记录有身份和时间的实体流水。让 Agent 追加第一条事件来开始。",
   "ws.coll.empty.prompt": "在这个 jsonl 文件里追加第一条事件。每行是一个 JSON 对象,至少有 id 字段(实体身份),建议加 at(时间)、by(操作人)、op(动作)。append-only,不要原地改老行。",
   "ws.coll.deleted": "已删除",
@@ -161,7 +161,7 @@ export const zh = {
   "ws.coll.backToList": "← 返回",
 
   "ws.onboard.heading": "开始造你的客户管理库",
-  "ws.onboard.subheading": "复制一段场景话术，粘给你的 Agent。这 4 张卡是一个完整 CRM 的 4 件套——表 / 文 / 本 / 页 各司其职，每张产出一个真实文件。",
+  "ws.onboard.subheading": "复制一段场景话术，粘给你的 Agent。这 4 张卡是一个完整 CRM 的 4 件套——表 / 文 / 集 / 页 各司其职，每张产出一个真实文件。",
 
   "ws.onboard.md.badge": ".md",
   "ws.onboard.md.title": "一份客户跟进话术",
@@ -174,7 +174,7 @@ export const zh = {
   "ws.onboard.csv.prompt": "在 crm/customers.csv 建一张客户名册，记录 8 家 SMB 客户，覆盖 3 个不同行业。列：name、industry、size、region、contact_name、phone、since。",
 
   "ws.onboard.jsonl.badge": ".jsonl",
-  "ws.onboard.jsonl.title": "一本客户互动流水",
+  "ws.onboard.jsonl.title": "一集客户互动流水",
   "ws.onboard.jsonl.scenario": "Collection — 实体集合。每条带身份和时间，append-only 自带历史。",
   "ws.onboard.jsonl.prompt": "在 crm/interactions.jsonl 建一份客户互动流水（jsonl，每行一条事件，append-only）。给客户 cust_acme 写 4 条事件：电话沟通、发送提案、客户反馈、签约成交。每行字段：id（事件 id）、at（时间）、by（操作人）、op（动作如 call / proposal_sent / feedback / closed_won）、customer_id，以及该动作相关字段（备注、金额等）。",
 

@@ -170,7 +170,7 @@ function EmptyState({ t }: { t: (k: string) => string }) {
   return (
     <div className="rounded-xl border border-border/60 bg-muted/20 p-6">
       <div className="flex items-baseline gap-3 mb-3">
-        <span className="font-serif text-3xl text-accent leading-none">本</span>
+        <span className="font-serif text-3xl text-accent leading-none">集</span>
         <h3 className="font-serif text-base font-bold">
           {t("ws.coll.empty.title")}
         </h3>

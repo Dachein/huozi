@@ -228,28 +228,36 @@ export function FileTree({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Type filter chips — the four data-type categories (see app/docs/four-types.md).
-          Clicking the active chip clears back to All. Chips with zero
-          matches render dimmed but still clickable to make the empty
-          state explicit. */}
-      <div className="flex flex-wrap gap-1.5 px-3 pt-3 pb-2 border-b border-border/40">
-        <Chip
-          label={t("ws.types.all")}
-          count={paths.length}
-          active={typeFilter === "all"}
-          onClick={() => setTypeFilter("all")}
-        />
-        {FOUR_TYPES.map((tp) => (
-          <Chip
-            key={tp}
-            label={t(`ws.types.${tp}`)}
-            count={counts[tp]}
-            active={typeFilter === tp}
-            onClick={() =>
-              setTypeFilter((prev) => (prev === tp ? "all" : tp))
-            }
-          />
-        ))}
+      {/* Type filter dropdown — the four data-type categories (see
+          app/docs/four-types.md). Native select keeps the sidebar
+          compact and accessible without bespoke popover plumbing. */}
+      <div className="px-3 pt-3 pb-2 border-b border-border/40">
+        <select
+          value={typeFilter}
+          onChange={(e) =>
+            setTypeFilter(e.target.value as FileType | "all")
+          }
+          aria-label={t("ws.types.all")}
+          className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:border-foreground/40 cursor-pointer"
+        >
+          <option value="all">
+            {t("ws.types.all")} · {paths.length}
+          </option>
+          {FOUR_TYPES.map((tp) => (
+            <option
+              key={tp}
+              value={tp}
+              disabled={counts[tp] === 0}
+            >
+              {t(`ws.types.${tp}`)} · {counts[tp]}
+            </option>
+          ))}
+          {counts.other > 0 && (
+            <option value="other">
+              {t("ws.types.other")} · {counts.other}
+            </option>
+          )}
+        </select>
       </div>
 
       {/* Search */}
@@ -521,34 +529,3 @@ function FileLeafLink({
   );
 }
 
-function Chip({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  label: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  const empty = count === 0;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${
-        active
-          ? "border-foreground/40 bg-foreground text-background"
-          : empty
-            ? "border-border/30 text-muted-foreground/50 hover:bg-muted/30"
-            : "border-border/60 text-muted-foreground hover:bg-muted/60"
-      }`}
-    >
-      {label}
-      {count > 0 && (
-        <span className="ml-1 opacity-60 font-mono">{count}</span>
-      )}
-    </button>
-  );
-}

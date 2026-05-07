@@ -174,7 +174,7 @@ export default async function CloudWorkspacePage() {
                 },
                 {
                   badge: _("ws.onboard.jsonl.badge"),
-                  glyph: "本",
+                  glyph: "集",
                   title: _("ws.onboard.jsonl.title"),
                   scenario: _("ws.onboard.jsonl.scenario"),
                   prompt: _("ws.onboard.jsonl.prompt"),
