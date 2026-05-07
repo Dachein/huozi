@@ -137,23 +137,51 @@ export const ja = {
   "ws.filled.footer.apiDocs": "API ドキュメント",
 
 
-  "ws.onboard.heading": "何か作ってみよう",
-  "ws.onboard.subheading": "下のシナリオをコピーして Agent に貼り、最初のファイルがここにリアルタイムで現れるのを見てみましょう。作りたい形式を選んで — あとは Agent に任せます。",
+  // 4 つのデータ型カテゴリ — app/docs/four-types.md を参照
+  "ws.types.all": "すべて",
+  "ws.types.table": "Table",
+  "ws.types.document": "Document",
+  "ws.types.collection": "Collection",
+  "ws.types.page": "Page",
+  "ws.types.other": "その他",
+
+  // Collection (.jsonl) レンダラー
+  "ws.coll.view.current": "現在",
+  "ws.coll.view.stream": "ストリーム",
+  "ws.coll.view.table": "テーブル",
+  "ws.coll.view.timeline": "タイムライン",
+  "ws.coll.entities": "{n} エンティティ",
+  "ws.coll.events": "{n} イベント",
+  "ws.coll.errors": "{n} 解析エラー",
+  "ws.coll.empty.title": "これは Collection です",
+  "ws.coll.empty.body": "Collection は huozi の 4 つのデータ型の 1 つ — ID と時刻を持つエンティティの流れ。Agent に最初のイベントを追加するよう依頼してください。",
+  "ws.coll.empty.prompt": "この jsonl ファイルに最初のイベントを追加して。各行は JSON オブジェクトで、少なくとも `id` フィールド（エンティティ ID）が必要。推奨: `at`（タイムスタンプ）、`by`（実行者）、`op`（動詞）。Append-only — 既存行をその場で編集しない。",
+  "ws.coll.deleted": "削除済み",
+  "ws.coll.pickEntity": "エンティティを選んでタイムラインを見る",
+  "ws.coll.backToList": "← 戻る",
+
+  "ws.onboard.heading": "あなたの CRM を作ろう",
+  "ws.onboard.subheading": "シナリオをコピーして Agent に貼り付けます。この 4 枚のカードは 4 つのデータ型が協働する形 — Table、Document、Collection、Page — それぞれが小さな顧客管理ワークスペースで実ファイルを生み出します。",
 
   "ws.onboard.md.badge": ".md",
-  "ws.onboard.md.title": "週次レビュー",
-  "ws.onboard.md.scenario": "自由形式のメモ — 執筆、思考、ログに。閲覧時は Markdown としてレンダリング。",
-  "ws.onboard.md.prompt": "今週の週報を書いて：リリースした 3 件、詰まっている 2 件、来週試したいアイデア 1 件。reviews/2026-w17.md に Markdown 見出しと短い箇条書きで。",
+  "ws.onboard.md.title": "セールスプレイブック",
+  "ws.onboard.md.scenario": "Document — 連続したテキスト。SOP、知識、ノート。Markdown でレンダリング。",
+  "ws.onboard.md.prompt": "crm/playbook.md に顧客フォロー SOP を書いて。4 段階（初回接触、ニーズ発掘、提案・交渉、成約後フォロー）それぞれに具体的なトーク 3 本ずつ。Markdown 見出しと箇条書きで。",
 
   "ws.onboard.csv.badge": ".csv",
-  "ws.onboard.csv.title": "データテーブル",
-  "ws.onboard.csv.scenario": "構造化表データ。ソート可能なテーブルでレンダリング。行単位で拡張しやすい。",
-  "ws.onboard.csv.prompt": "data/ai-milestones-2025.csv に、過去 1 年の AI 企業の注目イベント 12 件を追跡する CSV を作って。列: date, company, event, impact_note。時系列順に並べる。",
+  "ws.onboard.csv.title": "顧客名簿",
+  "ws.onboard.csv.scenario": "Table — 均質なグリッド。マスター、名簿、横断面。ソート可能なテーブル。",
+  "ws.onboard.csv.prompt": "crm/customers.csv に SMB 顧客 8 社の名簿を作って、3 業種にまたがるように。列: name, industry, size, region, contact_name, phone, since。",
+
+  "ws.onboard.jsonl.badge": ".jsonl",
+  "ws.onboard.jsonl.title": "顧客対応ログ",
+  "ws.onboard.jsonl.scenario": "Collection — エンティティの流れ、各行が ID と時刻を持つ。Append-only で履歴付き。",
+  "ws.onboard.jsonl.prompt": "crm/interactions.jsonl に顧客対応ログを作って（jsonl、各行 1 イベント、append-only）。顧客 cust_acme に対し 4 イベントを追加：電話、提案送付、顧客フィードバック、成約。各行のフィールド: id（イベント id）、at（時刻）、by（実行者）、op（動詞：call / proposal_sent / feedback / closed_won）、customer_id、およびその動作に関連するフィールド（メモ、金額など）。",
 
   "ws.onboard.html.badge": ".html",
-  "ws.onboard.html.title": "ビジュアルページ",
-  "ws.onboard.html.scenario": "リッチなレンダリング — 挿絵、チャート、カバーページ。HTML として安全にレンダリング。",
-  "ws.onboard.html.prompt": "cover/movable-type.html に活版印刷についての美しい HTML カバーページを作って。温かみのあるベージュのグラデーション背景、セリフ書体、なぜ重要かを説明する短い段落。主要な発明のシンプルな Echarts タイムラインも含める。",
+  "ws.onboard.html.title": "提案ページ",
+  "ws.onboard.html.scenario": "Page — 完成したビジュアル成果物。サニタイズ済み HTML、5 種類のサブフォーマット。",
+  "ws.onboard.html.prompt": "crm/proposals/acme-2026-q2.html に顧客 Acme への年間サービス提案ページを作って。温かみのあるベージュ背景、セリフ書体、3 ページ：カバー（テーマ）、価値提案（3 ポイント）、料金（年間 ¥52,000、4 サービス含む）。",
 
   "ws.onboard.copy": "プロンプトをコピー",
   "ws.onboard.copied": "コピー済み",

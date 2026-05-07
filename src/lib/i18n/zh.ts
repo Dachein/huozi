@@ -137,23 +137,51 @@ export const zh = {
   "ws.filled.footer.apiDocs": "API 文档",
 
 
-  "ws.onboard.heading": "开始造点东西",
-  "ws.onboard.subheading": "复制下面一段场景话术，粘给你的 Agent，第一份文件就会实时出现在这里。选你想创造的文件类型 —— 剩下交给 Agent。",
+  // 4 件套类目名 — see app/docs/four-types.md
+  "ws.types.all": "全部",
+  "ws.types.table": "表",
+  "ws.types.document": "文",
+  "ws.types.collection": "本",
+  "ws.types.page": "页",
+  "ws.types.other": "其他",
+
+  // Collection (.jsonl) 渲染器
+  "ws.coll.view.current": "当前",
+  "ws.coll.view.stream": "流水",
+  "ws.coll.view.table": "表格",
+  "ws.coll.view.timeline": "时间线",
+  "ws.coll.entities": "{n} 个实体",
+  "ws.coll.events": "{n} 行事件",
+  "ws.coll.errors": "{n} 行解析错误",
+  "ws.coll.empty.title": "这是一本 Collection",
+  "ws.coll.empty.body": "Collection 是 huozi 的 4 件套之一,记录有身份和时间的实体流水。让 Agent 追加第一条事件来开始。",
+  "ws.coll.empty.prompt": "在这个 jsonl 文件里追加第一条事件。每行是一个 JSON 对象,至少有 id 字段(实体身份),建议加 at(时间)、by(操作人)、op(动作)。append-only,不要原地改老行。",
+  "ws.coll.deleted": "已删除",
+  "ws.coll.pickEntity": "选一个实体看它的时间线",
+  "ws.coll.backToList": "← 返回",
+
+  "ws.onboard.heading": "开始造你的客户管理库",
+  "ws.onboard.subheading": "复制一段场景话术，粘给你的 Agent。这 4 张卡是一个完整 CRM 的 4 件套——表 / 文 / 本 / 页 各司其职，每张产出一个真实文件。",
 
   "ws.onboard.md.badge": ".md",
-  "ws.onboard.md.title": "一份周报",
-  "ws.onboard.md.scenario": "自由形态的笔记，适合写作、思考、日志。查看时按 Markdown 渲染。",
-  "ws.onboard.md.prompt": "帮我写一份这周的周报：三件我推进的事、两件卡住的事、一个下周想试的点子。放在 reviews/2026-w17.md，用 Markdown 标题和简短列表。",
+  "ws.onboard.md.title": "一份客户跟进话术",
+  "ws.onboard.md.scenario": "Document — 连续叙述。适合 SOP、知识、说明、笔记。Markdown 渲染。",
+  "ws.onboard.md.prompt": "在 crm/playbook.md 写一份客户跟进 SOP：第一次接触、需求挖掘、报价谈判、成交跟进 4 个阶段，各给 3 条具体话术。用 Markdown 标题加列表。",
 
   "ws.onboard.csv.badge": ".csv",
-  "ws.onboard.csv.title": "一张数据表",
-  "ws.onboard.csv.scenario": "结构化表格数据。查看时按可排序表格渲染，易于逐行扩展。",
-  "ws.onboard.csv.prompt": "在 data/ai-milestones-2025.csv 建一张 CSV，记录过去一年 12 个 AI 公司的重要事件。列：date、company、event、impact_note。按时间排序。",
+  "ws.onboard.csv.title": "一张客户名册",
+  "ws.onboard.csv.scenario": "Table — 同构网格数据。适合主数据、清单、横截面分析。可排序表格。",
+  "ws.onboard.csv.prompt": "在 crm/customers.csv 建一张客户名册，记录 8 家 SMB 客户，覆盖 3 个不同行业。列：name、industry、size、region、contact_name、phone、since。",
+
+  "ws.onboard.jsonl.badge": ".jsonl",
+  "ws.onboard.jsonl.title": "一本客户互动流水",
+  "ws.onboard.jsonl.scenario": "Collection — 实体集合。每条带身份和时间，append-only 自带历史。",
+  "ws.onboard.jsonl.prompt": "在 crm/interactions.jsonl 建一份客户互动流水（jsonl，每行一条事件，append-only）。给客户 cust_acme 写 4 条事件：电话沟通、发送提案、客户反馈、签约成交。每行字段：id（事件 id）、at（时间）、by（操作人）、op（动作如 call / proposal_sent / feedback / closed_won）、customer_id，以及该动作相关字段（备注、金额等）。",
 
   "ws.onboard.html.badge": ".html",
-  "ws.onboard.html.title": "一个可视化页面",
-  "ws.onboard.html.scenario": "富渲染 —— 插图、图表、封面页。作为 HTML 渲染，带安全消毒。",
-  "ws.onboard.html.prompt": "在 cover/movable-type.html 帮我做一个讲活字印刷术的精美 HTML 封面页，用温和米色渐变背景、衬线字体，写一段为什么它重要。加一个简单的 Echarts 时间线显示关键发明节点。",
+  "ws.onboard.html.title": "一个客户提案页",
+  "ws.onboard.html.scenario": "Page — 视觉成品。富渲染、可发布、可分享。安全 HTML，5 种 format。",
+  "ws.onboard.html.prompt": "在 crm/proposals/acme-2026-q2.html 帮我做一份给客户 Acme 的年度服务提案页。温和米色背景、衬线字体、3 页：封面（公司主题）、价值主张（3 个要点）、报价（年度 ¥52,000，含 4 项服务）。",
 
   "ws.onboard.copy": "复制 prompt",
   "ws.onboard.copied": "已复制",

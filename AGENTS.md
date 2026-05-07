@@ -94,3 +94,5 @@ src/lib/
 - Adding a marketing / blog / brand page? **Don't.** Marketing lives in the sibling `huozi-marketing` repo. Anything that ships in this repo should be product surface (workspace, auth, /p, MCP).
 
 See `packages/huozi-cloud/SPEC.md` for the Worker's data model (D1 schema, DO topology, MCP surface).
+
+See `docs/four-types.md` for the product's data-type framing — Table (`.csv`), Document (`.md`), Collection (`.jsonl`, new), Page (`.html`). Renderers, the new-file UX, and i18n type labels all collapse to these four. Read it before touching `file-renderer.tsx`, `onboarding-prompts.tsx`, or `src/lib/file-types.ts`.

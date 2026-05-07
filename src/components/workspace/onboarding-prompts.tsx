@@ -21,10 +21,14 @@ interface OnboardingPromptsProps {
 }
 
 /**
- * Scenario-driven onboarding for the empty workspace. Three cards,
- * each with a concrete prompt the user can copy and paste into their
- * connected Agent. The Agent then creates the first file of that type
- * — proving the round trip end-to-end.
+ * Scenario-driven onboarding for the empty workspace. Each card carries
+ * a concrete prompt the user can copy and paste into their connected
+ * Agent. The Agent then creates the first file of that type — proving
+ * the round trip end-to-end.
+ *
+ * The card count is variable but in practice equals the four-type
+ * framing (Table · Document · Collection · Page). The grid scales to
+ * card count.
  *
  * Rationale: we deliberately don't pre-seed files. The first commit in
  * the workspace should belong to the user's own intent, not to a
@@ -46,7 +50,7 @@ export function OnboardingPrompts({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {cards.map((card, i) => (
           <Card key={i} card={card} />
         ))}

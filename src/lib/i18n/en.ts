@@ -138,23 +138,51 @@ export const en = {
   "ws.filled.footer.apiDocs": "API docs",
 
 
-  "ws.onboard.heading": "Let's make something",
-  "ws.onboard.subheading": "Copy a scenario below, paste into your Agent, and watch the first file land here in real time. Pick the format that fits what you want to make — the Agent handles the rest.",
+  // The four data-type categories — see app/docs/four-types.md
+  "ws.types.all": "All",
+  "ws.types.table": "Table",
+  "ws.types.document": "Document",
+  "ws.types.collection": "Collection",
+  "ws.types.page": "Page",
+  "ws.types.other": "Other",
+
+  // Collection (.jsonl) renderer
+  "ws.coll.view.current": "Current",
+  "ws.coll.view.stream": "Stream",
+  "ws.coll.view.table": "Table",
+  "ws.coll.view.timeline": "Timeline",
+  "ws.coll.entities": "{n} entities",
+  "ws.coll.events": "{n} events",
+  "ws.coll.errors": "{n} parse errors",
+  "ws.coll.empty.title": "This is a Collection",
+  "ws.coll.empty.body": "Collections are one of huozi's four data types — a stream of entities with identity and time. Ask your Agent to append the first event.",
+  "ws.coll.empty.prompt": "Append the first event to this jsonl file. Each line is a JSON object with at least an `id` field (entity identity); also recommended: `at` (timestamp), `by` (actor), `op` (verb). Append-only — don't edit existing lines in place.",
+  "ws.coll.deleted": "deleted",
+  "ws.coll.pickEntity": "Pick an entity to see its timeline",
+  "ws.coll.backToList": "← Back",
+
+  "ws.onboard.heading": "Let's build your CRM",
+  "ws.onboard.subheading": "Copy a scenario, paste into your Agent. These four cards are the four data types working together — Table, Document, Collection, Page — each producing one real file in a small customer-management workspace.",
 
   "ws.onboard.md.badge": ".md",
-  "ws.onboard.md.title": "A weekly review",
-  "ws.onboard.md.scenario": "A free-form note — good for writing, thinking, logs. Rendered as Markdown on the viewer.",
-  "ws.onboard.md.prompt": "Write me a weekly review for this week: three things I shipped, two things that stalled, and one idea I want to chase next week. Put it in reviews/2026-w17.md with Markdown headings and short bullets.",
+  "ws.onboard.md.title": "A sales playbook",
+  "ws.onboard.md.scenario": "Document — continuous prose. SOPs, knowledge, notes. Rendered as Markdown.",
+  "ws.onboard.md.prompt": "Write a customer-success playbook at crm/playbook.md covering four stages — first contact, needs discovery, proposal negotiation, post-close follow-up — with three concrete talk tracks per stage. Use Markdown headings and bullet lists.",
 
   "ws.onboard.csv.badge": ".csv",
-  "ws.onboard.csv.title": "A data table",
-  "ws.onboard.csv.scenario": "Structured tabular data. Rendered as a sortable table; easy to extend row by row.",
-  "ws.onboard.csv.prompt": "Build me a CSV at data/ai-milestones-2025.csv tracking 12 notable AI company milestones from the past year. Columns: date, company, event, impact_note. Sort chronologically.",
+  "ws.onboard.csv.title": "A customer roster",
+  "ws.onboard.csv.scenario": "Table — homogeneous grid. Master records, rosters, cross-sectional. Sortable table.",
+  "ws.onboard.csv.prompt": "Build a customer roster CSV at crm/customers.csv listing 8 SMB customers across 3 different industries. Columns: name, industry, size, region, contact_name, phone, since.",
+
+  "ws.onboard.jsonl.badge": ".jsonl",
+  "ws.onboard.jsonl.title": "An interactions log",
+  "ws.onboard.jsonl.scenario": "Collection — a stream of entities, each with identity and time. Append-only, history for free.",
+  "ws.onboard.jsonl.prompt": "Create an interactions log at crm/interactions.jsonl — line-delimited JSON, append-only. Add 4 events for customer cust_acme: a phone call, a proposal sent, customer feedback, and a closed-won deal. Each line should carry: id (event id), at (timestamp), by (actor), op (verb like call / proposal_sent / feedback / closed_won), customer_id, plus fields specific to the action (notes, amount, etc.).",
 
   "ws.onboard.html.badge": ".html",
-  "ws.onboard.html.title": "A visual page",
-  "ws.onboard.html.scenario": "Rich rendering — illustrations, charts, a cover page. Rendered as HTML with sanitization.",
-  "ws.onboard.html.prompt": "Create a beautiful HTML cover page at cover/movable-type.html about 活字印刷术 (movable type printing) with a subtle warm-beige gradient background, serif typography, and a short paragraph explaining why it mattered. Include a simple Echarts timeline of key inventions.",
+  "ws.onboard.html.title": "A proposal page",
+  "ws.onboard.html.scenario": "Page — finished visual artifact. Rendered as sanitized HTML in 5 sub-formats.",
+  "ws.onboard.html.prompt": "Build an annual service proposal page at crm/proposals/acme-2026-q2.html for customer Acme. Warm beige background, serif typography, 3 pages: cover (theme), value props (3 bullets), pricing (annual $52,000 including 4 services).",
 
   "ws.onboard.copy": "Copy prompt",
   "ws.onboard.copied": "Copied",

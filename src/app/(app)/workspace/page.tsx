@@ -152,15 +152,8 @@ export default async function CloudWorkspacePage() {
               heading={_("ws.onboard.heading")}
               subheading={_("ws.onboard.subheading")}
               cards={[
-                {
-                  badge: _("ws.onboard.md.badge"),
-                  glyph: "文",
-                  title: _("ws.onboard.md.title"),
-                  scenario: _("ws.onboard.md.scenario"),
-                  prompt: _("ws.onboard.md.prompt"),
-                  copyLabel: _("ws.onboard.copy"),
-                  copiedLabel: _("ws.onboard.copied"),
-                },
+                // Order matches the 4-type framing: Table · Document · Collection · Page
+                // (csv · md · jsonl · html). See app/docs/four-types.md.
                 {
                   badge: _("ws.onboard.csv.badge"),
                   glyph: "表",
@@ -171,8 +164,26 @@ export default async function CloudWorkspacePage() {
                   copiedLabel: _("ws.onboard.copied"),
                 },
                 {
+                  badge: _("ws.onboard.md.badge"),
+                  glyph: "文",
+                  title: _("ws.onboard.md.title"),
+                  scenario: _("ws.onboard.md.scenario"),
+                  prompt: _("ws.onboard.md.prompt"),
+                  copyLabel: _("ws.onboard.copy"),
+                  copiedLabel: _("ws.onboard.copied"),
+                },
+                {
+                  badge: _("ws.onboard.jsonl.badge"),
+                  glyph: "本",
+                  title: _("ws.onboard.jsonl.title"),
+                  scenario: _("ws.onboard.jsonl.scenario"),
+                  prompt: _("ws.onboard.jsonl.prompt"),
+                  copyLabel: _("ws.onboard.copy"),
+                  copiedLabel: _("ws.onboard.copied"),
+                },
+                {
                   badge: _("ws.onboard.html.badge"),
-                  glyph: "界",
+                  glyph: "页",
                   title: _("ws.onboard.html.title"),
                   scenario: _("ws.onboard.html.scenario"),
                   prompt: _("ws.onboard.html.prompt"),

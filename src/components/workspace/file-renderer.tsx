@@ -6,6 +6,7 @@ import { detectHuoziFormat } from "@/lib/html/detect-format";
 import { cloudFetch } from "@/lib/cloud-fetch";
 import { HUOZI_CLOUD_KEY_COOKIE } from "@/lib/drive/mcp-client";
 import { CsvGrid } from "@/components/csv-grid";
+import { CollectionView } from "@/components/collection-view";
 
 /**
  * Renders a file's content based on its extension.
@@ -117,6 +118,13 @@ export async function FileRenderer({ path, content, raw }: FileRendererProps) {
   // CSV / TSV — interactive table view.
   if (ext === "csv" || ext === "tsv") {
     return <CsvGrid content={content} delim={ext === "tsv" ? "\t" : ","} />;
+  }
+
+  // JSONL — Collection: cards / stream / table / timeline. See
+  // app/docs/four-types.md for the framing and src/lib/jsonl/ for the
+  // parser + fold algorithm.
+  if (ext === "jsonl") {
+    return <CollectionView content={content} />;
   }
 
   // Everything else: show as source. Code files get monospace + light wrap.

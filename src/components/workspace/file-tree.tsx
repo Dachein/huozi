@@ -6,6 +6,8 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { FileIcon } from "@/components/workspace/file-icon";
 import { FolderAclModal } from "@/components/workspace/folder-acl-modal";
 import { useWorkspaceNav } from "@/components/workspace/nav-pending";
+import { useT } from "@/lib/i18n/context";
+import { FOUR_TYPES, type FileType, getFileType } from "@/lib/file-types";
 
 export interface MemberLite {
   user_id: string;
@@ -38,7 +40,7 @@ interface Node {
 }
 
 /** Build nested tree nodes from flat path list. */
-function buildTree(paths: string[]): Node {
+function buildTree(paths: string[], includeAssetsRoot: boolean = true): Node {
   const root: Node = { name: "", path: "", isDir: true, children: [] };
 
   for (const p of paths) {
@@ -65,8 +67,9 @@ function buildTree(paths: string[]): Node {
 
   // `__assets__/` is the workspace's default folder for image blobs
   // (ImageRenderTool dumps hashed PNGs here). Always surface it at root —
-  // even when empty — so users see a consistent home for assets.
-  if (!root.children.find((c) => c.name === ASSETS_DIR)) {
+  // even when empty — so users see a consistent home for assets. Suppressed
+  // when a type filter is active (the placeholder is irrelevant in type views).
+  if (includeAssetsRoot && !root.children.find((c) => c.name === ASSETS_DIR)) {
     root.children.push({
       name: ASSETS_DIR,
       path: ASSETS_DIR,
@@ -147,7 +150,33 @@ export function FileTree({
     pathname === "/workspace/view" ? (search.get("path") ?? null) : null;
   const currentPath = currentPathProp ?? derivedPath;
 
-  const root = useMemo(() => buildTree(paths), [paths]);
+  const t = useT();
+
+  // Type-filter state — chips above the search narrow the tree to one of
+  // the four data-type categories (see app/docs/four-types.md).
+  const [typeFilter, setTypeFilter] = useState<FileType | "all">("all");
+
+  const counts = useMemo(() => {
+    const c: Record<FileType, number> = {
+      table: 0,
+      document: 0,
+      collection: 0,
+      page: 0,
+      other: 0,
+    };
+    for (const p of paths) c[getFileType(p)]++;
+    return c;
+  }, [paths]);
+
+  const filteredPaths = useMemo(() => {
+    if (typeFilter === "all") return paths;
+    return paths.filter((p) => getFileType(p) === typeFilter);
+  }, [paths, typeFilter]);
+
+  const root = useMemo(
+    () => buildTree(filteredPaths, typeFilter === "all"),
+    [filteredPaths, typeFilter],
+  );
 
   // Expanded folders live in state + localStorage.
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
@@ -199,6 +228,30 @@ export function FileTree({
 
   return (
     <div className="flex flex-col h-full">
+      {/* Type filter chips — the four data-type categories (see app/docs/four-types.md).
+          Clicking the active chip clears back to All. Chips with zero
+          matches render dimmed but still clickable to make the empty
+          state explicit. */}
+      <div className="flex flex-wrap gap-1.5 px-3 pt-3 pb-2 border-b border-border/40">
+        <Chip
+          label={t("ws.types.all")}
+          count={paths.length}
+          active={typeFilter === "all"}
+          onClick={() => setTypeFilter("all")}
+        />
+        {FOUR_TYPES.map((tp) => (
+          <Chip
+            key={tp}
+            label={t(`ws.types.${tp}`)}
+            count={counts[tp]}
+            active={typeFilter === tp}
+            onClick={() =>
+              setTypeFilter((prev) => (prev === tp ? "all" : tp))
+            }
+          />
+        ))}
+      </div>
+
       {/* Search */}
       <div className="p-3 border-b border-border/50">
         <input
@@ -465,5 +518,37 @@ function FileLeafLink({
       <FileIcon name={name} isDir={isDir} />
       <span className="text-sm font-mono truncate">{name}</span>
     </Link>
+  );
+}
+
+function Chip({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const empty = count === 0;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${
+        active
+          ? "border-foreground/40 bg-foreground text-background"
+          : empty
+            ? "border-border/30 text-muted-foreground/50 hover:bg-muted/30"
+            : "border-border/60 text-muted-foreground hover:bg-muted/60"
+      }`}
+    >
+      {label}
+      {count > 0 && (
+        <span className="ml-1 opacity-60 font-mono">{count}</span>
+      )}
+    </button>
   );
 }

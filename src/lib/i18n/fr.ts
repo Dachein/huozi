@@ -138,23 +138,51 @@ export const fr = {
   "ws.filled.footer.apiDocs": "Référence API",
 
 
-  "ws.onboard.heading": "Créons quelque chose",
-  "ws.onboard.subheading": "Copiez un scénario ci-dessous, collez-le dans votre agent, et regardez le premier fichier apparaître ici en temps réel. Choisissez le format qui vous convient — l'agent s'occupe du reste.",
+  // Les quatre catégories de type — voir app/docs/four-types.md
+  "ws.types.all": "Tous",
+  "ws.types.table": "Tableau",
+  "ws.types.document": "Document",
+  "ws.types.collection": "Collection",
+  "ws.types.page": "Page",
+  "ws.types.other": "Autre",
+
+  // Rendu Collection (.jsonl)
+  "ws.coll.view.current": "Actuel",
+  "ws.coll.view.stream": "Flux",
+  "ws.coll.view.table": "Tableau",
+  "ws.coll.view.timeline": "Chronologie",
+  "ws.coll.entities": "{n} entités",
+  "ws.coll.events": "{n} événements",
+  "ws.coll.errors": "{n} erreurs",
+  "ws.coll.empty.title": "Ceci est une Collection",
+  "ws.coll.empty.body": "Les Collections sont l'un des quatre types de données huozi — un flux d'entités avec identité et temps. Demandez à votre agent d'ajouter le premier événement.",
+  "ws.coll.empty.prompt": "Ajoute le premier événement à ce fichier jsonl. Chaque ligne est un objet JSON avec au moins un champ `id` (identité); recommandé : `at` (horodatage), `by` (acteur), `op` (verbe). Append-only — ne modifie pas les lignes existantes.",
+  "ws.coll.deleted": "supprimé",
+  "ws.coll.pickEntity": "Choisissez une entité pour voir sa chronologie",
+  "ws.coll.backToList": "← Retour",
+
+  "ws.onboard.heading": "Construisons votre CRM",
+  "ws.onboard.subheading": "Copiez un scénario, collez-le dans votre agent. Ces quatre cartes sont les quatre types de données qui travaillent ensemble — Tableau, Document, Collection, Page — chacune produit un fichier réel dans un mini espace de gestion clients.",
 
   "ws.onboard.md.badge": ".md",
-  "ws.onboard.md.title": "Bilan hebdomadaire",
-  "ws.onboard.md.scenario": "Note libre — idéal pour écrire, réfléchir, tenir un journal. Affiché en Markdown.",
-  "ws.onboard.md.prompt": "Écris-moi un bilan de cette semaine : trois choses livrées, deux choses bloquées, une idée à poursuivre la semaine prochaine. Dans reviews/2026-w17.md, avec titres Markdown et listes courtes.",
+  "ws.onboard.md.title": "Un manuel de vente",
+  "ws.onboard.md.scenario": "Document — prose continue. SOP, savoir, notes. Rendu Markdown.",
+  "ws.onboard.md.prompt": "Écris un manuel de suivi client dans crm/playbook.md couvrant 4 étapes — premier contact, découverte des besoins, négociation, suivi après signature — avec 3 scripts concrets par étape. Titres Markdown et listes courtes.",
 
   "ws.onboard.csv.badge": ".csv",
-  "ws.onboard.csv.title": "Un tableau de données",
-  "ws.onboard.csv.scenario": "Données tabulaires structurées. Affiché comme un tableau triable, facile à étendre ligne par ligne.",
-  "ws.onboard.csv.prompt": "Construis un CSV dans data/ai-milestones-2025.csv répertoriant 12 moments marquants d'entreprises IA de l'année écoulée. Colonnes : date, company, event, impact_note. Trier chronologiquement.",
+  "ws.onboard.csv.title": "Une liste de clients",
+  "ws.onboard.csv.scenario": "Tableau — grille homogène. Master, listes, instantané. Tableau triable.",
+  "ws.onboard.csv.prompt": "Construis un CSV dans crm/customers.csv listant 8 clients PME dans 3 secteurs différents. Colonnes : name, industry, size, region, contact_name, phone, since.",
+
+  "ws.onboard.jsonl.badge": ".jsonl",
+  "ws.onboard.jsonl.title": "Un journal d'interactions",
+  "ws.onboard.jsonl.scenario": "Collection — flux d'entités, chacune avec identité et temps. Append-only, historique gratuit.",
+  "ws.onboard.jsonl.prompt": "Crée un journal d'interactions dans crm/interactions.jsonl — JSON ligne par ligne, append-only. Ajoute 4 événements pour le client cust_acme : un appel, une proposition envoyée, un retour client, une affaire gagnée. Chaque ligne doit porter : id (id événement), at (horodatage), by (acteur), op (verbe : call / proposal_sent / feedback / closed_won), customer_id, plus les champs spécifiques (notes, montant, etc.).",
 
   "ws.onboard.html.badge": ".html",
-  "ws.onboard.html.title": "Une page visuelle",
-  "ws.onboard.html.scenario": "Rendu riche — illustrations, graphiques, pages de couverture. Rendu HTML avec assainissement.",
-  "ws.onboard.html.prompt": "Crée une belle page HTML de couverture dans cover/movable-type.html sur l'imprimerie à caractères mobiles, avec un dégradé beige chaud, typographie serif, et un court paragraphe expliquant son importance. Ajoute une timeline Echarts simple des inventions clés.",
+  "ws.onboard.html.title": "Une page de proposition",
+  "ws.onboard.html.scenario": "Page — artefact visuel fini. HTML assaini, 5 sous-formats.",
+  "ws.onboard.html.prompt": "Crée une page de proposition de service annuel dans crm/proposals/acme-2026-q2.html pour le client Acme. Fond beige chaud, typographie serif, 3 pages : couverture (thème), arguments de valeur (3 points), tarifs (52 000 € annuels, 4 services inclus).",
 
   "ws.onboard.copy": "Copier le prompt",
   "ws.onboard.copied": "Copié",
