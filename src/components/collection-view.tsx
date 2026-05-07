@@ -758,24 +758,27 @@ function DetailView({
               </div>
             )}
           </header>
-          <ol className="relative pl-5 border-l-2 border-border/40 space-y-3">
-            {entity.history.map((ln, i) => {
-              const isActive = i === historyIndex;
-              return (
-                <li key={ln.lineNumber} className="relative">
-                  <span
-                    className={`absolute -left-[27px] top-2 w-3 h-3 rounded-full border-2 ${
-                      isActive
-                        ? "bg-foreground border-foreground"
-                        : "bg-background border-border"
-                    }`}
-                    aria-hidden
-                  />
-                  <EventCard line={ln} highlighted={isActive} />
-                </li>
-              );
-            })}
-          </ol>
+          <div className="relative">
+            {/* Older versions, peeking from behind/above the active card. */}
+            {historyIndex >= 2 && (
+              <StackPeek position="above" depth={2} onClick={onOlder} />
+            )}
+            {historyIndex >= 1 && (
+              <StackPeek position="above" depth={1} onClick={onOlder} />
+            )}
+
+            {activeEvent && (
+              <EventCard line={activeEvent} highlighted />
+            )}
+
+            {/* Newer versions, peeking from below/in front. */}
+            {historyIndex < entity.history.length - 1 && (
+              <StackPeek position="below" depth={1} onClick={onNewer} />
+            )}
+            {historyIndex < entity.history.length - 2 && (
+              <StackPeek position="below" depth={2} onClick={onNewer} />
+            )}
+          </div>
         </section>
       </main>
 
@@ -829,6 +832,43 @@ function foldHistorySlice(
     if (ln.op) merged.op = ln.op;
   }
   return merged;
+}
+
+/**
+ * One half of the "deck of cards" visual for the version-scrubbed
+ * timeline. The active EventCard sits in the center; up to two
+ * StackPeek bars sit above (older versions, deeper = narrower /
+ * dimmer) and below (newer versions). Each is a clickable thin bar
+ * that nudges one step toward that side — same as the ↑/↓ keys.
+ */
+function StackPeek({
+  position,
+  depth,
+  onClick,
+}: {
+  position: "above" | "below";
+  depth: 1 | 2;
+  onClick: () => void;
+}) {
+  const inset = depth === 1 ? "mx-3" : "mx-6";
+  const tone =
+    depth === 1
+      ? "bg-muted/60 border-border/50"
+      : "bg-muted/30 border-border/30";
+  const shape =
+    position === "above"
+      ? "rounded-t-md border-b-0 -mb-px"
+      : "rounded-b-md border-t-0 -mt-px";
+  const ariaLabel =
+    position === "above" ? "Older version" : "Newer version";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className={`block ${inset} h-2 border ${tone} ${shape} hover:opacity-70 transition-opacity cursor-pointer`}
+    />
+  );
 }
 
 function EventCard({
