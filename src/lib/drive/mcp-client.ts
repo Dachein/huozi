@@ -40,20 +40,28 @@ async function rpc(
   key: string,
   method: string,
   params?: Record<string, unknown>,
+  opts?: { useSession?: boolean },
 ): Promise<RpcEnvelope> {
   const id = nextId++
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${key}`,
+    'content-type': 'application/json',
+  }
+  if (!opts?.useSession) {
+    // The Agent-side ReadFileState cache is meant for Claude Code's
+    // Read→Edit loop (skip re-sending bytes the caller already has). For
+    // SSR Web UI renders that's a footgun — we want every page load to see
+    // the current bytes. This header tells the Worker to use an empty,
+    // non-persistent state for this request.
+    //
+    // Inline-edit (`/api/app/drive/edit`) flips this OFF so the read
+    // populates the user's session DO, letting the immediately-following
+    // huozi_edit pass its Read-first invariant in the same DO.
+    headers['X-Huozi-No-Session'] = '1'
+  }
   const res = await cloudFetch(`/mcp`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${key}`,
-      'content-type': 'application/json',
-      // The Agent-side ReadFileState cache is meant for Claude Code's
-      // Read→Edit loop (skip re-sending bytes the caller already has). For
-      // SSR Web UI renders that's a footgun — we want every page load to see
-      // the current bytes. This header tells the Worker to use an empty,
-      // non-persistent state for this request.
-      'X-Huozi-No-Session': '1',
-    },
+    headers,
     body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
     // Explicitly opt out of Next.js caching for dynamic data.
     cache: 'no-store',
@@ -72,8 +80,9 @@ async function callTool<T>(
   key: string,
   name: string,
   args: Record<string, unknown>,
+  opts?: { useSession?: boolean },
 ): Promise<McpResult<T>> {
-  const env = await rpc(key, 'tools/call', { name, arguments: args })
+  const env = await rpc(key, 'tools/call', { name, arguments: args }, opts)
   if (env.error) {
     return {
       ok: false,
@@ -311,6 +320,58 @@ export function cloudRm(
   path: string,
 ): Promise<McpResult<RmData>> {
   return callTool<RmData>(key, 'huozi_rm', { path })
+}
+
+// ── Inline-edit pair (Web UI carve-out) ─────────────────────────────────
+//
+// huozi_edit requires the caller to have read the file in the same Worker
+// session DO (so blob_sha can be staleness-checked). For SSR-rendered pages
+// every fetch sets X-Huozi-No-Session: 1, which is exactly the wrong default
+// for an interactive read→edit pair. The two helpers below opt INTO the
+// session DO so the read populates state for the immediately-following edit.
+//
+// Both helpers are server-only and assume the same `key` (and therefore the
+// same principalId → same session DO) is used for both calls.
+
+/**
+ * Read a file with session DO state populated. Pair with `cloudEdit` for
+ * inline-edit flows. Do NOT use for SSR page rendering — that's what
+ * `cloudRead` is for.
+ */
+export function cloudReadForEdit(
+  key: string,
+  file_path: string,
+): Promise<McpResult<ReadTextData>> {
+  return callTool<ReadTextData>(
+    key,
+    'huozi_read',
+    { file_path },
+    { useSession: true },
+  )
+}
+
+export interface EditData {
+  filePath: string
+  oldString: string
+  newString: string
+  commit_sha: string
+  new_blob_sha: string
+}
+
+/**
+ * Apply a single old_string→new_string edit to a workspace file. Must be
+ * preceded by a `cloudReadForEdit` for the same path in the same session.
+ */
+export function cloudEdit(
+  key: string,
+  args: {
+    file_path: string
+    old_string: string
+    new_string: string
+    replace_all?: boolean
+  },
+): Promise<McpResult<EditData>> {
+  return callTool<EditData>(key, 'huozi_edit', args, { useSession: true })
 }
 
 // ── Helpers for the UI ─────────────────────────────────────────────────
