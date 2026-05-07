@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { FileIcon } from "@/components/workspace/file-icon";
 import { FolderAclModal } from "@/components/workspace/folder-acl-modal";
 import { useWorkspaceNav } from "@/components/workspace/nav-pending";
@@ -228,36 +228,19 @@ export function FileTree({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Type filter dropdown — the four data-type categories (see
-          app/docs/four-types.md). Native select keeps the sidebar
-          compact and accessible without bespoke popover plumbing. */}
+      {/* Type filter — the four data-type categories (see
+          app/docs/four-types.md). Custom popover (matches the
+          KeyTtlSelect / LocaleSwitcher family) instead of a native
+          <select> so the OS-controlled chrome doesn't break the
+          sidebar's visual rhythm. */}
       <div className="px-3 pt-3 pb-2 border-b border-border/40">
-        <select
+        <TypeFilter
           value={typeFilter}
-          onChange={(e) =>
-            setTypeFilter(e.target.value as FileType | "all")
-          }
-          aria-label={t("ws.types.all")}
-          className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:border-foreground/40 cursor-pointer"
-        >
-          <option value="all">
-            {t("ws.types.all")} · {paths.length}
-          </option>
-          {FOUR_TYPES.map((tp) => (
-            <option
-              key={tp}
-              value={tp}
-              disabled={counts[tp] === 0}
-            >
-              {t(`ws.types.${tp}`)} · {counts[tp]}
-            </option>
-          ))}
-          {counts.other > 0 && (
-            <option value="other">
-              {t("ws.types.other")} · {counts.other}
-            </option>
-          )}
-        </select>
+          onChange={setTypeFilter}
+          paths={paths}
+          counts={counts}
+          t={t}
+        />
       </div>
 
       {/* Search */}
@@ -479,6 +462,160 @@ function TreeNode({
         name={node.name}
       />
     </li>
+  );
+}
+
+/**
+ * Type-filter dropdown — same trigger / popover pattern as
+ * `key-ttl-select.tsx`: full-width rounded button to pair with the
+ * search input below, KeyTtlSelect-style menu (shadow, ✓ on active,
+ * outside-click + ESC to close).
+ */
+function TypeFilter({
+  value,
+  onChange,
+  paths,
+  counts,
+  t,
+}: {
+  value: FileType | "all";
+  onChange: (v: FileType | "all") => void;
+  paths: readonly string[];
+  counts: Record<FileType, number>;
+  t: (k: string) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      if (!rootRef.current) return;
+      // `globalThis.Node` is qualified because this file declares a
+      // local `Node` interface for tree nodes.
+      const target = e.target as globalThis.Node | null;
+      if (target && !rootRef.current.contains(target)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const items = useMemo(() => {
+    const arr: { value: FileType | "all"; label: string; count: number }[] = [
+      { value: "all", label: t("ws.types.all"), count: paths.length },
+      ...FOUR_TYPES.map((tp) => ({
+        value: tp,
+        label: t(`ws.types.${tp}`),
+        count: counts[tp],
+      })),
+    ];
+    if (counts.other > 0) {
+      arr.push({
+        value: "other",
+        label: t("ws.types.other"),
+        count: counts.other,
+      });
+    }
+    return arr;
+  }, [t, paths.length, counts]);
+
+  const current = items.find((i) => i.value === value) ?? items[0]!;
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className={`w-full inline-flex items-center justify-between gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-colors ${
+          open
+            ? "border-foreground/40 bg-muted"
+            : "border-border hover:border-foreground/40 hover:bg-muted/60"
+        }`}
+      >
+        <span className="flex items-baseline gap-1.5 min-w-0">
+          <span className="text-foreground font-medium truncate">
+            {current.label}
+          </span>
+          <span className="text-muted-foreground font-mono shrink-0">
+            · {current.count}
+          </span>
+        </span>
+        <svg
+          viewBox="0 0 12 12"
+          width="9"
+          height="9"
+          className={`opacity-60 transition-transform shrink-0 ${
+            open ? "rotate-180" : ""
+          }`}
+          aria-hidden="true"
+        >
+          <path
+            d="M2 4 L6 8 L10 4"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute left-0 right-0 top-full mt-1.5 z-40
+                     rounded-md border border-border bg-background shadow-lg
+                     py-1 animate-in fade-in slide-in-from-top-1 duration-150"
+        >
+          {items.map((it) => {
+            const active = it.value === value;
+            const empty = it.count === 0 && it.value !== "all";
+            return (
+              <button
+                key={it.value}
+                type="button"
+                role="menuitemradio"
+                aria-checked={active}
+                disabled={empty}
+                onClick={() => {
+                  onChange(it.value);
+                  setOpen(false);
+                }}
+                className={`w-full flex items-center justify-between gap-3 px-3 py-1.5 text-xs transition-colors text-left ${
+                  active
+                    ? "bg-muted/60 text-foreground"
+                    : empty
+                      ? "text-muted-foreground/40 cursor-default"
+                      : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                }`}
+              >
+                <span className="flex items-baseline gap-1.5">
+                  <span>{it.label}</span>
+                  <span className="font-mono opacity-70">· {it.count}</span>
+                </span>
+                {active && (
+                  <span className="text-accent text-[10px]" aria-hidden>
+                    ✓
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 

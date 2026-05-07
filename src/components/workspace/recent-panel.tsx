@@ -128,14 +128,14 @@ export function RecentPanel({
   return (
     <div className="border-b border-border/50">
       <div className="px-3 py-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            {t("recent.title")}
-          </div>
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">
+          {t("recent.title")}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
           <div
             role="tablist"
             aria-label={t("recent.filter.view.label")}
-            className="inline-flex rounded border border-border overflow-hidden shrink-0"
+            className="inline-flex rounded border border-border overflow-hidden"
           >
             <ViewTab
               active={view === "works"}
@@ -148,11 +148,11 @@ export function RecentPanel({
               label={t("recent.filter.view.assets")}
             />
           </div>
-        </div>
-        <div className="text-[10px] text-muted-foreground/70 shrink-0">
-          {visible.length > DISPLAY_LIMIT
-            ? `${DISPLAY_LIMIT}+`
-            : visible.length}
+          <div className="text-[10px] text-muted-foreground/70">
+            {visible.length > DISPLAY_LIMIT
+              ? `${DISPLAY_LIMIT}+`
+              : visible.length}
+          </div>
         </div>
       </div>
       <ul className="px-1 pb-2 space-y-0.5 max-h-64 overflow-y-auto">
