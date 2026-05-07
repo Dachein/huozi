@@ -93,6 +93,13 @@ export function CollectionView({ content }: CollectionViewProps) {
     setHistoryIndex(null);
   }, [drillEntityId]);
 
+  // Diff-peek: while the user holds Space (in detail view, outside of
+  // form fields), the entity's snapshot is overlaid with subtle diff
+  // markers for fields that were added / modified by the active event.
+  // Default off so the snapshot reads cleanly; pressing Space is a
+  // momentary "show me what changed at this step."
+  const [peekDiff, setPeekDiff] = useState(false);
+
   // Filtered + searched entity list. This is the navigation scope —
   // both the list and detail prev/next walk this slice.
   const filteredEntities = useMemo(() => {
@@ -209,11 +216,23 @@ export function CollectionView({ content }: CollectionViewProps) {
         } else if (e.key === "Escape") {
           e.preventDefault();
           goBack();
+        } else if (e.code === "Space" && !e.repeat) {
+          // Hold-to-peek: highlight diff while pressed. Prevent the
+          // browser's default page-down on Space.
+          e.preventDefault();
+          setPeekDiff(true);
         }
       }
     };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === "Space") setPeekDiff(false);
+    };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
   }, [
     drillEntity,
     goNextEntity,
@@ -222,6 +241,12 @@ export function CollectionView({ content }: CollectionViewProps) {
     goNewerVersion,
     goBack,
   ]);
+
+  // Drop the peek state whenever we leave detail view, so re-entering
+  // doesn't show stale highlights.
+  useEffect(() => {
+    if (!drillEntity) setPeekDiff(false);
+  }, [drillEntity]);
 
   // Empty state — no parsed lines at all (and no schema either).
   if (lines.length === 0 && schemas.length === 0 && errors.length === 0) {
@@ -330,6 +355,7 @@ export function CollectionView({ content }: CollectionViewProps) {
           canGoNewer={canGoNewer}
           onOlder={goOlderVersion}
           onNewer={goNewerVersion}
+          peekDiff={peekDiff}
           t={t}
         />
       ) : (
@@ -618,6 +644,7 @@ function DetailView({
   canGoNewer,
   onOlder,
   onNewer,
+  peekDiff,
   t,
 }: {
   entity: EntityState;
@@ -628,6 +655,11 @@ function DetailView({
   canGoNewer: boolean;
   onOlder: () => void;
   onNewer: () => void;
+  /** When true, fields added/modified by the active event get a
+   *  colored left-edge bar so the user can spot what changed at this
+   *  step without leaving the snapshot view. Toggled by holding
+   *  Space — momentary "diff peek." */
+  peekDiff: boolean;
   t: (k: string) => string;
 }) {
   // Resolve as-of state: when not following latest, fold only the
@@ -657,7 +689,8 @@ function DetailView({
 
   const activeEvent = entity.history[historyIndex];
   // Folded state right *before* the active event — used by the
-  // EventCard to color each field as added / modified / same.
+  // diff peek (hold Space) to mark fields that were added or
+  // modified at this step.
   const priorState = useMemo(() => {
     if (historyIndex <= 0) return {};
     return foldHistorySlice(entity.history, historyIndex - 1);
@@ -694,7 +727,10 @@ function DetailView({
         {slotted.body.length > 0 && (
           <section className="space-y-3 min-w-0">
             {slotted.body.map(([k, v, label]) => (
-              <div key={k} className="min-w-0">
+              <div
+                key={k}
+                className={`min-w-0 ${diffEdgeClass(peekDiff ? fieldDiffStatus(k, v, priorState) : null)}`}
+              >
                 <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
                   {label}
                 </h3>
@@ -713,7 +749,10 @@ function DetailView({
             </h3>
             <dl className="space-y-1.5">
               {slotted.unslotted.map(([k, v, label]) => (
-                <div key={k} className="flex gap-3 text-xs min-w-0">
+                <div
+                  key={k}
+                  className={`flex gap-3 text-xs min-w-0 ${diffEdgeClass(peekDiff ? fieldDiffStatus(k, v, priorState) : null)}`}
+                >
                   <dt className="text-muted-foreground shrink-0 w-32 font-mono">
                     {label}
                   </dt>
@@ -761,6 +800,16 @@ function DetailView({
                     </span>
                   )}
                 </span>
+                <span
+                  className={`hidden md:inline text-[10px] font-mono ml-2 transition-colors ${
+                    peekDiff
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-muted-foreground/40"
+                  }`}
+                  title="Hold Space to highlight added / modified fields"
+                >
+                  {peekDiff ? "▣" : "□"} {t("ws.coll.peekDiff")}
+                </span>
               </div>
             )}
           </header>
@@ -773,13 +822,7 @@ function DetailView({
               <StackPeek position="above" depth={1} onClick={onOlder} />
             )}
 
-            {activeEvent && (
-              <EventCard
-                line={activeEvent}
-                highlighted
-                prior={priorState}
-              />
-            )}
+            {activeEvent && <EventBanner line={activeEvent} />}
 
             {/* Newer versions, peeking from below/in front. */}
             {historyIndex < entity.history.length - 1 && (
@@ -805,7 +848,10 @@ function DetailView({
         {slotted.aside.length > 0 && (
           <dl className="space-y-3">
             {slotted.aside.map(([k, v, label]) => (
-              <div key={k} className="min-w-0">
+              <div
+                key={k}
+                className={`min-w-0 ${diffEdgeClass(peekDiff ? fieldDiffStatus(k, v, priorState) : null)}`}
+              >
                 <dt className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
                   {label}
                 </dt>
@@ -881,29 +927,18 @@ function StackPeek({
   );
 }
 
-function EventCard({
-  line,
-  highlighted = false,
-  prior,
-}: {
-  line: CollectionLine;
-  highlighted?: boolean;
-  /** Folded entity state immediately *before* this event. When given,
-   *  the card renders each field as a diff (added / modified / same)
-   *  so the user sees exactly what changed at this step. */
-  prior?: Record<string, unknown> | null;
-}) {
-  const fields = stripConventions(line.fields);
-  const hasFields = Object.keys(fields).length > 0;
+/**
+ * Minimal "you are viewing version N" banner for the timeline area.
+ * Shows only the event's metadata (id / op / at / by) — no field
+ * dump. The full snapshot lives in the detail page's main column;
+ * duplicating its data here would just split the user's attention
+ * between two views of the same record. Pair with the StackPeek bars
+ * for the deck-of-cards visual.
+ */
+function EventBanner({ line }: { line: CollectionLine }) {
   return (
-    <article
-      className={`rounded-lg border px-3 py-2.5 transition-colors ${
-        highlighted
-          ? "border-foreground/40 bg-muted/40"
-          : "border-border/60 bg-background"
-      }`}
-    >
-      <header className="flex flex-wrap items-baseline gap-2 mb-1.5">
+    <article className="rounded-lg border border-foreground/40 bg-muted/40 px-3 py-2.5">
+      <header className="flex flex-wrap items-baseline gap-2">
         <code className="text-xs font-mono">{line.id}</code>
         {line.op && (
           <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-border/50 text-muted-foreground font-mono">
@@ -921,91 +956,37 @@ function EventCard({
           </span>
         )}
       </header>
-      {hasFields && (
-        <dl className="text-[11px] font-mono space-y-0.5">
-          {Object.entries(fields).map(([k, v]) => (
-            <FieldDiffRow key={k} fieldKey={k} value={v} prior={prior} />
-          ))}
-        </dl>
-      )}
     </article>
   );
 }
 
 /**
- * One key/value row inside an EventCard, colored by whether the field
- * is new, modified, or unchanged relative to `prior` (the folded
- * state right before this event). When `prior` is undefined the row
- * renders neutrally — caller didn't ask for diff awareness.
- *
- * Visual vocabulary:
- *   +   added       — field key didn't exist in prior  (emerald)
- *   ~   modified    — field key existed with different value, show old → new (amber)
- *   ·   unchanged   — same value as prior (muted, low signal)
+ * Classify a field as added / modified / unchanged relative to a
+ * prior folded state. `null` = unchanged (same value). Used by the
+ * "hold Space" diff peek on the snapshot view.
  */
-function FieldDiffRow({
-  fieldKey,
-  value,
-  prior,
-}: {
-  fieldKey: string;
-  value: unknown;
-  prior?: Record<string, unknown> | null;
-}) {
-  let status: "added" | "modified" | "same" | "neutral" = "neutral";
-  let priorValue: unknown = undefined;
-  if (prior) {
-    if (!(fieldKey in prior)) {
-      status = "added";
-    } else {
-      priorValue = prior[fieldKey];
-      status = valueEquals(priorValue, value) ? "same" : "modified";
-    }
-  }
+function fieldDiffStatus(
+  key: string,
+  value: unknown,
+  prior: Record<string, unknown> | null,
+): "added" | "modified" | null {
+  if (!prior) return null;
+  if (!(key in prior)) return "added";
+  return valueEquals(prior[key], value) ? null : "modified";
+}
 
-  const sigil =
+/**
+ * Tailwind class for the colored left-edge bar used by the diff peek.
+ * Transparent border keeps row layout stable when peek is off.
+ */
+function diffEdgeClass(status: "added" | "modified" | null): string {
+  const tone =
     status === "added"
-      ? "+"
+      ? "border-emerald-500/70"
       : status === "modified"
-        ? "~"
-        : status === "same"
-          ? "·"
-          : " ";
-  const sigilTone =
-    status === "added"
-      ? "text-emerald-600 dark:text-emerald-400"
-      : status === "modified"
-        ? "text-amber-600 dark:text-amber-400"
-        : "text-muted-foreground/40";
-  const valueTone =
-    status === "same"
-      ? "text-muted-foreground/60"
-      : "text-muted-foreground";
-
-  return (
-    <div className="flex gap-2 leading-relaxed">
-      <span
-        className={`${sigilTone} shrink-0 w-3 text-center`}
-        aria-hidden
-      >
-        {sigil}
-      </span>
-      <span className="text-muted-foreground shrink-0">{fieldKey}:</span>
-      <span className="break-all min-w-0">
-        {status === "modified" ? (
-          <>
-            <span className="text-muted-foreground/60 line-through">
-              {formatScalar(priorValue)}
-            </span>
-            <span className="mx-1 text-amber-600 dark:text-amber-400">→</span>
-            <span className="text-foreground">{formatScalar(value)}</span>
-          </>
-        ) : (
-          <span className={valueTone}>{formatScalar(value)}</span>
-        )}
-      </span>
-    </div>
-  );
+        ? "border-amber-500/70"
+        : "border-transparent";
+  return `border-l-2 pl-2 -ml-[10px] ${tone}`;
 }
 
 /** Plain-JSON deep equality for entity field values (objects + arrays

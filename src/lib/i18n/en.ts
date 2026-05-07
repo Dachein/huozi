@@ -163,6 +163,7 @@ export const en = {
   "ws.coll.fields": "Fields",
   "ws.coll.search": "Search",
   "ws.coll.historicalView": "viewing historical version",
+  "ws.coll.peekDiff": "hold Space to peek diff",
 
   "ws.onboard.heading": "Let's build your CRM",
   "ws.onboard.subheading": "Copy a scenario, paste into your Agent. These four cards are the four data types working together — Spreadsheet, Document, Collection, Page — each producing one real file in a small customer-management workspace.",
