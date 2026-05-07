@@ -140,7 +140,7 @@ export const fr = {
 
   // Les quatre catégories de type — voir app/docs/four-types.md
   "ws.types.all": "Tous",
-  "ws.types.table": "Tableau",
+  "ws.types.table": "Tableur",
   "ws.types.document": "Document",
   "ws.types.collection": "Collection",
   "ws.types.page": "Page",
@@ -164,7 +164,7 @@ export const fr = {
   "ws.coll.search": "Rechercher",
 
   "ws.onboard.heading": "Construisons votre CRM",
-  "ws.onboard.subheading": "Copiez un scénario, collez-le dans votre agent. Ces quatre cartes sont les quatre types de données qui travaillent ensemble — Tableau, Document, Collection, Page — chacune produit un fichier réel dans un mini espace de gestion clients.",
+  "ws.onboard.subheading": "Copiez un scénario, collez-le dans votre agent. Ces quatre cartes sont les quatre types de données qui travaillent ensemble — Tableur, Document, Collection, Page — chacune produit un fichier réel dans un mini espace de gestion clients.",
 
   "ws.onboard.md.badge": ".md",
   "ws.onboard.md.title": "Un manuel de vente",
@@ -173,7 +173,7 @@ export const fr = {
 
   "ws.onboard.csv.badge": ".csv",
   "ws.onboard.csv.title": "Une liste de clients",
-  "ws.onboard.csv.scenario": "Tableau — grille homogène. Master, listes, instantané. Tableau triable.",
+  "ws.onboard.csv.scenario": "Tableur — grille homogène. Master, listes, instantané. Tableau triable.",
   "ws.onboard.csv.prompt": "Construis un CSV dans crm/customers.csv listant 8 clients PME dans 3 secteurs différents. Colonnes : name, industry, size, region, contact_name, phone, since.",
 
   "ws.onboard.jsonl.badge": ".jsonl",

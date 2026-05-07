@@ -139,7 +139,7 @@ export const ja = {
 
   // 4 つのデータ型カテゴリ — app/docs/four-types.md を参照
   "ws.types.all": "すべて",
-  "ws.types.table": "Table",
+  "ws.types.table": "Spreadsheet",
   "ws.types.document": "Document",
   "ws.types.collection": "Collection",
   "ws.types.page": "Page",
@@ -163,7 +163,7 @@ export const ja = {
   "ws.coll.search": "検索",
 
   "ws.onboard.heading": "あなたの CRM を作ろう",
-  "ws.onboard.subheading": "シナリオをコピーして Agent に貼り付けます。この 4 枚のカードは 4 つのデータ型が協働する形 — Table、Document、Collection、Page — それぞれが小さな顧客管理ワークスペースで実ファイルを生み出します。",
+  "ws.onboard.subheading": "シナリオをコピーして Agent に貼り付けます。この 4 枚のカードは 4 つのデータ型が協働する形 — Spreadsheet、Document、Collection、Page — それぞれが小さな顧客管理ワークスペースで実ファイルを生み出します。",
 
   "ws.onboard.md.badge": ".md",
   "ws.onboard.md.title": "セールスプレイブック",
@@ -172,7 +172,7 @@ export const ja = {
 
   "ws.onboard.csv.badge": ".csv",
   "ws.onboard.csv.title": "顧客名簿",
-  "ws.onboard.csv.scenario": "Table — 均質なグリッド。マスター、名簿、横断面。ソート可能なテーブル。",
+  "ws.onboard.csv.scenario": "Spreadsheet — 均質なグリッド。マスター、名簿、横断面。ソート可能なテーブル。",
   "ws.onboard.csv.prompt": "crm/customers.csv に SMB 顧客 8 社の名簿を作って、3 業種にまたがるように。列: name, industry, size, region, contact_name, phone, since。",
 
   "ws.onboard.jsonl.badge": ".jsonl",

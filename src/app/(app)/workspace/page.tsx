@@ -183,7 +183,7 @@ export default async function CloudWorkspacePage() {
                 },
                 {
                   badge: _("ws.onboard.html.badge"),
-                  glyph: "页",
+                  glyph: "版",
                   title: _("ws.onboard.html.title"),
                   scenario: _("ws.onboard.html.scenario"),
                   prompt: _("ws.onboard.html.prompt"),

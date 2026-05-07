@@ -4,7 +4,7 @@ huozi treats every file as one of four data types. This is not a UI taxonomy —
 
 | Type           | Format       | Mental model                                              | Built-in renderer behavior                            |
 |----------------|--------------|-----------------------------------------------------------|--------------------------------------------------------|
-| **Table**      | `.csv` `.tsv`| A grid of same-shape rows. Cross-sectional snapshot.      | Sortable, virtualized data grid (`CsvGrid`).           |
+| **Spreadsheet**| `.csv` `.tsv`| A grid of same-shape rows. Cross-sectional snapshot.      | Sortable, virtualized data grid (`CsvGrid`).           |
 | **Document**   | `.md` `.mdx` | Continuous prose. Narrative.                              | Rendered Markdown with the publish-flow renderer.      |
 | **Collection** | `.jsonl`     | A stream of entities, each with identity and a lifeline.  | Cards / table / timeline / current-state views (toggleable). |
 | **Page**       | `.html` `.htm`| A finished visual artifact, sized to its purpose.        | Sandboxed HTML with one of five sub-formats: `web`, `mobile`, `deck`, `story`, `paper`. |
@@ -19,7 +19,7 @@ Ask one question per file: **what is the unit of meaning?**
 
 | If the unit of meaning is…           | Use         |
 |--------------------------------------|-------------|
-| A row, comparable across other rows  | Table       |
+| A row, comparable across other rows  | Spreadsheet |
 | A passage of prose                   | Document    |
 | **An entity with a lifecycle**       | **Collection** |
 | A rendered artifact someone will see | Page        |
@@ -30,7 +30,7 @@ If you find yourself wanting two types for the same file, you've conflated two u
 
 ## 1. The four, in one paragraph each
 
-### Table — `.csv` / `.tsv`
+### Spreadsheet — `.csv` / `.tsv`
 
 A homogeneous grid. Every row has the same columns. The dominant question is **"all rows where ... how many ..."** — set-oriented, aggregate-friendly. Excel mental model. The renderer is `CsvGrid` (glide-data-grid) — virtualized, sortable, search-on-page. Type inference happens client-side; there is no schema declaration.
 
@@ -66,9 +66,9 @@ Sub-formats are sniffed from `<meta name="huozi:format">` or the body class. The
 
 ## 2. Cross-sectional vs longitudinal — the deep split
 
-Table and Collection look similar at a glance (both are "rows of records") but they sit on different sides of a fundamental statistical / data-modeling divide:
+Spreadsheet and Collection look similar at a glance (both are "rows of records") but they sit on different sides of a fundamental statistical / data-modeling divide:
 
-| Dimension                | Table (cross-sectional)         | Collection (longitudinal)            |
+| Dimension                | Spreadsheet (cross-sectional)   | Collection (longitudinal)            |
 |--------------------------|---------------------------------|--------------------------------------|
 | What a row represents    | One subject, *now*              | One *event* in a subject's life      |
 | What relates rows        | Same shape, same time           | Same `id`, ordered by time           |
@@ -231,7 +231,7 @@ Result: both `name` and `seniority` are declared.
 ### 3.7 When NOT to use Collection
 
 - **Entities have prose bodies (notes, articles, contact bios).** Use a folder of `.md` files with frontmatter. Each file is one entity; per-entity sharing via `huozi_share` works for free; backlinks are just text references.
-- **Pure tabular data, no lifecycle (a static reference table — country codes, tax brackets).** Use Table.
+- **Pure tabular data, no lifecycle (a static reference table — country codes, tax brackets).** Use Spreadsheet.
 - **More than ~100,000 records *and* needing real query.** Use SQLite + JSON1 (a future fifth type, deliberately not in this v1 set).
 
 ---
@@ -262,7 +262,7 @@ A SMB managing 200 customers and 1,000 monthly interactions. Each of the four ty
 ```
 crm/
 ├── README.md                          ← Document: what this workspace is for
-├── customers.csv                      ← Table: master roster (cross-sectional)
+├── customers.csv                      ← Spreadsheet: master roster (cross-sectional)
 ├── interactions.jsonl                 ← Collection: every touchpoint, append-only
 ├── deals.jsonl                        ← Collection: deal pipeline (lifecycle)
 ├── playbook.md                        ← Document: sales SOP, talk tracks
@@ -272,7 +272,7 @@ crm/
 
 | File                    | Type       | Why this type                                                |
 |-------------------------|------------|--------------------------------------------------------------|
-| `customers.csv`         | Table      | Stable identity record per customer (name, industry, size, region). Asked: "how many customers in 制造业?" — set query. |
+| `customers.csv`         | Spreadsheet | Stable identity record per customer (name, industry, size, region). Asked: "how many customers in 制造业?" — set query. |
 | `interactions.jsonl`    | Collection | Every call/email/meeting is an event, ordered in time, attached to a customer `id`. Asked: "什么时候我们最后一次联系 acme?" — entity trace. |
 | `deals.jsonl`           | Collection | A deal moves through `created → qualified → proposal_sent → won/lost`. Lifecycle is the point. |
 | `playbook.md`           | Document   | Continuous prose; doesn't need to be queried, needs to be read. |
@@ -301,11 +301,11 @@ Folding the deal file by `id` gives the current state of every deal. Filtering f
 
 **Don't put prose in `.jsonl`.** A line with a 2-paragraph `body` field is a misuse — the line becomes unreadable raw. Move prose to a sibling `.md` file and reference it by path from the entity record.
 
-**Don't use Table for entities that change.** A `customers.csv` where you also try to track "last contact date" by editing a column is the anti-pattern Collection was invented to retire. Customers go in Table (identity record), interactions go in Collection (events).
+**Don't use Spreadsheet for entities that change.** A `customers.csv` where you also try to track "last contact date" by editing a column is the anti-pattern Collection was invented to retire. Customers go in Spreadsheet (identity record), interactions go in Collection (events).
 
 **Don't invent a new file extension.** A Collection is just `.jsonl`. The fact that it follows the conventions in §3 is what makes it a Collection — not a special extension. This keeps tool-compat (any `.jsonl` reader works) and avoids ecosystem fragmentation.
 
-**Don't use Page for data.** If your `.html` exists to be queried or aggregated, you have a Table or a Collection in disguise. Pages are end-products, not data sources.
+**Don't use Page for data.** If your `.html` exists to be queried or aggregated, you have a Spreadsheet or a Collection in disguise. Pages are end-products, not data sources.
 
 **Don't conflate `op` with `status`.** `op` is what the actor *did*; `status` is what the resulting state *is*. The fold derives `status` from `op` — you don't need to write both.
 

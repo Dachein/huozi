@@ -140,7 +140,7 @@ export const en = {
 
   // The four data-type categories — see app/docs/four-types.md
   "ws.types.all": "All",
-  "ws.types.table": "Table",
+  "ws.types.table": "Spreadsheet",
   "ws.types.document": "Document",
   "ws.types.collection": "Collection",
   "ws.types.page": "Page",
@@ -164,7 +164,7 @@ export const en = {
   "ws.coll.search": "Search",
 
   "ws.onboard.heading": "Let's build your CRM",
-  "ws.onboard.subheading": "Copy a scenario, paste into your Agent. These four cards are the four data types working together — Table, Document, Collection, Page — each producing one real file in a small customer-management workspace.",
+  "ws.onboard.subheading": "Copy a scenario, paste into your Agent. These four cards are the four data types working together — Spreadsheet, Document, Collection, Page — each producing one real file in a small customer-management workspace.",
 
   "ws.onboard.md.badge": ".md",
   "ws.onboard.md.title": "A sales playbook",
@@ -173,7 +173,7 @@ export const en = {
 
   "ws.onboard.csv.badge": ".csv",
   "ws.onboard.csv.title": "A customer roster",
-  "ws.onboard.csv.scenario": "Table — homogeneous grid. Master records, rosters, cross-sectional. Sortable table.",
+  "ws.onboard.csv.scenario": "Spreadsheet — homogeneous grid. Master records, rosters, cross-sectional. Sortable table.",
   "ws.onboard.csv.prompt": "Build a customer roster CSV at crm/customers.csv listing 8 SMB customers across 3 different industries. Columns: name, industry, size, region, contact_name, phone, since.",
 
   "ws.onboard.jsonl.badge": ".jsonl",

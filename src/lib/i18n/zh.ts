@@ -142,7 +142,7 @@ export const zh = {
   "ws.types.table": "表",
   "ws.types.document": "文",
   "ws.types.collection": "集",
-  "ws.types.page": "页",
+  "ws.types.page": "版",
   "ws.types.other": "其他",
 
   // Collection (.jsonl) 渲染器
@@ -163,7 +163,7 @@ export const zh = {
   "ws.coll.search": "搜索",
 
   "ws.onboard.heading": "开始造你的客户管理库",
-  "ws.onboard.subheading": "复制一段场景话术，粘给你的 Agent。这 4 张卡是一个完整 CRM 的 4 件套——表 / 文 / 集 / 页 各司其职，每张产出一个真实文件。",
+  "ws.onboard.subheading": "复制一段场景话术，粘给你的 Agent。这 4 张卡是一个完整 CRM 的 4 件套——表 / 文 / 集 / 版 各司其职，每张产出一个真实文件。",
 
   "ws.onboard.md.badge": ".md",
   "ws.onboard.md.title": "一份客户跟进话术",
@@ -172,7 +172,7 @@ export const zh = {
 
   "ws.onboard.csv.badge": ".csv",
   "ws.onboard.csv.title": "一张客户名册",
-  "ws.onboard.csv.scenario": "Table — 同构网格数据。适合主数据、清单、横截面分析。可排序表格。",
+  "ws.onboard.csv.scenario": "Spreadsheet — 同构网格数据。适合主数据、清单、横截面分析。可排序表格。",
   "ws.onboard.csv.prompt": "在 crm/customers.csv 建一张客户名册，记录 8 家 SMB 客户，覆盖 3 个不同行业。列：name、industry、size、region、contact_name、phone、since。",
 
   "ws.onboard.jsonl.badge": ".jsonl",
