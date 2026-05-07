@@ -255,11 +255,18 @@ async function FileView({
 
         {/* Read-only-by-design hint — sticks to the bottom of the main
             column when content is short, pushed down by mt-auto;
-            otherwise flows naturally below the content. */}
-        <div className="mt-auto rounded-lg border border-dashed border-border p-4 text-xs text-muted-foreground">
-          <strong className="text-foreground">{t("view.readOnly.title")}</strong>{" "}
-          {t("view.readOnly.body")}
-        </div>
+            otherwise flows naturally below the content.
+            Suppressed for Collection (.jsonl) files: the CollectionView
+            already provides a footer-style timeline / version scrubber
+            in the same screen real estate, and showing both creates
+            redundant chrome. The read-only invariant is communicated
+            implicitly there (no edit affordances on the timeline). */}
+        {!path.endsWith(".jsonl") && (
+          <div className="mt-auto rounded-lg border border-dashed border-border p-4 text-xs text-muted-foreground">
+            <strong className="text-foreground">{t("view.readOnly.title")}</strong>{" "}
+            {t("view.readOnly.body")}
+          </div>
+        )}
       </div>
     </FullscreenProvider>
   );

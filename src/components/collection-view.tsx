@@ -727,19 +727,24 @@ function DetailView({
 
         {slotted.body.length > 0 && (
           <section className="space-y-3 min-w-0">
-            {slotted.body.map(([k, v, label]) => (
-              <div
-                key={k}
-                className={`min-w-0 ${diffEdgeClass(peekDiff ? fieldDiffStatus(k, v, priorState) : null)}`}
-              >
-                <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
-                  {label}
-                </h3>
-                <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                  {renderFieldValue(v, schema?.fields?.[k]?.type)}
+            {slotted.body.map(([k, v, label]) => {
+              const status = peekDiff ? fieldDiffStatus(k, v, priorState) : null;
+              return (
+                <div key={k} className="min-w-0">
+                  <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
+                    {label}
+                  </h3>
+                  <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                    <DiffValue
+                      value={v}
+                      priorValue={priorState[k]}
+                      status={status}
+                      type={schema?.fields?.[k]?.type}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </section>
         )}
 
@@ -749,19 +754,24 @@ function DetailView({
               {t("ws.coll.fields")}
             </h3>
             <dl className="space-y-1.5">
-              {slotted.unslotted.map(([k, v, label]) => (
-                <div
-                  key={k}
-                  className={`flex gap-3 text-xs min-w-0 ${diffEdgeClass(peekDiff ? fieldDiffStatus(k, v, priorState) : null)}`}
-                >
-                  <dt className="text-muted-foreground shrink-0 w-32 font-mono">
-                    {label}
-                  </dt>
-                  <dd className="text-foreground font-mono break-all min-w-0 flex-1">
-                    {renderFieldValue(v, schema?.fields?.[k]?.type)}
-                  </dd>
-                </div>
-              ))}
+              {slotted.unslotted.map(([k, v, label]) => {
+                const status = peekDiff ? fieldDiffStatus(k, v, priorState) : null;
+                return (
+                  <div key={k} className="flex gap-3 text-xs min-w-0">
+                    <dt className="text-muted-foreground shrink-0 w-32 font-mono">
+                      {label}
+                    </dt>
+                    <dd className="text-foreground font-mono break-all min-w-0 flex-1">
+                      <DiffValue
+                        value={v}
+                        priorValue={priorState[k]}
+                        status={status}
+                        type={schema?.fields?.[k]?.type}
+                      />
+                    </dd>
+                  </div>
+                );
+              })}
             </dl>
           </section>
         )}
@@ -780,19 +790,24 @@ function DetailView({
         )}
         {slotted.aside.length > 0 && (
           <dl className="space-y-3">
-            {slotted.aside.map(([k, v, label]) => (
-              <div
-                key={k}
-                className={`min-w-0 ${diffEdgeClass(peekDiff ? fieldDiffStatus(k, v, priorState) : null)}`}
-              >
-                <dt className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
-                  {label}
-                </dt>
-                <dd className="break-words min-w-0">
-                  {renderFieldValue(v, schema?.fields?.[k]?.type)}
-                </dd>
-              </div>
-            ))}
+            {slotted.aside.map(([k, v, label]) => {
+              const status = peekDiff ? fieldDiffStatus(k, v, priorState) : null;
+              return (
+                <div key={k} className="min-w-0">
+                  <dt className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
+                    {label}
+                  </dt>
+                  <dd className="break-words min-w-0">
+                    <DiffValue
+                      value={v}
+                      priorValue={priorState[k]}
+                      status={status}
+                      type={schema?.fields?.[k]?.type}
+                    />
+                  </dd>
+                </div>
+              );
+            })}
           </dl>
         )}
       </aside>
@@ -857,7 +872,13 @@ function DetailView({
           <StackPeek position="above" depth={1} onClick={onOlder} />
         )}
 
-        {activeEvent && <EventBanner line={activeEvent} />}
+        {activeEvent && (
+          <EventBanner
+            line={activeEvent}
+            prior={priorState}
+            schema={schema}
+          />
+        )}
 
         {/* Newer versions, peeking from below/in front. */}
         {historyIndex < entity.history.length - 1 && (
@@ -933,65 +954,175 @@ function StackPeek({
 }
 
 /**
- * Minimal "you are viewing version N" banner for the timeline area.
- * Shows only the event's metadata (id / op / at / by) — no field
- * dump. The full snapshot lives in the detail page's main column;
- * duplicating its data here would just split the user's attention
- * between two views of the same record. Pair with the StackPeek bars
- * for the deck-of-cards visual.
+ * Banner for the active version in the timeline footer. By default
+ * shows a single-line summary of what changed in this event (truncated
+ * with ellipsis). `[expand]` reveals the full per-field diff using
+ * the same DiffValue vocabulary as the snapshot peek.
+ *
+ * `prior` is the folded entity state immediately before this event;
+ * it lets us color each field key with the right diff status.
  */
-function EventBanner({ line }: { line: CollectionLine }) {
+function EventBanner({
+  line,
+  prior,
+  schema,
+}: {
+  line: CollectionLine;
+  prior: Record<string, unknown>;
+  schema: SchemaConfig | null;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const fields = stripConventions(line.fields);
+  const fieldEntries = Object.entries(fields);
+  const hasFields = fieldEntries.length > 0;
+
   return (
-    <article className="rounded-lg border border-foreground/40 bg-muted/40 px-3 py-2.5">
-      <header className="flex flex-wrap items-baseline gap-2">
-        <code className="text-xs font-mono">{line.id}</code>
+    <article className="rounded-lg border border-foreground/40 bg-muted/40">
+      <header className="flex flex-wrap items-baseline gap-2 px-3 py-2.5">
+        <code className="text-xs font-mono shrink-0">{line.id}</code>
         {line.op && (
-          <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-border/50 text-muted-foreground font-mono">
+          <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-border/50 text-muted-foreground font-mono shrink-0">
             {line.op}
           </span>
         )}
+
+        {/* One-line summary of the patch. Hidden when expanded so the
+            user doesn't see the same diff twice. */}
+        {!expanded && hasFields && (
+          <span className="text-[11px] font-mono text-muted-foreground truncate flex-1 min-w-[0]">
+            <PatchSummary fields={fieldEntries} prior={prior} />
+          </span>
+        )}
+
+        {hasFields && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors px-1.5 py-0.5 border border-border/50 rounded shrink-0"
+          >
+            {expanded ? "[collapse]" : "[expand]"}
+          </button>
+        )}
+
         {line.at && (
-          <time className="text-[10px] text-muted-foreground font-mono ml-auto">
+          <time className="text-[10px] text-muted-foreground font-mono shrink-0 ml-auto">
             {shortAt(line.at)}
           </time>
         )}
         {line.by && (
-          <span className="text-[10px] text-muted-foreground font-mono">
+          <span className="text-[10px] text-muted-foreground font-mono shrink-0">
             {line.by}
           </span>
         )}
       </header>
+
+      {expanded && hasFields && (
+        <dl className="px-3 pb-2.5 pt-2 border-t border-border/40 space-y-1 text-[11px] font-mono">
+          {fieldEntries.map(([k, v]) => {
+            const status = fieldDiffStatus(k, v, prior) ?? "added";
+            return (
+              <div
+                key={k}
+                className="flex gap-2 leading-relaxed min-w-0"
+              >
+                <span className="text-muted-foreground shrink-0">{k}:</span>
+                <span className="break-all min-w-0 flex-1">
+                  <DiffValue
+                    value={v}
+                    priorValue={prior[k]}
+                    status={status}
+                    type={schema?.fields?.[k]?.type}
+                  />
+                </span>
+              </div>
+            );
+          })}
+        </dl>
+      )}
     </article>
   );
 }
 
 /**
- * Classify a field as added / modified / unchanged relative to a
- * prior folded state. `null` = unchanged (same value). Used by the
- * "hold Space" diff peek on the snapshot view.
+ * One-liner that lists each patched field with its sigil and a brief
+ * value preview. The parent gives this `truncate` so the whole line
+ * collapses with ellipsis when it gets too long.
+ */
+function PatchSummary({
+  fields,
+  prior,
+}: {
+  fields: [string, unknown][];
+  prior: Record<string, unknown>;
+}) {
+  return (
+    <>
+      {fields.map(([k, v], i) => {
+        const status = fieldDiffStatus(k, v, prior) ?? "added";
+        const sigil =
+          status === "added"
+            ? "+"
+            : status === "modified"
+              ? "~"
+              : status === "deleted"
+                ? "−"
+                : "·";
+        const tone =
+          status === "added"
+            ? "text-emerald-700 dark:text-emerald-400"
+            : status === "modified"
+              ? "text-amber-700 dark:text-amber-400"
+              : status === "deleted"
+                ? "text-red-700 dark:text-red-400"
+                : "text-muted-foreground";
+        const valueText =
+          status === "modified"
+            ? `${formatScalar(prior[k])} → ${formatScalar(v)}`
+            : status === "deleted"
+              ? formatScalar(prior[k])
+              : formatScalar(v);
+        return (
+          <span key={k}>
+            {i > 0 && <span className="opacity-50">, </span>}
+            <span className={`${tone} font-semibold`}>{sigil}</span>
+            <span className="ml-0.5">{k}: </span>
+            <span>{valueText}</span>
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
+/**
+ * Classify a field as added / modified / deleted / unchanged relative
+ * to the prior folded state.
+ *
+ *   added     — key absent in prior, has a non-empty value now
+ *   modified  — key present in both, values differ
+ *   deleted   — key had a non-empty value in prior, now empty/null
+ *   null      — same value (or both empty); no diff to show
+ *
+ * Used by the "hold Space" diff peek on the snapshot view.
  */
 function fieldDiffStatus(
   key: string,
   value: unknown,
   prior: Record<string, unknown> | null,
-): "added" | "modified" | null {
+): "added" | "modified" | "deleted" | null {
   if (!prior) return null;
-  if (!(key in prior)) return "added";
-  return valueEquals(prior[key], value) ? null : "modified";
+  const inPrior = key in prior;
+  const priorVal = inPrior ? prior[key] : undefined;
+  const cur = isEmpty(value);
+  const old = isEmpty(priorVal);
+  if (!inPrior && !cur) return "added";
+  if (inPrior && !old && cur) return "deleted";
+  if (inPrior && !valueEquals(priorVal, value)) return "modified";
+  return null;
 }
 
-/**
- * Tailwind class for the colored left-edge bar used by the diff peek.
- * Transparent border keeps row layout stable when peek is off.
- */
-function diffEdgeClass(status: "added" | "modified" | null): string {
-  const tone =
-    status === "added"
-      ? "border-emerald-500/70"
-      : status === "modified"
-        ? "border-amber-500/70"
-        : "border-transparent";
-  return `border-l-2 pl-2 -ml-[10px] ${tone}`;
+function isEmpty(v: unknown): boolean {
+  return v === null || v === undefined || v === "";
 }
 
 /** Plain-JSON deep equality for entity field values (objects + arrays
@@ -1092,6 +1223,78 @@ function slotFields(
   // showing them as if they were entity fields creates confusion. The
   // schema is the source of truth on what an entity is shaped like.
   return { body, aside, unslotted };
+}
+
+/**
+ * Inline diff renderer used during a Space-peek. Picks the right
+ * visual for each diff status:
+ *
+ *   added    — `+` in emerald, then the new value
+ *   modified — old value strike-through (muted), then new value
+ *   deleted  — `−` in red, old value strike-through
+ *
+ * No status (null) → renders the value normally via renderFieldValue.
+ * Colors deliberately use 700-weight tints so they read on the
+ * cream background; the previous 500/70 tints were washed out.
+ */
+function DiffValue({
+  value,
+  priorValue,
+  status,
+  type,
+}: {
+  value: unknown;
+  priorValue: unknown;
+  status: "added" | "modified" | "deleted" | null;
+  type: string | undefined;
+}) {
+  if (status === null) {
+    return <>{renderFieldValue(value, type)}</>;
+  }
+
+  if (status === "added") {
+    return (
+      <span className="inline-flex items-baseline gap-1.5 max-w-full">
+        <span
+          className="font-mono text-emerald-700 dark:text-emerald-400 font-semibold shrink-0"
+          aria-label="added"
+        >
+          +
+        </span>
+        <span className="min-w-0 break-words">
+          {renderFieldValue(value, type)}
+        </span>
+      </span>
+    );
+  }
+
+  if (status === "deleted") {
+    return (
+      <span className="inline-flex items-baseline gap-1.5 max-w-full">
+        <span
+          className="font-mono text-red-700 dark:text-red-400 font-semibold shrink-0"
+          aria-label="deleted"
+        >
+          −
+        </span>
+        <span className="line-through text-red-700/70 dark:text-red-400/70 min-w-0 break-words">
+          {renderFieldValue(priorValue, type)}
+        </span>
+      </span>
+    );
+  }
+
+  // modified
+  return (
+    <span className="inline-flex flex-wrap items-baseline gap-x-2 max-w-full">
+      <span className="line-through text-muted-foreground/70 break-words">
+        {renderFieldValue(priorValue, type)}
+      </span>
+      <span className="text-emerald-700 dark:text-emerald-400 break-words">
+        {renderFieldValue(value, type)}
+      </span>
+    </span>
+  );
 }
 
 /**
