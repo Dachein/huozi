@@ -256,7 +256,7 @@ export function CollectionView({ content }: CollectionViewProps) {
   const filterFieldKeys = schema?.list_view?.filters ?? [];
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 flex-1 min-h-0">
       {/* Header: counts + (when in detail) back / prev / next */}
       <header className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-border/50">
         <div className="text-xs text-muted-foreground flex items-center gap-3">
@@ -697,7 +697,7 @@ function DetailView({
   }, [entity.history, historyIndex]);
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-8 flex-1 min-h-0">
     <div className="grid grid-cols-1 md:grid-cols-[1fr_280px] gap-6">
       {/* Main column */}
       <main className="space-y-4">
@@ -813,9 +813,12 @@ function DetailView({
       </aside>
     </div>
 
-    {/* History controls — moved to the bottom so they don't interrupt
-        reading the snapshot. Acts as a footer-style nav strip. */}
-    <section className="pt-4 border-t border-border/40">
+    {/* History controls — pinned to the bottom of the page (replaces
+        the read-only banner's old slot). `mt-auto` pushes this strip
+        down when the snapshot is short; flex-1 cascade through the
+        FileBody / CollectionView / DetailView wrappers gives it the
+        room to do so. */}
+    <section className="mt-auto pt-4 border-t border-border/40">
       <header className="flex items-center justify-between gap-2 mb-2">
         <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground">
           {t("ws.coll.view.timeline")} · {entity.history.length}
