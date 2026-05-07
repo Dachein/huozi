@@ -137,12 +137,13 @@ export const ja = {
   "ws.filled.footer.apiDocs": "API ドキュメント",
 
 
-  // 4 つのデータ型カテゴリ — app/docs/four-types.md を参照
+  // 4 つのデータ型カテゴリ — app/docs/four-types.md を参照。
+  // 単漢字ラベルは huozi の活字印刷美学（印 / 版 / 盘）と整合。
   "ws.types.all": "すべて",
-  "ws.types.table": "Spreadsheet",
-  "ws.types.document": "Document",
-  "ws.types.collection": "Collection",
-  "ws.types.page": "Page",
+  "ws.types.table": "表",
+  "ws.types.document": "文",
+  "ws.types.collection": "集",
+  "ws.types.page": "版",
   "ws.types.other": "その他",
 
   // Collection (.jsonl) レンダラー
@@ -163,7 +164,7 @@ export const ja = {
   "ws.coll.search": "検索",
 
   "ws.onboard.heading": "あなたの CRM を作ろう",
-  "ws.onboard.subheading": "シナリオをコピーして Agent に貼り付けます。この 4 枚のカードは 4 つのデータ型が協働する形 — Spreadsheet、Document、Collection、Page — それぞれが小さな顧客管理ワークスペースで実ファイルを生み出します。",
+  "ws.onboard.subheading": "シナリオをコピーして Agent に貼り付けます。この 4 枚のカードは 4 つのデータ型が協働する形 — 表 / 文 / 集 / 版 — それぞれが小さな顧客管理ワークスペースで実ファイルを生み出します。",
 
   "ws.onboard.md.badge": ".md",
   "ws.onboard.md.title": "セールスプレイブック",
