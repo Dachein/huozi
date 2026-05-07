@@ -84,6 +84,15 @@ export function CollectionView({ content }: CollectionViewProps) {
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Index into the drilled entity's history (chronologically ordered).
+  // `null` = "follow latest" — when set, the detail view renders that
+  // event as the as-of point. Reset whenever the drilled entity changes
+  // so switching candidates doesn't carry a stale index.
+  const [historyIndex, setHistoryIndex] = useState<number | null>(null);
+  useEffect(() => {
+    setHistoryIndex(null);
+  }, [drillEntityId]);
+
   // Filtered + searched entity list. This is the navigation scope —
   // both the list and detail prev/next walk this slice.
   const filteredEntities = useMemo(() => {
@@ -131,17 +140,43 @@ export function CollectionView({ content }: CollectionViewProps) {
       ? (filteredEntities[drillIndex + 1] ?? null)
       : null;
 
-  const goPrev = useCallback(() => {
+  // History-version cursor: `null` follows latest. The "effective"
+  // index resolved against the current drilledEntity's history length.
+  const historyLen = drillEntity?.history.length ?? 0;
+  const effectiveHistoryIndex =
+    historyIndex === null ? historyLen - 1 : historyIndex;
+  const canGoOlder = drillEntity ? effectiveHistoryIndex > 0 : false;
+  const canGoNewer = drillEntity ? effectiveHistoryIndex < historyLen - 1 : false;
+
+  const goPrevEntity = useCallback(() => {
     if (prevEntity) setDrillEntityId(prevEntity.id);
   }, [prevEntity]);
-  const goNext = useCallback(() => {
+  const goNextEntity = useCallback(() => {
     if (nextEntity) setDrillEntityId(nextEntity.id);
   }, [nextEntity]);
   const goBack = useCallback(() => setDrillEntityId(null), []);
+  const goOlderVersion = useCallback(() => {
+    setHistoryIndex((cur) => {
+      const eff = cur === null ? historyLen - 1 : cur;
+      return Math.max(0, eff - 1);
+    });
+  }, [historyLen]);
+  const goNewerVersion = useCallback(() => {
+    setHistoryIndex((cur) => {
+      const eff = cur === null ? historyLen - 1 : cur;
+      const next = Math.min(historyLen - 1, eff + 1);
+      // Snap back to "follow latest" when at the head — clears the
+      // "viewing historical version" hint without an extra state.
+      return next === historyLen - 1 ? null : next;
+    });
+  }, [historyLen]);
 
-  // Keyboard: j/k = next/prev in detail, esc = back to list, cmd/ctrl+k
-  // = focus the search input on the list. Inputs/textareas opt out so
-  // typing isn't hijacked.
+  // Keyboard:
+  //   ←/→  prev / next entity (within filtered list)
+  //   ↑/↓  older / newer version of this entity's history
+  //   esc  back to list
+  //   ⌘/Ctrl + K  focus the search input (works in list view too)
+  // Inputs / textareas opt out so typing isn't hijacked.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -159,12 +194,18 @@ export function CollectionView({ content }: CollectionViewProps) {
       if (inField) return;
 
       if (drillEntity) {
-        if (e.key === "j") {
+        if (e.key === "ArrowLeft") {
           e.preventDefault();
-          goNext();
-        } else if (e.key === "k") {
+          goPrevEntity();
+        } else if (e.key === "ArrowRight") {
           e.preventDefault();
-          goPrev();
+          goNextEntity();
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          goOlderVersion();
+        } else if (e.key === "ArrowDown") {
+          e.preventDefault();
+          goNewerVersion();
         } else if (e.key === "Escape") {
           e.preventDefault();
           goBack();
@@ -173,7 +214,14 @@ export function CollectionView({ content }: CollectionViewProps) {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [drillEntity, goNext, goPrev, goBack]);
+  }, [
+    drillEntity,
+    goNextEntity,
+    goPrevEntity,
+    goOlderVersion,
+    goNewerVersion,
+    goBack,
+  ]);
 
   // Empty state — no parsed lines at all (and no schema either).
   if (lines.length === 0 && schemas.length === 0 && errors.length === 0) {
@@ -225,23 +273,23 @@ export function CollectionView({ content }: CollectionViewProps) {
             </button>
             <button
               type="button"
-              onClick={goPrev}
+              onClick={goPrevEntity}
               disabled={!prevEntity}
               className="text-[11px] px-2 py-1 rounded border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
-              title="k"
-              aria-label="Previous"
+              title="←"
+              aria-label="Previous entity"
             >
-              ↑
+              ‹
             </button>
             <button
               type="button"
-              onClick={goNext}
+              onClick={goNextEntity}
               disabled={!nextEntity}
               className="text-[11px] px-2 py-1 rounded border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
-              title="j"
-              aria-label="Next"
+              title="→"
+              aria-label="Next entity"
             >
-              ↓
+              ›
             </button>
             {drillIndex >= 0 && (
               <span className="text-[10px] text-muted-foreground/60 font-mono ml-1">
@@ -273,7 +321,17 @@ export function CollectionView({ content }: CollectionViewProps) {
 
       {/* Body */}
       {drillEntity ? (
-        <DetailView entity={drillEntity} schema={schema} t={t} />
+        <DetailView
+          entity={drillEntity}
+          schema={schema}
+          historyIndex={effectiveHistoryIndex}
+          isLatest={historyIndex === null}
+          canGoOlder={canGoOlder}
+          canGoNewer={canGoNewer}
+          onOlder={goOlderVersion}
+          onNewer={goNewerVersion}
+          t={t}
+        />
       ) : (
         <ListView
           entities={filteredEntities}
@@ -554,13 +612,36 @@ function EntityCard({
 function DetailView({
   entity,
   schema,
+  historyIndex,
+  isLatest,
+  canGoOlder,
+  canGoNewer,
+  onOlder,
+  onNewer,
   t,
 }: {
   entity: EntityState;
   schema: SchemaConfig | null;
+  historyIndex: number;
+  isLatest: boolean;
+  canGoOlder: boolean;
+  canGoNewer: boolean;
+  onOlder: () => void;
+  onNewer: () => void;
   t: (k: string) => string;
 }) {
-  const fields = stripConventions(entity.state);
+  // Resolve as-of state: when not following latest, fold only the
+  // events up to and including `historyIndex`. When following latest
+  // we use the parent-computed `entity.state` directly.
+  const asOfState = useMemo(
+    () =>
+      isLatest
+        ? entity.state
+        : foldHistorySlice(entity.history, historyIndex),
+    [entity, historyIndex, isLatest],
+  );
+
+  const fields = stripConventions(asOfState);
   const titleField = schema?.entity?.title_field;
   const subtitleField = schema?.entity?.subtitle_field;
   const avatarField = schema?.entity?.avatar_field;
@@ -573,6 +654,8 @@ function DetailView({
     () => slotFields(fields, schema, titleField, subtitleField, avatarField),
     [fields, schema, titleField, subtitleField, avatarField],
   );
+
+  const activeEvent = entity.history[historyIndex];
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-[1fr_280px] gap-6">
@@ -638,25 +721,74 @@ function DetailView({
         )}
 
         <section>
-          <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
-            {t("ws.coll.view.timeline")} · {entity.history.length}
-          </h3>
+          <header className="flex items-center justify-between gap-2 mb-2">
+            <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              {t("ws.coll.view.timeline")} · {entity.history.length}
+            </h3>
+            {entity.history.length > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={onOlder}
+                  disabled={!canGoOlder}
+                  className="text-[11px] px-2 py-0.5 rounded border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+                  title="↑"
+                  aria-label="Older version"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  onClick={onNewer}
+                  disabled={!canGoNewer}
+                  className="text-[11px] px-2 py-0.5 rounded border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+                  title="↓"
+                  aria-label="Newer version"
+                >
+                  ↓
+                </button>
+                <span className="text-[10px] text-muted-foreground/60 font-mono ml-1">
+                  v{historyIndex + 1}/{entity.history.length}
+                  {!isLatest && (
+                    <span className="ml-1 text-amber-600 dark:text-amber-400">
+                      · {t("ws.coll.historicalView")}
+                    </span>
+                  )}
+                </span>
+              </div>
+            )}
+          </header>
           <ol className="relative pl-5 border-l-2 border-border/40 space-y-3">
-            {entity.history.map((ln) => (
-              <li key={ln.lineNumber} className="relative">
-                <span
-                  className="absolute -left-[27px] top-2 w-3 h-3 rounded-full bg-background border-2 border-border"
-                  aria-hidden
-                />
-                <EventCard line={ln} />
-              </li>
-            ))}
+            {entity.history.map((ln, i) => {
+              const isActive = i === historyIndex;
+              return (
+                <li key={ln.lineNumber} className="relative">
+                  <span
+                    className={`absolute -left-[27px] top-2 w-3 h-3 rounded-full border-2 ${
+                      isActive
+                        ? "bg-foreground border-foreground"
+                        : "bg-background border-border"
+                    }`}
+                    aria-hidden
+                  />
+                  <EventCard line={ln} highlighted={isActive} />
+                </li>
+              );
+            })}
           </ol>
         </section>
       </main>
 
       {/* Aside */}
       <aside className="space-y-4 md:border-l md:pl-6 md:border-border/40">
+        {!isLatest && activeEvent && (
+          <div className="rounded border border-amber-500/30 bg-amber-500/5 px-2.5 py-2 text-[10px] text-amber-700 dark:text-amber-400">
+            {t("ws.coll.historicalView")} —{" "}
+            <span className="font-mono">
+              {activeEvent.at ? shortAt(activeEvent.at) : `line ${activeEvent.lineNumber}`}
+            </span>
+          </div>
+        )}
         {slotted.aside.length > 0 && (
           <dl className="space-y-3">
             {slotted.aside.map(([k, v, label]) => (
@@ -674,11 +806,46 @@ function DetailView({
   );
 }
 
-function EventCard({ line }: { line: CollectionLine }) {
+/**
+ * Replay a slice of an entity's history up to (and including) `upTo`.
+ * Mirrors `foldByEntity` semantics for one entity's events: later
+ * lines override earlier on per-key conflicts; absent keys are
+ * unchanged. Used when the user has scrubbed back to a historical
+ * version of a single entity.
+ */
+function foldHistorySlice(
+  history: readonly CollectionLine[],
+  upTo: number,
+): Record<string, unknown> {
+  const end = Math.min(upTo, history.length - 1);
+  let merged: Record<string, unknown> = {};
+  for (let i = 0; i <= end; i++) {
+    const ln = history[i]!;
+    merged = { ...merged, ...ln.fields };
+    if (ln.at) merged.at = ln.at;
+    if (ln.by) merged.by = ln.by;
+    if (ln.op) merged.op = ln.op;
+  }
+  return merged;
+}
+
+function EventCard({
+  line,
+  highlighted = false,
+}: {
+  line: CollectionLine;
+  highlighted?: boolean;
+}) {
   const fields = stripConventions(line.fields);
   const hasFields = Object.keys(fields).length > 0;
   return (
-    <article className="rounded-lg border border-border/60 bg-background px-3 py-2.5">
+    <article
+      className={`rounded-lg border px-3 py-2.5 transition-colors ${
+        highlighted
+          ? "border-foreground/40 bg-muted/40"
+          : "border-border/60 bg-background"
+      }`}
+    >
       <header className="flex flex-wrap items-baseline gap-2 mb-1.5">
         <code className="text-xs font-mono">{line.id}</code>
         {line.op && (

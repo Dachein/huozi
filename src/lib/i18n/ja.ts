@@ -162,6 +162,7 @@ export const ja = {
   "ws.coll.backToList": "← 戻る",
   "ws.coll.fields": "フィールド",
   "ws.coll.search": "検索",
+  "ws.coll.historicalView": "過去バージョンを表示中",
 
   "ws.onboard.heading": "あなたの CRM を作ろう",
   "ws.onboard.subheading": "シナリオをコピーして Agent に貼り付けます。この 4 枚のカードは 4 つのデータ型が協働する形 — 表 / 文 / 集 / 版 — それぞれが小さな顧客管理ワークスペースで実ファイルを生み出します。",
