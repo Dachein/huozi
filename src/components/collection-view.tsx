@@ -686,14 +686,14 @@ function DetailView({
         </header>
 
         {slotted.body.length > 0 && (
-          <section className="space-y-3">
+          <section className="space-y-3 min-w-0">
             {slotted.body.map(([k, v, label]) => (
-              <div key={k}>
+              <div key={k} className="min-w-0">
                 <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
                   {label}
                 </h3>
-                <div className="text-sm leading-relaxed whitespace-pre-wrap">
-                  {formatScalar(v)}
+                <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                  {renderFieldValue(v, schema?.fields?.[k]?.type)}
                 </div>
               </div>
             ))}
@@ -701,18 +701,18 @@ function DetailView({
         )}
 
         {slotted.unslotted.length > 0 && (
-          <section>
+          <section className="min-w-0">
             <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
               {t("ws.coll.fields")}
             </h3>
             <dl className="space-y-1.5">
               {slotted.unslotted.map(([k, v, label]) => (
-                <div key={k} className="flex gap-3 text-xs">
+                <div key={k} className="flex gap-3 text-xs min-w-0">
                   <dt className="text-muted-foreground shrink-0 w-32 font-mono">
                     {label}
                   </dt>
-                  <dd className="text-foreground font-mono break-all">
-                    {formatScalar(v)}
+                  <dd className="text-foreground font-mono break-all min-w-0 flex-1">
+                    {renderFieldValue(v, schema?.fields?.[k]?.type)}
                   </dd>
                 </div>
               ))}
@@ -780,9 +780,9 @@ function DetailView({
       </main>
 
       {/* Aside */}
-      <aside className="space-y-4 md:border-l md:pl-6 md:border-border/40">
+      <aside className="space-y-4 md:border-l md:pl-6 md:border-border/40 min-w-0">
         {!isLatest && activeEvent && (
-          <div className="rounded border border-amber-500/30 bg-amber-500/5 px-2.5 py-2 text-[10px] text-amber-700 dark:text-amber-400">
+          <div className="rounded border border-amber-500/30 bg-amber-500/5 px-2.5 py-2 text-[10px] text-amber-700 dark:text-amber-400 break-words">
             {t("ws.coll.historicalView")} —{" "}
             <span className="font-mono">
               {activeEvent.at ? shortAt(activeEvent.at) : `line ${activeEvent.lineNumber}`}
@@ -792,11 +792,13 @@ function DetailView({
         {slotted.aside.length > 0 && (
           <dl className="space-y-3">
             {slotted.aside.map(([k, v, label]) => (
-              <div key={k}>
+              <div key={k} className="min-w-0">
                 <dt className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">
                   {label}
                 </dt>
-                <dd className="text-sm break-all">{formatScalar(v)}</dd>
+                <dd className="break-words min-w-0">
+                  {renderFieldValue(v, schema?.fields?.[k]?.type)}
+                </dd>
               </div>
             ))}
           </dl>
@@ -947,13 +949,100 @@ function slotFields(
     }
     // headline/subheadline/avatar are already consumed; skip.
   }
-  // Any extra fields not declared in schema.
-  const declared = new Set(Object.keys(schema.fields));
-  for (const [k, v] of Object.entries(fields)) {
-    if (used.has(k) || declared.has(k)) continue;
-    unslotted.push([k, v, k]);
-  }
+  // When a schema is provided, undeclared fields are intentionally
+  // hidden from the entity view. The fold accumulates event-payload
+  // keys (`from`/`to` from a stage_change event, `text` from a note
+  // event, etc.); those are *event metadata*, not entity state, and
+  // showing them as if they were entity fields creates confusion. The
+  // schema is the source of truth on what an entity is shaped like.
   return { body, aside, unslotted };
+}
+
+/**
+ * Render a field value as JSX, dispatching on the schema-declared
+ * type so url_map shows up as a list of links instead of a JSON dump,
+ * url/email become clickable, etc. Falls back to formatScalar for
+ * anything not specially handled.
+ */
+function renderFieldValue(
+  value: unknown,
+  type: string | undefined,
+): React.ReactNode {
+  if (value === null || value === undefined || value === "") {
+    return <span className="text-muted-foreground/50">—</span>;
+  }
+
+  if (
+    type === "url_map" &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+  ) {
+    const entries = Object.entries(value as Record<string, unknown>).filter(
+      ([, v]) => typeof v === "string" && v.length > 0,
+    );
+    if (entries.length === 0) {
+      return <span className="text-muted-foreground/50">—</span>;
+    }
+    return (
+      <ul className="space-y-1">
+        {entries.map(([label, url]) => (
+          <li key={label} className="min-w-0">
+            <a
+              href={url as string}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-baseline gap-1 text-sm text-foreground hover:text-accent transition-colors max-w-full"
+              title={url as string}
+            >
+              <span className="font-mono text-[11px] text-muted-foreground shrink-0">
+                {label}
+              </span>
+              <span aria-hidden className="text-muted-foreground/60 text-[10px]">
+                ↗
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  if (type === "url" && typeof value === "string") {
+    return (
+      <a
+        href={value}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-sm text-foreground hover:text-accent transition-colors break-all"
+      >
+        {value}
+      </a>
+    );
+  }
+
+  if (type === "email" && typeof value === "string") {
+    return (
+      <a
+        href={`mailto:${value}`}
+        className="text-sm text-foreground hover:text-accent transition-colors break-all"
+      >
+        {value}
+      </a>
+    );
+  }
+
+  if (type === "image" && typeof value === "string") {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={value}
+        alt=""
+        className="max-w-full h-auto rounded border border-border/40"
+      />
+    );
+  }
+
+  return <span className="text-sm break-all">{formatScalar(value)}</span>;
 }
 
 /** Render a scalar value to a one-line display string. */
