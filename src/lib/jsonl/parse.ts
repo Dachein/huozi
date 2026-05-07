@@ -1,20 +1,25 @@
 /**
  * JSONL parsing for Collection files. See `app/docs/four-types.md` §3.
  *
- * Soft-schema rule: only `id` is required. `at` / `by` / `op` are
- * recommended but optional; the parser carries them through if present
- * and leaves them undefined otherwise. Lines that are not valid JSON or
- * lack `id` are reported as parse errors but do not throw — Collection
- * files in the wild may have stray blank lines, BOMs, or partial writes,
- * and the renderer should degrade gracefully.
+ * Two line kinds:
+ *   - **Entity events** — must have `id`; everything else is soft.
+ *   - **Schema events** — `op:"schema"`, no `id`, payload under `schema`.
+ *     They configure how the file should be rendered (field types,
+ *     filters, layout slots). Multiple are allowed; later events
+ *     deep-merge over earlier ones (see `fold.foldSchema`).
+ *
+ * Lines that are not valid JSON, are not objects, or are entity events
+ * lacking `id`, are reported as parse errors but do not throw —
+ * Collection files in the wild may have stray blank lines, BOMs, or
+ * partial writes, and the renderer should degrade gracefully.
  */
 
 /**
- * One parsed line of a Collection file. The four conventional fields
- * (`id`, `at`, `by`, `op`) are surfaced explicitly; everything else
- * lives in `fields`. We keep `fields` distinct from the raw JSON object
- * so the four conventions render consistently regardless of how the
- * author ordered keys.
+ * One entity-event line. The four conventional fields (`id`, `at`, `by`,
+ * `op`) are surfaced explicitly; everything else lives in `fields`.
+ * We keep `fields` distinct from the raw JSON object so the four
+ * conventions render consistently regardless of how the author ordered
+ * keys.
  */
 export interface CollectionLine {
   /** 1-based line number within the source file. */
@@ -33,6 +38,29 @@ export interface CollectionLine {
   raw: Record<string, unknown>;
 }
 
+/**
+ * One schema-event line. Schema events carry rendering configuration
+ * for the Collection: which fields to show, what type each field is,
+ * how to lay them out, what filters to expose. They have no `id` (the
+ * config is about the file, not an entity) and use the reserved
+ * `op:"schema"` verb. Multiple schema events accumulate via deep
+ * merge, latest-write-wins (see `foldSchema`).
+ */
+export interface SchemaLine {
+  /** 1-based line number within the source file. */
+  lineNumber: number;
+  /** Optional RFC 3339 timestamp; orders schemas chronologically. */
+  at?: string;
+  /** Optional actor who wrote this schema event. */
+  by?: string;
+  /** Optional integer version (informational; merge order is `at`-based). */
+  version?: number;
+  /** The schema config payload — open shape; see four-types.md §3.7. */
+  schema: Record<string, unknown>;
+  /** The full original JSON object — useful for re-emit / debugging. */
+  raw: Record<string, unknown>;
+}
+
 export interface ParseError {
   lineNumber: number;
   /** The original line text (truncated if very long). */
@@ -42,6 +70,7 @@ export interface ParseError {
 
 export interface ParseResult {
   lines: CollectionLine[];
+  schemas: SchemaLine[];
   errors: ParseError[];
 }
 
@@ -61,6 +90,7 @@ export function parseJsonl(content: string): ParseResult {
 
   const rawLines = stripped.split(/\r?\n/);
   const lines: CollectionLine[] = [];
+  const schemas: SchemaLine[] = [];
   const errors: ParseError[] = [];
 
   for (let i = 0; i < rawLines.length; i++) {
@@ -95,6 +125,32 @@ export function parseJsonl(content: string): ParseResult {
     }
 
     const obj = parsed as Record<string, unknown>;
+    const at = typeof obj.at === "string" ? obj.at : undefined;
+    const by = typeof obj.by === "string" ? obj.by : undefined;
+    const op = typeof obj.op === "string" ? obj.op : undefined;
+
+    // Schema event — special control record. No `id` required because
+    // the config is about the file, not an entity.
+    if (op === "schema") {
+      const version =
+        typeof obj.version === "number" ? obj.version : undefined;
+      const schemaPayload =
+        obj.schema &&
+        typeof obj.schema === "object" &&
+        !Array.isArray(obj.schema)
+          ? (obj.schema as Record<string, unknown>)
+          : {};
+      schemas.push({
+        lineNumber,
+        at,
+        by,
+        version,
+        schema: schemaPayload,
+        raw: obj,
+      });
+      continue;
+    }
+
     const id = obj.id;
     if (typeof id !== "string" || id.length === 0) {
       errors.push({
@@ -104,10 +160,6 @@ export function parseJsonl(content: string): ParseResult {
       });
       continue;
     }
-
-    const at = typeof obj.at === "string" ? obj.at : undefined;
-    const by = typeof obj.by === "string" ? obj.by : undefined;
-    const op = typeof obj.op === "string" ? obj.op : undefined;
 
     // `fields` excludes the four conventions so the renderer can show
     // them in dedicated chrome (badge, byline, op chip) and the
@@ -129,7 +181,7 @@ export function parseJsonl(content: string): ParseResult {
     });
   }
 
-  return { lines, errors };
+  return { lines, schemas, errors };
 }
 
 function truncate(s: string): string {

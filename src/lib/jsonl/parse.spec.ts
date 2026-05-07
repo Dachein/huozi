@@ -162,6 +162,55 @@ describe("sortByAt", () => {
   });
 });
 
+describe("schema events", () => {
+  it("collects op:\"schema\" lines into `schemas`, not `lines`", () => {
+    const content = [
+      `{"op":"schema","at":"2026-05-07T09:00:00Z","by":"alice","version":1,"schema":{"fields":{"name":{"type":"text"}}}}`,
+      `{"id":"a","at":"2026-05-07T10:00:00Z","name":"Acme"}`,
+    ].join("\n");
+    const { lines, schemas, errors } = parseJsonl(content);
+    expect(errors).toEqual([]);
+    expect(lines).toHaveLength(1);
+    expect(schemas).toHaveLength(1);
+    expect(schemas[0]).toMatchObject({
+      lineNumber: 1,
+      at: "2026-05-07T09:00:00Z",
+      by: "alice",
+      version: 1,
+      schema: { fields: { name: { type: "text" } } },
+    });
+  });
+
+  it("does not require `id` on schema events", () => {
+    const { schemas, errors } = parseJsonl(
+      `{"op":"schema","schema":{"fields":{}}}`,
+    );
+    expect(errors).toEqual([]);
+    expect(schemas).toHaveLength(1);
+  });
+
+  it("treats absent `schema` payload as empty object", () => {
+    const { schemas } = parseJsonl(`{"op":"schema"}`);
+    expect(schemas[0]?.schema).toEqual({});
+  });
+
+  it("rejects non-object `schema` payloads (treats them as empty)", () => {
+    const { schemas } = parseJsonl(`{"op":"schema","schema":[1,2,3]}`);
+    expect(schemas[0]?.schema).toEqual({});
+  });
+
+  it("entity lines without id still error even when other lines are schemas", () => {
+    const content = [
+      `{"op":"schema","schema":{}}`,
+      `{"name":"no id"}`,
+    ].join("\n");
+    const { schemas, errors } = parseJsonl(content);
+    expect(schemas).toHaveLength(1);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.reason).toBe("missing-id");
+  });
+});
+
 describe("distinctIds", () => {
   it("returns ids in first-appearance order without duplicates", () => {
     const { lines } = parseJsonl(

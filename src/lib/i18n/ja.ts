@@ -159,6 +159,8 @@ export const ja = {
   "ws.coll.deleted": "削除済み",
   "ws.coll.pickEntity": "エンティティを選んでタイムラインを見る",
   "ws.coll.backToList": "← 戻る",
+  "ws.coll.fields": "フィールド",
+  "ws.coll.search": "検索",
 
   "ws.onboard.heading": "あなたの CRM を作ろう",
   "ws.onboard.subheading": "シナリオをコピーして Agent に貼り付けます。この 4 枚のカードは 4 つのデータ型が協働する形 — Table、Document、Collection、Page — それぞれが小さな顧客管理ワークスペースで実ファイルを生み出します。",

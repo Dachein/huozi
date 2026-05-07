@@ -160,6 +160,8 @@ export const fr = {
   "ws.coll.deleted": "supprimé",
   "ws.coll.pickEntity": "Choisissez une entité pour voir sa chronologie",
   "ws.coll.backToList": "← Retour",
+  "ws.coll.fields": "Champs",
+  "ws.coll.search": "Rechercher",
 
   "ws.onboard.heading": "Construisons votre CRM",
   "ws.onboard.subheading": "Copiez un scénario, collez-le dans votre agent. Ces quatre cartes sont les quatre types de données qui travaillent ensemble — Tableau, Document, Collection, Page — chacune produit un fichier réel dans un mini espace de gestion clients.",

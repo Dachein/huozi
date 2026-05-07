@@ -14,6 +14,7 @@
 
 import {
   createBatchEditTool,
+  createCollectionInitTool,
   createEditTool,
   createGlobTool,
   createGrepTool,
@@ -76,6 +77,7 @@ export function createHuoziToolRegistry(
     createReadTool({ storage, binarySigner }),
     createEditTool({ storage }),
     createWriteTool({ storage }),
+    createCollectionInitTool({ storage }),
     createGlobTool({ storage }),
     createGrepTool({ storage }),
     createListTreeTool({ storage }),

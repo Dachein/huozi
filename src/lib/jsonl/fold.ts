@@ -12,7 +12,7 @@
  * surface `op` in the timeline view independently.
  */
 
-import type { CollectionLine } from "./parse";
+import type { CollectionLine, SchemaLine } from "./parse";
 import { groupById, sortByAt } from "./parse";
 
 /**
@@ -116,6 +116,78 @@ export function foldEntity(
   if (subset.length === 0) return null;
   const all = foldByEntity(subset, asOf);
   return all[0] ?? null;
+}
+
+/**
+ * Fold all schema events into one effective configuration. Schema
+ * events are sorted by `at` (ties broken by line number, then by lines
+ * lacking `at` falling back to file order) and deep-merged in
+ * chronological order.
+ *
+ * **Merge semantics:** keys at every level are unioned; on key
+ * conflict, the later schema wins. For nested objects (e.g.
+ * `schema.fields`, `schema.entity`) the merge recurses, so a later
+ * schema can add a single new field without restating the rest of the
+ * config. Arrays are replaced wholesale (a later schema's
+ * `list_view.filters` array fully overrides the earlier one) — array
+ * concatenation is rarely the right semantics for config.
+ *
+ * Returns `null` when no schema events exist; the renderer should
+ * degrade to the soft-schema default (id-as-title, field-union table).
+ */
+export function foldSchema(
+  schemas: SchemaLine[],
+): Record<string, unknown> | null {
+  if (schemas.length === 0) return null;
+  const sorted = [...schemas].sort((a, b) => {
+    const aAt = a.at;
+    const bAt = b.at;
+    if (aAt && bAt) {
+      if (aAt < bAt) return -1;
+      if (aAt > bAt) return 1;
+      return a.lineNumber - b.lineNumber;
+    }
+    if (!aAt && !bAt) return a.lineNumber - b.lineNumber;
+    return aAt ? -1 : 1;
+  });
+
+  let merged: Record<string, unknown> = {};
+  for (const s of sorted) {
+    merged = deepMergeObjects(merged, s.schema);
+  }
+  return merged;
+}
+
+/**
+ * Deep-merge two plain-object payloads. Later wins on scalar conflicts
+ * and on array values; nested plain objects recurse. Not generic over
+ * arbitrary class instances — schema payloads are JSON, so plain
+ * objects + arrays + scalars are exhaustive.
+ */
+function deepMergeObjects(
+  target: Record<string, unknown>,
+  source: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...target };
+  for (const key of Object.keys(source)) {
+    const sv = source[key];
+    const tv = out[key];
+    if (isPlainObject(tv) && isPlainObject(sv)) {
+      out[key] = deepMergeObjects(tv, sv);
+    } else {
+      out[key] = sv;
+    }
+  }
+  return out;
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return (
+    v !== null &&
+    typeof v === "object" &&
+    !Array.isArray(v) &&
+    Object.getPrototypeOf(v) === Object.prototype
+  );
 }
 
 /**

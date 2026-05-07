@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parseJsonl } from "./parse";
-import { fieldUnion, foldByEntity, foldEntity } from "./fold";
+import { fieldUnion, foldByEntity, foldEntity, foldSchema } from "./fold";
 
 const ORDER = [
   // 4-event lifecycle for a deal: create → qualify → proposal_sent → won
@@ -97,6 +97,68 @@ describe("foldEntity (single)", () => {
   it("returns null when the id is not present", () => {
     const { lines } = parseJsonl(ORDER);
     expect(foldEntity(lines, "nonexistent")).toBeNull();
+  });
+});
+
+describe("foldSchema", () => {
+  it("returns null when no schema events exist", () => {
+    expect(foldSchema([])).toBeNull();
+  });
+
+  it("returns the single schema's payload when there's only one", () => {
+    const { schemas } = parseJsonl(
+      `{"op":"schema","at":"2026-05-07T09:00:00Z","schema":{"fields":{"name":{"type":"text"}}}}`,
+    );
+    const folded = foldSchema(schemas);
+    expect(folded).toEqual({ fields: { name: { type: "text" } } });
+  });
+
+  it("deep-merges multiple schema events; later wins on scalar conflicts", () => {
+    const content = [
+      `{"op":"schema","at":"2026-05-07T09:00:00Z","schema":{"title":"v1","fields":{"name":{"type":"text"}}}}`,
+      `{"op":"schema","at":"2026-05-07T10:00:00Z","schema":{"title":"v2","fields":{"role":{"type":"text"}}}}`,
+    ].join("\n");
+    const { schemas } = parseJsonl(content);
+    const folded = foldSchema(schemas);
+    expect(folded).toEqual({
+      title: "v2",
+      fields: {
+        name: { type: "text" }, // preserved
+        role: { type: "text" }, // added
+      },
+    });
+  });
+
+  it("orders schemas by `at`, not file order", () => {
+    const content = [
+      `{"op":"schema","at":"2026-05-07T11:00:00Z","schema":{"title":"later"}}`,
+      `{"op":"schema","at":"2026-05-07T09:00:00Z","schema":{"title":"earlier"}}`,
+    ].join("\n");
+    const { schemas } = parseJsonl(content);
+    const folded = foldSchema(schemas);
+    expect(folded).toEqual({ title: "later" });
+  });
+
+  it("replaces arrays wholesale rather than concatenating", () => {
+    const content = [
+      `{"op":"schema","at":"1","schema":{"list_view":{"filters":["stage","company"]}}}`,
+      `{"op":"schema","at":"2","schema":{"list_view":{"filters":["stage"]}}}`,
+    ].join("\n");
+    const { schemas } = parseJsonl(content);
+    const folded = foldSchema(schemas);
+    expect((folded as Record<string, Record<string, unknown>>).list_view.filters).toEqual([
+      "stage",
+    ]);
+  });
+
+  it("falls back to line order when `at` is missing", () => {
+    const content = [
+      `{"op":"schema","schema":{"title":"first"}}`,
+      `{"op":"schema","schema":{"title":"second"}}`,
+    ].join("\n");
+    const { schemas } = parseJsonl(content);
+    const folded = foldSchema(schemas);
+    expect(folded).toEqual({ title: "second" });
   });
 });
 

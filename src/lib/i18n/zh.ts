@@ -159,6 +159,8 @@ export const zh = {
   "ws.coll.deleted": "已删除",
   "ws.coll.pickEntity": "选一个实体看它的时间线",
   "ws.coll.backToList": "← 返回",
+  "ws.coll.fields": "字段",
+  "ws.coll.search": "搜索",
 
   "ws.onboard.heading": "开始造你的客户管理库",
   "ws.onboard.subheading": "复制一段场景话术，粘给你的 Agent。这 4 张卡是一个完整 CRM 的 4 件套——表 / 文 / 集 / 页 各司其职，每张产出一个真实文件。",

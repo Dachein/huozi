@@ -87,7 +87,9 @@ These do not compete. A real CRM uses both. See §5.
 
 ### 3.1 The contract
 
-A Collection file is a UTF-8 `.jsonl` file. Every non-empty line is one valid JSON object. One field is required:
+A Collection file is a UTF-8 `.jsonl` file. Every non-empty line is one valid JSON object. There are **two line kinds**:
+
+**Entity events** — the data. One field is required, three are recommended:
 
 | Field | Required | Type   | Meaning                                          |
 |-------|:--------:|--------|--------------------------------------------------|
@@ -96,9 +98,21 @@ A Collection file is a UTF-8 `.jsonl` file. Every non-empty line is one valid JS
 | `by`  | recommended | string | Actor — `user:<id>`, `agent:<name>`, `system`    |
 | `op`  | recommended | string | Business verb — `create`, `update`, `ship`, `refund_request`, ... |
 
-Only `id` is enforced — Collection follows a **soft-schema** rule. A file with only `id` per line is still a valid Collection (it just gives up time-travel and audit). Renderers degrade gracefully when `at` / `by` / `op` are missing.
+Only `id` is enforced for entity events — Collection follows a **soft-schema** rule. A file with only `id` per line is still a valid Collection (it just gives up time-travel and audit). Renderers degrade gracefully when `at` / `by` / `op` are missing.
 
 > **Why soft and not strict?** `at`/`by`/`op` are *useful* but adding them has cost (the agent has to remember to write them). Forcing them turns Collection into a ceremony. Better to recommend them, render their absence as visible-but-dim, and let the audit story emerge as files mature.
+
+**Schema events** — the optional render config. A line with `op:"schema"` is a control record: it carries no `id` (the config is about the file, not an entity) and its `schema` payload tells the viewer how to render the Collection (field types, layout slots, filters). See §3.6. Schema events are entirely optional — without them the viewer falls back to id-as-title and a generic key/value list.
+
+| Field    | Required | Type   | Meaning                                           |
+|----------|:--------:|--------|---------------------------------------------------|
+| `op`     | **yes**  | `"schema"` | Marks the line as a schema event              |
+| `schema` | **yes**  | object | The render config — see §3.6                      |
+| `at`     | recommended | RFC 3339 | Orders multiple schema events chronologically |
+| `by`     | recommended | string | Actor                                             |
+| `version`| optional | integer | Informational version label                      |
+
+`schema` is the only `op` value with special meaning to the parser. All other `op` values (including `create`/`update`/`delete`/`restore`) are open business verbs.
 
 ### 3.2 Append-only is a discipline, not an enforcement
 
@@ -167,7 +181,54 @@ The archive folder is itself queryable. The main file holds only the last N vers
 
 Compaction is a maintenance operation, not a write-time concern. There is no automatic compaction in v1; it's something a user (or agent acting on the user's behalf) initiates.
 
-### 3.6 When NOT to use Collection
+### 3.6 Schema events — render config inline
+
+The viewer ships a soft-schema fallback (id-as-title, generic key/value list) so any `.jsonl` with `id` lines renders. To get richer chrome — typed fields, avatar, layout slots, filters — append a schema event:
+
+```jsonl
+{"op":"schema","at":"2026-05-07T09:00:00Z","by":"user:alice","version":1,"schema":{
+  "title": "Customers",
+  "entity": {
+    "title_field": "name",
+    "subtitle_field": "company",
+    "avatar_field": "logo"
+  },
+  "fields": {
+    "name":     {"type": "text",   "label": "Name",     "display": "headline",    "searchable": true},
+    "company":  {"type": "text",   "label": "Company",  "display": "subheadline", "filterable": true},
+    "logo":     {"type": "image",  "display": "avatar"},
+    "stage":    {"type": "select", "display": "aside",  "filterable": true,
+                 "options": [{"value":"new","label":"New","color":"blue"}, ...]},
+    "notes":    {"type": "richtext", "display": "body"}
+  }
+}}
+```
+
+**Field types** the viewer understands today: `text`, `richtext`, `url`, `email`, `select`, `multi_select`, `date`, `number`, `image`, `url_map`. Unknown types render as `text`.
+
+**Display slots** for layout — where the field lands in the card / detail page:
+
+| Slot          | Used in                                         |
+|---------------|--------------------------------------------------|
+| `headline`    | The main title on cards and detail header        |
+| `subheadline` | Secondary line under the headline                |
+| `avatar`      | The round image on cards / detail header         |
+| `meta`        | Small kv list at the bottom of cards             |
+| `aside`       | Right-rail properties on detail page             |
+| `body`        | Main body content on detail page (for richtext)  |
+
+**Multiple schema events accumulate.** Schema is event-sourced like everything else — append a new `{"op":"schema",...}` line to add a field or change a filter. The viewer folds all schema events in `at` order via deep-merge (later wins on scalar conflicts; nested objects merge by key; arrays replace wholesale). This means you can extend the schema without touching old lines:
+
+```jsonl
+{"op":"schema","at":"2026-05-07T09:00:00Z","schema":{"fields":{"name":{"type":"text"}}}}
+{"op":"schema","at":"2026-05-20T11:00:00Z","schema":{"fields":{"seniority":{"type":"select","options":[...]}}}}
+```
+
+Result: both `name` and `seniority` are declared.
+
+**Creating a Collection with a schema:** use `huozi_collection_init` — it writes the file with the schema event already in place and refuses to clobber existing files. Plain `huozi_write` to a `.jsonl` path still works for ad-hoc Collections without a schema; mix the styles however you like.
+
+### 3.7 When NOT to use Collection
 
 - **Entities have prose bodies (notes, articles, contact bios).** Use a folder of `.md` files with frontmatter. Each file is one entity; per-entity sharing via `huozi_share` works for free; backlinks are just text references.
 - **Pure tabular data, no lifecycle (a static reference table — country codes, tax brackets).** Use Table.
@@ -177,18 +238,20 @@ Compaction is a maintenance operation, not a write-time concern. There is no aut
 
 ## 4. Renderer behavior (Collection)
 
-The renderer offers four toggleable views over the same file:
+The renderer is **list ↔ detail**:
 
-| View              | What it shows                                              | Default for file size |
-|-------------------|------------------------------------------------------------|-----------------------|
-| **Current**       | One card per `id`, latest folded state                     | < 200 records         |
-| **Stream**        | Every line as its own card, latest first                   | always available      |
-| **Table**         | All top-level keys union'd into columns; sparse cells empty | > 200 records         |
-| **Timeline**      | One entity's lifeline (after picking an `id`)              | drill-down only       |
+| View         | What it shows                                                    |
+|--------------|------------------------------------------------------------------|
+| **List**     | One card per `id`, latest folded state. Default landing surface. |
+| **Detail**   | One entity: header (title/subtitle/avatar) + body fields + right-rail aside + chronological lifeline. Reached by clicking a card. |
+
+Click a card on the list → drill into detail. Click "← Back" in detail → return to list.
+
+When a schema event is present, the list cards and detail page use the schema's `entity.title_field`, `entity.avatar_field`, and per-field `display` slots to organize content. Without a schema, the renderer falls back to id-as-title and a generic key/value list.
 
 Empty Collection files render a "this is a Collection — append your first entity" hint with a copy-pasteable agent prompt.
 
-Implementation: `src/components/collection-view.tsx` (client island, `glide-data-grid` for the table view, plain DOM for cards/timeline). Parsing and folding live in `src/lib/jsonl/` (server-importable, unit-tested with vitest).
+Implementation: `src/components/collection-view.tsx` (client island, plain DOM). Parsing, folding, and schema-fold live in `src/lib/jsonl/` (`parse.ts`, `fold.ts`; server-importable, unit-tested with vitest).
 
 ---
 
@@ -256,8 +319,9 @@ Folding the deal file by `id` gives the current state of every deal. Filtering f
 | Renderer dispatch                | `src/components/workspace/file-renderer.tsx`          |
 | Table view                       | `src/components/csv-grid.tsx`                         |
 | Document view                    | `src/lib/markdown/renderer.ts`                        |
-| Collection view (4 sub-views)    | `src/components/collection-view.tsx` *(new)*          |
-| Collection parser + fold         | `src/lib/jsonl/parse.ts`, `src/lib/jsonl/fold.ts` *(new)* |
+| Collection view (list ↔ detail)  | `src/components/collection-view.tsx`                  |
+| Collection parser + fold         | `src/lib/jsonl/parse.ts`, `src/lib/jsonl/fold.ts` (`foldSchema` for §3.6) |
+| Collection init MCP tool         | `packages/huozi-cloud/src/tools/CollectionInitTool.ts` |
 | Page view                        | `src/lib/html/sanitizer.ts` + format sniffer          |
 | New-file UX (4-card onboarding)  | `src/components/workspace/onboarding-prompts.tsx`     |
 | i18n                             | `src/lib/i18n/{zh,en,fr,ja}.ts` (4 type names + onboarding copy) |

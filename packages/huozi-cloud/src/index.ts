@@ -171,6 +171,19 @@ export type {
   HistoryToolDeps,
 } from './tools/HistoryTool.js'
 
+// Tools — CollectionInit (huozi extension — schema-first .jsonl creation)
+export {
+  COLLECTION_INIT_TOOL_NAME,
+  collectionInitInputSchema,
+  collectionInitOutputSchema,
+  createCollectionInitTool,
+} from './tools/CollectionInitTool.js'
+export type {
+  CollectionInitInput,
+  CollectionInitOutput,
+  CollectionInitToolDeps,
+} from './tools/CollectionInitTool.js'
+
 // Security
 export {
   formatSecretError,

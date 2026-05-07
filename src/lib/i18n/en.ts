@@ -160,6 +160,8 @@ export const en = {
   "ws.coll.deleted": "deleted",
   "ws.coll.pickEntity": "Pick an entity to see its timeline",
   "ws.coll.backToList": "← Back",
+  "ws.coll.fields": "Fields",
+  "ws.coll.search": "Search",
 
   "ws.onboard.heading": "Let's build your CRM",
   "ws.onboard.subheading": "Copy a scenario, paste into your Agent. These four cards are the four data types working together — Table, Document, Collection, Page — each producing one real file in a small customer-management workspace.",
