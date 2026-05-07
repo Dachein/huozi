@@ -656,6 +656,12 @@ function DetailView({
   );
 
   const activeEvent = entity.history[historyIndex];
+  // Folded state right *before* the active event — used by the
+  // EventCard to color each field as added / modified / same.
+  const priorState = useMemo(() => {
+    if (historyIndex <= 0) return {};
+    return foldHistorySlice(entity.history, historyIndex - 1);
+  }, [entity.history, historyIndex]);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-[1fr_280px] gap-6">
@@ -768,7 +774,11 @@ function DetailView({
             )}
 
             {activeEvent && (
-              <EventCard line={activeEvent} highlighted />
+              <EventCard
+                line={activeEvent}
+                highlighted
+                prior={priorState}
+              />
             )}
 
             {/* Newer versions, peeking from below/in front. */}
@@ -874,9 +884,14 @@ function StackPeek({
 function EventCard({
   line,
   highlighted = false,
+  prior,
 }: {
   line: CollectionLine;
   highlighted?: boolean;
+  /** Folded entity state immediately *before* this event. When given,
+   *  the card renders each field as a diff (added / modified / same)
+   *  so the user sees exactly what changed at this step. */
+  prior?: Record<string, unknown> | null;
 }) {
   const fields = stripConventions(line.fields);
   const hasFields = Object.keys(fields).length > 0;
@@ -907,12 +922,107 @@ function EventCard({
         )}
       </header>
       {hasFields && (
-        <pre className="text-[11px] font-mono text-muted-foreground whitespace-pre-wrap break-words leading-relaxed">
-          {formatFields(fields)}
-        </pre>
+        <dl className="text-[11px] font-mono space-y-0.5">
+          {Object.entries(fields).map(([k, v]) => (
+            <FieldDiffRow key={k} fieldKey={k} value={v} prior={prior} />
+          ))}
+        </dl>
       )}
     </article>
   );
+}
+
+/**
+ * One key/value row inside an EventCard, colored by whether the field
+ * is new, modified, or unchanged relative to `prior` (the folded
+ * state right before this event). When `prior` is undefined the row
+ * renders neutrally — caller didn't ask for diff awareness.
+ *
+ * Visual vocabulary:
+ *   +   added       — field key didn't exist in prior  (emerald)
+ *   ~   modified    — field key existed with different value, show old → new (amber)
+ *   ·   unchanged   — same value as prior (muted, low signal)
+ */
+function FieldDiffRow({
+  fieldKey,
+  value,
+  prior,
+}: {
+  fieldKey: string;
+  value: unknown;
+  prior?: Record<string, unknown> | null;
+}) {
+  let status: "added" | "modified" | "same" | "neutral" = "neutral";
+  let priorValue: unknown = undefined;
+  if (prior) {
+    if (!(fieldKey in prior)) {
+      status = "added";
+    } else {
+      priorValue = prior[fieldKey];
+      status = valueEquals(priorValue, value) ? "same" : "modified";
+    }
+  }
+
+  const sigil =
+    status === "added"
+      ? "+"
+      : status === "modified"
+        ? "~"
+        : status === "same"
+          ? "·"
+          : " ";
+  const sigilTone =
+    status === "added"
+      ? "text-emerald-600 dark:text-emerald-400"
+      : status === "modified"
+        ? "text-amber-600 dark:text-amber-400"
+        : "text-muted-foreground/40";
+  const valueTone =
+    status === "same"
+      ? "text-muted-foreground/60"
+      : "text-muted-foreground";
+
+  return (
+    <div className="flex gap-2 leading-relaxed">
+      <span
+        className={`${sigilTone} shrink-0 w-3 text-center`}
+        aria-hidden
+      >
+        {sigil}
+      </span>
+      <span className="text-muted-foreground shrink-0">{fieldKey}:</span>
+      <span className="break-all min-w-0">
+        {status === "modified" ? (
+          <>
+            <span className="text-muted-foreground/60 line-through">
+              {formatScalar(priorValue)}
+            </span>
+            <span className="mx-1 text-amber-600 dark:text-amber-400">→</span>
+            <span className="text-foreground">{formatScalar(value)}</span>
+          </>
+        ) : (
+          <span className={valueTone}>{formatScalar(value)}</span>
+        )}
+      </span>
+    </div>
+  );
+}
+
+/** Plain-JSON deep equality for entity field values (objects + arrays
+ *  + scalars). Sufficient for diff display; not a general-purpose
+ *  equality check. */
+function valueEquals(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  if (typeof a !== typeof b) return false;
+  if (typeof a === "object") {
+    try {
+      return JSON.stringify(a) === JSON.stringify(b);
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
@@ -1096,19 +1206,6 @@ function formatScalar(v: unknown): string {
   } catch {
     return String(v);
   }
-}
-
-/** Pretty-print a fields object for the event card body. */
-function formatFields(fields: Record<string, unknown>): string {
-  const lines: string[] = [];
-  for (const [k, v] of Object.entries(fields)) {
-    const display =
-      typeof v === "string" || typeof v === "number" || typeof v === "boolean"
-        ? String(v)
-        : JSON.stringify(v, null, 0);
-    lines.push(`${k}: ${display}`);
-  }
-  return lines.join("\n");
 }
 
 /** Compact `at` display: keep the date and HH:MM if present. */
