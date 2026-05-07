@@ -131,28 +131,21 @@ export function RecentPanel({
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">
           {t("recent.title")}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <div
-            role="tablist"
-            aria-label={t("recent.filter.view.label")}
-            className="inline-flex rounded border border-border overflow-hidden"
-          >
-            <ViewTab
-              active={view === "works"}
-              onClick={() => setView("works")}
-              label={t("recent.filter.view.works")}
-            />
-            <ViewTab
-              active={view === "assets"}
-              onClick={() => setView("assets")}
-              label={t("recent.filter.view.assets")}
-            />
-          </div>
-          <div className="text-[10px] text-muted-foreground/70">
-            {visible.length > DISPLAY_LIMIT
-              ? `${DISPLAY_LIMIT}+`
-              : visible.length}
-          </div>
+        <div
+          role="tablist"
+          aria-label={t("recent.filter.view.label")}
+          className="inline-flex rounded border border-border overflow-hidden shrink-0"
+        >
+          <ViewTab
+            active={view === "works"}
+            onClick={() => setView("works")}
+            label={t("recent.filter.view.works")}
+          />
+          <ViewTab
+            active={view === "assets"}
+            onClick={() => setView("assets")}
+            label={t("recent.filter.view.assets")}
+          />
         </div>
       </div>
       <ul className="px-1 pb-2 space-y-0.5 max-h-64 overflow-y-auto">

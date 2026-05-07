@@ -544,8 +544,13 @@ function TypeFilter({
             : "border-border hover:border-foreground/40 hover:bg-muted/60"
         }`}
       >
-        <span className="text-foreground font-medium truncate">
-          {current.label}
+        <span className="flex items-baseline gap-1.5 min-w-0">
+          <span className="text-foreground font-medium truncate">
+            {current.label}
+          </span>
+          <span className="text-muted-foreground font-mono shrink-0">
+            · {current.count}
+          </span>
         </span>
         <svg
           viewBox="0 0 12 12"
@@ -596,7 +601,10 @@ function TypeFilter({
                       : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                 }`}
               >
-                <span>{it.label}</span>
+                <span className="flex items-baseline gap-1.5">
+                  <span>{it.label}</span>
+                  <span className="font-mono opacity-70">· {it.count}</span>
+                </span>
                 {active && (
                   <span className="text-accent text-[10px]" aria-hidden>
                     ✓
