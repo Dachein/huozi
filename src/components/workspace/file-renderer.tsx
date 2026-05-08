@@ -32,6 +32,15 @@ export interface FileRendererProps {
    * off so unauthenticated readers don't see the affordance.
    */
   inlineEditable?: boolean;
+  /**
+   * blob_sha the page already observed during SSR. Threaded down to the
+   * EditModal so a save POST can include it as the freshness proof —
+   * the Worker uses it to skip the Read-first round-trip, halving the
+   * perceived save latency. `null` = unknown (e.g. binary read paths
+   * that don't surface a sha); the modal then falls back to the slower
+   * Read-first path.
+   */
+  parentBlobSha?: string | null;
 }
 
 function getExt(path: string): string {
@@ -45,6 +54,7 @@ export async function FileRenderer({
   content,
   raw,
   inlineEditable = false,
+  parentBlobSha = null,
 }: FileRendererProps) {
   const ext = getExt(path);
 
@@ -71,6 +81,7 @@ export async function FileRenderer({
       enabled: inlineEditable,
       path,
       content,
+      parentBlobSha,
       kind: "md-block",
       children: rendered,
     });
@@ -131,6 +142,7 @@ export async function FileRenderer({
       enabled: inlineEditable,
       path,
       content,
+      parentBlobSha,
       kind: "html-element",
       children: rendered,
     });
@@ -156,6 +168,7 @@ export async function FileRenderer({
       enabled: inlineEditable,
       path,
       content,
+      parentBlobSha,
       kind: "csv-cell",
       children: grid,
     });
@@ -170,6 +183,7 @@ export async function FileRenderer({
       enabled: inlineEditable,
       path,
       content,
+      parentBlobSha,
       kind: "jsonl-field",
       children: view,
     });
@@ -194,6 +208,7 @@ interface WrapEditableArgs {
   enabled: boolean;
   path: string;
   content: string;
+  parentBlobSha: string | null;
   kind: ObjectKind;
   children: React.ReactNode;
 }
@@ -213,12 +228,18 @@ function wrapEditable({
   enabled,
   path,
   content,
+  parentBlobSha,
   kind,
   children,
 }: WrapEditableArgs): React.ReactElement {
   if (!enabled) return <>{children}</>;
   return (
-    <EditableSurface filePath={path} fileKind={kind} sourceContent={content}>
+    <EditableSurface
+      filePath={path}
+      fileKind={kind}
+      sourceContent={content}
+      parentBlobSha={parentBlobSha}
+    >
       {children}
     </EditableSurface>
   );

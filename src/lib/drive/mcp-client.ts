@@ -359,8 +359,21 @@ export interface EditData {
 }
 
 /**
- * Apply a single old_string→new_string edit to a workspace file. Must be
- * preceded by a `cloudReadForEdit` for the same path in the same session.
+ * Apply a single old_string→new_string edit to a workspace file.
+ *
+ * Two freshness modes:
+ *
+ *   1. Pass `parent_blob_sha` — caller observed this blob_sha out-of-band
+ *      (typically: page SSR already read the file). The Worker checks
+ *      it against the stored record and skips the Read-first invariant.
+ *      Single MCP round-trip. Recommended for Web inline-edit; this is
+ *      why the helper sets `useSession: false` in this branch — no
+ *      session DO state needs touching.
+ *
+ *   2. Omit it — caller must have already called `cloudReadForEdit` for
+ *      this path in the same session DO so ReadFileState is populated.
+ *      Two MCP round-trips total (Read + Edit). Preserved for callers
+ *      that don't already have a blob_sha in hand.
  */
 export function cloudEdit(
   key: string,
@@ -369,9 +382,14 @@ export function cloudEdit(
     old_string: string
     new_string: string
     replace_all?: boolean
+    parent_blob_sha?: string
   },
 ): Promise<McpResult<EditData>> {
-  return callTool<EditData>(key, 'huozi_edit', args, { useSession: true })
+  // parent_blob_sha is self-sufficient freshness proof; no need to drag in
+  // the persistent session DO. Without it, the prior Read populated the
+  // session DO, so we must opt back into it for the Edit to find that state.
+  const useSession = args.parent_blob_sha === undefined
+  return callTool<EditData>(key, 'huozi_edit', args, { useSession })
 }
 
 // ── Helpers for the UI ─────────────────────────────────────────────────

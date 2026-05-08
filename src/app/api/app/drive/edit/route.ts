@@ -33,6 +33,11 @@ interface EditBody {
   old_string?: unknown
   new_string?: unknown
   replace_all?: unknown
+  /** Blob_sha the client observed out-of-band (page SSR). When present,
+   *  the route skips the Read-first round-trip and goes straight to
+   *  huozi_edit — the Worker uses parent_blob_sha as the freshness
+   *  proof. Halves perceived save latency. */
+  parent_blob_sha?: unknown
 }
 
 const MAX_STRING_BYTES = 200_000
@@ -103,20 +108,31 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
   const replace_all =
     typeof body.replace_all === 'boolean' ? body.replace_all : undefined
+  const parent_blob_sha =
+    typeof body.parent_blob_sha === 'string' && body.parent_blob_sha.length > 0
+      ? body.parent_blob_sha
+      : undefined
 
-  // 1) Read first — populates session DO ReadFileState. Without this, the
-  //    Worker's huozi_edit will reject with NOT_READ_FIRST (errorCode 6).
-  const r = await cloudReadForEdit(key, file_path)
-  if (!r.ok) {
-    return NextResponse.json(errorBody(r), { status: statusFor(r.errorCode) })
+  // Fast path: caller already saw this file's blob_sha during page SSR
+  // and threaded it through. Skip the Read round-trip; the Worker uses
+  // parent_blob_sha as the staleness proof itself. ~50% latency win.
+  //
+  // Slow path (no parent_blob_sha — older clients, defensive): do a
+  // session-DO Read first to satisfy huozi_edit's Read-first invariant,
+  // then Edit. Same correctness, twice the round-trips.
+  if (parent_blob_sha === undefined) {
+    const r = await cloudReadForEdit(key, file_path)
+    if (!r.ok) {
+      return NextResponse.json(errorBody(r), { status: statusFor(r.errorCode) })
+    }
   }
 
-  // 2) Edit — same session DO, blob_sha implicitly checked Worker-side.
   const e = await cloudEdit(key, {
     file_path,
     old_string,
     new_string,
     ...(replace_all !== undefined ? { replace_all } : {}),
+    ...(parent_blob_sha !== undefined ? { parent_blob_sha } : {}),
   })
   if (!e.ok) {
     return NextResponse.json(errorBody(e), { status: statusFor(e.errorCode) })

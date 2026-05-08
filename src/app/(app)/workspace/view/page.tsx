@@ -393,6 +393,7 @@ async function FileBody({
         content={raw}
         raw={wantRaw}
         inlineEditable={!wantRaw && !paginated}
+        parentBlobSha={data.file.blob_sha ?? null}
       />
     </div>
   );

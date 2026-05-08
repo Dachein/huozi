@@ -34,6 +34,10 @@ export interface EditModalProps {
   objectKind: ObjectKind;
   initialText: string;
   locator: ObjectLocator;
+  /** blob_sha SSR observed for this file. Sent as `parent_blob_sha` in
+   *  the save POST so the BFF can short-circuit the Read-first round-trip
+   *  on the Worker side. `null` = unknown; BFF falls back to slower path. */
+  parentBlobSha?: string | null;
   onClose(): void;
   /** Optional override of the default field hint (e.g. CSV cell label). */
   hint?: string;
@@ -69,7 +73,15 @@ function errorKey(code: number | undefined): string {
 }
 
 export function EditModal(props: EditModalProps) {
-  const { filePath, objectKind, initialText, locator, onClose, hint } = props;
+  const {
+    filePath,
+    objectKind,
+    initialText,
+    locator,
+    parentBlobSha = null,
+    onClose,
+    hint,
+  } = props;
   const t = useT();
   const router = useRouter();
 
@@ -144,7 +156,14 @@ export function EditModal(props: EditModalProps) {
       const res = await fetch("/api/app/drive/edit", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ file_path: filePath, old_string, new_string }),
+        body: JSON.stringify({
+          file_path: filePath,
+          old_string,
+          new_string,
+          // BFF uses this as the freshness proof and skips the Read-first
+          // round-trip when present. ~50% latency win on the save POST.
+          ...(parentBlobSha ? { parent_blob_sha: parentBlobSha } : {}),
+        }),
       });
       const body = (await res.json().catch(() => ({}))) as ApiError;
       if (!res.ok) {

@@ -59,6 +59,11 @@ export interface EditableSurfaceProps {
    *  without a separate network fetch. Skipped for jsonl (the line text
    *  travels via the locator). */
   sourceContent?: string;
+  /** blob_sha the page already observed during SSR. Threaded into the
+   *  EditModal's save POST as `parent_blob_sha` so the BFF can skip the
+   *  Read-first round-trip. `null` = unknown (modal falls back to the
+   *  slower Read-first path). */
+  parentBlobSha?: string | null;
   /** Set to false to render the surface as a no-op pass-through (used
    *  when the user lacks write capability). */
   canEdit?: boolean;
@@ -69,6 +74,7 @@ export function EditableSurface({
   filePath,
   fileKind,
   sourceContent,
+  parentBlobSha = null,
   canEdit = true,
   children,
 }: EditableSurfaceProps) {
@@ -142,6 +148,7 @@ export function EditableSurface({
             objectKind={request.objectKind}
             initialText={request.initialText}
             locator={request.locator}
+            parentBlobSha={parentBlobSha}
             onClose={() => setRequest(null)}
           />
         )}
