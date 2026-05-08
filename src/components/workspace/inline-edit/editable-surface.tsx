@@ -35,6 +35,7 @@ import type {
 } from "./types";
 import { useObjectSelection } from "./use-object-selection";
 import { EditModal } from "./edit-modal";
+import { findHtmlInnerRange } from "./anchor";
 
 const Ctx = createContext<EditableSurfaceContextValue | null>(null);
 
@@ -103,26 +104,57 @@ export function EditableSurface({
 
   function onPopoverClick() {
     if (!sel) return;
-    // Build the EditRequest from the current selection.
-    // For md/html we always edit the **whole object's source slice** —
-    // the user's sub-selection is a hint about which block they care
-    // about, not the unit of replacement. (Editing a 2-char selection
-    // would frequently fall foul of huozi_edit's uniqueness check.)
-    const objectKind: ObjectKind =
-      fileKind === "md-block" ? "md-block" : "html-element";
-    const locator: ObjectLocator = {
-      kind: "bytes",
-      start: sel.objectStart,
-      end: sel.objectEnd,
-    };
-    // We need the source slice for `initialText`. The host already has
-    // it via the FileRenderer's props — we read it from a data attr the
-    // wrapper sets.
-    const sourceSlice = readSlice(hostRef.current, sel.objectStart, sel.objectEnd);
+    // The user's sub-selection inside the rendered DOM tells us *which*
+    // smallest data-obj-src element they care about — that element's
+    // byte range is the natural editable scope.
+    //
+    //   markdown → editable scope = the element's full source slice
+    //              (including markdown syntax like `**…**` / `[…](…)`).
+    //              Users author markdown directly; seeing the syntax in
+    //              the modal is the desired UX.
+    //
+    //   HTML     → editable scope = the element's INNER text bytes
+    //              (between the > of the open tag and the < of the
+    //              close tag). Tags stay out of the modal so users
+    //              can't accidentally break HTML structure. Save's
+    //              unique-anchor expansion picks up the surrounding
+    //              tag bytes only as needed for global uniqueness.
+    //
+    // Save flow's unique-anchor pass guarantees old_string is globally
+    // unique even when the inner slice would ambiguously match.
+    const objectStart = sel.objectStart;
+    const objectEnd = sel.objectEnd;
+    const objectSrc = readSlice(hostRef.current, objectStart, objectEnd);
+
+    let kind: ObjectKind;
+    let editableStart: number;
+    let editableEnd: number;
+    if (fileKind === "html-element") {
+      kind = "html-element";
+      const inner = findHtmlInnerRange(objectSrc);
+      if (inner) {
+        editableStart = objectStart + inner.innerStart;
+        editableEnd = objectStart + inner.innerEnd;
+      } else {
+        // Void element / parse fail — fall back to whole-element edit.
+        editableStart = objectStart;
+        editableEnd = objectEnd;
+      }
+    } else {
+      kind = "md-block";
+      editableStart = objectStart;
+      editableEnd = objectEnd;
+    }
+
+    const initialText = readSlice(hostRef.current, editableStart, editableEnd);
     setRequest({
-      objectKind,
-      initialText: sourceSlice,
-      locator,
+      objectKind: kind,
+      initialText,
+      locator: {
+        kind: "bytes",
+        start: editableStart,
+        end: editableEnd,
+      },
       anchorRect: sel.rect,
     });
   }

@@ -28,6 +28,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "@/lib/i18n/context";
 import type { ObjectKind, ObjectLocator } from "./types";
+import { expandToUnique } from "./anchor";
 
 export interface EditModalProps {
   filePath: string;
@@ -113,21 +114,46 @@ export function EditModal(props: EditModalProps) {
     setErrorText(null);
 
     // Compute (old_string, new_string) per locator type.
+    //
+    // Byte-based locators (bytes / csv-cell) use the unique-anchor pass:
+    // the user typed N bytes that should replace M bytes inside a known
+    // [start, end) source range. If `source.slice(start, end)` happens
+    // to be unique in the whole file, that IS our old_string and the
+    // user's value (or csv-encoded value) is new_string. If not, we
+    // expand outward symmetrically until the slice is globally unique
+    // — surrounding bytes (often the enclosing tag, paragraph, or
+    // delimiter context) become the anchor and ride along verbatim.
+    // This protects HTML tags / markdown syntax around the edit while
+    // preserving huozi_edit's exact-string semantics.
     let old_string: string;
     let new_string: string;
     try {
-      if (locator.kind === "bytes") {
-        old_string = initialText;
-        new_string = value;
-      } else if (locator.kind === "csv-cell") {
-        // Read the file's raw bytes for the cell from the EditableSurface's
-        // data-source, then CSV-encode the user's new value. Old bytes
-        // include any surrounding quotes / escapes; new bytes get them
-        // re-applied iff the new value needs them.
+      if (locator.kind === "bytes" || locator.kind === "csv-cell") {
         const source = readSourceFromHost();
         if (source === null) throw new Error("source unavailable");
-        old_string = source.slice(locator.start, locator.end);
-        new_string = csvEncodeCell(value, locator.delim);
+        const editableOld = source.slice(locator.start, locator.end);
+        const editableNew =
+          locator.kind === "csv-cell"
+            ? csvEncodeCell(value, locator.delim)
+            : value;
+        const anchor = expandToUnique(source, locator.start, locator.end);
+        if (!anchor.isUnique) {
+          throw new Error(
+            "Couldn't pin this edit — the surrounding text repeats too much.",
+          );
+        }
+        // old_string covers the anchor; new_string preserves the
+        // anchor's prefix/suffix verbatim and swaps only the editable
+        // bytes for the user's input.
+        old_string = source.slice(anchor.left, anchor.right);
+        new_string =
+          source.slice(anchor.left, locator.start) +
+          editableNew +
+          source.slice(locator.end, anchor.right);
+        // Sanity: the slice we just claimed to mutate should match the
+        // editable bytes we read at the start of the algorithm. (Catches
+        // off-by-one regressions in the EditableSurface side.)
+        void editableOld;
       } else {
         // jsonl-field: replace the whole line with a re-serialized object
         // that has the field overridden. Preserves key order.

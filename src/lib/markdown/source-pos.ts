@@ -1,6 +1,6 @@
 /**
  * rehype plugin: copy MDAST/hAST source positions onto a `data-obj-src`
- * attribute for block-level elements.
+ * attribute for block- AND inline-level elements.
  *
  * Powers the workspace inline-edit feature — the client maps a DOM
  * selection back to a byte range in the original markdown source by
@@ -12,11 +12,13 @@
  *
  * The plugin runs BEFORE rehype-sanitize so positions on the original
  * tree are still present; the sanitize schema must allow `data-obj-src`
- * on the relevant block tagNames (see `renderer.ts`).
+ * on the relevant tagNames (see `renderer.ts`).
  *
- * Only block-level elements get the attribute. Inline elements (em, a,
- * code spans, …) inherit the nearest block ancestor — which is the unit
- * the inline-edit UX scopes selections to anyway.
+ * Inline tags (em, strong, a, code, …) get their own data-obj-src so the
+ * inline-edit UX can drill from a paragraph into the smallest semantic
+ * unit. Selection inside `<strong>bold</strong>` walks up to the
+ * `<strong>` element, the modal shows the source bytes (`**bold**`),
+ * and save replaces only those bytes — minimal local edit.
  */
 
 interface HastNode {
@@ -30,7 +32,9 @@ interface HastNode {
   children?: HastNode[]
 }
 
-const BLOCK_TAGS = new Set([
+// Block-level units the user can drill INTO from a hierarchy of inline
+// elements. Listed first so SOURCE_POS_TAGS export stays meaningful.
+const BLOCK_TAGS_LIST = [
   'p',
   'li',
   'td',
@@ -43,13 +47,32 @@ const BLOCK_TAGS = new Set([
   'h6',
   'pre',
   'blockquote',
-])
+] as const
+
+// Inline tags that carry meaningful semantic boundaries (typically the
+// smallest "object" a user wants to surgically edit). MDAST surfaces
+// `position` for these via remark-rehype, so the offset annotation is
+// faithful to the original markdown bytes (`**bold**`, `[text](url)`).
+const INLINE_TAGS_LIST = [
+  'em',
+  'strong',
+  'a',
+  'code',
+  'del',
+  'ins',
+  'kbd',
+  'mark',
+  'sub',
+  'sup',
+] as const
+
+const OBJ_TAGS = new Set<string>([...BLOCK_TAGS_LIST, ...INLINE_TAGS_LIST])
 
 function walk(node: HastNode): void {
   if (
     node.type === 'element' &&
     node.tagName &&
-    BLOCK_TAGS.has(node.tagName)
+    OBJ_TAGS.has(node.tagName)
   ) {
     const start = node.position?.start?.offset
     const end = node.position?.end?.offset
@@ -71,4 +94,4 @@ export function rehypeObjSrc() {
 
 /** Tag names that get a `data-obj-src` attribute. Exported so the sanitize
  *  schema can be extended to permit the attribute on these elements only. */
-export const SOURCE_POS_BLOCK_TAGS = Array.from(BLOCK_TAGS)
+export const SOURCE_POS_BLOCK_TAGS = Array.from(OBJ_TAGS)
