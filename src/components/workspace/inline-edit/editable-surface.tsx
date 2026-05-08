@@ -176,6 +176,11 @@ function FloatingEditButton({ rect, label, onClick }: FloatingEditButtonProps) {
   // `position: fixed` so the rect (which is viewport-relative) lines up
   // without recomputing on scroll — the parent hook re-fires on scroll
   // to update the rect.
+  //
+  // The `huozi-edit-pill` class is the stable hook the theme layer uses
+  // to override appearance per theme (brutal-mono renders this as a
+  // stamped black-on-yellow pill instead of the default red fill — see
+  // globals.css). Don't drop the class without also updating that file.
   const top = Math.max(8, rect.top - 32);
   const left = rect.left + rect.width;
   return (
@@ -186,7 +191,7 @@ function FloatingEditButton({ rect, label, onClick }: FloatingEditButtonProps) {
         e.preventDefault();
       }}
       onClick={onClick}
-      className="fixed z-[60] px-2 py-1 text-xs rounded shadow-lg bg-accent text-accent-foreground hover:opacity-90 border border-border"
+      className="huozi-edit-pill fixed z-[60] px-2 py-1 text-xs rounded shadow-lg bg-accent text-accent-foreground hover:opacity-90 border border-border"
       style={{ top, left }}
     >
       {label}

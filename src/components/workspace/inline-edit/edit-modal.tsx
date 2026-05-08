@@ -3,18 +3,28 @@
 /**
  * Edit modal: textarea for the user to type the new value, then POST to
  * `/api/app/drive/edit` to apply via huozi_edit (audit-trail entry as
- * the cookie's user). On success, calls `router.refresh()` inside a
- * useTransition and keeps the modal in "saving" state until the
- * server re-render lands — closing the modal earlier would either
- * (a) cancel the refresh from a stale closure / unmounting context or
- * (b) flash the old content before the new bytes arrive (Cloudflare D1
- * has cross-replica read-after-write lag of a few hundred ms).
+ * the cookie's user).
+ *
+ * Save-flow timing (matters — see commits where we tuned this twice):
+ *   1. POST returns ok → fire `router.refresh()` from a still-mounted
+ *      context, then close the modal immediately. The refresh returns
+ *      void; we don't block on it because the felt latency of "Saving…"
+ *      hanging for half a second to clear D1 cross-replica read-after-
+ *      write lag is worse than a brief flash of pre-edit content.
+ *   2. After ~250ms (typical D1 settle time), fire a second refresh.
+ *      This catches the case where refresh #1 hit a stale replica and
+ *      re-rendered with the old bytes.
+ *   3. The CloudLiveEvents WS path independently triggers `router.refresh`
+ *      when the commit broadcast lands — a third belt-and-suspenders.
+ *
+ * Net: modal closes within one POST round-trip, content lights up within
+ * 0–300ms.
  *
  * Error mapping translates the Worker's MCP error codes to friendly
  * localized strings — see `errorKey()` for the table.
  */
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "@/lib/i18n/context";
 import type { ObjectKind, ObjectLocator } from "./types";
@@ -66,38 +76,15 @@ export function EditModal(props: EditModalProps) {
   const [value, setValue] = useState(initialText);
   const [saving, setSaving] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
-  const [refreshPending, startTransition] = useTransition();
-  // Latched once the POST returns ok. Combined with !refreshPending it
-  // tells the close-after-refresh effect that the server re-render has
-  // landed and the modal can dismiss.
-  const [savedOk, setSavedOk] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Close once the post-save refresh transition completes. Don't close
-  // synchronously inside the save handler — the refresh runs in a React
-  // transition and we want the modal's "Saving…" state to persist until
-  // the new server tree is committed, so the user doesn't see the old
-  // content for a frame.
-  useEffect(() => {
-    if (savedOk && !refreshPending) {
-      onClose();
-    }
-  }, [savedOk, refreshPending, onClose]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (
-        e.key === "Escape" &&
-        !saving &&
-        !refreshPending &&
-        !savedOk
-      ) {
-        onClose();
-      }
+      if (e.key === "Escape" && !saving) onClose();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, saving, refreshPending, savedOk]);
+  }, [onClose, saving]);
 
   useEffect(() => {
     textareaRef.current?.focus();
@@ -171,13 +158,21 @@ export function EditModal(props: EditModalProps) {
         setSaving(false);
         return;
       }
-      // Trigger the server re-render inside a transition, then latch the
-      // success flag. The useEffect above closes the modal once the
-      // transition resolves — i.e. once the new content is rendered.
-      startTransition(() => {
-        router.refresh();
-      });
-      setSavedOk(true);
+      // Fire refresh from a still-mounted context so Next has a live
+      // tree to commit the new server payload into. Then close the
+      // modal — felt latency wins over avoiding a brief stale flash.
+      router.refresh();
+      onClose();
+      // Belt-and-suspenders second refresh: refresh #1 may have hit a
+      // D1 replica that hadn't yet seen the commit. By 250ms the write
+      // has propagated to all replicas in practice. Fire-and-forget.
+      window.setTimeout(() => {
+        try {
+          router.refresh();
+        } catch {
+          /* ignore — page may have navigated */
+        }
+      }, 250);
     } catch (e) {
       setErrorText(
         t("editor.inline.error.generic").replace(
@@ -188,8 +183,6 @@ export function EditModal(props: EditModalProps) {
       setSaving(false);
     }
   }
-
-  const busy = saving || refreshPending || savedOk;
 
   const scopeLabel = t(SCOPE_KEY[objectKind] as Parameters<typeof t>[0]);
 
@@ -202,7 +195,7 @@ export function EditModal(props: EditModalProps) {
       <div
         className="absolute inset-0 bg-foreground/30 backdrop-blur-sm animate-in fade-in duration-150"
         onClick={() => {
-          if (!busy) onClose();
+          if (!saving) onClose();
         }}
       />
       <div
@@ -222,7 +215,7 @@ export function EditModal(props: EditModalProps) {
           <button
             type="button"
             onClick={onClose}
-            disabled={busy}
+            disabled={saving}
             aria-label={t("editor.inline.cancel")}
             className="text-muted-foreground hover:text-foreground shrink-0 disabled:opacity-50"
           >
@@ -235,7 +228,7 @@ export function EditModal(props: EditModalProps) {
             ref={textareaRef}
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            disabled={busy}
+            disabled={saving}
             className="w-full min-h-[8rem] max-h-[40vh] rounded border border-border bg-muted/30 p-3 text-sm font-mono leading-relaxed outline-none focus:border-foreground/40 disabled:opacity-50 whitespace-pre-wrap"
             spellCheck={false}
           />
@@ -255,7 +248,7 @@ export function EditModal(props: EditModalProps) {
           <button
             type="button"
             onClick={onClose}
-            disabled={busy}
+            disabled={saving}
             className="px-3 py-1.5 text-sm rounded border border-border hover:bg-muted disabled:opacity-50"
           >
             {t("editor.inline.cancel")}
@@ -263,10 +256,10 @@ export function EditModal(props: EditModalProps) {
           <button
             type="button"
             onClick={onSave}
-            disabled={busy || value === initialText}
+            disabled={saving || value === initialText}
             className="px-3 py-1.5 text-sm rounded bg-accent text-accent-foreground hover:opacity-90 disabled:opacity-50"
           >
-            {busy ? t("editor.inline.saving") : t("editor.inline.save")}
+            {saving ? t("editor.inline.saving") : t("editor.inline.save")}
           </button>
         </div>
       </div>

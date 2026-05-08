@@ -675,3 +675,51 @@ body::before {
   overflow-x: auto;
   padding: 0.5rem 0;
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Inline-edit feature theming
+ *
+ * Two surfaces need theme-aware overrides:
+ *   1. Browser ::selection on workspace view — without an opinion the
+ *      selection inherits OS / author CSS, which under brutal-mono lands
+ *      on the page's accent-red and tanks readability against the dark
+ *      foreground text. We pick a contrasting block per theme.
+ *   2. The floating "Edit" pill (`.huozi-edit-pill`) above a selection.
+ *      Default theme renders it as the standard accent button; brutal-
+ *      mono restamps it as a black-on-yellow Slock-style pill so it
+ *      doesn't blend into the red selection wash beneath it.
+ * ───────────────────────────────────────────────────────────────────── */
+
+/* Default theme: muted-warm wash, foreground stays foreground.
+ * Lightweight enough to read text through, dark enough to be visible. */
+::selection {
+  background-color: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--foreground);
+}
+
+/* Brutal-mono: invert to surface-active pink + black text. Pink is the
+ * theme's "active block" color, so the selection reads as a deliberate
+ * stamp rather than an accidental red wash. The high-specificity
+ * selector also wins over scoped `::selection` rules that author HTML
+ * may declare inside `.huozi-html-host` via @scope. */
+[data-theme="brutal-mono"] ::selection,
+[data-theme="brutal-mono"] *::selection {
+  background-color: var(--surface-active);
+  color: var(--foreground);
+}
+
+/* Brutal-mono: floating Edit pill = stamped black tile, yellow type,
+ * hard offset shadow. Matches the workspace-trigger / app-pill grammar.
+ * Keeps the affordance unmistakable on top of the pink selection. */
+[data-theme="brutal-mono"] .huozi-edit-pill {
+  background: var(--foreground) !important;
+  color: var(--muted) !important; /* yellow */
+  border: var(--border-width-strong) solid var(--border) !important;
+  box-shadow: var(--shadow) !important;
+  border-radius: 0 !important;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+[data-theme="brutal-mono"] .huozi-edit-pill:hover {
+  box-shadow: var(--shadow-block) !important;
+}
