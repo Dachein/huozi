@@ -37,11 +37,20 @@ export const EDIT_TOOL_NAME = 'huozi_edit'
 // Schema keeps `replace_all` as plain optional (no `.default`) — the tool
 // impl applies the `false` default explicitly. This keeps zod's Input and
 // Output types identical, which `ToolDef<I, O>` requires.
+//
+// `parent_blob_sha` is the staleness-proof short-circuit (see validateInput).
+// Agents normally don't pass it — they prove freshness by having Read'd the
+// file in the same session, populating ReadFileState. Server-side carve-outs
+// (e.g. huozi.app's Web inline-edit BFF, which already read blob_sha during
+// SSR) pass it to skip the Read-first round-trip and halve felt save latency.
+// When supplied, ReadFileState is not consulted — `parent_blob_sha` IS the
+// freshness contract.
 export const editInputSchema = z.object({
   file_path: z.string(),
   old_string: z.string(),
   new_string: z.string(),
   replace_all: z.boolean().optional(),
+  parent_blob_sha: z.string().optional(),
 })
 
 export type EditInput = z.infer<typeof editInputSchema>
@@ -176,22 +185,40 @@ export function createEditTool(deps: EditToolDeps): Tool<EditInput, EditOutput> 
         }
       }
 
-      // Must have been Read first; blob_sha must match.
-      const cached = ctx.readFileState.get(canon.path)
-      if (!cached) {
-        return {
-          result: false,
-          errorCode: ERR.NOT_READ_FIRST,
-          message:
-            'File has not been read yet. Read it first before writing to it.',
+      // Freshness gate: either ReadFileState says "the bytes you remember
+      // are still the bytes on disk" (the Agent path), or the caller passed
+      // an explicit `parent_blob_sha` it observed out-of-band (the Web BFF
+      // path — page SSR already read blob_sha; no need to repeat the read).
+      // Both branches resolve to the same invariant: caller's view of the
+      // file matches storage.
+      if (input.parent_blob_sha !== undefined) {
+        if (input.parent_blob_sha !== record.blob_sha) {
+          return {
+            result: false,
+            errorCode: ERR.MODIFIED_SINCE_READ,
+            message:
+              'File has been modified since the parent_blob_sha was observed. Re-read and try again.',
+          }
         }
-      }
-      if (cached.blob_sha !== record.blob_sha) {
-        return {
-          result: false,
-          errorCode: ERR.MODIFIED_SINCE_READ,
-          message:
-            'File has been modified since read, either by the user or by another agent. Read it again before attempting to write it.',
+      } else {
+        // No explicit parent_blob_sha → must have been Read first; blob_sha
+        // must match. Standard Agent path (Claude Code, Cursor, …).
+        const cached = ctx.readFileState.get(canon.path)
+        if (!cached) {
+          return {
+            result: false,
+            errorCode: ERR.NOT_READ_FIRST,
+            message:
+              'File has not been read yet. Read it first before writing to it.',
+          }
+        }
+        if (cached.blob_sha !== record.blob_sha) {
+          return {
+            result: false,
+            errorCode: ERR.MODIFIED_SINCE_READ,
+            message:
+              'File has been modified since read, either by the user or by another agent. Read it again before attempting to write it.',
+          }
         }
       }
 
