@@ -31,7 +31,6 @@ import {
 } from "@/lib/jsonl/parse";
 import { foldByEntity, foldSchema, type EntityState } from "@/lib/jsonl/fold";
 import { useEditableSurface } from "@/components/workspace/inline-edit";
-import type { EditRequest } from "@/components/workspace/inline-edit";
 
 /** A select-type option as declared in the schema. */
 interface FieldOption {
@@ -464,8 +463,8 @@ function EmptyState({ t }: { t: (k: string) => string }) {
 
 function ErrorsStrip({ errors }: { errors: readonly ParseError[] }) {
   return (
-    <details className="rounded border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
-      <summary className="cursor-pointer font-medium text-amber-700 dark:text-amber-400">
+    <details className="rounded border border-amber-500/60 bg-amber-500/15 px-3 py-2 text-xs">
+      <summary className="cursor-pointer font-medium text-amber-800 dark:text-amber-300">
         {errors.length} parse error{errors.length === 1 ? "" : "s"} —
         click to inspect
       </summary>
@@ -681,35 +680,16 @@ function DetailView({
   const avatarField = schema?.entity?.avatar_field;
 
   // Inline-edit surface (workspace view only; null on /p/<slug>).
-  // We only enable the per-field edit affordance when looking at the
-  // **latest** snapshot — editing an "as-of-T" historical view would
-  // surprise the user (the line we'd modify is the latest line, not
-  // the as-of one). The latest line is also the one that wins on fold,
-  // so editing it is the cleanest small-surgery.
+  // We only emit data-obj-src markers when looking at the **latest**
+  // snapshot — historical views are read-only, since the line we'd
+  // modify is the latest line, not the as-of one. The selection-driven
+  // edit pill (rendered by EditableSurface) is the only entry point;
+  // there's no per-field click handler in this component anymore — the
+  // selection hook reads our data-obj-src marker, the surface
+  // reconstructs lineText/lineRaw from the inlined data-source, and
+  // builds the EditRequest itself.
   const surface = useEditableSurface();
   const latestLine = entity.history[entity.history.length - 1];
-  const requestFieldEdit = useCallback(
-    (fieldKey: string, value: unknown) => {
-      if (!surface || !latestLine) return;
-      // Restrict v1 to string-typed fields — non-strings (numbers,
-      // booleans, arrays, objects) can't safely round-trip through a
-      // plain textarea without exposing JSON syntax to the user.
-      if (typeof value !== "string") return;
-      const req: EditRequest = {
-        objectKind: "jsonl-field",
-        initialText: value,
-        locator: {
-          kind: "jsonl-field",
-          lineNumber: latestLine.lineNumber,
-          lineText: latestLine.originalText,
-          lineRaw: latestLine.raw,
-          fieldKey,
-        },
-      };
-      surface.requestEdit(req);
-    },
-    [surface, latestLine],
-  );
   const canEditField = (value: unknown): value is string =>
     isLatest && surface !== null && typeof value === "string";
 
@@ -772,12 +752,6 @@ function DetailView({
                     <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground">
                       {label}
                     </h3>
-                    {editable && (
-                      <EditPencil
-                        title={t("editor.inline.button")}
-                        onClick={() => requestFieldEdit(k, v)}
-                      />
-                    )}
                   </div>
                   <div
                     className="text-sm leading-relaxed whitespace-pre-wrap break-words"
@@ -811,7 +785,7 @@ function DetailView({
                     <dt className="text-muted-foreground shrink-0 w-32 font-mono">
                       {label}
                     </dt>
-                    <dd className="text-foreground font-mono break-all min-w-0 flex-1 flex items-start gap-2">
+                    <dd className="text-foreground font-mono break-all min-w-0 flex-1">
                       <span
                         className="min-w-0 break-all"
                         {...(objSrc ? { "data-obj-src": objSrc } : {})}
@@ -823,12 +797,6 @@ function DetailView({
                           type={schema?.fields?.[k]?.type}
                         />
                       </span>
-                      {editable && (
-                        <EditPencil
-                          title={t("editor.inline.button")}
-                          onClick={() => requestFieldEdit(k, v)}
-                        />
-                      )}
                     </dd>
                   </div>
                 );
@@ -842,7 +810,12 @@ function DetailView({
       {/* Aside */}
       <aside className="space-y-4 md:border-l md:pl-6 md:border-border/40 min-w-0">
         {!isLatest && activeEvent && (
-          <div className="rounded border border-amber-500/30 bg-amber-500/5 px-2.5 py-2 text-[10px] text-amber-700 dark:text-amber-400 break-words">
+          // High-contrast amber banner — the previous amber-500/5 fill
+          // and amber-700 text vanished against the brutal-mono cream
+          // background. We now go for amber-600 fill with white text
+          // (light) and amber-300 text (dark), border at /60 so the
+          // banner reads as a real warning chip, not a watermark.
+          <div className="rounded border border-amber-600 bg-amber-500/90 px-2.5 py-2 text-xs font-medium text-white dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-400/60 break-words">
             {t("ws.coll.historicalView")} —{" "}
             <span className="font-mono">
               {activeEvent.at ? shortAt(activeEvent.at) : `line ${activeEvent.lineNumber}`}
@@ -861,12 +834,6 @@ function DetailView({
                     <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">
                       {label}
                     </dt>
-                    {editable && (
-                      <EditPencil
-                        title={t("editor.inline.button")}
-                        onClick={() => requestFieldEdit(k, v)}
-                      />
-                    )}
                   </div>
                   <dd
                     className="break-words min-w-0"
@@ -1500,36 +1467,3 @@ function shortAt(at: string): string {
   return m[2] ? `${m[1]} ${m[2]}` : m[1]!;
 }
 
-/** Hover-revealed pencil button for inline-editing a JSONL field. */
-function EditPencil({
-  onClick,
-  title,
-}: {
-  onClick(): void;
-  title: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      aria-label={title}
-      className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-    >
-      <svg
-        viewBox="0 0 16 16"
-        width="12"
-        height="12"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M11 2 L14 5 L5 14 L2 14 L2 11 Z" />
-        <path d="M9 4 L12 7" />
-      </svg>
-    </button>
-  );
-}
