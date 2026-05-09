@@ -328,7 +328,17 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
   // Glide ref so we can call getBounds() to position the floating Edit
   // pill next to whichever cell the user has selected. Recomputes on
   // selection change and when the visible region scrolls.
+  //
+  // gotcha: glide's getBounds() returns VIEWPORT-relative coords (it
+  // adds the canvas's getBoundingClientRect off the top), but our pill
+  // is `position: absolute` inside the grid wrapper div — meaning we
+  // need WRAPPER-relative coords. Without subtracting the wrapper's
+  // own boundingRect, the pill drifted hundreds of pixels off in
+  // default mode (where the wrapper sits below the page header).
+  // Fullscreen happened to look right because the wrapper's rect is
+  // (0, 0) — fixed inset-0 — so subtraction was a no-op.
   const editorRef = useRef<DataEditorRef>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [editBtnRect, setEditBtnRect] = useState<Rectangle | null>(null);
   useEffect(() => {
     const cell = gridSel.current?.cell;
@@ -346,7 +356,17 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
     // pre-selection coords.
     const id = requestAnimationFrame(() => {
       const b = editorRef.current?.getBounds(cell[0], cell[1]);
-      setEditBtnRect(b ?? null);
+      const wrapper = wrapperRef.current?.getBoundingClientRect();
+      if (!b || !wrapper) {
+        setEditBtnRect(null);
+        return;
+      }
+      setEditBtnRect({
+        x: b.x - wrapper.x,
+        y: b.y - wrapper.y,
+        width: b.width,
+        height: b.height,
+      });
     });
     return () => cancelAnimationFrame(id);
   }, [gridSel, visible]);
@@ -484,6 +504,7 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
       </div>
 
       <div
+        ref={wrapperRef}
         className={`huozi-csv-grid ${fullscreen ? "flex-1 min-h-0" : ""} relative rounded-lg border border-border overflow-hidden`}
         style={fullscreen ? undefined : { height: gridHeight }}
       >
@@ -506,7 +527,11 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
           onVisibleRegionChanged={onVisibleRegionChanged}
           freezeColumns={1}
           getCellsForSelection={true}
-          keybindings={{ copy: true }}
+          // Override glide's default activateCell binding (which is
+          // " |Enter|shift+Enter") to drop Space — Space is reserved
+          // for our "view row detail" shortcut. Enter / Shift+Enter
+          // still trigger glide's activation → onCellActivated → state B.
+          keybindings={{ copy: true, activateCell: "Enter|shift+Enter" }}
           theme={theme}
           rowMarkers="none"
         />
