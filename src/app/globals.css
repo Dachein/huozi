@@ -512,15 +512,29 @@ body::before {
 /* Indeterminate top progress bar — used by WorkspaceShell during
    client-side navigation. A narrow band sweeps left → right with a
    gentle scale pulse, evoking the ink-brush motif rather than a
-   mechanical blue Chrome bar. */
+   mechanical blue Chrome bar.
+
+   Easing is hardcoded — we deliberately don't read --motion-easing here
+   because brutal-mono's `steps(2, end)` would teleport the bar between
+   two positions instead of sweeping. Even in the brutal aesthetic, an
+   indeterminate progress indicator needs to read as "still working"
+   rather than "frozen at step N", so it always animates smoothly.
+
+   Bar color follows --accent in default; brutal-mono swaps it to
+   --muted (signature yellow) so the bar reads as the theme's stamp
+   color instead of the same red across both themes. */
 @keyframes loading-bar {
   0%   { transform: translateX(-40%) scaleX(0.4); }
-  50%  { transform: translateX(50%)  scaleX(0.7); }
+  50%  { transform: translateX(50%)  scaleX(0.85); }
   100% { transform: translateX(220%) scaleX(0.3); }
 }
 .animate-loading-bar {
-  animation: loading-bar 1.2s var(--motion-easing) infinite;
+  animation: loading-bar 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   transform-origin: left center;
+  will-change: transform;
+}
+[data-theme="brutal-mono"] .animate-loading-bar {
+  background-color: var(--muted);
 }
 
 /* Ink-themed ambient animations — themes that don't fit the ink/mist
