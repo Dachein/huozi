@@ -242,9 +242,61 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
     [],
   );
 
-  const onGridSelectionChange = useCallback((sel: GridSelection) => {
-    setGridSel(sel);
-  }, []);
+  // Two-state cell model — mirrors Excel's "Selected vs Edit Mode"
+  // (Google Sheets calls it "Active vs Editing"; glide's term is
+  // "selection vs activated"). State A = `gridSel.current.cell` is set
+  // but `activeCell` is null; State B = activeCell matches the current
+  // selection. The transition is on:
+  //   - re-click on the already-selected cell (handled in onCellClicked)
+  //   - Enter / double-click (handled in onCellActivated)
+  // Reverse transition (B → A) happens whenever selection moves to a
+  // different cell, or Escape clears it (glide handles that path on
+  // its own and onGridSelectionChange catches the empty selection).
+  const [activeCell, setActiveCell] = useState<[number, number] | null>(null);
+
+  const sameCell = (
+    a: [number, number] | null,
+    b: readonly [number, number] | undefined,
+  ): boolean => !!a && !!b && a[0] === b[0] && a[1] === b[1];
+
+  const onGridSelectionChange = useCallback(
+    (sel: GridSelection) => {
+      setGridSel(sel);
+      // Drop active state if selection moves off the active cell. We
+      // intentionally don't clear when selection shrinks to "no cell"
+      // because that fires during glide's internal click handling
+      // before it sets the new cell — clearing here would cancel state B
+      // on every click. Instead, only clear when there IS a new cell
+      // and it doesn't match.
+      const cell = sel.current?.cell;
+      if (activeCell && cell && !sameCell(activeCell, cell)) {
+        setActiveCell(null);
+      }
+    },
+    [activeCell],
+  );
+
+  // Re-click on the already-selected cell → state B. Plain function:
+  // not a hot path, and the React Compiler refuses to memoize handlers
+  // that read `.current` off a state object (the dep would have to be
+  // `gridSel.current?.cell` which compiler flags as unstable).
+  const onCellClicked: NonNullable<DataEditorProps["onCellClicked"]> = (
+    cell,
+  ) => {
+    const cur = gridSel.current?.cell;
+    if (cur && cur[0] === cell[0] && cur[1] === cell[1]) {
+      setActiveCell([cell[0], cell[1]]);
+    }
+  };
+
+  // Enter / double-click → state B. Glide fires this regardless of
+  // `allowOverlay`, so we get the activation event even with the
+  // overlay editor disabled.
+  const onCellActivated: NonNullable<DataEditorProps["onCellActivated"]> = (
+    cell,
+  ) => {
+    setActiveCell([cell[0], cell[1]]);
+  };
 
   // Surface for the inline-edit modal — null on the public /p/<slug>
   // viewer where the EditableSurface isn't mounted. The same hook is
@@ -363,13 +415,13 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
     };
   }, []);
 
-  // Space-key shortcut to open row detail. Replaces the old left-side
-  // handle button — selection-driven keyboard input is more discoverable
-  // than a small icon and matches spreadsheet conventions. We intercept
-  // BEFORE glide's internal handler so the canvas doesn't swallow it.
+  // Space-key shortcut to open row detail — only fires in State A
+  // (cell selected, not yet activated). In State B (`activeCell` set),
+  // Space is a no-op so the user can press it without surprise.
   // Plain inline function — not a hot path, no need for memoization.
   const onGridKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== " " && e.code !== "Space") return;
+    if (activeCell) return; // State B → Space is inert
     const cell = gridSel.current?.cell;
     if (!cell) return;
     e.preventDefault();
@@ -425,7 +477,7 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
           }}
           className="flex-1 min-w-0 rounded border border-border bg-background px-2 py-1 outline-none focus:border-foreground/40"
         />
-        {hasSelection && (
+        {hasSelection && !activeCell && (
           <span
             className="text-muted-foreground whitespace-nowrap hidden sm:inline"
             title={t("csv.rowDetail.open")}
@@ -458,6 +510,8 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
           onColumnResize={onColumnResize}
           gridSelection={gridSel}
           onGridSelectionChange={onGridSelectionChange}
+          onCellClicked={onCellClicked}
+          onCellActivated={onCellActivated}
           onVisibleRegionChanged={onVisibleRegionChanged}
           freezeColumns={1}
           getCellsForSelection={true}
@@ -469,12 +523,13 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
           surface &&
           detailRowIndex === null &&
           (() => {
-            // Single-cell selection → render an inline Edit pill at the
-            // cell's top-right edge. Click skips the row-detail modal
-            // and goes straight to the edit modal — the natural
-            // "select-then-edit" flow users expect from spreadsheets.
+            // Edit pill only shows in State B (activated cell), and
+            // only when the activated cell matches the currently-
+            // selected one. State A presents nothing — keeps
+            // first-click selection visually quiet.
             const cell = gridSel.current?.cell;
             if (!cell) return null;
+            if (!sameCell(activeCell, cell)) return null;
             const [col, row] = cell;
             const value = sorted[row]?.values[col] ?? "";
             const sourceIndex = sorted[row]?.sourceIndex;
