@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CompactSelection,
   DataEditor,
+  type DataEditorRef,
   GridCellKind,
   type DataEditorProps,
   type GridCell,
@@ -51,7 +52,6 @@ const CHAR_PX = 7;
 const COL_PADDING_PX = 24;
 const VIEWPORT_CHROME_PX = 180;
 const WIDTH_SAMPLE_ROWS = 100;
-const HANDLE_SIZE = 22;
 
 function measureColWidth(head: string, body: string[][], col: number): number {
   let longest = head.length;
@@ -246,6 +246,67 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
     setGridSel(sel);
   }, []);
 
+  // Surface for the inline-edit modal — null on the public /p/<slug>
+  // viewer where the EditableSurface isn't mounted. The same hook is
+  // re-read inside RowDetailModal because that modal portals out of
+  // this component's DOM subtree, so children below need their own
+  // context lookup.
+  const surface = useEditableSurface();
+
+  // Build an EditRequest for cell (sourceRowIndex, col) with the cell's
+  // current parsed value. Shared between the row-detail modal pencil
+  // and the new floating edit button on the grid itself, so both paths
+  // produce identical bytes for `huozi_edit`.
+  const requestCellEdit = useCallback(
+    (sourceRowIndex: number, col: number, value: string) => {
+      if (!surface) return;
+      const span = bodySpans[sourceRowIndex]?.[col];
+      if (!span) return;
+      // Spans are post-BOM offsets; we add bomBytes back to get
+      // file-absolute byte positions for huozi_edit.
+      const fileStart = span[0] + bomBytes;
+      const fileEnd = span[1] + bomBytes;
+      const req: EditRequest = {
+        objectKind: "csv-cell",
+        initialText: value,
+        locator: {
+          kind: "csv-cell",
+          start: fileStart,
+          end: fileEnd,
+          delim,
+        },
+      };
+      surface.requestEdit(req);
+    },
+    [surface, bodySpans, bomBytes, delim],
+  );
+
+  // Glide ref so we can call getBounds() to position the floating Edit
+  // pill next to whichever cell the user has selected. Recomputes on
+  // selection change and when the visible region scrolls.
+  const editorRef = useRef<DataEditorRef>(null);
+  const [editBtnRect, setEditBtnRect] = useState<Rectangle | null>(null);
+  useEffect(() => {
+    const cell = gridSel.current?.cell;
+    const range = gridSel.current?.range;
+    // Only show for single-cell selection. Multi-cell drag → no button
+    // (one save = one cell).
+    const single =
+      cell && range && range.width === 1 && range.height === 1;
+    if (!single || !editorRef.current) {
+      setEditBtnRect(null);
+      return;
+    }
+    // Defer one frame so glide commits its render before we ask for
+    // the cell bounds — otherwise getBounds may return stale
+    // pre-selection coords.
+    const id = requestAnimationFrame(() => {
+      const b = editorRef.current?.getBounds(cell[0], cell[1]);
+      setEditBtnRect(b ?? null);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [gridSel, visible]);
+
   // Resolve CSS theme tokens at mount. Glide renders to a canvas so
   // it can't consume CSS custom properties directly — we read the
   // computed values once and pass them as concrete hex strings. A
@@ -302,6 +363,20 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
     };
   }, []);
 
+  // Space-key shortcut to open row detail. Replaces the old left-side
+  // handle button — selection-driven keyboard input is more discoverable
+  // than a small icon and matches spreadsheet conventions. We intercept
+  // BEFORE glide's internal handler so the canvas doesn't swallow it.
+  // Plain inline function — not a hot path, no need for memoization.
+  const onGridKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== " " && e.code !== "Space") return;
+    const cell = gridSel.current?.cell;
+    if (!cell) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDetailRowIndex(cell[1]);
+  };
+
   if (header.length === 0) {
     return (
       <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
@@ -321,26 +396,25 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
       );
 
   const selectedRow = gridSel.current?.cell[1];
-  // onVisibleRegionChanged may not fire before the user's first click; if
-  // we have no region yet, accept any selected row and render relative
-  // to row 0. Once a region is known, gate on it so scrolled-out rows
-  // don't leave a dangling handle.
-  const hasVisible = visible.height > 0;
-  const handleVisible =
-    selectedRow !== undefined &&
-    (!hasVisible ||
-      (selectedRow >= visible.y &&
-        selectedRow < visible.y + visible.height));
-  const handleTop = handleVisible
-    ? HEADER_HEIGHT +
-      (selectedRow - (hasVisible ? visible.y : 0)) * ROW_HEIGHT +
-      (hasVisible ? visible.ty : 0) +
-      (ROW_HEIGHT - HANDLE_SIZE) / 2
-    : 0;
+  const hasSelection = selectedRow !== undefined;
 
   const grid = (
-    <div className={fullscreen ? "flex flex-col h-full" : "space-y-2"}>
-      <div className="flex items-center gap-2 text-xs">
+    <div
+      className={
+        fullscreen ? "flex flex-col h-full gap-3" : "space-y-2"
+      }
+      onKeyDown={onGridKeyDown}
+    >
+      <div
+        // In fullscreen the FullscreenContent wrapper places its
+        // top-right action chrome (Share / close) at fixed top-4 right-4.
+        // Reserve enough right-padding here so the filter input doesn't
+        // run under those buttons. 9rem covers Share + close + pager
+        // with room to spare; default mode keeps the natural width.
+        className={`flex items-center gap-2 text-xs ${
+          fullscreen ? "pr-36" : ""
+        }`}
+      >
         <input
           type="text"
           placeholder="Filter…"
@@ -351,6 +425,14 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
           }}
           className="flex-1 min-w-0 rounded border border-border bg-background px-2 py-1 outline-none focus:border-foreground/40"
         />
+        {hasSelection && (
+          <span
+            className="text-muted-foreground whitespace-nowrap hidden sm:inline"
+            title={t("csv.rowDetail.open")}
+          >
+            {t("csv.rowDetail.openHint")}
+          </span>
+        )}
         <span className="text-muted-foreground whitespace-nowrap">
           {sorted.length.toLocaleString()} / {rows.length.toLocaleString()} row
           {rows.length === 1 ? "" : "s"}
@@ -362,6 +444,7 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
         style={fullscreen ? undefined : { height: gridHeight }}
       >
         <DataEditor
+          ref={editorRef}
           columns={columns}
           getCellContent={getCellContent}
           rows={sorted.length}
@@ -382,32 +465,55 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
           theme={theme}
           rowMarkers="none"
         />
-        {handleVisible && (
-          <button
-            type="button"
-            onMouseDown={(e) => {
-              // Prevent glide's canvas from swallowing the click and
-              // re-selecting the underlying cell.
-              e.stopPropagation();
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              setDetailRowIndex(selectedRow!);
-            }}
-            aria-label={t("csv.rowDetail.open")}
-            title={t("csv.rowDetail.open")}
-            className="pointer-events-auto absolute flex items-center justify-center rounded border border-border bg-background text-muted-foreground shadow-sm hover:bg-muted hover:text-foreground transition-colors"
-            style={{
-              top: handleTop,
-              left: 4,
-              width: HANDLE_SIZE,
-              height: HANDLE_SIZE,
-              zIndex: 30,
-            }}
-          >
-            <HandleIcon />
-          </button>
-        )}
+        {editBtnRect &&
+          surface &&
+          detailRowIndex === null &&
+          (() => {
+            // Single-cell selection → render an inline Edit pill at the
+            // cell's top-right edge. Click skips the row-detail modal
+            // and goes straight to the edit modal — the natural
+            // "select-then-edit" flow users expect from spreadsheets.
+            const cell = gridSel.current?.cell;
+            if (!cell) return null;
+            const [col, row] = cell;
+            const value = sorted[row]?.values[col] ?? "";
+            const sourceIndex = sorted[row]?.sourceIndex;
+            if (sourceIndex === undefined) return null;
+            const PILL_W = 44;
+            const PILL_H = 22;
+            // Sit just above the cell's top-right corner; if there's
+            // no room above (top row), fall back to inside the cell.
+            const above = editBtnRect.y - PILL_H - 2 > HEADER_HEIGHT;
+            const top = above
+              ? editBtnRect.y - PILL_H - 2
+              : editBtnRect.y + 2;
+            const left = Math.max(
+              0,
+              editBtnRect.x + editBtnRect.width - PILL_W - 2,
+            );
+            return (
+              <button
+                type="button"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  requestCellEdit(sourceIndex, col, value);
+                }}
+                title={t("editor.inline.button")}
+                aria-label={t("editor.inline.button")}
+                className="huozi-edit-pill pointer-events-auto absolute flex items-center justify-center rounded text-xs font-medium bg-accent text-accent-foreground hover:opacity-90 border border-border shadow-sm"
+                style={{
+                  top,
+                  left,
+                  width: PILL_W,
+                  height: PILL_H,
+                  zIndex: 30,
+                }}
+              >
+                {t("editor.inline.button")}
+              </button>
+            );
+          })()}
       </div>
     </div>
   );
@@ -420,12 +526,14 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
       header={header}
       values={detailRow.values}
       sourceRowIndex={detailRow.sourceIndex}
-      bodySpans={bodySpans}
-      bomBytes={bomBytes}
-      delim={delim}
       numericCols={numericCols}
       rowNumber={detailRowIndex! + 1}
       totalRows={sorted.length}
+      requestCellEdit={(sourceIndex, col, value) => {
+        requestCellEdit(sourceIndex, col, value);
+        setDetailRowIndex(null);
+      }}
+      canEdit={surface !== null}
       onClose={() => setDetailRowIndex(null)}
     />
   ) : null;
@@ -442,12 +550,16 @@ interface RowDetailModalProps {
   header: string[];
   values: string[];
   sourceRowIndex: number;
-  bodySpans: CellSpan[][];
-  bomBytes: number;
-  delim: string;
   numericCols: boolean[];
   rowNumber: number;
   totalRows: number;
+  /** Same `requestCellEdit` the parent grid uses — sharing it keeps the
+   *  edit flow identical whether the user clicked a cell directly or
+   *  drilled into the row detail. */
+  requestCellEdit: (sourceRowIndex: number, col: number, value: string) => void;
+  /** Truthy iff an EditableSurface is mounted above us — when null,
+   *  hide the per-field pencils. */
+  canEdit: boolean;
   onClose: () => void;
 }
 
@@ -455,17 +567,15 @@ function RowDetailModal({
   header,
   values,
   sourceRowIndex,
-  bodySpans,
-  bomBytes,
-  delim,
   numericCols,
   rowNumber,
   totalRows,
+  requestCellEdit,
+  canEdit,
   onClose,
 }: RowDetailModalProps) {
   const t = useT();
   const panelRef = useRef<HTMLDivElement>(null);
-  const surface = useEditableSurface();
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -474,34 +584,6 @@ function RowDetailModal({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
-
-  const requestCellEdit = useCallback(
-    (col: number, value: string) => {
-      if (!surface) return;
-      const span = bodySpans[sourceRowIndex]?.[col];
-      if (!span) return;
-      // Spans are post-BOM; absolute file offsets need bomBytes added
-      // back so the source-side `huozi_edit` matches the right bytes.
-      const fileStart = span[0] + bomBytes;
-      const fileEnd = span[1] + bomBytes;
-      const req: EditRequest = {
-        objectKind: "csv-cell",
-        // Show the parsed value (without surrounding quotes / un-escaped)
-        // so the user edits the human-readable text. The save flow
-        // re-encodes it for CSV via the csv-cell locator branch.
-        initialText: value,
-        locator: {
-          kind: "csv-cell",
-          start: fileStart,
-          end: fileEnd,
-          delim,
-        },
-      };
-      surface.requestEdit(req);
-      onClose();
-    },
-    [surface, bodySpans, sourceRowIndex, bomBytes, delim, onClose],
-  );
 
   const subtitle = t("csv.rowDetail.rowOf")
     .replace("{n}", rowNumber.toLocaleString())
@@ -540,12 +622,15 @@ function RowDetailModal({
           </button>
         </div>
 
-        <div className="space-y-4">
+        <div className="divide-y divide-border/40">
           {header.map((name, i) => {
             const value = values[i] ?? "";
             const isEmpty = value.length === 0;
             return (
-              <div key={i} className="group flex items-start gap-2">
+              <div
+                key={i}
+                className="group flex items-start gap-2 py-3 first:pt-0 last:pb-0"
+              >
                 <div className="flex-1 min-w-0">
                   <div className="text-xs uppercase tracking-wide text-muted-foreground">
                     {name || `col ${i + 1}`}
@@ -562,10 +647,10 @@ function RowDetailModal({
                     {isEmpty ? emptyPlaceholder : value}
                   </div>
                 </div>
-                {surface && (
+                {canEdit && (
                   <button
                     type="button"
-                    onClick={() => requestCellEdit(i, value)}
+                    onClick={() => requestCellEdit(sourceRowIndex, i, value)}
                     title={t("editor.inline.button")}
                     aria-label={t("editor.inline.button")}
                     className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity text-muted-foreground hover:text-foreground mt-1"
@@ -605,25 +690,6 @@ function hexWithAlpha(color: string, alpha: number): string {
     }
   }
   return c;
-}
-
-function HandleIcon() {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      width="12"
-      height="12"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <circle cx="6" cy="4" r="1.1" />
-      <circle cx="10" cy="4" r="1.1" />
-      <circle cx="6" cy="8" r="1.1" />
-      <circle cx="10" cy="8" r="1.1" />
-      <circle cx="6" cy="12" r="1.1" />
-      <circle cx="10" cy="12" r="1.1" />
-    </svg>
-  );
 }
 
 function PencilIcon() {

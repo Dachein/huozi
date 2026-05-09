@@ -507,6 +507,7 @@ export const en = {
   // CSV · row detail
   "csv.rowDetail.title": "Row details",
   "csv.rowDetail.open": "Open row details",
+  "csv.rowDetail.openHint": "Space for row",
   "csv.rowDetail.close": "Close",
   "csv.rowDetail.rowOf": "Row {n} of {total}",
   "csv.rowDetail.empty": "—",

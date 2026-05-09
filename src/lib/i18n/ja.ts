@@ -506,6 +506,7 @@ export const ja = {
   // CSV · 行の詳細
   "csv.rowDetail.title": "行の詳細",
   "csv.rowDetail.open": "この行の詳細を表示",
+  "csv.rowDetail.openHint": "Space で行詳細",
   "csv.rowDetail.close": "閉じる",
   "csv.rowDetail.rowOf": "{total} 行中 {n} 行目",
   "csv.rowDetail.empty": "—",

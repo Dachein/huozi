@@ -509,6 +509,7 @@ export const fr = {
   // CSV · détails de la ligne
   "csv.rowDetail.title": "Détails de la ligne",
   "csv.rowDetail.open": "Ouvrir les détails de la ligne",
+  "csv.rowDetail.openHint": "Espace pour la ligne",
   "csv.rowDetail.close": "Fermer",
   "csv.rowDetail.rowOf": "Ligne {n} sur {total}",
   "csv.rowDetail.empty": "—",

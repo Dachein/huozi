@@ -21,6 +21,7 @@ import {
   FullscreenContent,
   type FullscreenMode,
 } from "@/components/workspace/fullscreen-content";
+import { FullscreenProvider } from "@/components/workspace/fullscreen-context";
 import type { PageEntry } from "@/lib/html/extract-pages";
 import type { ShareContent } from "@/lib/drive/shares";
 
@@ -92,33 +93,47 @@ export function ShareViewer(props: ShareViewerProps) {
     );
   }
 
-  // After client-side unlock we only have raw text — route by extension into
-  // the same source / csv / jsonl path. Prose stays as source here (server-
-  // side sanitizer / chart pipeline isn't available client-side).
-  if (unlocked) {
-    const filePath = unlocked.file_path;
-    const text = unlocked.text ?? "";
-    const kind = kindFor(filePath, false);
-    return (
-      <FullscreenContent
-        mode={fullscreenModeFor(filePath)}
-        pages={[]}
-        pageUnit="page"
-        htmlFormat="web"
-        alwaysOpen
-        chrome={<OpenInHuoziLink filePath={filePath} />}
-      >
-        {kind === "csv" || kind === "tsv" ? (
-          <CsvGrid content={text} delim={kind === "tsv" ? "\t" : ","} />
-        ) : kind === "jsonl" ? (
-          <CollectionView content={text} />
-        ) : (
-          <SourceBlock content={text || "(binary)"} />
-        )}
-      </FullscreenContent>
-    );
-  }
+  // Wrap in FullscreenProvider so descendants (CsvGrid, CollectionView)
+  // pick up `useFullscreen()` returning true and switch to their full-
+  // viewport layouts. The publish surface IS the file — the page is
+  // already full-bleed; this just synchronizes the context with reality.
+  // Without this, CsvGrid would render in compact (height-bounded) mode
+  // inside an actual full-viewport container — wasting space.
+  return (
+    <FullscreenProvider initial>
+      {unlocked ? renderUnlocked(unlocked) : renderInitial(props)}
+    </FullscreenProvider>
+  );
+}
 
+// After client-side unlock we only have raw text — route by extension into
+// the same source / csv / jsonl path. Prose stays as source here (server-
+// side sanitizer / chart pipeline isn't available client-side).
+function renderUnlocked(unlocked: ShareContent) {
+  const filePath = unlocked.file_path;
+  const text = unlocked.text ?? "";
+  const kind = kindFor(filePath, false);
+  return (
+    <FullscreenContent
+      mode={fullscreenModeFor(filePath)}
+      pages={[]}
+      pageUnit="page"
+      htmlFormat="web"
+      alwaysOpen
+      chrome={<OpenInHuoziLink filePath={filePath} />}
+    >
+      {kind === "csv" || kind === "tsv" ? (
+        <CsvGrid content={text} delim={kind === "tsv" ? "\t" : ","} />
+      ) : kind === "jsonl" ? (
+        <CollectionView content={text} />
+      ) : (
+        <SourceBlock content={text || "(binary)"} />
+      )}
+    </FullscreenContent>
+  );
+}
+
+function renderInitial(props: ShareViewerProps) {
   const kind = kindFor(props.filePath, Boolean(props.prerenderedHtml));
   const fullscreenMode = fullscreenModeFor(props.filePath);
 
