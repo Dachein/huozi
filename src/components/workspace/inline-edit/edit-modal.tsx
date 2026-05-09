@@ -25,13 +25,13 @@
  */
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useT } from "@/lib/i18n/context";
 import type { ObjectKind, ObjectLocator } from "./types";
 import { getStrategy } from "./strategies/registry";
 import { isEditError } from "./strategies/types";
 import { EditorBody } from "./editor-body";
 import { applyOptimisticPatch } from "./optimistic-patch";
+import { notifyError } from "./notify";
 
 export interface EditModalProps {
   filePath: string;
@@ -87,10 +87,8 @@ export function EditModal(props: EditModalProps) {
     hint,
   } = props;
   const t = useT();
-  const router = useRouter();
 
   const [value, setValue] = useState(initialText);
-  const [saving, setSaving] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   // Pull the strategy-declared language for the editor body (markdown /
   // html / null = plain text). The body autofocuses + selects-all on
@@ -99,25 +97,23 @@ export function EditModal(props: EditModalProps) {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && !saving) onClose();
+      if (e.key === "Escape") onClose();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, saving]);
+  }, [onClose]);
 
-  async function onSave() {
-    if (saving) return;
+  function onSave() {
     if (value === initialText) {
       onClose();
       return;
     }
-    setSaving(true);
     setErrorText(null);
 
-    // Compute (old_string, new_string) by dispatching to the per-type
-    // strategy. The framework is type-agnostic; encoding rules (CSV
-    // quoting, JSON re-stringify, anchor expansion) live in the strategy
-    // files under ./strategies/. See docs/inline-edit.md §4.
+    // Synchronous prep: build (old_string, new_string) via the per-type
+    // strategy. Errors here keep the modal open so the user can fix
+    // their input — encoding errors are deterministic and shouldn't
+    // cost a server round-trip.
     const strategy = getStrategy(objectKind);
     const source =
       locator.kind === "bytes" || locator.kind === "csv-cell"
@@ -133,7 +129,6 @@ export function EditModal(props: EditModalProps) {
           "source unavailable",
         ),
       );
-      setSaving(false);
       return;
     }
     const result = strategy.buildEdit(
@@ -145,72 +140,81 @@ export function EditModal(props: EditModalProps) {
       setErrorText(
         t("editor.inline.error.generic").replace("{message}", result.error),
       );
-      setSaving(false);
       return;
     }
     const { old_string, new_string } = result;
     if (old_string === new_string) {
-      // The user's value re-encodes to the same bytes already in the
-      // file (e.g. they "edited" without changing). Treat as cancel.
+      // User "edited" without changing bytes (e.g. typed and undid).
       onClose();
       return;
     }
 
+    // Optimistic flow — the path that wins us 1–3 seconds of perceived
+    // save latency. We commit the user's edit to the DOM RIGHT NOW and
+    // close the modal RIGHT NOW. The actual POST then runs in the
+    // background; if it eventually fails, we revert the DOM patch and
+    // show a toast. The CloudLiveEvents WS path triggers
+    // router.refresh() once the commit broadcasts back, so we don't
+    // need our own refresh timer here — when SSR re-renders, the bytes
+    // match the optimistic patch and the user sees no flicker.
+    const revert = applyOptimisticPatch(locator, value, source);
+    onClose();
+
+    void backgroundSave({
+      file_path: filePath,
+      old_string,
+      new_string,
+      parent_blob_sha: parentBlobSha ?? undefined,
+      onError: (msg) => {
+        revert?.();
+        notifyError(msg);
+      },
+    });
+  }
+
+  // Background POST. Wrapped in its own function so the callbacks can
+  // close over `t` (i18n) without dragging the rest of the modal scope
+  // into the request lifecycle.
+  async function backgroundSave(args: {
+    file_path: string;
+    old_string: string;
+    new_string: string;
+    parent_blob_sha?: string;
+    onError: (message: string) => void;
+  }): Promise<void> {
     try {
       const res = await fetch("/api/app/drive/edit", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          file_path: filePath,
-          old_string,
-          new_string,
-          // BFF uses this as the freshness proof and skips the Read-first
-          // round-trip when present. ~50% latency win on the save POST.
-          ...(parentBlobSha ? { parent_blob_sha: parentBlobSha } : {}),
+          file_path: args.file_path,
+          old_string: args.old_string,
+          new_string: args.new_string,
+          ...(args.parent_blob_sha
+            ? { parent_blob_sha: args.parent_blob_sha }
+            : {}),
         }),
       });
-      const body = (await res.json().catch(() => ({}))) as ApiError;
       if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as ApiError;
         const key = errorKey(body.code);
         const msg = t(key as Parameters<typeof t>[0]);
-        setErrorText(
-          msg.includes("{message}")
-            ? msg.replace("{message}", body.message ?? `HTTP ${res.status}`)
-            : msg,
-        );
-        setSaving(false);
+        const finalMsg = msg.includes("{message}")
+          ? msg.replace("{message}", body.message ?? `HTTP ${res.status}`)
+          : msg;
+        args.onError(finalMsg);
         return;
       }
-      // Optimistic DOM patch — apply the user's edit to the rendered
-      // tree right now so the screen visibly updates instantly. The
-      // router.refresh() below kicks off a background SSR sync that
-      // eventually replaces the patched DOM with canonical bytes; both
-      // should match, so the user sees no flash. See optimistic-patch.ts
-      // for per-locator behavior (csv-cell skips, jsonl/md/html patch).
-      applyOptimisticPatch(locator, value, source);
-      // Fire refresh from a still-mounted context so Next has a live
-      // tree to commit the new server payload into. Then close the
-      // modal — felt latency wins over avoiding a brief stale flash.
-      router.refresh();
-      onClose();
-      // Belt-and-suspenders second refresh: refresh #1 may have hit a
-      // D1 replica that hadn't yet seen the commit. By 250ms the write
-      // has propagated to all replicas in practice. Fire-and-forget.
-      window.setTimeout(() => {
-        try {
-          router.refresh();
-        } catch {
-          /* ignore — page may have navigated */
-        }
-      }, 250);
+      // Success — no action needed. CloudLiveEvents WS will pick up
+      // the broadcast and trigger router.refresh, replacing the
+      // optimistic patch with canonical bytes (byte-identical → no
+      // flicker).
     } catch (e) {
-      setErrorText(
-        t("editor.inline.error.generic").replace(
-          "{message}",
-          e instanceof Error ? e.message : String(e),
-        ),
+      const msg = t("editor.inline.error.generic").replace(
+        "{message}",
+        e instanceof Error ? e.message : String(e),
       );
-      setSaving(false);
+      args.onError(msg);
     }
   }
 
@@ -224,9 +228,7 @@ export function EditModal(props: EditModalProps) {
     >
       <div
         className="absolute inset-0 bg-foreground/30 backdrop-blur-sm animate-in fade-in duration-150"
-        onClick={() => {
-          if (!saving) onClose();
-        }}
+        onClick={onClose}
       />
       <div
         className="relative w-full max-w-2xl max-h-[80vh] overflow-hidden rounded-lg border border-border bg-background shadow-xl flex flex-col
@@ -245,9 +247,8 @@ export function EditModal(props: EditModalProps) {
           <button
             type="button"
             onClick={onClose}
-            disabled={saving}
             aria-label={t("editor.inline.cancel")}
-            className="text-muted-foreground hover:text-foreground shrink-0 disabled:opacity-50"
+            className="text-muted-foreground hover:text-foreground shrink-0"
           >
             <CloseIcon />
           </button>
@@ -257,7 +258,7 @@ export function EditModal(props: EditModalProps) {
           <EditorBody
             initialValue={initialText}
             language={language}
-            disabled={saving}
+            disabled={false}
             onChange={setValue}
           />
           {objectKind === "jsonl-field" && (
@@ -266,7 +267,7 @@ export function EditModal(props: EditModalProps) {
             </p>
           )}
           {errorText && (
-            <p className="mt-3 text-sm text-red-600 dark:text-red-400">
+            <p className="mt-3 text-sm text-red-600">
               {errorText}
             </p>
           )}
@@ -276,18 +277,17 @@ export function EditModal(props: EditModalProps) {
           <button
             type="button"
             onClick={onClose}
-            disabled={saving}
-            className="px-3 py-1.5 text-sm rounded border border-border hover:bg-muted disabled:opacity-50"
+            className="px-3 py-1.5 text-sm rounded border border-border hover:bg-muted"
           >
             {t("editor.inline.cancel")}
           </button>
           <button
             type="button"
             onClick={onSave}
-            disabled={saving || value === initialText}
+            disabled={value === initialText}
             className="px-3 py-1.5 text-sm rounded bg-accent text-accent-foreground hover:opacity-90 disabled:opacity-50"
           >
-            {saving ? t("editor.inline.saving") : t("editor.inline.save")}
+            {t("editor.inline.save")}
           </button>
         </div>
       </div>
