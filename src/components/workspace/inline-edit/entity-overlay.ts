@@ -13,7 +13,7 @@
 import {
   Decoration,
   type DecorationSet,
-  type EditorView,
+  EditorView,
   MatchDecorator,
   ViewPlugin,
   type ViewUpdate,
@@ -96,6 +96,13 @@ const entityDecorator = new MatchDecorator({
  * CodeMirror extension installing the entity overlay. Add to your
  * extension list after the language and before highlight if you want
  * the overlay to take precedence over generic token coloring.
+ *
+ * `provide` registers each replaced range as atomic — cursor navigation
+ * (arrow keys, click, double-click word selection) treats the whole
+ * `&entity;` as one unit. Without this, the cursor would pass through
+ * the 5-7 invisible byte positions inside the widget, looking stuck.
+ * Backspace/Delete still work — they remove the entire entity in one
+ * keystroke, which is what users expect.
  */
 export const entityOverlay = ViewPlugin.fromClass(
   class {
@@ -107,5 +114,11 @@ export const entityOverlay = ViewPlugin.fromClass(
       this.decorations = entityDecorator.updateDeco(u, this.decorations);
     }
   },
-  { decorations: (v) => v.decorations },
+  {
+    decorations: (v) => v.decorations,
+    provide: (plugin) =>
+      EditorView.atomicRanges.of(
+        (view) => view.plugin(plugin)?.decorations ?? Decoration.none,
+      ),
+  },
 );

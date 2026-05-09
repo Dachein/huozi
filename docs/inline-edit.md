@@ -107,10 +107,19 @@ Concrete worked example —
 | "讲完观察" (only paragraph text)        | `p`       | `p`       | `p` inner       |
 | "讲完..." through "API\u201d" (crosses) | `p`       | `strong`  | `p` inner (LCA) |
 
-The **modal always opens at object granularity** — never at the user's
-exact byte selection. Selection picks *which* object; the modal edits
-the whole thing. This avoids exposing two granularity levels to users
-and keeps the anchor-expansion math simple.
+**Sub-object narrowing.** When the user's selection is a strict subset
+of the resolved object — and it lives in a single text node, and its
+plain text appears exactly once in the editable scope — the modal opens
+with just those bytes instead of the whole object. The substring search
+naturally screens out unsafe selections: any selection that crossed an
+inline tag, an entity widget, or a `<br>` will fail the search (the
+rendered text doesn't include the markup bytes) and we degrade back to
+object granularity.
+
+When narrowing isn't safe (selection spans element boundaries, text
+isn't unique, or it's a triple-click whole-object selection), the modal
+keeps object granularity. The anchor-expansion math at save time is the
+same in both cases.
 
 ### 3.2 Click-driven (csv / jsonl)
 

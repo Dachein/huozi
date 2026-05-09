@@ -178,6 +178,25 @@ export function EditableSurface({
       editableEnd = objectEnd;
     }
 
+    // Sub-object narrowing: if the user's selection lives inside a
+    // single text node and its plain text appears exactly once in the
+    // editable scope, modal opens with just those bytes. Selections
+    // that cross any element boundary (entering/leaving inline tags,
+    // entities, the like) keep the whole-object behavior — substring
+    // search will fail or be ambiguous and we degrade safely.
+    // See docs/inline-edit.md §3.1.
+    const narrowed = tryNarrowToSelection(
+      hostRef.current,
+      editableStart,
+      editableEnd,
+      sel.selectionText,
+      sel.isWholeObject,
+    );
+    if (narrowed) {
+      editableStart = narrowed.start;
+      editableEnd = narrowed.end;
+    }
+
     const initialText = readSlice(hostRef.current, editableStart, editableEnd);
     setRequest({
       objectKind: kind,
@@ -234,6 +253,60 @@ function readSlice(
   const src = host.getAttribute("data-source");
   if (src === null) return "";
   return src.slice(start, end);
+}
+
+/**
+ * Try to narrow [editableStart, editableEnd) to just the bytes the user
+ * actually selected. Returns null when narrowing isn't safe — caller
+ * keeps the whole-object scope.
+ *
+ * Safety rules:
+ *   1. Selection must live in a single text node — i.e. it doesn't
+ *      cross any element boundary. If commonAncestor is an Element,
+ *      the selection straddled markup (an inline tag, an entity widget,
+ *      a `<br>`) and we MUST keep the whole object so the user sees
+ *      what's around the splice.
+ *   2. Selection text must appear exactly once in the editable source.
+ *      Multiple matches would mean we can't tell which one to edit.
+ *   3. Selection text must be the user's *plain* selection (the
+ *      `isWholeObject` shortcut from the hook means triple-click; in
+ *      that case the user wants the whole object, not a narrowed slice).
+ *
+ * When all three pass, this returns the new tighter byte range. The
+ * caller then uses just those bytes as both the modal's initial text
+ * and the locator — the rest of the object stays untouched on save.
+ */
+function tryNarrowToSelection(
+  host: HTMLElement | null,
+  editableStart: number,
+  editableEnd: number,
+  selectionText: string,
+  isWholeObject: boolean,
+): { start: number; end: number } | null {
+  if (!host) return null;
+  if (isWholeObject) return null;
+  const text = selectionText;
+  if (text.length === 0) return null;
+
+  // Rule 1 — single text node.
+  const range = window.getSelection()?.rangeCount
+    ? window.getSelection()!.getRangeAt(0)
+    : null;
+  if (!range) return null;
+  if (range.commonAncestorContainer.nodeType !== Node.TEXT_NODE) return null;
+
+  // Rule 2 — unique within editable scope.
+  const src = host.getAttribute("data-source");
+  if (src === null) return null;
+  const editableSrc = src.slice(editableStart, editableEnd);
+  const first = editableSrc.indexOf(text);
+  if (first === -1) return null;
+  if (editableSrc.indexOf(text, first + 1) !== -1) return null;
+
+  return {
+    start: editableStart + first,
+    end: editableStart + first + text.length,
+  };
 }
 
 interface FloatingEditButtonProps {
