@@ -108,6 +108,14 @@ export function FullscreenContent({
   //                   happens inside the deck's .slides element, never
   //                   outside. Any rounding overflow at the edge gets clipped.
   //
+  //                   We also force `.huozi-story` / `.huozi-deck` to
+  //                   `!h-screen`. Templates set `height:100vh` so this is a
+  //                   no-op for them, but author-written decks that wrote
+  //                   `min-height:100vh` (with `container-type:size` upstairs)
+  //                   would otherwise resolve `100cqh` to 0 inside slides —
+  //                   collapsing the entire deck to a blank page. Belt for
+  //                   the suspenders the templates already wear.
+  //
   //   paper / mobile / web / other — long-flow. The host is left at its
   //                   block-natural width (= container width minus scrollbar
   //                   gutter) so a vertical scrollbar doesn't push content
@@ -123,7 +131,8 @@ export function FullscreenContent({
        [&_.huozi-html-host]:!max-w-none [&_.huozi-html-host]:!max-h-none
        [&_.huozi-html-host]:![aspect-ratio:auto]
        [&_.huozi-html-host]:!overflow-visible
-       [&_.huozi-html-host]:!m-0`
+       [&_.huozi-html-host]:!m-0
+       [&_.huozi-story]:!h-screen [&_.huozi-deck]:!h-screen`
     : // Long-flow: container scrolls vertically, host follows block width.
       // overflow-x-hidden is a belt-and-suspenders against any inner
       // element (or vw-based custom CSS) trying to overflow horizontally.
