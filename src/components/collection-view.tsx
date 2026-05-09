@@ -810,12 +810,14 @@ function DetailView({
       {/* Aside */}
       <aside className="space-y-4 md:border-l md:pl-6 md:border-border/40 min-w-0">
         {!isLatest && activeEvent && (
-          // High-contrast amber banner — the previous amber-500/5 fill
-          // and amber-700 text vanished against the brutal-mono cream
-          // background. We now go for amber-600 fill with white text
-          // (light) and amber-300 text (dark), border at /60 so the
-          // banner reads as a real warning chip, not a watermark.
-          <div className="rounded border border-amber-600 bg-amber-500/90 px-2.5 py-2 text-xs font-medium text-white dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-400/60 break-words">
+          // High-contrast amber chip. Past iterations tried
+          // amber-500/5 + amber-700 text (vanished on brutal-mono cream)
+          // then amber-500/90 fill + text-white (text rendered as
+          // pale amber on warm-cream paper themes — still invisible).
+          // Land on the standard "warning chip" pattern: pale amber
+          // fill, dark amber text, mid amber border. Reads cleanly on
+          // both default (paper) and brutal-mono cream backgrounds.
+          <div className="rounded border border-amber-500 bg-amber-100 px-2.5 py-2 text-xs font-medium text-amber-900 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-400/60 break-words">
             {t("ws.coll.historicalView")} —{" "}
             <span className="font-mono">
               {activeEvent.at ? shortAt(activeEvent.at) : `line ${activeEvent.lineNumber}`}
@@ -889,7 +891,7 @@ function DetailView({
             <span className="text-[10px] text-muted-foreground/60 font-mono ml-1">
               v{historyIndex + 1}/{entity.history.length}
               {!isLatest && (
-                <span className="ml-1 text-amber-600 dark:text-amber-400">
+                <span className="ml-1 text-amber-800 dark:text-amber-400">
                   · {t("ws.coll.historicalView")}
                 </span>
               )}
@@ -897,8 +899,8 @@ function DetailView({
             <span
               className={`hidden md:inline text-[10px] font-mono ml-2 transition-colors ${
                 peekDiff
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : "text-muted-foreground/40"
+                  ? "text-emerald-700 dark:text-emerald-400"
+                  : "text-muted-foreground/70"
               }`}
               title="Hold Space to highlight added / modified fields"
             >
