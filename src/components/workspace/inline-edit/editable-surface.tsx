@@ -31,7 +31,6 @@ import type {
   EditRequest,
   EditableSurfaceContextValue,
   ObjectKind,
-  ObjectLocator,
 } from "./types";
 import { useObjectSelection } from "./use-object-selection";
 import { EditModal } from "./edit-modal";
@@ -93,35 +92,68 @@ export function EditableSurface({
     [requestEdit, canEdit],
   );
 
-  // Selection-driven path: only enabled for md/html and only when we
-  // don't already have a modal open (no point in tracking selection
-  // inside a modal).
+  // Selection-driven path: enabled for md/html (byte-range markers) and
+  // jsonl (structural markers); disabled for csv (canvas grid). Suppress
+  // while a modal is open — no point tracking selection from inside it.
   const selectionEnabled =
     canEdit &&
-    (fileKind === "md-block" || fileKind === "html-element") &&
+    (fileKind === "md-block" ||
+      fileKind === "html-element" ||
+      fileKind === "jsonl-field") &&
     request === null;
   const sel = useObjectSelection(hostRef, selectionEnabled);
 
   function onPopoverClick() {
     if (!sel) return;
-    // The user's sub-selection inside the rendered DOM tells us *which*
-    // smallest data-obj-src element they care about — that element's
-    // byte range is the natural editable scope.
-    //
-    //   markdown → editable scope = the element's full source slice
-    //              (including markdown syntax like `**…**` / `[…](…)`).
-    //              Users author markdown directly; seeing the syntax in
-    //              the modal is the desired UX.
-    //
-    //   HTML     → editable scope = the element's INNER text bytes
-    //              (between the > of the open tag and the < of the
-    //              close tag). Tags stay out of the modal so users
-    //              can't accidentally break HTML structure. Save's
-    //              unique-anchor expansion picks up the surrounding
-    //              tag bytes only as needed for global uniqueness.
-    //
-    // Save flow's unique-anchor pass guarantees old_string is globally
-    // unique even when the inner slice would ambiguously match.
+    // The user's selection inside a [data-obj-src] element tells us
+    // *which* default object they want to edit. The selection's exact
+    // bytes don't matter beyond that — the modal always opens at object
+    // granularity. See docs/inline-edit.md §3.
+    if (sel.kind === "jsonl-field") {
+      // Structural marker — recover the line bytes from the inlined
+      // data-source. The CollectionView parser strips an optional BOM,
+      // so we mirror that here to keep line text byte-identical with
+      // what `huozi_edit` will see as old_string.
+      const source = hostRef.current?.getAttribute("data-source") ?? "";
+      const stripped =
+        source.charCodeAt(0) === 0xfeff ? source.slice(1) : source;
+      const lines = stripped.split(/\r?\n/);
+      const lineText = lines[sel.lineNumber - 1];
+      if (lineText === undefined) return;
+      let lineRaw: Record<string, unknown>;
+      try {
+        const parsed = JSON.parse(lineText) as unknown;
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          return;
+        }
+        lineRaw = parsed as Record<string, unknown>;
+      } catch {
+        return;
+      }
+      const value = lineRaw[sel.fieldKey];
+      // V1 only edits string fields — CollectionView only marks string
+      // values with data-obj-src, but defend against drift.
+      if (typeof value !== "string") return;
+      setRequest({
+        objectKind: "jsonl-field",
+        initialText: value,
+        locator: {
+          kind: "jsonl-field",
+          lineNumber: sel.lineNumber,
+          lineText,
+          lineRaw,
+          fieldKey: sel.fieldKey,
+        },
+        anchorRect: sel.rect,
+      });
+      return;
+    }
+
+    // Byte-range markers (md / html). Markdown shows source bytes
+    // verbatim (`**bold**`, `[text](url)`); HTML scopes to inner-tag
+    // content via findHtmlInnerRange so users can't accidentally delete
+    // a tag's open/close. Anchor expansion at save time pins the edit
+    // even when the inner slice is non-unique.
     const objectStart = sel.objectStart;
     const objectEnd = sel.objectEnd;
     const objectSrc = readSlice(hostRef.current, objectStart, objectEnd);

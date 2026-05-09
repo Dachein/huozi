@@ -1,6 +1,49 @@
 import { describe, expect, it } from "vitest";
 import { renderMarkdown, rewriteAssetUrls } from "../renderer";
 
+/**
+ * Inline-edit regression tests: when `withSourcePos: true`, the renderer
+ * must annotate inline mdast nodes (strong, em, a, code, …) with
+ * `data-obj-src="<start>,<end>"` so the workspace selection hook can
+ * resolve a click inside `**bold**` back to the markdown bytes. The
+ * sanitizer schema is what makes or breaks this — it has to whitelist
+ * the attribute on every annotated tag. See docs/inline-edit.md §2.
+ */
+describe("renderMarkdown with source positions (inline granularity)", () => {
+  it("annotates <strong> inside a paragraph with byte offsets", async () => {
+    const md = "讲完观察。我们的设计决定，是**不要再发明 API**。";
+    const html = await renderMarkdown(md, { withSourcePos: true });
+    // Both the wrapping <p> and the inner <strong> should carry markers.
+    expect(html).toMatch(/<p\s[^>]*data-obj-src="\d+,\d+"/);
+    const strongMatch = html.match(
+      /<strong\s[^>]*data-obj-src="(\d+),(\d+)"[^>]*>/,
+    );
+    expect(strongMatch).not.toBeNull();
+    if (!strongMatch) return;
+    const start = Number(strongMatch[1]);
+    const end = Number(strongMatch[2]);
+    // The recovered slice should be exactly `**...**` with the markers.
+    expect(md.slice(start, end)).toBe("**不要再发明 API**");
+  });
+
+  it("annotates <a> link nodes with their full source span", async () => {
+    const md = "See [the docs](https://example.com) for details.";
+    const html = await renderMarkdown(md, { withSourcePos: true });
+    const aMatch = html.match(/<a\s[^>]*data-obj-src="(\d+),(\d+)"/);
+    expect(aMatch).not.toBeNull();
+    if (!aMatch) return;
+    expect(md.slice(Number(aMatch[1]), Number(aMatch[2]))).toBe(
+      "[the docs](https://example.com)",
+    );
+  });
+
+  it("does NOT annotate when withSourcePos is omitted", async () => {
+    const md = "**bold**";
+    const html = await renderMarkdown(md);
+    expect(html).not.toMatch(/data-obj-src/);
+  });
+});
+
 describe("rewriteAssetUrls", () => {
   const base = "/p/abc123";
 

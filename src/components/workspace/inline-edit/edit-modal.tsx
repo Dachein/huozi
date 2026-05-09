@@ -24,11 +24,13 @@
  * localized strings — see `errorKey()` for the table.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "@/lib/i18n/context";
 import type { ObjectKind, ObjectLocator } from "./types";
-import { expandToUnique } from "./anchor";
+import { getStrategy } from "./strategies/registry";
+import { isEditError } from "./strategies/types";
+import { EditorBody } from "./editor-body";
 
 export interface EditModalProps {
   filePath: string;
@@ -89,7 +91,10 @@ export function EditModal(props: EditModalProps) {
   const [value, setValue] = useState(initialText);
   const [saving, setSaving] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Pull the strategy-declared language for the editor body (markdown /
+  // html / null = plain text). The body autofocuses + selects-all on
+  // mount on its own; no ref needed here.
+  const language = getStrategy(objectKind).editorLanguage ?? null;
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -98,11 +103,6 @@ export function EditModal(props: EditModalProps) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, saving]);
-
-  useEffect(() => {
-    textareaRef.current?.focus();
-    textareaRef.current?.select();
-  }, []);
 
   async function onSave() {
     if (saving) return;
@@ -113,64 +113,41 @@ export function EditModal(props: EditModalProps) {
     setSaving(true);
     setErrorText(null);
 
-    // Compute (old_string, new_string) per locator type.
-    //
-    // Byte-based locators (bytes / csv-cell) use the unique-anchor pass:
-    // the user typed N bytes that should replace M bytes inside a known
-    // [start, end) source range. If `source.slice(start, end)` happens
-    // to be unique in the whole file, that IS our old_string and the
-    // user's value (or csv-encoded value) is new_string. If not, we
-    // expand outward symmetrically until the slice is globally unique
-    // — surrounding bytes (often the enclosing tag, paragraph, or
-    // delimiter context) become the anchor and ride along verbatim.
-    // This protects HTML tags / markdown syntax around the edit while
-    // preserving huozi_edit's exact-string semantics.
-    let old_string: string;
-    let new_string: string;
-    try {
-      if (locator.kind === "bytes" || locator.kind === "csv-cell") {
-        const source = readSourceFromHost();
-        if (source === null) throw new Error("source unavailable");
-        const editableOld = source.slice(locator.start, locator.end);
-        const editableNew =
-          locator.kind === "csv-cell"
-            ? csvEncodeCell(value, locator.delim)
-            : value;
-        const anchor = expandToUnique(source, locator.start, locator.end);
-        if (!anchor.isUnique) {
-          throw new Error(
-            "Couldn't pin this edit — the surrounding text repeats too much.",
-          );
-        }
-        // old_string covers the anchor; new_string preserves the
-        // anchor's prefix/suffix verbatim and swaps only the editable
-        // bytes for the user's input.
-        old_string = source.slice(anchor.left, anchor.right);
-        new_string =
-          source.slice(anchor.left, locator.start) +
-          editableNew +
-          source.slice(locator.end, anchor.right);
-        // Sanity: the slice we just claimed to mutate should match the
-        // editable bytes we read at the start of the algorithm. (Catches
-        // off-by-one regressions in the EditableSurface side.)
-        void editableOld;
-      } else {
-        // jsonl-field: replace the whole line with a re-serialized object
-        // that has the field overridden. Preserves key order.
-        old_string = locator.lineText;
-        const nextRaw = { ...locator.lineRaw, [locator.fieldKey]: value };
-        new_string = JSON.stringify(nextRaw);
-      }
-    } catch (e) {
+    // Compute (old_string, new_string) by dispatching to the per-type
+    // strategy. The framework is type-agnostic; encoding rules (CSV
+    // quoting, JSON re-stringify, anchor expansion) live in the strategy
+    // files under ./strategies/. See docs/inline-edit.md §4.
+    const strategy = getStrategy(objectKind);
+    const source =
+      locator.kind === "bytes" || locator.kind === "csv-cell"
+        ? readSourceFromHost() ?? ""
+        : "";
+    if (
+      (locator.kind === "bytes" || locator.kind === "csv-cell") &&
+      source === ""
+    ) {
       setErrorText(
         t("editor.inline.error.generic").replace(
           "{message}",
-          e instanceof Error ? e.message : String(e),
+          "source unavailable",
         ),
       );
       setSaving(false);
       return;
     }
+    const result = strategy.buildEdit(
+      { objectKind, initialText, locator },
+      value,
+      source,
+    );
+    if (isEditError(result)) {
+      setErrorText(
+        t("editor.inline.error.generic").replace("{message}", result.error),
+      );
+      setSaving(false);
+      return;
+    }
+    const { old_string, new_string } = result;
     if (old_string === new_string) {
       // The user's value re-encodes to the same bytes already in the
       // file (e.g. they "edited" without changing). Treat as cancel.
@@ -269,13 +246,11 @@ export function EditModal(props: EditModalProps) {
         </div>
 
         <div className="px-6 py-4 flex-1 overflow-auto">
-          <textarea
-            ref={textareaRef}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
+          <EditorBody
+            initialValue={initialText}
+            language={language}
             disabled={saving}
-            className="w-full min-h-[8rem] max-h-[40vh] rounded border border-border bg-muted/30 p-3 text-sm font-mono leading-relaxed outline-none focus:border-foreground/40 disabled:opacity-50 whitespace-pre-wrap"
-            spellCheck={false}
+            onChange={setValue}
           />
           {objectKind === "jsonl-field" && (
             <p className="mt-2 text-xs text-muted-foreground">
@@ -324,18 +299,6 @@ function readSourceFromHost(): string | null {
   // EditableSurface div directly via attribute selector.
   const el = document.querySelector<HTMLElement>("[data-source]");
   return el?.getAttribute("data-source") ?? null;
-}
-
-/** RFC 4180-ish CSV cell encoder. Quote iff value contains the delim,
- *  a quote, CR, or LF; double up internal quotes. */
-function csvEncodeCell(value: string, delim: string): string {
-  const needsQuote =
-    value.includes(delim) ||
-    value.includes('"') ||
-    value.includes("\n") ||
-    value.includes("\r");
-  if (!needsQuote) return value;
-  return '"' + value.replace(/"/g, '""') + '"';
 }
 
 function CloseIcon() {

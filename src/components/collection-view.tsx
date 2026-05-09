@@ -765,6 +765,7 @@ function DetailView({
             {slotted.body.map(([k, v, label]) => {
               const status = peekDiff ? fieldDiffStatus(k, v, priorState) : null;
               const editable = canEditField(v);
+              const objSrc = jsonlObjSrc(editable, latestLine, k);
               return (
                 <div key={k} className="min-w-0 group">
                   <div className="flex items-center gap-2 mb-1">
@@ -778,7 +779,10 @@ function DetailView({
                       />
                     )}
                   </div>
-                  <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                  <div
+                    className="text-sm leading-relaxed whitespace-pre-wrap break-words"
+                    {...(objSrc ? { "data-obj-src": objSrc } : {})}
+                  >
                     <DiffValue
                       value={v}
                       priorValue={priorState[k]}
@@ -801,13 +805,17 @@ function DetailView({
               {slotted.unslotted.map(([k, v, label]) => {
                 const status = peekDiff ? fieldDiffStatus(k, v, priorState) : null;
                 const editable = canEditField(v);
+                const objSrc = jsonlObjSrc(editable, latestLine, k);
                 return (
                   <div key={k} className="flex gap-3 text-xs min-w-0 group">
                     <dt className="text-muted-foreground shrink-0 w-32 font-mono">
                       {label}
                     </dt>
                     <dd className="text-foreground font-mono break-all min-w-0 flex-1 flex items-start gap-2">
-                      <span className="min-w-0 break-all">
+                      <span
+                        className="min-w-0 break-all"
+                        {...(objSrc ? { "data-obj-src": objSrc } : {})}
+                      >
                         <DiffValue
                           value={v}
                           priorValue={priorState[k]}
@@ -846,6 +854,7 @@ function DetailView({
             {slotted.aside.map(([k, v, label]) => {
               const status = peekDiff ? fieldDiffStatus(k, v, priorState) : null;
               const editable = canEditField(v);
+              const objSrc = jsonlObjSrc(editable, latestLine, k);
               return (
                 <div key={k} className="min-w-0 group">
                   <div className="flex items-center gap-2 mb-1">
@@ -859,7 +868,10 @@ function DetailView({
                       />
                     )}
                   </div>
-                  <dd className="break-words min-w-0">
+                  <dd
+                    className="break-words min-w-0"
+                    {...(objSrc ? { "data-obj-src": objSrc } : {})}
+                  >
                     <DiffValue
                       value={v}
                       priorValue={priorState[k]}
@@ -1170,6 +1182,25 @@ function PatchSummary({
  *
  * Used by the "hold Space" diff peek on the snapshot view.
  */
+/**
+ * Build the `data-obj-src` value for a jsonl field span — the marker
+ * that lets the EditableSurface's selection hook resolve a text
+ * selection inside a value back to (lineNumber, fieldKey) without a
+ * separate React handler. See docs/inline-edit.md §3.2.
+ *
+ * Returns null when the field isn't editable (historical view,
+ * non-string value, or no surface mounted), so callers spread the
+ * attribute conditionally.
+ */
+function jsonlObjSrc(
+  editable: boolean,
+  latestLine: { lineNumber: number } | undefined,
+  fieldKey: string,
+): string | null {
+  if (!editable || !latestLine) return null;
+  return `jsonl:${latestLine.lineNumber}:${fieldKey}`;
+}
+
 function fieldDiffStatus(
   key: string,
   value: unknown,

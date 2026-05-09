@@ -14,21 +14,73 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export interface ObjectSelectionInfo {
-  /** Source byte range of the enclosing object. */
-  objectStart: number;
-  objectEnd: number;
+/**
+ * Attribute shapes the hook recognizes. The shape is the discriminator —
+ * so the surface can branch its onPopoverClick without a separate hook
+ * per file kind. New shapes (e.g. xlsx-cell, gltf-mesh-instance, …)
+ * extend this union plus the parser below.
+ */
+export type ObjectSelectionInfo = SelectionRect &
+  (
+    | {
+        /** Byte range — md / html. */
+        kind: "bytes";
+        objectStart: number;
+        objectEnd: number;
+      }
+    | {
+        /** Structural — jsonl field on a given line. */
+        kind: "jsonl-field";
+        lineNumber: number;
+        fieldKey: string;
+      }
+  );
+
+interface SelectionRect {
   /** Plain text of the user's selection (a substring of the rendered DOM). */
   selectionText: string;
-  /** Whether the selection covers the entire object's textContent — set
-   *  by a double-click. UI uses this to decide between "edit selection"
-   *  vs "edit whole object" modes. */
+  /** Whether the selection covers the entire object's textContent. UI
+   *  uses this to decide between "edit selection" vs "edit whole object"
+   *  modes. */
   isWholeObject: boolean;
   /** Bounding rect of the selection range — used to position the popover. */
   rect: { top: number; left: number; width: number; height: number };
 }
 
 const ATTR = "data-obj-src";
+
+/**
+ * Decode a `data-obj-src` value into the shape its consumer needs.
+ * Returns null on any unknown / malformed attribute so the caller can
+ * gracefully drop the selection.
+ */
+function parseAttr(
+  value: string,
+):
+  | { kind: "bytes"; objectStart: number; objectEnd: number }
+  | { kind: "jsonl-field"; lineNumber: number; fieldKey: string }
+  | null {
+  // Byte range: "<startInt>,<endInt>"
+  const numeric = value.match(/^(\d+),(\d+)$/);
+  if (numeric) {
+    const start = Number(numeric[1]);
+    const end = Number(numeric[2]);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+      return null;
+    }
+    return { kind: "bytes", objectStart: start, objectEnd: end };
+  }
+  // JSONL structural: "jsonl:<lineNumber>:<fieldKey>"
+  // fieldKey may itself contain colons; only the first two are delimiters.
+  const jsonl = value.match(/^jsonl:(\d+):(.+)$/);
+  if (jsonl) {
+    const lineNumber = Number(jsonl[1]);
+    const fieldKey = jsonl[2]!;
+    if (!Number.isFinite(lineNumber) || lineNumber < 1) return null;
+    return { kind: "jsonl-field", lineNumber, fieldKey };
+  }
+  return null;
+}
 
 function findObjectAncestor(node: Node | null): HTMLElement | null {
   let cur: Node | null = node;
@@ -42,13 +94,33 @@ function findObjectAncestor(node: Node | null): HTMLElement | null {
   return null;
 }
 
-function parseRange(value: string): [number, number] | null {
-  const m = value.match(/^(\d+),(\d+)$/);
-  if (!m) return null;
-  const start = Number(m[1]);
-  const end = Number(m[2]);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
-  return [start, end];
+/**
+ * Pick the "right" data-obj for a selection that may span multiple
+ * objects. See `docs/inline-edit.md` §3.1.
+ *
+ *   1. If A === B               → A
+ *   2. If A contains B          → A   (selection straddles smaller B inside A)
+ *   3. If B contains A          → B
+ *   4. Disjoint subtrees        → whichever comes first in document order
+ *   5. One side null            → the non-null one
+ *
+ * This lets users select across a `<strong>` open boundary inside a
+ * paragraph (LCA = `<p>`) or across two paragraphs (first one wins).
+ */
+export function resolveObject(
+  a: HTMLElement | null,
+  b: HTMLElement | null,
+): HTMLElement | null {
+  if (a === b) return a;
+  if (!a) return b;
+  if (!b) return a;
+  if (a.contains(b)) return a;
+  if (b.contains(a)) return b;
+  // Disjoint — bit 4 of compareDocumentPosition is FOLLOWING (b follows a).
+  // Hardcoded constant so this stays testable outside a DOM environment.
+  const FOLLOWING = 0x04;
+  const pos = a.compareDocumentPosition(b);
+  return pos & FOLLOWING ? a : b;
 }
 
 /**
@@ -86,7 +158,15 @@ export function useObjectSelection(
       setInfo(null);
       return;
     }
-    const objEl = findObjectAncestor(range.commonAncestorContainer);
+    // Resolve the object via least-common-data-obj-ancestor (§3.1):
+    // walk up from BOTH endpoints independently, then pick the LCA. This
+    // handles `<strong>` nested in `<p>` (returns `<p>`) and selections
+    // spanning two paragraphs (returns the first `<p>` in document
+    // order). Falling back to `commonAncestorContainer` alone misses the
+    // disjoint case — its container often lacks data-obj-src.
+    const startObj = findObjectAncestor(range.startContainer);
+    const endObj = findObjectAncestor(range.endContainer);
+    const objEl = resolveObject(startObj, endObj);
     if (!objEl || !host.contains(objEl)) {
       setInfo(null);
       return;
@@ -96,8 +176,8 @@ export function useObjectSelection(
       setInfo(null);
       return;
     }
-    const range2 = parseRange(attr);
-    if (!range2) {
+    const decoded = parseAttr(attr);
+    if (!decoded) {
       setInfo(null);
       return;
     }
@@ -111,17 +191,17 @@ export function useObjectSelection(
       selectionText.trim().length > 0 &&
       objText.trim() === selectionText.trim();
     const rangeRect = range.getBoundingClientRect();
+    const rect = {
+      top: rangeRect.top,
+      left: rangeRect.left,
+      width: rangeRect.width,
+      height: rangeRect.height,
+    };
     setInfo({
-      objectStart: range2[0],
-      objectEnd: range2[1],
+      ...decoded,
       selectionText,
       isWholeObject,
-      rect: {
-        top: rangeRect.top,
-        left: rangeRect.left,
-        width: rangeRect.width,
-        height: rangeRect.height,
-      },
+      rect,
     });
   }, [enabled, hostRef]);
 
