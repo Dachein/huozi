@@ -689,7 +689,6 @@ function DetailView({
   // reconstructs lineText/lineRaw from the inlined data-source, and
   // builds the EditRequest itself.
   const surface = useEditableSurface();
-  const latestLine = entity.history[entity.history.length - 1];
   const canEditField = (value: unknown): value is string =>
     isLatest && surface !== null && typeof value === "string";
 
@@ -745,7 +744,7 @@ function DetailView({
             {slotted.body.map(([k, v, label]) => {
               const status = peekDiff ? fieldDiffStatus(k, v, priorState) : null;
               const editable = canEditField(v);
-              const objSrc = jsonlObjSrc(editable, latestLine, k);
+              const objSrc = jsonlObjSrc(editable, entity.history, k);
               return (
                 <div key={k} className="min-w-0 group">
                   <div className="flex items-center gap-2 mb-1">
@@ -779,7 +778,7 @@ function DetailView({
               {slotted.unslotted.map(([k, v, label]) => {
                 const status = peekDiff ? fieldDiffStatus(k, v, priorState) : null;
                 const editable = canEditField(v);
-                const objSrc = jsonlObjSrc(editable, latestLine, k);
+                const objSrc = jsonlObjSrc(editable, entity.history, k);
                 return (
                   <div key={k} className="flex gap-3 text-xs min-w-0 group">
                     <dt className="text-muted-foreground shrink-0 w-32 font-mono">
@@ -829,7 +828,7 @@ function DetailView({
             {slotted.aside.map(([k, v, label]) => {
               const status = peekDiff ? fieldDiffStatus(k, v, priorState) : null;
               const editable = canEditField(v);
-              const objSrc = jsonlObjSrc(editable, latestLine, k);
+              const objSrc = jsonlObjSrc(editable, entity.history, k);
               return (
                 <div key={k} className="min-w-0 group">
                   <div className="flex items-center gap-2 mb-1">
@@ -1160,14 +1159,44 @@ function PatchSummary({
  * Returns null when the field isn't editable (historical view,
  * non-string value, or no surface mounted), so callers spread the
  * attribute conditionally.
+ *
+ * The marker's lineNumber points to the line that **currently holds**
+ * the field's value — i.e. the most recent event line where this
+ * fieldKey appeared. This matters for semantic-patch style files
+ * (the recommended pattern in four-types.md §3.3) where the latest
+ * event line carries only the fields that *changed*. Editing
+ * `background` on the entity should rewrite the line that set
+ * `background`, not the latest line that lives there for some other
+ * reason. Without this, the surface's lineText reconstruction would
+ * find the field undefined on the latest line and silently drop the
+ * edit request.
  */
 function jsonlObjSrc(
   editable: boolean,
-  latestLine: { lineNumber: number } | undefined,
+  history: readonly CollectionLine[] | undefined,
   fieldKey: string,
 ): string | null {
-  if (!editable || !latestLine) return null;
-  return `jsonl:${latestLine.lineNumber}:${fieldKey}`;
+  if (!editable || !history) return null;
+  const owner = findFieldOwnerLine(history, fieldKey);
+  if (!owner) return null;
+  return `jsonl:${owner.lineNumber}:${fieldKey}`;
+}
+
+/**
+ * Walk an entity's history latest-to-earliest, return the first line
+ * that has `fieldKey` set. That's the line whose bytes contribute
+ * `fieldKey` to the folded entity state — i.e. the line we need to
+ * rewrite when the user edits this field's value.
+ */
+function findFieldOwnerLine(
+  history: readonly CollectionLine[],
+  fieldKey: string,
+): CollectionLine | undefined {
+  for (let i = history.length - 1; i >= 0; i--) {
+    const line = history[i];
+    if (line && fieldKey in line.raw) return line;
+  }
+  return undefined;
 }
 
 function fieldDiffStatus(
