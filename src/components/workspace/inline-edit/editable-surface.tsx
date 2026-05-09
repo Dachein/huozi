@@ -176,6 +176,19 @@ export function EditableSurface({
       kind = "md-block";
       editableStart = objectStart;
       editableEnd = objectEnd;
+      // Strip markdown structural prefix when the resolved object is a
+      // block whose source includes markup syntax — list items start
+      // with `- ` / `* ` / `1. `, headings with `# ` … `###### `. These
+      // bytes belong to the renderer, not the content; users editing
+      // the body shouldn't see them in the modal. Mirror what
+      // findHtmlInnerRange does for HTML.
+      const head = readSlice(
+        hostRef.current,
+        editableStart,
+        Math.min(editableStart + 8, editableEnd),
+      );
+      const stripped = stripMdBlockPrefix(sel.objTagName, head);
+      if (stripped > 0) editableStart += stripped;
     }
 
     // Sub-object narrowing: if the user's selection lives inside a
@@ -238,6 +251,34 @@ export function EditableSurface({
       </div>
     </Ctx.Provider>
   );
+}
+
+/**
+ * For a markdown block element, return how many leading bytes are
+ * structural markup (the part NOT in the rendered text). The caller
+ * advances `editableStart` by this many bytes to keep the markup out
+ * of the modal.
+ *
+ * Currently handles:
+ *   - `<li>`: leading `- ` / `* ` / `+ ` / `1. ` / `12. ` …
+ *   - `<h1>` … `<h6>`: leading `#` … `######` plus its space
+ *
+ * Other blocks (`<p>`, `<td>`, `<th>`, `<blockquote>`, `<pre>`) either
+ * have no inline-level prefix in source (paragraph, cells) or need
+ * line-by-line treatment we haven't tackled yet (blockquote `> `, pre
+ * fences). Falling through is safe — the modal still works, it just
+ * shows the whole block including markup.
+ */
+function stripMdBlockPrefix(tagName: string, head: string): number {
+  if (tagName === "li") {
+    const m = head.match(/^([-*+]|\d+\.)[ \t]+/);
+    return m ? m[0].length : 0;
+  }
+  if (/^h[1-6]$/.test(tagName)) {
+    const m = head.match(/^#{1,6}[ \t]+/);
+    return m ? m[0].length : 0;
+  }
+  return 0;
 }
 
 /** Read the source slice for the object out of a hidden data attribute on

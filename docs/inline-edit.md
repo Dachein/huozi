@@ -107,6 +107,29 @@ Concrete worked example —
 | "讲完观察" (only paragraph text)        | `p`       | `p`       | `p` inner       |
 | "讲完..." through "API\u201d" (crosses) | `p`       | `strong`  | `p` inner (LCA) |
 
+**Block widening.** After LCA resolves to `R`, if `R` doesn't fully
+contain BOTH selection endpoints (the user's drag escaped `R`), walk
+up to the nearest BLOCK-tagged ancestor with `data-obj-src` (`li`, `p`,
+`h1`–`h6`, `td`, `th`, `blockquote`, `pre`). That block is the smallest
+"complete unit" the user can edit. This handles two real cases:
+
+1. Selection inside one `<strong>` extends into the surrounding text →
+   LCA = `strong`, widen → containing `<p>` or `<li>`.
+2. Selection spans two list items via their `<strong>` text →
+   LCA = first `<strong>` (disjoint), widen → first `<li>`. The user
+   gets that whole list item; the cross-item content of the selection
+   is dropped (one save = one block). Matches the SPEC's "snap to
+   first" rule, just elevated to a complete unit instead of a partial
+   inline.
+
+**Markdown block-marker stripping.** `<li>`'s `data-obj-src` covers the
+list marker (`- `, `* `, `+ `, `1. `, …) which is renderer markup, not
+content. Same for `<h1>`–`<h6>` (`#`–`######` plus space). The surface
+strips these prefixes before opening the modal — mirrors what
+`findHtmlInnerRange` does for HTML tags. Other blocks (`<p>`, `<td>`,
+`<blockquote>`, `<pre>`) either have no inline-level prefix or need
+line-by-line treatment; not handled in v1.
+
 **Sub-object narrowing.** When the user's selection is a strict subset
 of the resolved object — and it lives in a single text node, and its
 plain text appears exactly once in the editable scope — the modal opens

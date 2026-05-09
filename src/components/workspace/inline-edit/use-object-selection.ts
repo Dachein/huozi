@@ -45,6 +45,11 @@ interface SelectionRect {
   isWholeObject: boolean;
   /** Bounding rect of the selection range — used to position the popover. */
   rect: { top: number; left: number; width: number; height: number };
+  /** Lowercased tag name of the resolved object element (e.g. "li",
+   *  "strong", "p"). The surface uses this to apply markup-specific
+   *  trimming — e.g. strip a markdown list marker when the object is a
+   *  `<li>`. Empty string for non-byte-range markers. */
+  objTagName: string;
 }
 
 const ATTR = "data-obj-src";
@@ -124,6 +129,71 @@ export function resolveObject(
 }
 
 /**
+ * Block-level tag names whose `data-obj-src` covers a complete editable
+ * unit in the source. When LCA returns an inline element but the
+ * selection has escaped its bounds, we walk up to the nearest tag from
+ * this list — that's the smallest scope guaranteed to be a coherent
+ * thing the user can edit (a paragraph, a list item, a heading…) rather
+ * than a half-spanned inline marker.
+ *
+ * Mirrors `BLOCK_TAGS_LIST` in `lib/markdown/source-pos.ts` so widening
+ * lands on something the renderer actually annotated.
+ */
+const BLOCK_TAGS = new Set([
+  "p",
+  "li",
+  "td",
+  "th",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "blockquote",
+  "pre",
+]);
+
+/**
+ * If the resolved object doesn't fully contain the selection's two
+ * endpoints, walk up to the nearest BLOCK-tagged ancestor (li, p,
+ * heading, …) carrying `data-obj-src`. That's the smallest scope that
+ * is a "complete unit" — the modal opens with the first whole block
+ * the user touched. Selection that genuinely spans multiple sibling
+ * blocks still degrades gracefully: the walk lands on the block
+ * containing one endpoint, and the other endpoint's content is just
+ * left alone (single-edit operates on one block at a time).
+ *
+ * Returns `resolved` unchanged when the selection is already fully
+ * inside it (the common case for word-level edits inside `<strong>`),
+ * or when no block ancestor exists.
+ */
+export function widenIfSelectionEscapes(
+  resolved: HTMLElement | null,
+  startContainer: Node,
+  endContainer: Node,
+): HTMLElement | null {
+  if (!resolved) return null;
+  if (
+    resolved.contains(startContainer) &&
+    resolved.contains(endContainer)
+  ) {
+    return resolved;
+  }
+  let cur: HTMLElement | null = resolved.parentElement;
+  while (cur) {
+    if (
+      BLOCK_TAGS.has(cur.tagName.toLowerCase()) &&
+      cur.hasAttribute(ATTR)
+    ) {
+      return cur;
+    }
+    cur = cur.parentElement;
+  }
+  return resolved;
+}
+
+/**
  * Subscribe to selection-change events scoped to `host`. Returns the
  * current selection if one exists inside an object; null otherwise.
  *
@@ -166,7 +236,15 @@ export function useObjectSelection(
     // disjoint case — its container often lacks data-obj-src.
     const startObj = findObjectAncestor(range.startContainer);
     const endObj = findObjectAncestor(range.endContainer);
-    const objEl = resolveObject(startObj, endObj);
+    const lca = resolveObject(startObj, endObj);
+    // Widen to the nearest block ancestor when the resolved object is
+    // an inline element but the selection has escaped it (cross-strong
+    // selections, cross-list-item selections, etc.). See §3.1.
+    const objEl = widenIfSelectionEscapes(
+      lca,
+      range.startContainer,
+      range.endContainer,
+    );
     if (!objEl || !host.contains(objEl)) {
       setInfo(null);
       return;
@@ -202,6 +280,7 @@ export function useObjectSelection(
       selectionText,
       isWholeObject,
       rect,
+      objTagName: objEl.tagName.toLowerCase(),
     });
   }, [enabled, hostRef]);
 
