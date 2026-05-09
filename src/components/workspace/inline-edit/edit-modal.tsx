@@ -31,6 +31,7 @@ import type { ObjectKind, ObjectLocator } from "./types";
 import { getStrategy } from "./strategies/registry";
 import { isEditError } from "./strategies/types";
 import { EditorBody } from "./editor-body";
+import { applyOptimisticPatch } from "./optimistic-patch";
 
 export interface EditModalProps {
   filePath: string;
@@ -180,6 +181,13 @@ export function EditModal(props: EditModalProps) {
         setSaving(false);
         return;
       }
+      // Optimistic DOM patch — apply the user's edit to the rendered
+      // tree right now so the screen visibly updates instantly. The
+      // router.refresh() below kicks off a background SSR sync that
+      // eventually replaces the patched DOM with canonical bytes; both
+      // should match, so the user sees no flash. See optimistic-patch.ts
+      // for per-locator behavior (csv-cell skips, jsonl/md/html patch).
+      applyOptimisticPatch(locator, value, source);
       // Fire refresh from a still-mounted context so Next has a live
       // tree to commit the new server payload into. Then close the
       // modal — felt latency wins over avoiding a brief stale flash.
