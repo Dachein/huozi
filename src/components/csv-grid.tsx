@@ -246,12 +246,17 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
   // (Google Sheets calls it "Active vs Editing"; glide's term is
   // "selection vs activated"). State A = `gridSel.current.cell` is set
   // but `activeCell` is null; State B = activeCell matches the current
-  // selection. The transition is on:
-  //   - re-click on the already-selected cell (handled in onCellClicked)
-  //   - Enter / double-click (handled in onCellActivated)
-  // Reverse transition (B → A) happens whenever selection moves to a
-  // different cell, or Escape clears it (glide handles that path on
-  // its own and onGridSelectionChange catches the empty selection).
+  // selection.
+  //
+  // A → B is ONLY via Enter or double-click. We deliberately don't use
+  // "re-click on same cell" — trackpads frequently produce two events
+  // for what users perceive as one click, and the resulting accidental
+  // state-B was the original UX bug report. Sticking to Enter / double-
+  // click (the canonical Excel "F2 vs double-click" trigger) gives the
+  // user explicit control.
+  //
+  // B → A happens automatically when selection moves to a different
+  // cell (handled in onGridSelectionChange below).
   const [activeCell, setActiveCell] = useState<[number, number] | null>(null);
 
   const sameCell = (
@@ -275,19 +280,6 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
     },
     [activeCell],
   );
-
-  // Re-click on the already-selected cell → state B. Plain function:
-  // not a hot path, and the React Compiler refuses to memoize handlers
-  // that read `.current` off a state object (the dep would have to be
-  // `gridSel.current?.cell` which compiler flags as unstable).
-  const onCellClicked: NonNullable<DataEditorProps["onCellClicked"]> = (
-    cell,
-  ) => {
-    const cur = gridSel.current?.cell;
-    if (cur && cur[0] === cell[0] && cur[1] === cell[1]) {
-      setActiveCell([cell[0], cell[1]]);
-    }
-  };
 
   // Enter / double-click → state B. Glide fires this regardless of
   // `allowOverlay`, so we get the activation event even with the
@@ -510,7 +502,6 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
           onColumnResize={onColumnResize}
           gridSelection={gridSel}
           onGridSelectionChange={onGridSelectionChange}
-          onCellClicked={onCellClicked}
           onCellActivated={onCellActivated}
           onVisibleRegionChanged={onVisibleRegionChanged}
           freezeColumns={1}

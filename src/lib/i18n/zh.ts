@@ -494,7 +494,7 @@ export const zh = {
   // CSV · 行详情
   "csv.rowDetail.title": "行详情",
   "csv.rowDetail.open": "查看此行详情",
-  "csv.rowDetail.openHint": "Space 查看行",
+  "csv.rowDetail.openHint": "Space 查看行 · Enter 编辑",
   "csv.rowDetail.close": "关闭",
   "csv.rowDetail.rowOf": "第 {n} 行 / 共 {total} 行",
   "csv.rowDetail.empty": "—",
