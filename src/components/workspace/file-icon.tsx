@@ -346,78 +346,91 @@ function JsonlIconBlock() {
 }
 
 /* ─────────────────────────────────────────────────────────────────────
- * Office — clean line art on white, single accent color per type
- * (green=table, blue=document, orange=page, purple=collection — common
- * productivity-app conventions, hex codes chosen distinct from any
- * specific vendor's brand palette). Hairline strokes (1.2), 1.5px
- * radius, no fills.
+ * Office — filled colored tiles with white type-symbols on top
+ * (app-launcher style). Tile = rounded square in the type's accent
+ * color; symbol is a generic geometric hint at the file type, not a
+ * letter. The four colors (green=table, blue=document, orange=page,
+ * purple=collection) are common productivity-app conventions; hex
+ * codes are chosen distinct from any specific vendor's brand palette.
+ *
+ * Why tile-style:
+ *   The outline-on-white variant didn't read distinctly enough at
+ *   14px in a file tree. A filled tile gives each type a strong
+ *   color block the eye can scan, matching how mainstream
+ *   file-launcher UIs (productivity suites, cloud drives, mobile
+ *   home screens) signal type. Symbols stay generic — abstract
+ *   geometric marks, never branded letters.
+ *
+ * Tile geometry:
+ *   12×12 rounded square (rx=2) inside the 16-unit viewbox, so the
+ *   tile takes up most of the icon with a 2-unit safe margin.
+ *   Symbols are pure white at 100% on the tile, with an optional
+ *   secondary detail at ~70% opacity for hierarchy.
  * ───────────────────────────────────────────────────────────────────── */
 
+/** Tile-style document mark: page with text lines in white. */
 function MarkdownIconOffice() {
   const c = OFFICE_COLOR.md;
   return (
     <IconBox>
-      <path
-        d="M3.5 2 H10 L13 5 V13 a1 1 0 0 1 -1 1 H4.5 a1 1 0 0 1 -1 -1 V3 a1 1 0 0 1 1 -1 Z"
-        fill="#ffffff"
-        stroke={c}
-        strokeWidth="1.2"
-        strokeLinejoin="round"
-      />
-      <path d="M10 2 V5 H13" stroke={c} strokeWidth="1.2" strokeLinejoin="round" />
-      <line x1="5.5" y1="8" x2="11" y2="8" stroke={c} strokeWidth="1" strokeLinecap="round" />
-      <line x1="5.5" y1="10" x2="11" y2="10" stroke={c} strokeWidth="1" strokeLinecap="round" />
-      <line x1="5.5" y1="12" x2="9" y2="12" stroke={c} strokeWidth="1" strokeLinecap="round" />
+      <rect x="2" y="2" width="12" height="12" rx="2" fill={c} />
+      <rect x="4.5" y="4.5" width="7" height="1.1" rx="0.3" fill="#ffffff" />
+      <rect x="4.5" y="6.6" width="7" height="1.1" rx="0.3" fill="#ffffff" />
+      <rect x="4.5" y="8.7" width="7" height="1.1" rx="0.3" fill="#ffffff" />
+      <rect x="4.5" y="10.8" width="4" height="1.1" rx="0.3" fill="#ffffff" opacity="0.75" />
     </IconBox>
   );
 }
 
+/** Tile-style table mark: 2×3 grid of white cells suggesting rows
+ *  and columns (a generic spreadsheet hint, no specific app icon). */
 function CsvIconOffice() {
   const c = OFFICE_COLOR.csv;
   return (
     <IconBox>
-      <rect x="2" y="3" width="12" height="10" rx="1.5" fill="#ffffff" stroke={c} strokeWidth="1.2" />
-      {/* header row tinted */}
-      <rect x="2" y="3" width="12" height="2.8" rx="1.5" fill={`${c}1a`} stroke="none" />
-      <line x1="2" y1="5.8" x2="14" y2="5.8" stroke={c} strokeWidth="1.2" />
-      <line x1="6" y1="3" x2="6" y2="13" stroke={c} strokeWidth="0.9" />
-      <line x1="10" y1="3" x2="10" y2="13" stroke={c} strokeWidth="0.9" />
-      <line x1="2" y1="9.4" x2="14" y2="9.4" stroke={c} strokeWidth="0.9" />
+      <rect x="2" y="2" width="12" height="12" rx="2" fill={c} />
+      {/* 2 cols × 3 rows of small cells */}
+      <rect x="4" y="4.2" width="3.4" height="2.2" rx="0.3" fill="#ffffff" />
+      <rect x="8.6" y="4.2" width="3.4" height="2.2" rx="0.3" fill="#ffffff" />
+      <rect x="4" y="6.9" width="3.4" height="2.2" rx="0.3" fill="#ffffff" opacity="0.85" />
+      <rect x="8.6" y="6.9" width="3.4" height="2.2" rx="0.3" fill="#ffffff" opacity="0.85" />
+      <rect x="4" y="9.6" width="3.4" height="2.2" rx="0.3" fill="#ffffff" opacity="0.7" />
+      <rect x="8.6" y="9.6" width="3.4" height="2.2" rx="0.3" fill="#ffffff" opacity="0.7" />
     </IconBox>
   );
 }
 
+/** Tile-style page mark: window with a title strip + content bars. */
 function HtmlIconOffice() {
   const c = OFFICE_COLOR.html;
   return (
     <IconBox>
-      {/* clean browser frame */}
-      <rect x="2" y="3" width="12" height="10" rx="1.5" fill="#ffffff" stroke={c} strokeWidth="1.2" />
-      {/* tab strip */}
-      <line x1="2" y1="5.5" x2="14" y2="5.5" stroke={c} strokeWidth="1" />
-      {/* three tab dots */}
-      <circle cx="3.6" cy="4.3" r="0.5" fill={c} />
-      <circle cx="5.1" cy="4.3" r="0.5" fill={c} />
-      <circle cx="6.6" cy="4.3" r="0.5" fill={c} />
-      {/* content lines */}
-      <line x1="3.5" y1="8" x2="12.5" y2="8" stroke={c} strokeWidth="0.9" strokeLinecap="round" />
-      <line x1="3.5" y1="10" x2="12.5" y2="10" stroke={c} strokeWidth="0.9" strokeLinecap="round" />
-      <line x1="3.5" y1="12" x2="9" y2="12" stroke={c} strokeWidth="0.9" strokeLinecap="round" />
+      <rect x="2" y="2" width="12" height="12" rx="2" fill={c} />
+      {/* title bar */}
+      <rect x="4" y="4.2" width="8" height="1.6" rx="0.3" fill="#ffffff" />
+      {/* content bars below */}
+      <rect x="4" y="7" width="8" height="1.1" rx="0.3" fill="#ffffff" opacity="0.85" />
+      <rect x="4" y="9" width="8" height="1.1" rx="0.3" fill="#ffffff" opacity="0.7" />
+      <rect x="4" y="11" width="5" height="1.1" rx="0.3" fill="#ffffff" opacity="0.55" />
     </IconBox>
   );
 }
 
+/** Tile-style collection mark: stacked record rows, each with a small
+ *  leading id-bullet indicating "list of records". */
 function JsonlIconOffice() {
   const c = OFFICE_COLOR.jsonl;
   return (
     <IconBox>
-      <rect x="2" y="3" width="12" height="2.6" rx="0.6" fill="#ffffff" stroke={c} strokeWidth="1.1" />
-      <rect x="2" y="6.7" width="12" height="2.6" rx="0.6" fill={`${c}10`} stroke={c} strokeWidth="1.1" />
-      <rect x="2" y="10.4" width="12" height="2.6" rx="0.6" fill="#ffffff" stroke={c} strokeWidth="1.1" />
-      {/* leading-edge id markers */}
-      <line x1="3.4" y1="3.5" x2="3.4" y2="5.1" stroke={c} strokeWidth="1.4" strokeLinecap="round" />
-      <line x1="3.4" y1="7.2" x2="3.4" y2="8.8" stroke={c} strokeWidth="1.4" strokeLinecap="round" />
-      <line x1="3.4" y1="10.9" x2="3.4" y2="12.5" stroke={c} strokeWidth="1.4" strokeLinecap="round" />
+      <rect x="2" y="2" width="12" height="12" rx="2" fill={c} />
+      {/* three stacked record rows */}
+      <rect x="4" y="4.2" width="8" height="2" rx="0.3" fill="#ffffff" />
+      <rect x="4" y="7" width="8" height="2" rx="0.3" fill="#ffffff" opacity="0.85" />
+      <rect x="4" y="9.8" width="8" height="2" rx="0.3" fill="#ffffff" opacity="0.7" />
+      {/* small id-bullets at the leading edge of each row */}
+      <circle cx="5" cy="5.2" r="0.45" fill={c} />
+      <circle cx="5" cy="8" r="0.45" fill={c} opacity="0.85" />
+      <circle cx="5" cy="10.8" r="0.45" fill={c} opacity="0.7" />
     </IconBox>
   );
 }
