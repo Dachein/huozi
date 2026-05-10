@@ -5,11 +5,20 @@ import { ArrowsPointingInIcon } from "@heroicons/react/24/outline";
 import { useFullscreen } from "./fullscreen-context";
 import { FullscreenPager } from "./fullscreen-pager";
 import type { PageEntry } from "@/lib/html/extract-pages";
+import {
+  type HuoziFormat,
+  pagerOrientationFor,
+} from "@/lib/html/detect-format";
 
 export type FullscreenMode = "reader" | "raw" | "grid" | null;
 
-/** Subset of huozi formats relevant to the fullscreen surface. */
-export type HtmlFormat = "web" | "mobile" | "deck" | "story" | "paper";
+/**
+ * @deprecated since 2026-05-10 — re-exported as a transitional alias for
+ * `HuoziFormat`. New code should import `HuoziFormat` directly from
+ * `@/lib/html/detect-format`. Kept here so existing call sites that
+ * import `HtmlFormat` from this module keep compiling during migration.
+ */
+export type HtmlFormat = HuoziFormat;
 
 const CLOSE_BUTTON_CLASS =
   "inline-flex items-center justify-center w-8 h-8 rounded-md border border-border bg-background/90 backdrop-blur text-muted-foreground hover:bg-muted hover:text-foreground transition-colors";
@@ -27,7 +36,7 @@ export function FullscreenContent({
   children: ReactNode;
   pages?: PageEntry[];
   pageUnit?: "page" | "slide" | "sheet";
-  htmlFormat?: HtmlFormat;
+  htmlFormat?: HuoziFormat;
   /** Skip the FullscreenProvider context check and always render the
    *  fullscreen wrapper. The publish surface uses this — the file IS the
    *  page, so there's no non-fullscreen state to fall back to. The close
@@ -58,11 +67,20 @@ export function FullscreenContent({
 
   // Pager rendered INSIDE the same fixed strip as chrome + close so they
   // never overlap, regardless of how wide the caller's chrome is. Order
-  // (left → right): pager · chrome · close.
+  // (left → right): pager · chrome · close. Orientation is derived from
+  // the format (deck = horizontal; story / paper = vertical) — the single
+  // source of truth lives in `pagerOrientationFor`.
+  const pagerOrientation = pagerOrientationFor(htmlFormat);
   const pagerInChrome =
-    pages.length > 1 &&
-    (htmlFormat === "deck" || htmlFormat === "story" || htmlFormat === "paper")
-      ? <FullscreenPager pages={pages} unit={pageUnit} />
+    pages.length > 1 && pagerOrientation
+      ? (
+        <FullscreenPager
+          pages={pages}
+          unit={pageUnit}
+          orientation={pagerOrientation}
+          keyboardScope="global"
+        />
+      )
       : null;
 
   // Top-right chrome strip: pager + optional caller-supplied buttons + close.

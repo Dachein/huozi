@@ -3,12 +3,16 @@ import { renderMarkdown } from "@/lib/markdown/renderer";
 import { processHtmlDirect } from "@/lib/html/sanitizer";
 import { processChartComponents } from "@/lib/html/chart-components";
 import { detectHuoziFormat } from "@/lib/html/detect-format";
+import { extractPages } from "@/lib/html/extract-pages";
+import { validateHuoziHtml } from "@/lib/html/validate";
 import { cloudFetch } from "@/lib/cloud-fetch";
 import { HUOZI_CLOUD_KEY_COOKIE } from "@/lib/drive/mcp-client";
 import { CsvGrid } from "@/components/csv-grid";
 import { CollectionView } from "@/components/collection-view";
 import { EditableSurface } from "@/components/workspace/inline-edit";
 import type { ObjectKind } from "@/components/workspace/inline-edit";
+import { HtmlInlineFrame } from "@/components/workspace/html-inline-frame";
+import { HtmlValidationBanner } from "@/components/workspace/html-validation-banner";
 
 /**
  * Renders a file's content based on its extension.
@@ -131,21 +135,40 @@ export async function FileRenderer({
       injectSourcePos: inlineEditable,
     });
     const layout = pickHtmlLayout(content);
-    const rendered = (
-      <div
-        className={`huozi-html-host block ${layout.className}`}
-        style={layout.style}
-        dangerouslySetInnerHTML={{ __html: html }}
+    const format = detectHuoziFormat(content);
+    const pages = extractPages(content);
+    const pageUnit: "slide" | "page" =
+      format === "deck" || format === "story" ? "slide" : "page";
+    const frame = (
+      <HtmlInlineFrame
+        html={html}
+        hostClassName={layout.className}
+        hostStyle={layout.style}
+        format={format}
+        pages={pages}
+        pageUnit={pageUnit}
       />
     );
-    return wrapEditable({
+    // Validation banner is workspace-only (the publish surface intentionally
+    // hides dev hints from readers). `inlineEditable` doubles as the
+    // workspace-context flag — `/p/<slug>` always passes false.
+    const validationIssues = inlineEditable ? validateHuoziHtml(content) : [];
+    const editable = wrapEditable({
       enabled: inlineEditable,
       path,
       content,
       parentBlobSha,
       kind: "html-element",
-      children: rendered,
+      children: frame,
     });
+    return (
+      <>
+        {validationIssues.length > 0 && (
+          <HtmlValidationBanner issues={validationIssues} />
+        )}
+        {editable}
+      </>
+    );
   }
 
   // JSON — pretty-print.

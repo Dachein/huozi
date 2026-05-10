@@ -1,4 +1,5 @@
 import { injectSourcePositions } from "./source-pos";
+import { ensurePageIds } from "./extract-pages";
 
 // Dangerous CSS patterns that can execute code or load external resources
 const DANGEROUS_CSS_PATTERNS = [
@@ -298,6 +299,13 @@ export async function processHtmlDirect(
   // Offsets reference the original bytes — workspace inline-edit reads
   // them client-side and slices into the unmodified `data-source`.
   let html = opts.injectSourcePos ? injectSourcePositions(rawHtml) : rawHtml;
+
+  // Inject `id="s${N}"` onto `<section data-page>` / `<article data-page>`
+  // that lacks one. Mirrors the synthesis logic in extractPages so the DOM
+  // and the page-list always agree on ids — pager / outline scrollIntoView
+  // calls would otherwise no-op on author HTML that omits explicit ids.
+  // Idempotent: existing ids are preserved untouched.
+  html = ensurePageIds(html);
   let meta: SanitizeResult["meta"];
 
   const isFullDocument =

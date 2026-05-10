@@ -28,6 +28,24 @@ export function isPaginated(format: HuoziFormat): boolean {
   return PAGINATED.has(format);
 }
 
+/** Pager axis derived from format. `null` means no pager (long-flow). */
+export type PagerOrientation = "horizontal" | "vertical";
+
+export function pagerOrientationFor(
+  format: HuoziFormat,
+): PagerOrientation | null {
+  switch (format) {
+    case "deck":
+      return "horizontal";
+    case "story":
+    case "paper":
+      return "vertical";
+    case "mobile":
+    case "web":
+      return null;
+  }
+}
+
 const META_RE =
   /<meta\s+name=["']huozi:format["']\s+content=["']([a-z]+)["']/i;
 
