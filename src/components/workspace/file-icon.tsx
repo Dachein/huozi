@@ -1,19 +1,27 @@
+"use client";
+
 /**
  * File-tree icons.
  *
- * Hand-drawn SVGs in a unified muted palette, tuned for the warm-paper page
- * background. All share stroke-width 1.2 for outlines and a faint same-hue
- * fill (~8% opacity).
+ * The four first-class data types (table / document / collection / page)
+ * carry per-theme glyph variants — paper renders soft hand-drawn shapes
+ * with washed fills, block renders chunky right-angled blocks with
+ * thick outlines, office renders clean line-art with a single accent
+ * stroke. The remaining types (pdf / image / audio / video / archive /
+ * folder) share one neutral variant across themes — they're not
+ * load-bearing for visual identity and a single set keeps maintenance
+ * tractable.
  *
- *   - Markdown        → page-with-text-lines,            slate blue
- *   - CSV / TSV       → small grid (header + 3),          olive sage
- *   - HTML            → 3-bar chart,                      warm ochre
- *   - PDF             → page with a corner stamp,         warm red
- *   - Image           → frame with mountain + sun,        muted teal
- *   - Audio           → 5-bar waveform meter,             muted purple
- *   - Video           → frame with center play triangle,  warm peach
- *   - Archive (zip)   → box with diagonal zipper line,    warm gray-brown
- *   - Folder          → closed / open variants,           warm neutral
+ *   - Markdown        → page-with-text-lines              (3 variants)
+ *   - CSV / TSV       → small data grid                    (3 variants)
+ *   - HTML            → 3-bar chart / stacked window      (3 variants)
+ *   - JSONL           → stacked-rows collection            (3 variants)
+ *   - PDF             → page with corner stamp             (single)
+ *   - Image           → frame with mountain + sun          (single)
+ *   - Audio           → 5-bar level meter                  (single)
+ *   - Video           → frame with center play triangle    (single)
+ *   - Archive (zip)   → box with zipper detail             (single)
+ *   - Folder          → closed / open                      (single)
  *   - .huozi-keep     → reuses the closed folder shape (it *is* a folder)
  *
  * Other extensions fall back to a single-letter monospace badge.
@@ -23,18 +31,43 @@
  * the state.
  */
 
+import { useTheme } from "@/lib/theme/context";
+import type { Theme } from "@/lib/theme";
+
 const SIZE = 14;
 
+/* Default (paper) palette — warm muted hues tuned for cream backdrop. */
 const COLOR = {
   md: "#4a6b8c",
   csv: "#6b8459",
   html: "#b88454",
+  jsonl: "#8a6b9a",
   pdf: "#b85450",
   image: "#5a8b8b",
   audio: "#8a6b9a",
   video: "#c2785f",
   archive: "#8b7355",
   folder: "#7a6a4f",
+} as const;
+
+/* Office palette — generic productivity-software conventions
+ * (green=table, blue=document, orange=page, purple=collection).
+ * Hex values intentionally chosen distinct from any specific
+ * vendor's brand palette. */
+const OFFICE_COLOR = {
+  md: "#1e6cd6",
+  csv: "#1e9148",
+  html: "#d97757",
+  jsonl: "#7c3aed",
+} as const;
+
+/* Block (brutal-mono) palette — black outlines on white, with the
+ * theme's signature cadmium yellow as the single accent. Stroke
+ * widths bump to 1.6 to match the brutal "everything stronger" rule. */
+const BLOCK = {
+  ink: "#000000",
+  paper: "#ffffff",
+  accent: "#ffd60a",
 } as const;
 
 const FOLDER_MARKER = ".huozi-keep";
@@ -76,6 +109,8 @@ export interface FileIconProps {
 }
 
 export function FileIcon({ name, isDir, open }: FileIconProps) {
+  const theme = useTheme();
+
   if (isDir) {
     return (
       <span
@@ -91,9 +126,10 @@ export function FileIcon({ name, isDir, open }: FileIconProps) {
   const ext = (base.split(".").pop() ?? "").toLowerCase();
   let icon: React.ReactNode = null;
   if (base === FOLDER_MARKER) icon = <FolderClosedIcon />;
-  else if (ext === "md" || ext === "mdx") icon = <MarkdownIcon />;
-  else if (ext === "csv" || ext === "tsv") icon = <CsvIcon />;
-  else if (ext === "html" || ext === "htm") icon = <HtmlIcon />;
+  else if (ext === "md" || ext === "mdx") icon = <MarkdownIcon theme={theme} />;
+  else if (ext === "csv" || ext === "tsv") icon = <CsvIcon theme={theme} />;
+  else if (ext === "html" || ext === "htm") icon = <HtmlIcon theme={theme} />;
+  else if (ext === "jsonl") icon = <JsonlIcon theme={theme} />;
   else if (ext === "pdf") icon = <PdfIcon />;
   else if (IMAGE_EXTS.has(ext)) icon = <ImageIcon />;
   else if (AUDIO_EXTS.has(ext)) icon = <AudioIcon />;
@@ -137,10 +173,47 @@ function IconBox({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Markdown — page silhouette with folded corner + 3 text lines. */
-function MarkdownIcon() {
+/* ─────────────────────────────────────────────────────────────────────
+ * Per-theme dispatch wrappers — keep the 4 first-class types together
+ * and route to the variant matching the active theme.
+ * ───────────────────────────────────────────────────────────────────── */
+
+interface ThemedProps {
+  theme: Theme;
+}
+
+function MarkdownIcon({ theme }: ThemedProps) {
+  if (theme === "brutal-mono") return <MarkdownIconBlock />;
+  if (theme === "office") return <MarkdownIconOffice />;
+  return <MarkdownIconPaper />;
+}
+
+function CsvIcon({ theme }: ThemedProps) {
+  if (theme === "brutal-mono") return <CsvIconBlock />;
+  if (theme === "office") return <CsvIconOffice />;
+  return <CsvIconPaper />;
+}
+
+function HtmlIcon({ theme }: ThemedProps) {
+  if (theme === "brutal-mono") return <HtmlIconBlock />;
+  if (theme === "office") return <HtmlIconOffice />;
+  return <HtmlIconPaper />;
+}
+
+function JsonlIcon({ theme }: ThemedProps) {
+  if (theme === "brutal-mono") return <JsonlIconBlock />;
+  if (theme === "office") return <JsonlIconOffice />;
+  return <JsonlIconPaper />;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Paper (default) — soft hand-drawn outlines, washed fills, slate /
+ * sage / ochre / muted-purple muted palette tuned for cream backdrop.
+ * ───────────────────────────────────────────────────────────────────── */
+
+function MarkdownIconPaper() {
   const c = COLOR.md;
-  const wash = `${c}14`; // ~8% opacity
+  const wash = `${c}14`;
   return (
     <IconBox>
       <path
@@ -163,32 +236,198 @@ function MarkdownIcon() {
   );
 }
 
-/** CSV — small data grid with header row + 3 columns. */
-function CsvIcon() {
+function CsvIconPaper() {
   const c = COLOR.csv;
   const wash = `${c}14`;
   return (
     <IconBox>
-      <rect
-        x="2"
-        y="3"
-        width="12"
-        height="10"
-        rx="1.5"
-        fill={wash}
-        stroke={c}
-        strokeWidth="1.2"
-      />
-      {/* header row separator */}
+      <rect x="2" y="3" width="12" height="10" rx="1.5" fill={wash} stroke={c} strokeWidth="1.2" />
       <line x1="2" y1="6.25" x2="14" y2="6.25" stroke={c} strokeWidth="1.2" />
-      {/* column dividers */}
       <line x1="6" y1="3" x2="6" y2="13" stroke={c} strokeWidth="1" />
       <line x1="10" y1="3" x2="10" y2="13" stroke={c} strokeWidth="1" />
-      {/* mid-row divider */}
       <line x1="2" y1="9.75" x2="14" y2="9.75" stroke={c} strokeWidth="1" />
     </IconBox>
   );
 }
+
+function HtmlIconPaper() {
+  const c = COLOR.html;
+  const wash = `${c}14`;
+  return (
+    <IconBox>
+      <rect x="3" y="9.5" width="2.5" height="4.5" rx="0.5" fill={wash} stroke={c} strokeWidth="1.2" />
+      <rect x="6.75" y="5.5" width="2.5" height="8.5" rx="0.5" fill={wash} stroke={c} strokeWidth="1.2" />
+      <rect x="10.5" y="7.5" width="2.5" height="6.5" rx="0.5" fill={wash} stroke={c} strokeWidth="1.2" />
+      <line x1="2" y1="14.25" x2="14" y2="14.25" stroke={c} strokeWidth="1.2" strokeLinecap="round" />
+    </IconBox>
+  );
+}
+
+/** JSONL — stacked rounded rows representing time-ordered records.
+ * Muted purple matches the existing audio-meter hue (collections feel
+ * "ledger-like" — same family as a level meter). */
+function JsonlIconPaper() {
+  const c = COLOR.jsonl;
+  const wash = `${c}14`;
+  return (
+    <IconBox>
+      <rect x="2" y="3" width="12" height="2.6" rx="0.6" fill={wash} stroke={c} strokeWidth="1.1" />
+      <rect x="2" y="6.7" width="12" height="2.6" rx="0.6" fill={wash} stroke={c} strokeWidth="1.1" />
+      <rect x="2" y="10.4" width="12" height="2.6" rx="0.6" fill={wash} stroke={c} strokeWidth="1.1" />
+      {/* small id-marker dot at the leading edge of each row */}
+      <circle cx="3.5" cy="4.3" r="0.55" fill={c} />
+      <circle cx="3.5" cy="8" r="0.55" fill={c} />
+      <circle cx="3.5" cy="11.7" r="0.55" fill={c} />
+    </IconBox>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Block (brutal-mono) — chunky right-angled blocks, thick outlines,
+ * white fill on cadmium-yellow accent strips. No rx, no curves —
+ * lines are straight. Stroke width 1.6 matches the theme's --border-
+ * width-strong of 3px scaled to the 16-unit viewbox.
+ * ───────────────────────────────────────────────────────────────────── */
+
+function MarkdownIconBlock() {
+  return (
+    <IconBox>
+      <rect x="3" y="2" width="10" height="12" fill={BLOCK.paper} stroke={BLOCK.ink} strokeWidth="1.6" />
+      <rect x="5" y="4" width="6" height="1.4" fill={BLOCK.ink} />
+      <rect x="5" y="6.6" width="6" height="1.4" fill={BLOCK.ink} />
+      <rect x="5" y="9.2" width="4" height="1.4" fill={BLOCK.ink} />
+      {/* yellow accent strip at the bottom — the theme's brand stamp */}
+      <rect x="3" y="12" width="10" height="2" fill={BLOCK.accent} stroke={BLOCK.ink} strokeWidth="1.6" />
+    </IconBox>
+  );
+}
+
+function CsvIconBlock() {
+  return (
+    <IconBox>
+      <rect x="2" y="3" width="12" height="10" fill={BLOCK.paper} stroke={BLOCK.ink} strokeWidth="1.6" />
+      {/* header row filled yellow */}
+      <rect x="2" y="3" width="12" height="3.2" fill={BLOCK.accent} stroke={BLOCK.ink} strokeWidth="1.6" />
+      {/* column dividers */}
+      <line x1="6" y1="3" x2="6" y2="13" stroke={BLOCK.ink} strokeWidth="1.4" />
+      <line x1="10" y1="3" x2="10" y2="13" stroke={BLOCK.ink} strokeWidth="1.4" />
+      {/* mid-row divider */}
+      <line x1="2" y1="9.6" x2="14" y2="9.6" stroke={BLOCK.ink} strokeWidth="1.4" />
+    </IconBox>
+  );
+}
+
+function HtmlIconBlock() {
+  return (
+    <IconBox>
+      {/* chunky window with a yellow title bar */}
+      <rect x="2" y="3" width="12" height="10" fill={BLOCK.paper} stroke={BLOCK.ink} strokeWidth="1.6" />
+      <rect x="2" y="3" width="12" height="2.8" fill={BLOCK.accent} stroke={BLOCK.ink} strokeWidth="1.6" />
+      {/* three traffic-light dots, square (no curves in brutal) */}
+      <rect x="3.4" y="3.9" width="1" height="1" fill={BLOCK.ink} />
+      <rect x="5.2" y="3.9" width="1" height="1" fill={BLOCK.ink} />
+      <rect x="7" y="3.9" width="1" height="1" fill={BLOCK.ink} />
+      {/* content: 2 short bars below */}
+      <rect x="3.5" y="7.5" width="9" height="1.2" fill={BLOCK.ink} />
+      <rect x="3.5" y="10" width="6" height="1.2" fill={BLOCK.ink} />
+    </IconBox>
+  );
+}
+
+function JsonlIconBlock() {
+  return (
+    <IconBox>
+      {/* three stacked square cards */}
+      <rect x="2" y="3" width="12" height="2.8" fill={BLOCK.paper} stroke={BLOCK.ink} strokeWidth="1.6" />
+      <rect x="2" y="6.6" width="12" height="2.8" fill={BLOCK.accent} stroke={BLOCK.ink} strokeWidth="1.6" />
+      <rect x="2" y="10.2" width="12" height="2.8" fill={BLOCK.paper} stroke={BLOCK.ink} strokeWidth="1.6" />
+    </IconBox>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Office — clean line art on white, single accent color per type
+ * (green=table, blue=document, orange=page, purple=collection — common
+ * productivity-app conventions, hex codes chosen distinct from any
+ * specific vendor's brand palette). Hairline strokes (1.2), 1.5px
+ * radius, no fills.
+ * ───────────────────────────────────────────────────────────────────── */
+
+function MarkdownIconOffice() {
+  const c = OFFICE_COLOR.md;
+  return (
+    <IconBox>
+      <path
+        d="M3.5 2 H10 L13 5 V13 a1 1 0 0 1 -1 1 H4.5 a1 1 0 0 1 -1 -1 V3 a1 1 0 0 1 1 -1 Z"
+        fill="#ffffff"
+        stroke={c}
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      <path d="M10 2 V5 H13" stroke={c} strokeWidth="1.2" strokeLinejoin="round" />
+      <line x1="5.5" y1="8" x2="11" y2="8" stroke={c} strokeWidth="1" strokeLinecap="round" />
+      <line x1="5.5" y1="10" x2="11" y2="10" stroke={c} strokeWidth="1" strokeLinecap="round" />
+      <line x1="5.5" y1="12" x2="9" y2="12" stroke={c} strokeWidth="1" strokeLinecap="round" />
+    </IconBox>
+  );
+}
+
+function CsvIconOffice() {
+  const c = OFFICE_COLOR.csv;
+  return (
+    <IconBox>
+      <rect x="2" y="3" width="12" height="10" rx="1.5" fill="#ffffff" stroke={c} strokeWidth="1.2" />
+      {/* header row tinted */}
+      <rect x="2" y="3" width="12" height="2.8" rx="1.5" fill={`${c}1a`} stroke="none" />
+      <line x1="2" y1="5.8" x2="14" y2="5.8" stroke={c} strokeWidth="1.2" />
+      <line x1="6" y1="3" x2="6" y2="13" stroke={c} strokeWidth="0.9" />
+      <line x1="10" y1="3" x2="10" y2="13" stroke={c} strokeWidth="0.9" />
+      <line x1="2" y1="9.4" x2="14" y2="9.4" stroke={c} strokeWidth="0.9" />
+    </IconBox>
+  );
+}
+
+function HtmlIconOffice() {
+  const c = OFFICE_COLOR.html;
+  return (
+    <IconBox>
+      {/* clean browser frame */}
+      <rect x="2" y="3" width="12" height="10" rx="1.5" fill="#ffffff" stroke={c} strokeWidth="1.2" />
+      {/* tab strip */}
+      <line x1="2" y1="5.5" x2="14" y2="5.5" stroke={c} strokeWidth="1" />
+      {/* three tab dots */}
+      <circle cx="3.6" cy="4.3" r="0.5" fill={c} />
+      <circle cx="5.1" cy="4.3" r="0.5" fill={c} />
+      <circle cx="6.6" cy="4.3" r="0.5" fill={c} />
+      {/* content lines */}
+      <line x1="3.5" y1="8" x2="12.5" y2="8" stroke={c} strokeWidth="0.9" strokeLinecap="round" />
+      <line x1="3.5" y1="10" x2="12.5" y2="10" stroke={c} strokeWidth="0.9" strokeLinecap="round" />
+      <line x1="3.5" y1="12" x2="9" y2="12" stroke={c} strokeWidth="0.9" strokeLinecap="round" />
+    </IconBox>
+  );
+}
+
+function JsonlIconOffice() {
+  const c = OFFICE_COLOR.jsonl;
+  return (
+    <IconBox>
+      <rect x="2" y="3" width="12" height="2.6" rx="0.6" fill="#ffffff" stroke={c} strokeWidth="1.1" />
+      <rect x="2" y="6.7" width="12" height="2.6" rx="0.6" fill={`${c}10`} stroke={c} strokeWidth="1.1" />
+      <rect x="2" y="10.4" width="12" height="2.6" rx="0.6" fill="#ffffff" stroke={c} strokeWidth="1.1" />
+      {/* leading-edge id markers */}
+      <line x1="3.4" y1="3.5" x2="3.4" y2="5.1" stroke={c} strokeWidth="1.4" strokeLinecap="round" />
+      <line x1="3.4" y1="7.2" x2="3.4" y2="8.8" stroke={c} strokeWidth="1.4" strokeLinecap="round" />
+      <line x1="3.4" y1="10.9" x2="3.4" y2="12.5" stroke={c} strokeWidth="1.4" strokeLinecap="round" />
+    </IconBox>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Single-variant icons — folder + secondary file types share one
+ * neutral rendering across themes. Color flows through the COLOR
+ * palette; if a future theme demands distinct folder shapes, lift
+ * these into the per-theme dispatch above.
+ * ───────────────────────────────────────────────────────────────────── */
 
 /** Closed folder — tabbed silhouette. Default for collapsed dirs +
  *  .huozi-keep marker files. */
@@ -215,7 +454,6 @@ function FolderOpenIcon() {
   const wash = `${c}14`;
   return (
     <IconBox>
-      {/* Back panel: full folder silhouette, slightly receded behind the front. */}
       <path
         d="M2 5 a1 1 0 0 1 1 -1 H6.5 L8 5.5 H13 a1 1 0 0 1 1 1 V8.5 H2 Z"
         fill={wash}
@@ -223,7 +461,6 @@ function FolderOpenIcon() {
         strokeWidth="1.2"
         strokeLinejoin="round"
       />
-      {/* Front flap: slanted trapezoid sitting in front, suggesting the folder is open. */}
       <path
         d="M3 8 H14 L12.5 13.5 a0.5 0.5 0 0 1 -0.5 0.5 H3.5 a0.5 0.5 0 0 1 -0.5 -0.5 Z"
         fill={wash}
@@ -231,20 +468,6 @@ function FolderOpenIcon() {
         strokeWidth="1.2"
         strokeLinejoin="round"
       />
-    </IconBox>
-  );
-}
-
-/** HTML — 3-bar chart on a baseline. */
-function HtmlIcon() {
-  const c = COLOR.html;
-  const wash = `${c}14`;
-  return (
-    <IconBox>
-      <rect x="3" y="9.5" width="2.5" height="4.5" rx="0.5" fill={wash} stroke={c} strokeWidth="1.2" />
-      <rect x="6.75" y="5.5" width="2.5" height="8.5" rx="0.5" fill={wash} stroke={c} strokeWidth="1.2" />
-      <rect x="10.5" y="7.5" width="2.5" height="6.5" rx="0.5" fill={wash} stroke={c} strokeWidth="1.2" />
-      <line x1="2" y1="14.25" x2="14" y2="14.25" stroke={c} strokeWidth="1.2" strokeLinecap="round" />
     </IconBox>
   );
 }
@@ -270,7 +493,6 @@ function PdfIcon() {
         strokeWidth="1.2"
         strokeLinejoin="round"
       />
-      {/* PDF badge band */}
       <rect x="4.5" y="9.5" width="7" height="3.25" rx="0.4" fill={c} opacity="0.85" />
       <text
         x="8"
@@ -295,9 +517,7 @@ function ImageIcon() {
   return (
     <IconBox>
       <rect x="2" y="3" width="12" height="10" rx="1.5" fill={wash} stroke={c} strokeWidth="1.2" />
-      {/* sun */}
       <circle cx="5.5" cy="6" r="1.1" fill={c} opacity="0.7" />
-      {/* mountains */}
       <path
         d="M2.5 12.5 L6 8 L8.5 10.5 L11 7.5 L13.5 12.5 Z"
         fill={c}
@@ -314,7 +534,6 @@ function ImageIcon() {
 function AudioIcon() {
   const c = COLOR.audio;
   const wash = `${c}14`;
-  // Bar specs: x, height (h is from bottom)
   const bars: Array<[number, number]> = [
     [3, 4],
     [5, 7],
@@ -338,7 +557,6 @@ function AudioIcon() {
           strokeWidth="1.1"
         />
       ))}
-      {/* baseline */}
       <line x1="2" y1="13.5" x2="14" y2="13.5" stroke={c} strokeWidth="1" strokeLinecap="round" opacity="0.6" />
     </IconBox>
   );
@@ -372,9 +590,7 @@ function ArchiveIcon() {
   return (
     <IconBox>
       <rect x="2.5" y="3" width="11" height="10" rx="1.2" fill={wash} stroke={c} strokeWidth="1.2" />
-      {/* zipper line */}
       <line x1="8" y1="3" x2="8" y2="13" stroke={c} strokeWidth="1.2" />
-      {/* teeth (alternating sides) */}
       <line x1="6.75" y1="5" x2="9.25" y2="5" stroke={c} strokeWidth="0.9" />
       <line x1="6.75" y1="7" x2="9.25" y2="7" stroke={c} strokeWidth="0.9" />
       <line x1="6.75" y1="9" x2="9.25" y2="9" stroke={c} strokeWidth="0.9" />

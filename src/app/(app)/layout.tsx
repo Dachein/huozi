@@ -8,6 +8,7 @@ import { getIdentity } from "@/lib/identity";
 import { cloudAdminListWorkspaces } from "@/lib/drive/admin";
 import { isCloud } from "@/lib/edition";
 import { getTheme } from "@/lib/theme/server";
+import { ThemeProvider } from "@/lib/theme/context";
 
 /**
  * App layout — gated by identity. Anything under `(app)/` requires a
@@ -72,22 +73,24 @@ export default async function AppLayout({
 
   return (
     <ConfirmProvider>
-      <div className="flex flex-col min-h-screen">
-        <AppHeader
-          principal={principal}
-          workspace={workspace}
-          theme={theme}
-          memberships={memberships.map((w) => ({
-            id: w.id,
-            slug: w.slug,
-            name: w.name,
-          }))}
-        />
-        <Suspense fallback={null}>
-          <JoinedToast />
-        </Suspense>
-        {children}
-      </div>
+      <ThemeProvider theme={theme}>
+        <div className="flex flex-col min-h-screen">
+          <AppHeader
+            principal={principal}
+            workspace={workspace}
+            theme={theme}
+            memberships={memberships.map((w) => ({
+              id: w.id,
+              slug: w.slug,
+              name: w.name,
+            }))}
+          />
+          <Suspense fallback={null}>
+            <JoinedToast />
+          </Suspense>
+          {children}
+        </div>
+      </ThemeProvider>
     </ConfirmProvider>
   );
 }
