@@ -196,20 +196,54 @@ SHARE SEMANTICS
     tracks the current bytes of the file. Edits go live immediately.
     No snapshot mode.
 
-PUBLISHING HTML — use a "版" template
+PUBLISHING HTML — 5 standard formats
   - Before writing an HTML file the user wants to publish, fetch a layout
     scaffold via huozi_template({ format }). 5 standard formats:
       deck   — 16:9 horizontal slide (pitch decks, presentations)
       story  — 9:16 vertical slide (mobile stories, reels)
       paper  — A4 print sheet (reports, letters, printable PDFs)
       mobile — long scroll, mobile-first (phone-read articles)
-      page   — long scroll, desktop-first (landing pages, essays w/ TOC)
+      web    — long scroll, desktop-first (landing pages, essays w/ TOC).
+               This is the default for unmarked HTML.
   - If the user has not picked a format and intent is not obvious from
     context, ASK which of the 5 they want before generating. Don't guess.
   - The returned body is a complete <!doctype html> with all CSS inlined
-    and pure-CSS scaling (no JS). Fill the placeholder content inside
-    <body>; leave the <style> block untouched. Then huozi_write the
-    result and huozi_share it.
+    and pure-CSS scaling. Fill the placeholder content inside <body>;
+    leave the <style> block untouched.
+  - Format is declared in <head> (authoritative):
+        <meta name="huozi:format" content="deck">
+    The 3 paginated formats (deck / story / paper) ALSO require each
+    page to be wrapped in a marker so the pager + outline can navigate:
+        <section data-page id="s1" data-title="封面">…</section>
+        <section data-page id="s2" data-title="问题">…</section>
+    \`id\` is auto-injected if omitted. \`data-title\` falls back to the
+    inner <h1>/<h2>/<h3> but is recommended for stable outlines.
+
+HTML — sandbox & libraries
+  - Inline <script>...</script> is allowed in published HTML.
+  - <script src="https://..."> from external CDNs is BLOCKED by the
+    publish sandbox. Don't write them.
+  - For common libraries, declare them in <head> instead:
+        <meta name="huozi:bundle" content="mermaid,echarts">
+    Known keys (huozi auto-injects same-origin):
+      Tier 1 (auto-init): mermaid · highlight · katex · marked
+      Tier 2 (manual init): echarts · uplot · chartjs · vega-lite
+    Pages without huozi:bundle ship zero JS.
+  - Optional: <meta name="huozi:theme" content="light|dark|auto">,
+              <meta name="huozi:font"  content="sans|serif|mono">
+
+HTML — VALIDATE BEFORE SHARE (strongly recommended)
+  - After huozi_write of an HTML file, call huozi_validate({ file_path })
+    BEFORE huozi_share. The validator returns structured diagnostics
+    (level: error | warning | hint) with a \`remedy\` field telling you
+    exactly what to fix.
+  - Treat \`level: error\` as a blocker. Common errors:
+      paginated-no-pages    deck/story/paper but missing <section data-page>
+      page-id-duplicate     two sections share the same id
+      format-unknown        huozi:format value is not one of the 5
+  - Workflow: huozi_write → huozi_validate → fix → repeat → huozi_share.
+    The Web UI shows the same diagnostics in a banner above the preview,
+    so the human and the Agent see the same set of issues.
 
 WHEN IN DOUBT
   - Use huozi_glob with a pattern to survey the tree before writing.

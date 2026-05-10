@@ -79,27 +79,78 @@ interface FormatMetaMatch {
   index: number;
 }
 
-function readFormatMeta(html: string): FormatMetaMatch | null {
-  const re = /<meta\s+name=["']huozi:format["']\s+content=["']([^"']+)["']/i;
-  const m = html.match(re);
-  if (!m) return null;
-  return { value: m[1].trim().toLowerCase(), index: m.index ?? 0 };
+/**
+ * Build skip-ranges for inert HTML regions: comments, <pre>, <code>,
+ * <style>, <script>. Patterns inside these aren't real HTML — they're
+ * displayed as text (code examples) or are CSS / scripts in their own
+ * grammar. Without this, a spec doc that shows `<meta huozi:format=...>`
+ * inside `<pre><code>` would self-report as a deck.
+ */
+function buildSkipRanges(html: string): Array<[number, number]> {
+  const ranges: Array<[number, number]> = [];
+  const sources: RegExp[] = [
+    /<!--[\s\S]*?-->/g,
+    /<pre\b[^>]*>[\s\S]*?<\/pre>/gi,
+    /<code\b[^>]*>[\s\S]*?<\/code>/gi,
+    /<style\b[^>]*>[\s\S]*?<\/style>/gi,
+    /<script\b[^>]*>[\s\S]*?<\/script>/gi,
+  ];
+  for (const src of sources) {
+    const r = new RegExp(src.source, src.flags);
+    let m: RegExpExecArray | null;
+    while ((m = r.exec(html)) !== null) {
+      ranges.push([m.index, m.index + m[0].length]);
+    }
+  }
+  return ranges;
 }
 
-function readClassFormat(html: string): HuoziFormat | null {
+function isInRanges(pos: number, ranges: Array<[number, number]>): boolean {
+  for (const [s, e] of ranges) {
+    if (pos >= s && pos < e) return true;
+  }
+  return false;
+}
+
+function readFormatMeta(
+  html: string,
+  skip: Array<[number, number]>,
+): FormatMetaMatch | null {
+  const re = /<meta\s+name=["']huozi:format["']\s+content=["']([^"']+)["']/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    if (isInRanges(m.index, skip)) continue;
+    return { value: m[1].trim().toLowerCase(), index: m.index };
+  }
+  return null;
+}
+
+function readClassFormat(
+  html: string,
+  skip: Array<[number, number]>,
+): HuoziFormat | null {
   for (const f of ALL_FORMATS) {
-    if (new RegExp(`class=["'][^"']*\\bhuozi-${f}\\b`).test(html)) {
+    const re = new RegExp(`class=["'][^"']*\\bhuozi-${f}\\b`, "gi");
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(html)) !== null) {
+      if (isInRanges(m.index, skip)) continue;
       return f;
     }
   }
   return null;
 }
 
-function readBundleMeta(html: string): FormatMetaMatch | null {
-  const re = /<meta\s+name=["']huozi:bundle["']\s+content=["']([^"']+)["']/i;
-  const m = html.match(re);
-  if (!m) return null;
-  return { value: m[1].trim(), index: m.index ?? 0 };
+function readBundleMeta(
+  html: string,
+  skip: Array<[number, number]>,
+): FormatMetaMatch | null {
+  const re = /<meta\s+name=["']huozi:bundle["']\s+content=["']([^"']+)["']/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    if (isInRanges(m.index, skip)) continue;
+    return { value: m[1].trim(), index: m.index };
+  }
+  return null;
 }
 
 interface DataPageSection {
@@ -121,27 +172,18 @@ function readAttr(attrs: string, name: string): string | null {
   return m ? (m[1] ?? m[2] ?? "") : null;
 }
 
-function findDataPageSections(html: string): DataPageSection[] {
-  // Strip comments so `<!-- <section data-page> -->` examples don't count.
-  const commentRanges: Array<[number, number]> = [];
-  const cre = /<!--[\s\S]*?-->/g;
-  let cm: RegExpExecArray | null;
-  while ((cm = cre.exec(html)) !== null) {
-    commentRanges.push([cm.index, cm.index + cm[0].length]);
-  }
-  const inComment = (pos: number) => {
-    for (const [s, e] of commentRanges) {
-      if (pos >= s && pos < e) return true;
-    }
-    return false;
-  };
-
+function findDataPageSections(
+  html: string,
+  skip: Array<[number, number]>,
+): DataPageSection[] {
+  // skip ranges already include comments + pre/code/style/script — see
+  // buildSkipRanges. Sections inside any of those are inert text.
   const out: DataPageSection[] = [];
   const re = new RegExp(SECTION_OPEN_RE.source, SECTION_OPEN_RE.flags);
   let m: RegExpExecArray | null;
   let i = 0;
   while ((m = re.exec(html)) !== null) {
-    if (inComment(m.index)) continue;
+    if (isInRanges(m.index, skip)) continue;
     i += 1;
     out.push({
       id: readAttr(m[2], "id"),
@@ -163,8 +205,14 @@ const SCRIPT_SRC_RE =
 export function validateHuoziHtml(html: string): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
+  // Inert regions (comments / pre / code / style / script) — we look for
+  // huozi:* meta and class hits OUTSIDE these. Without it a spec doc that
+  // shows `<meta huozi:format=...>` inside <pre><code> would falsely
+  // self-report as a deck.
+  const skip = buildSkipRanges(html);
+
   // ── Rule: huozi:format value must be in the 5 known types ──
-  const formatMeta = readFormatMeta(html);
+  const formatMeta = readFormatMeta(html, skip);
   if (formatMeta && !ALL_FORMATS.has(formatMeta.value as HuoziFormat)) {
     issues.push({
       level: "error",
@@ -182,11 +230,11 @@ export function validateHuoziHtml(html: string): ValidationIssue[] {
     if (formatMeta && ALL_FORMATS.has(formatMeta.value as HuoziFormat)) {
       return formatMeta.value as HuoziFormat;
     }
-    return readClassFormat(html) ?? "web";
+    return readClassFormat(html, skip) ?? "web";
   })();
 
   // ── Rule: meta vs class disagreement ──
-  const classFormat = readClassFormat(html);
+  const classFormat = readClassFormat(html, skip);
   if (
     formatMeta &&
     ALL_FORMATS.has(formatMeta.value as HuoziFormat) &&
@@ -215,7 +263,7 @@ export function validateHuoziHtml(html: string): ValidationIssue[] {
   }
 
   // ── Rule: paginated format must have at least one [data-page] ──
-  const sections = findDataPageSections(html);
+  const sections = findDataPageSections(html, skip);
   if (isPaginated(effectiveFormat) && sections.length === 0) {
     issues.push({
       level: "error",
@@ -263,7 +311,7 @@ export function validateHuoziHtml(html: string): ValidationIssue[] {
   }
 
   // ── Rule: huozi:bundle has unknown keys ──
-  const bundleMeta = readBundleMeta(html);
+  const bundleMeta = readBundleMeta(html, skip);
   if (bundleMeta) {
     const keys = bundleMeta.value
       .split(",")
@@ -283,10 +331,22 @@ export function validateHuoziHtml(html: string): ValidationIssue[] {
   }
 
   // ── Rule: external <script src="http(s):..."> will be stripped ──
+  // Note: this rule needs to scan the WHOLE html (not skip-aware) because
+  // <script> blocks themselves are part of the skip set — but only the
+  // ones with raw src="http(s)" attributes are the real-author concern.
+  // Examples shown inside <pre><code> are still skipped (they're inside
+  // the code skip range, not the script skip range).
   const re = new RegExp(SCRIPT_SRC_RE.source, SCRIPT_SRC_RE.flags);
+  // Skip only inert *display* regions (comments / pre / code / style),
+  // NOT <script> itself — we want to flag real script tags.
+  const displaySkip = skip.filter(([s, e]) => {
+    const slice = html.slice(s, Math.min(e, s + 8)).toLowerCase();
+    return !slice.startsWith("<script");
+  });
   let scriptMatch: RegExpExecArray | null;
   const externalScripts: Array<{ url: string; offset: number }> = [];
   while ((scriptMatch = re.exec(html)) !== null) {
+    if (isInRanges(scriptMatch.index, displaySkip)) continue;
     externalScripts.push({ url: scriptMatch[1], offset: scriptMatch.index });
   }
   if (externalScripts.length > 0) {
