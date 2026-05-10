@@ -22,7 +22,7 @@ import {
   type ValidationIssue,
   summarize,
   validateHuoziHtml,
-} from '../lint/html-validate.js'
+} from '../validate/html-validate.js'
 import { ERR } from '../errors.js'
 import { buildTool } from '../Tool.js'
 import type { StorageBackend } from '../storage/types.js'

@@ -31,7 +31,7 @@
  *                 arrow keys from the surrounding workspace UI.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -86,8 +86,6 @@ export function FullscreenPager({
   containerRef,
 }: FullscreenPagerProps) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const activeRef = useRef(0);
-  activeRef.current = activeIndex;
 
   // Track which slide / page currently dominates the viewport.
   useEffect(() => {
@@ -123,12 +121,19 @@ export function FullscreenPager({
 
   const goto = useCallback(
     (delta: -1 | 1) => {
-      const next = activeRef.current + delta;
-      if (next < 0 || next >= pages.length) return;
-      const target = pages[next];
-      if (!target) return;
-      setActiveIndex(next);
-      scrollToPage(target.id);
+      // Functional setState reads the latest value without an external
+      // ref — eliminates the prior `activeRef.current = activeIndex`
+      // pattern that violated react-hooks/refs (refs assigned during
+      // render). The scrollToPage side effect is idempotent so React
+      // strict-mode double-invocation is safe.
+      setActiveIndex((curr) => {
+        const next = curr + delta;
+        if (next < 0 || next >= pages.length) return curr;
+        const target = pages[next];
+        if (!target) return curr;
+        scrollToPage(target.id);
+        return next;
+      });
     },
     [pages],
   );

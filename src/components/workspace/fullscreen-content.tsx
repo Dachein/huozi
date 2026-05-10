@@ -12,14 +12,6 @@ import {
 
 export type FullscreenMode = "reader" | "raw" | "grid" | null;
 
-/**
- * @deprecated since 2026-05-10 — re-exported as a transitional alias for
- * `HuoziFormat`. New code should import `HuoziFormat` directly from
- * `@/lib/html/detect-format`. Kept here so existing call sites that
- * import `HtmlFormat` from this module keep compiling during migration.
- */
-export type HtmlFormat = HuoziFormat;
-
 const CLOSE_BUTTON_CLASS =
   "inline-flex items-center justify-center w-8 h-8 rounded-md border border-border bg-background/90 backdrop-blur text-muted-foreground hover:bg-muted hover:text-foreground transition-colors";
 
