@@ -1,0 +1,30 @@
+/*
+ * huozi-layout-mobile.css — structural layout for huozi:format=mobile.
+ *
+ * Single-column long-flow page constrained to a phone-readable width,
+ * with iOS safe-area padding. Authors style typography on top.
+ *
+ * Author HTML structure expected:
+ *   <div class="huozi-mobile">
+ *     <main class="container">…author content…</main>
+ *   </div>
+ *
+ * `.container` is optional — if author wraps content directly under
+ * .huozi-mobile, the safe-area padding still applies, just without the
+ * 560px max-width constraint.
+ */
+
+.huozi-mobile {
+  margin: 0;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: 20px;
+  padding-right: 20px;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.huozi-mobile .container {
+  max-width: 560px;
+  margin: 0 auto;
+}

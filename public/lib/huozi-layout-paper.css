@@ -1,0 +1,56 @@
+/*
+ * huozi-layout-paper.css — structural layout for huozi:format=paper.
+ *
+ * A4 stacked pages with scroll-margin so the pager (vertical chevrons)
+ * snaps the right page to the top when navigating. Print media yields
+ * one A4 sheet per <article class="page">.
+ *
+ * No decoration — paper background, fonts, prose typography are author's.
+ *
+ * Author HTML structure expected:
+ *   <div class="huozi-paper">
+ *     <article class="page" data-page id="p1">…</article>
+ *     <article class="page" data-page id="p2">…</article>
+ *   </div>
+ */
+
+.huozi-paper {
+  margin: 0;
+  padding: 32px 16px;
+  scroll-behavior: smooth;
+  container-type: inline-size;
+  box-sizing: border-box;
+}
+
+.huozi-paper .page {
+  width: 210mm; /* A4 */
+  max-width: 100%;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 25mm 22mm;
+  box-sizing: border-box;
+  scroll-margin-top: 24px;
+}
+
+.huozi-paper .page + .page {
+  margin-top: 24px;
+}
+
+@page {
+  size: A4;
+  margin: 0;
+}
+
+@media print {
+  .huozi-paper {
+    padding: 0;
+    container-type: normal;
+  }
+  .huozi-paper .page {
+    box-shadow: none;
+    margin: 0;
+    width: 210mm;
+    min-height: 297mm;
+    page-break-after: always;
+  }
+}

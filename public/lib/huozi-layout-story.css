@@ -1,0 +1,72 @@
+/*
+ * huozi-layout-story.css — structural layout for huozi:format=story.
+ *
+ * 9:16 vertical-snap slides. Mirror of huozi-layout-deck.css with the
+ * scroll axis flipped (column instead of row, scroll-snap-type:y).
+ * No decoration — colors / fonts / inner content layout are author's.
+ *
+ * Author HTML structure expected:
+ *   <div class="huozi-story">
+ *     <div class="slides">
+ *       <section class="slide" data-page id="s1">…</section>
+ *     </div>
+ *   </div>
+ */
+
+.huozi-story {
+  margin: 0;
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  container-type: size;
+  transform: translateZ(0);
+}
+
+.huozi-story .slides {
+  display: flex;
+  flex-direction: column;
+  height: 100cqh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+}
+
+.huozi-story .slides::-webkit-scrollbar {
+  display: none;
+}
+
+.huozi-story .slide {
+  flex: 0 0 100cqh;
+  height: 100cqh;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  display: grid;
+  place-items: center;
+}
+
+@media print {
+  .huozi-story {
+    width: auto;
+    height: auto;
+    min-height: auto;
+    transform: none;
+    container-type: normal;
+  }
+  .huozi-story .slides {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+  .huozi-story .slide {
+    width: 100%;
+    height: 100vh;
+    display: block;
+    page-break-after: always;
+  }
+  @page {
+    size: portrait;
+    margin: 0;
+  }
+}

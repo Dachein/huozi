@@ -1,0 +1,102 @@
+/*
+ * huozi-layout-deck.css — structural layout for huozi:format=deck.
+ *
+ * Concerns: container sizing, horizontal scroll-snap, mobile-portrait
+ * auto-rotate, print media. NO decoration (colors, fonts, typography).
+ *
+ * The pager (FullscreenPager in the React app) lives OUTSIDE the
+ * author's HTML and drives navigation by calling scrollIntoView on
+ * `<section data-page id>` elements inside `.huozi-deck .slides`. This
+ * file guarantees that scroll container behaves correctly so the pager
+ * works regardless of what the author wrote.
+ *
+ * Author HTML structure expected:
+ *   <div class="huozi-deck">
+ *     <div class="slides">
+ *       <section class="slide" data-page id="s1">…author content…</section>
+ *       …
+ *     </div>
+ *   </div>
+ *
+ * Author CSS still cascades on top — they can override colors, fonts,
+ * inner content layout. They should NOT redefine the structural rules
+ * here (width/height/overflow/scroll-snap-* on .huozi-deck/.slides/.slide).
+ */
+
+.huozi-deck {
+  margin: 0;
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  container-type: size;
+  transform: translateZ(0);
+}
+
+.huozi-deck .slides {
+  display: flex;
+  flex-direction: row;
+  height: 100cqh;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+}
+
+.huozi-deck .slides::-webkit-scrollbar {
+  display: none;
+}
+
+.huozi-deck .slide {
+  flex: 0 0 100cqw;
+  height: 100cqh;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  display: grid;
+  place-items: center;
+}
+
+/* Mobile portrait auto-rotate. Opt-in via the wrapper attribute the
+ * publish surface adds: [data-huozi-rotate-portrait]. Workspace inline
+ * preview never gets the attribute, so its embed-sized 16:9 frame is
+ * preserved. Phone in portrait → deck rotates 90° to keep the 16:9
+ * aspect intact. */
+@media (max-width: 767px) and (orientation: portrait) {
+  [data-huozi-rotate-portrait] .huozi-deck {
+    width: 100vh !important;
+    height: 100vw !important;
+    transform: rotate(90deg) translateY(-100vw) !important;
+    transform-origin: top left !important;
+  }
+  [data-huozi-rotate-portrait] {
+    overflow: hidden;
+  }
+}
+
+/* Print: each slide becomes a page. Strip the viewport-pinned scroll
+ * container so the printer sees stacked pages instead of one viewport. */
+@media print {
+  .huozi-deck {
+    background: #fff;
+    width: auto;
+    height: auto;
+    min-height: auto;
+    transform: none;
+    container-type: normal;
+  }
+  .huozi-deck .slides {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+  .huozi-deck .slide {
+    width: 100%;
+    height: 100vh;
+    display: block;
+    page-break-after: always;
+  }
+  @page {
+    size: landscape;
+    margin: 0;
+  }
+}

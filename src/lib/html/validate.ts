@@ -26,6 +26,7 @@
  */
 
 import { type HuoziFormat, isPaginated } from "./detect-format";
+import { KNOWN_BUNDLE_KEYS } from "./asset-registry";
 
 export type ValidationLevel = "error" | "warning" | "hint";
 
@@ -51,18 +52,10 @@ const ALL_FORMATS = new Set<HuoziFormat>([
   "web",
 ]);
 
-const KNOWN_BUNDLES = new Set<string>([
-  // Tier 1 (toolbox v1 spec §2)
-  "mermaid",
-  "highlight",
-  "katex",
-  "marked",
-  // Tier 2
-  "echarts",
-  "uplot",
-  "chartjs",
-  "vega-lite",
-]);
+// Bundle key list is the registry's responsibility — single source of
+// truth. Importing here keeps the validator's "unknown key" warning in
+// sync with what's actually injectable at render time.
+const KNOWN_BUNDLES = KNOWN_BUNDLE_KEYS;
 
 /** 1-based line number for a string offset. */
 function lineFor(html: string, offset: number): number {

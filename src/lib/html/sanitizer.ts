@@ -1,5 +1,7 @@
 import { injectSourcePositions } from "./source-pos";
 import { ensurePageIds } from "./extract-pages";
+import { detectHuoziFormat } from "./detect-format";
+import { renderInitScript, resolveAssets } from "./asset-registry";
 
 // Dangerous CSS patterns that can execute code or load external resources
 const DANGEROUS_CSS_PATTERNS = [
@@ -21,6 +23,19 @@ function sanitizeCssValue(value: string): string {
     /url\s*\(\s*(['"]?)\s*data\s*:/gi,
     'url($1blocked:'
   );
+}
+
+/** Parse the comma-separated `<meta name="huozi:bundle">` value into a list
+ *  of bundle keys. Returns [] if no such meta tag exists. */
+function parseBundleMeta(html: string): string[] {
+  const m = html.match(
+    /<meta\s+name=["']huozi:bundle["']\s+content=["']([^"']+)["']/i,
+  );
+  if (!m) return [];
+  return m[1]
+    .split(",")
+    .map((k) => k.trim())
+    .filter(Boolean);
 }
 
 // Extract <style> content and body from full HTML document
@@ -339,8 +354,26 @@ export async function processHtmlDirect(
       }
     }
 
+    // ── Platform asset injection (huozi:format + huozi:bundle) ──
+    // Resolve canonical layout CSS (per format) + lib JS (per bundle key)
+    // from the central registry. Layout CSS is injected as <link> BEFORE
+    // author <style> so author rules can override; bundle scripts are
+    // appended AFTER the dangerous-tags strip below so they survive the
+    // <script> stripper. Survives scope mode too — the FileRenderer's
+    // tailwind !important overrides handle the size conflict in inline
+    // preview.
+    const huoziFormat = detectHuoziFormat(html);
+    const bundleKeys = parseBundleMeta(html);
+    const platformAssets = resolveAssets(huoziFormat, bundleKeys);
+
     // Rebuild: links + styles + body
     const parts: string[] = [];
+
+    // Platform format-CSS first — author CSS cascades on top.
+    for (const url of platformAssets.cssLinks) {
+      parts.push(`<link rel="stylesheet" href="${url}">`);
+    }
+
     if (!opts.scopeTo) {
       // Unscoped: keep stylesheets we couldn't (or didn't try to) inline,
       // plus all other <link> tags (icon / alternate / manifest / …).
@@ -349,7 +382,9 @@ export async function processHtmlDirect(
       }
       for (const link of parsed.otherLinks) parts.push(link);
     }
-    // Scoped mode drops every <link> regardless — we can't isolate them.
+    // Scoped mode drops every author <link> regardless — we can't isolate
+    // them. Platform layout CSS (above) is the exception; FileRenderer's
+    // [&_.huozi-deck]:!w-full overrides handle inline-preview sizing.
 
     for (const rawCss of styles) {
       const clean = sanitizeCss(rawCss);
@@ -364,6 +399,8 @@ export async function processHtmlDirect(
       parts.push(`<style>${final}</style>`);
     }
     parts.push(parsed.body);
+    // Stash bundle script tags + init shim separately — they get appended
+    // AFTER the script stripper below so they survive the strip pass.
     html = parts.join("\n");
     meta = {
       description: parsed.metaDescription,
@@ -393,6 +430,32 @@ export async function processHtmlDirect(
     /((?:href|src|action)\s*=\s*(?:["']))(\s*javascript\s*:)/gi,
     "$1#blocked:"
   );
+
+  // ── Append platform bundle scripts AFTER the strip ──
+  // The author's <script src="https://cdn…"> got stripped above, but our
+  // huozi-injected same-origin bundle scripts must survive. Append them
+  // here so the strip regex can't see them. Init shim runs after all
+  // bundles loaded (defer + DOMContentLoaded).
+  if (isFullDocument) {
+    const huoziFormat = detectHuoziFormat(rawHtml);
+    const bundleKeys = parseBundleMeta(rawHtml);
+    const platformAssets = resolveAssets(huoziFormat, bundleKeys);
+    const scriptTags: string[] = [];
+    for (const url of platformAssets.scriptUrls) {
+      scriptTags.push(`<script defer src="${url}"></script>`);
+    }
+    const initBody = renderInitScript(platformAssets.initSource);
+    if (initBody) {
+      // Inline init shim — uses defer-equivalent ordering: it inspects
+      // document.readyState and either listens for DOMContentLoaded or
+      // runs immediately. Either way fires after the deferred bundle
+      // scripts have loaded.
+      scriptTags.push(`<script>${initBody}</script>`);
+    }
+    if (scriptTags.length > 0) {
+      html = `${html}\n${scriptTags.join("\n")}`;
+    }
+  }
 
   return {
     html: html.trim(),
