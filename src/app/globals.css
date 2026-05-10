@@ -140,6 +140,68 @@
   --decoration-ink-animations: 0;
 }
 
+/* ─────────────────────────────────────────────────────────────────────
+ * Theme: office
+ *
+ * Visual reference: productivity-suite design language. Clean white
+ * canvas with very-light-gray secondary surfaces, hairline dividers,
+ * a single productivity-blue accent that does double duty as primary
+ * action and selection emphasis, soft layered drop-shadows, 4px
+ * control radii, and a system-sans typography stack. No paper grain,
+ * no ink animations — the aesthetic is "neutral chrome, content
+ * front-and-center".
+ *
+ * Synthesized from common conventions across modern web-based office
+ * suites: light neutral ramps, brand-blue primary, hairline borders,
+ * 2-layer fluent-style elevation. No trademarked assets are used —
+ * this is a generic productivity look, not a clone of any one
+ * product. The font stack starts with Segoe UI Variable / Segoe UI
+ * because those are widely shipped as system fonts; non-Windows
+ * machines fall through to their own system sans.
+ *
+ * Surfaces / state grammar (different from brutal's "block" model):
+ *   rest interactive:   transparent / inherit
+ *   hover interactive:  surface-elevated tint (#f0f0f0)
+ *   active interactive: surface-active wash (light-blue #ebf3fc)
+ *                       with a 2px left accent-bar on rows
+ * ───────────────────────────────────────────────────────────────────── */
+[data-theme="office"] {
+  --background: #ffffff;
+  --foreground: #242424;
+  --muted: #f5f5f5;
+  --muted-foreground: #616161;
+  --border: #e0e0e0;
+  --primary: #0f6cbd;
+  --primary-foreground: #ffffff;
+  --accent: #0f6cbd;
+  --accent-foreground: #ffffff;
+  --destructive: #c50f1f;
+  --destructive-foreground: #ffffff;
+  --info: #0078d4;
+  --info-foreground: #ffffff;
+  --surface-elevated: #fafafa;
+  --surface-active: #ebf3fc;
+
+  --font-sans-stack: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --font-mono-stack: "Cascadia Code", "Cascadia Mono", Consolas, "SF Mono", Menlo, ui-monospace, monospace;
+  --font-serif-stack: "Noto Serif SC", "Cambria", Georgia, serif;
+  --font-display-stack: var(--font-sans-stack);
+
+  --radius: 0.25rem;
+  --radius-sm: 0.125rem;
+  --border-width: 1px;
+  --border-width-strong: 1px;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06);
+  --shadow-block: 0 4px 8px rgba(0, 0, 0, 0.10), 0 8px 16px rgba(0, 0, 0, 0.08);
+
+  --motion-duration: 167ms;
+  --motion-easing: cubic-bezier(0.33, 0, 0.67, 1);
+
+  --decoration-paper-grain: 0;
+  --decoration-ink-animations: 0;
+}
+
 /* Structural override: zero out all border-radii under brutal-mono.
  *
  * Tailwind's `rounded-*` utilities don't read `--radius` — they emit
@@ -440,6 +502,232 @@
 [data-theme="brutal-mono"] .huozi-csv-grid {
   border: var(--border-width) solid var(--border) !important;
   box-shadow: var(--shadow) !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Theme-scoped component overrides — office
+ *
+ * Design grammar: hairlines + tints, no offset shadows. Interactive
+ * surfaces have no resting border or shadow; hover paints a light
+ * neutral fill; active paints a light-blue wash with a 2px accent
+ * rail on the leading edge of rows (a productivity-suite navigation
+ * convention). Elevation is layered soft shadow, not a hard offset.
+ *
+ * Different from brutal: no rotation, no stamps, no thick borders.
+ * The aesthetic is "neutral chrome, content forward".
+ * ───────────────────────────────────────────────────────────────────── */
+
+/* App header: clean strip with hairline divider. */
+[data-theme="office"] .huozi-app-header {
+  background: var(--background);
+  border-bottom-width: var(--border-width);
+  border-bottom-color: var(--border);
+}
+
+/* Workspace pill in the header: filled accent-blue with white text.
+ * No rotation, no offset shadow. Hover deepens the fill with a
+ * soft elevation lift. */
+[data-theme="office"] .huozi-app-trigger {
+  background: var(--accent);
+  border: var(--border-width) solid var(--accent);
+  color: var(--accent-foreground);
+  border-radius: var(--radius);
+  padding: 0.3rem 0.7rem;
+  box-shadow: none;
+}
+
+[data-theme="office"] .huozi-app-trigger,
+[data-theme="office"] .huozi-app-trigger * {
+  color: var(--accent-foreground);
+}
+
+[data-theme="office"] .huozi-app-trigger:hover,
+[data-theme="office"] .huozi-app-trigger[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--accent) 88%, black);
+  border-color: color-mix(in srgb, var(--accent) 88%, black);
+  box-shadow: var(--shadow);
+}
+
+/* Dropdown menu: white surface, hairline border, soft layered shadow. */
+[data-theme="office"] .huozi-app-menu {
+  background: var(--background) !important;
+  color: var(--foreground);
+  border-color: var(--border) !important;
+  box-shadow: var(--shadow-block) !important;
+}
+
+/* Sidebar: very-light-gray secondary surface. */
+[data-theme="office"] .huozi-shell-panel {
+  background: var(--surface-elevated);
+  border-right-width: var(--border-width);
+  border-right-color: var(--border);
+}
+
+/* Interactive rows / picker tiles: tint on hover, accent rail on active.
+ * Rows get a 2px accent bar on the leading edge to signal selection —
+ * a long-standing productivity-app navigation cue. */
+[data-theme="office"] .huozi-row,
+[data-theme="office"] .huozi-tile {
+  border-radius: var(--radius);
+  transition: background-color var(--motion-duration) var(--motion-easing);
+}
+
+[data-theme="office"] .huozi-row:not([aria-current="page"]):hover,
+[data-theme="office"] .huozi-tile:not([aria-pressed="true"]):hover {
+  background: var(--muted);
+}
+
+[data-theme="office"] .huozi-row[aria-current="page"],
+[data-theme="office"] .huozi-tile[aria-pressed="true"] {
+  background: var(--surface-active);
+  color: var(--foreground);
+  position: relative;
+}
+
+[data-theme="office"] .huozi-row[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--accent);
+}
+
+/* Buttons: white surface, hairline border, soft hover elevation. */
+[data-theme="office"] .huozi-button {
+  background: var(--background);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: none;
+  color: var(--foreground);
+  transition: background-color var(--motion-duration) var(--motion-easing),
+              box-shadow var(--motion-duration) var(--motion-easing),
+              border-color var(--motion-duration) var(--motion-easing);
+}
+
+[data-theme="office"] .huozi-button:hover {
+  background: var(--muted);
+  border-color: color-mix(in srgb, var(--border) 50%, var(--foreground));
+  box-shadow: var(--shadow);
+}
+
+[data-theme="office"] .huozi-button[aria-expanded="true"],
+[data-theme="office"] .huozi-button[aria-pressed="true"] {
+  background: var(--surface-active);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Primary CTA: filled accent-blue. */
+[data-theme="office"] .huozi-button-primary {
+  background: var(--accent) !important;
+  border: var(--border-width) solid var(--accent) !important;
+  border-radius: var(--radius);
+  box-shadow: none;
+  color: var(--accent-foreground) !important;
+}
+
+[data-theme="office"] .huozi-button-primary:hover {
+  background: color-mix(in srgb, var(--accent) 88%, black) !important;
+  border-color: color-mix(in srgb, var(--accent) 88%, black) !important;
+  box-shadow: var(--shadow);
+}
+
+/* Danger variants: hairline destructive frame; solid filled for
+ * confirm-destructive dialog buttons. */
+[data-theme="office"] .huozi-button-danger {
+  background: var(--background) !important;
+  border: var(--border-width) solid var(--destructive) !important;
+  border-radius: var(--radius);
+  box-shadow: none;
+  color: var(--destructive) !important;
+}
+
+[data-theme="office"] .huozi-button-danger:hover {
+  background: color-mix(in srgb, var(--destructive) 8%, white) !important;
+  box-shadow: var(--shadow);
+}
+
+[data-theme="office"] .huozi-button-danger-solid {
+  background: var(--destructive) !important;
+  border: var(--border-width) solid var(--destructive) !important;
+  border-radius: var(--radius);
+  color: var(--destructive-foreground) !important;
+}
+
+[data-theme="office"] .huozi-button-danger-solid:hover {
+  background: color-mix(in srgb, var(--destructive) 88%, black) !important;
+  box-shadow: var(--shadow);
+}
+
+/* CSV grid wrapper: hairline frame + soft shadow. The canvas inside
+ * is themed via JS in csv-grid.tsx — it reads the same tokens, so
+ * office values produce: white cells, light-gray header band
+ * (--muted), blue selection ring (--accent), hairline gridlines
+ * (--border). Standard productivity grid look. */
+[data-theme="office"] .huozi-csv-grid {
+  background: var(--background);
+  border: var(--border-width) solid var(--border) !important;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow) !important;
+  overflow: hidden;
+}
+
+/* HTML embed host: hairline frame, soft shadow. */
+[data-theme="office"] .huozi-html-host {
+  background: var(--background);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+/* Stat / panel cards: hairline frame + soft shadow. */
+[data-theme="office"] .huozi-card {
+  border: var(--border-width) solid var(--border) !important;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+/* Code blocks: light gray panel with hairline border. Plain mono font,
+ * no stamp. */
+[data-theme="office"] .prose pre,
+[data-theme="office"] .prose-huozi pre {
+  background: var(--muted) !important;
+  color: var(--foreground) !important;
+  border: var(--border-width) solid var(--border) !important;
+  border-radius: var(--radius);
+  box-shadow: none !important;
+}
+
+[data-theme="office"] .prose :not(pre) > code,
+[data-theme="office"] .prose-huozi :not(pre) > code {
+  background: var(--muted) !important;
+  color: var(--foreground) !important;
+  border: var(--border-width) solid var(--border) !important;
+  border-radius: var(--radius-sm);
+  padding: 0.1em 0.4em;
+}
+
+/* Selection: light-blue wash, normal foreground. */
+[data-theme="office"] ::selection,
+[data-theme="office"] *::selection {
+  background-color: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--foreground);
+}
+
+/* Inline edit pill: filled accent, matches the primary-CTA grammar
+ * so the affordance reads as "the active action". */
+[data-theme="office"] .huozi-edit-pill {
+  background: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+  border: var(--border-width) solid var(--accent) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: var(--shadow) !important;
+  font-weight: 600;
+}
+
+[data-theme="office"] .huozi-edit-pill:hover {
+  background: color-mix(in srgb, var(--accent) 88%, black) !important;
+  box-shadow: var(--shadow-block) !important;
 }
 
 @theme inline {

@@ -304,6 +304,7 @@ export const fr = {
   "menu.theme": "Thème",
   "theme.default.name": "Papier",
   "theme.brutalMono.name": "Bloc",
+  "theme.office.name": "Bureau",
   "theme.applying": "Application",
   "theme.confirm.title": "Changer de style",
   "theme.confirm.body": "Passer à « {name} » ? La page sera rechargée.",

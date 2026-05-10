@@ -17,6 +17,7 @@ interface ThemeInfo {
 const INFO: Record<Theme, ThemeInfo> = {
   default: { glyph: "纸", labelKey: "theme.default.name" },
   "brutal-mono": { glyph: "块", labelKey: "theme.brutalMono.name" },
+  office: { glyph: "办", labelKey: "theme.office.name" },
 };
 
 export interface ThemeGridProps {

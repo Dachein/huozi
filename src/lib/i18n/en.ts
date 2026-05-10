@@ -303,6 +303,7 @@ export const en = {
   "menu.theme": "Theme",
   "theme.default.name": "Paper",
   "theme.brutalMono.name": "Block",
+  "theme.office.name": "Office",
   "theme.applying": "Applying",
   "theme.confirm.title": "Switch style",
   "theme.confirm.body": "Switch to \u201C{name}\u201D? The page will reload to apply.",

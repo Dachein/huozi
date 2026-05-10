@@ -302,6 +302,7 @@ export const ja = {
   "menu.theme": "テーマ",
   "theme.default.name": "紙",
   "theme.brutalMono.name": "ブロック",
+  "theme.office.name": "事務",
   "theme.applying": "適用中",
   "theme.confirm.title": "スタイル切り替え",
   "theme.confirm.body": "「{name}」に切り替えますか？適用のためページを再読み込みします。",

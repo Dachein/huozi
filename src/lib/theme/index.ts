@@ -10,7 +10,7 @@
  * theme-bundle authoring rules.
  */
 
-export const THEMES = ["default", "brutal-mono"] as const;
+export const THEMES = ["default", "brutal-mono", "office"] as const;
 export type Theme = (typeof THEMES)[number];
 
 export const DEFAULT_THEME: Theme = "default";
