@@ -31,7 +31,7 @@ describe("processHtmlDirect — platform asset injection", () => {
       </html>`;
     const out = await processHtmlDirect(html);
     expect(out.html).toContain(
-      '<script defer src="/lib/mermaid@10.9.4.min.js"></script>',
+      '<script defer src="/lib/mermaid-10.9.4.min.js"></script>',
     );
     // Init shim is appended as inline <script>, contains the auto-init source.
     expect(out.html).toContain("mermaid.initialize");
@@ -48,26 +48,26 @@ describe("processHtmlDirect — platform asset injection", () => {
       <body>x</body>
       </html>`;
     const out = await processHtmlDirect(html);
-    expect(out.html).toContain('href="/lib/highlight-github@11.9.0.min.css"');
-    expect(out.html).toContain('href="/lib/katex@0.16.11.min.css"');
+    expect(out.html).toContain('href="/lib/highlight-github-11.9.0.min.css"');
+    expect(out.html).toContain('href="/lib/katex-0.16.11.min.css"');
     expect(out.html).toContain(
-      '<script defer src="/lib/highlight@11.9.0.min.js"></script>',
+      '<script defer src="/lib/highlight-11.9.0.min.js"></script>',
     );
     expect(out.html).toContain(
-      '<script defer src="/lib/katex@0.16.11.min.js"></script>',
+      '<script defer src="/lib/katex-0.16.11.min.js"></script>',
     );
     expect(out.html).toContain(
-      '<script defer src="/lib/katex-auto-render@0.16.11.min.js"></script>',
+      '<script defer src="/lib/katex-auto-render-0.16.11.min.js"></script>',
     );
     expect(out.html).toContain(
-      '<script defer src="/lib/dompurify@3.0.11.min.js"></script>',
+      '<script defer src="/lib/dompurify-3.0.11.min.js"></script>',
     );
     expect(out.html).toContain(
-      '<script defer src="/lib/marked@12.0.2.min.js"></script>',
+      '<script defer src="/lib/marked-12.0.2.min.js"></script>',
     );
     // highlight declared twice — should appear once in output.
     const highlightCount = out.html.match(
-      /<script defer src="\/lib\/highlight@11\.9\.0\.min\.js">/g,
+      /<script defer src="\/lib\/highlight-11\.9\.0\.min\.js">/g,
     );
     expect(highlightCount?.length).toBe(1);
   });
@@ -94,7 +94,7 @@ describe("processHtmlDirect — platform asset injection", () => {
     // Author CDN script is stripped.
     expect(out.html).not.toContain("cdn.jsdelivr.net");
     // huozi-injected bundle survives.
-    expect(out.html).toContain('src="/lib/mermaid@10.9.4.min.js"');
+    expect(out.html).toContain('src="/lib/mermaid-10.9.4.min.js"');
   });
 
   it("zero declarations means zero JS / CSS injected", async () => {

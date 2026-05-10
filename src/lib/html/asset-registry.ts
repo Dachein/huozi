@@ -71,7 +71,7 @@ export const FORMAT_ASSETS: Record<HuoziFormat, FormatAssets> = {
 export const BUNDLES: Record<string, BundleSpec> = {
   // ─── Tier 1 ─────────────────────────────────────────────────────
   mermaid: {
-    scripts: ["/lib/mermaid@10.9.4.min.js"],
+    scripts: ["/lib/mermaid-10.9.4.min.js"],
     init: `if (window.mermaid) {
   window.mermaid.initialize({
     startOnLoad: true,
@@ -82,8 +82,8 @@ export const BUNDLES: Record<string, BundleSpec> = {
 }`,
   },
   highlight: {
-    scripts: ["/lib/highlight@11.9.0.min.js"],
-    css: "/lib/highlight-github@11.9.0.min.css",
+    scripts: ["/lib/highlight-11.9.0.min.js"],
+    css: "/lib/highlight-github-11.9.0.min.css",
     init: `if (window.hljs) {
   document.querySelectorAll('pre code[class*="language-"], pre code[class*="lang-"]').forEach(function(el){
     window.hljs.highlightElement(el);
@@ -92,10 +92,10 @@ export const BUNDLES: Record<string, BundleSpec> = {
   },
   katex: {
     scripts: [
-      "/lib/katex@0.16.11.min.js",
-      "/lib/katex-auto-render@0.16.11.min.js",
+      "/lib/katex-0.16.11.min.js",
+      "/lib/katex-auto-render-0.16.11.min.js",
     ],
-    css: "/lib/katex@0.16.11.min.css",
+    css: "/lib/katex-0.16.11.min.css",
     init: `if (window.renderMathInElement) {
   window.renderMathInElement(document.body, {
     delimiters: [
@@ -110,7 +110,7 @@ export const BUNDLES: Record<string, BundleSpec> = {
   marked: {
     // marked needs DOMPurify to sanitize. Order: purify first so it's
     // ready when marked init runs.
-    scripts: ["/lib/dompurify@3.0.11.min.js", "/lib/marked@12.0.2.min.js"],
+    scripts: ["/lib/dompurify-3.0.11.min.js", "/lib/marked-12.0.2.min.js"],
     init: `if (window.marked && window.DOMPurify) {
   window.huozi = window.huozi || {};
   window.huozi.md = function(s){ return window.DOMPurify.sanitize(window.marked.parse(s)); };
