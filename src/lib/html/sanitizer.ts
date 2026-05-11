@@ -416,8 +416,17 @@ export async function processHtmlDirect(
     html = rewriteAssetRefs(html, opts.assetBase);
   }
 
-  // Strip dangerous tags and their content
-  html = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "");
+  // Strip dangerous tags and their content.
+  //
+  // Scripts: only strip `<script ... src=...>` (with a src attribute).
+  // Inline `<script>...</script>` (no src) is preserved — this is the
+  // documented sandbox contract (see HUOZI_INSTRUCTIONS "HTML — sandbox
+  // & libraries") and matches what `huozi_validate` warns about
+  // (external src only). Authors writing dashboards / interactive pages
+  // need inline JS to read sibling files via `<meta huozi:share-include>`.
+  // on* handlers and javascript: URLs are still neutralized below, so
+  // markup-level XSS vectors stay closed.
+  html = html.replace(/<script\b[^>]*\ssrc\s*=[^>]*>[\s\S]*?<\/script>/gi, "");
   html = html.replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, "");
   html = html.replace(/<embed\b[^>]*>\s*(?:<\/embed>)?/gi, "");
   html = html.replace(/<object\b[^>]*>[\s\S]*?<\/object>/gi, "");

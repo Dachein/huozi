@@ -894,3 +894,162 @@ export async function handleRevokeShare(
   }
   return Response.json({ ok: true, slug })
 }
+
+// ── GET /shares/:slug/data/:path (public, declared-include data proxy) ──
+
+/**
+ * Sibling-file data proxy for `/p/<slug>` HTML shares. Lets a published
+ * HTML page fetch its own data sources (Collection jsonl, csv, json, …)
+ * without bundling them inline.
+ *
+ * Author opts in via a meta tag inside the shared HTML:
+ *
+ *   <meta name="huozi:share-include" content="threads.jsonl,retros.jsonl">
+ *
+ * Each listed path is resolved RELATIVE to the share file's directory
+ * (so `dev/board.html` declaring `threads.jsonl` exposes
+ * `dev/threads.jsonl`). Only files in the include list are reachable
+ * through this endpoint — anything else returns 403. This keeps the
+ * "publish one file" mental model intact and avoids the
+ * "everything's public if any file is shared" leak called out in the
+ * asset proxy comments.
+ *
+ * Routes here mirror the asset proxy's security stance:
+ *   - revoked / expired share → 404
+ *   - passcode-locked share   → 403 (data follows the lock; you can't
+ *                                    unlock data separately from the page)
+ *   - path with `..`          → 400
+ *   - path not in include list → 403
+ */
+export async function handleGetShareData(
+  request: Request,
+  env: HuoziCloudflareBindings,
+  slug: string,
+  dataPath: string,
+): Promise<Response> {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return new Response('method not allowed', { status: 405 })
+  }
+  if (!SLUG_RE.test(slug)) {
+    return Response.json({ error: 'bad_slug' }, { status: 400 })
+  }
+  if (!dataPath || dataPath.includes('..') || dataPath.startsWith('/')) {
+    return Response.json({ error: 'bad_data_path' }, { status: 400 })
+  }
+  const row = await env.DB.prepare(
+    `SELECT * FROM shares
+     WHERE slug = ?
+       AND revoked_at IS NULL
+       AND (expires_at IS NULL OR expires_at > ?)`,
+  )
+    .bind(slug, Date.now())
+    .first<ShareRow>()
+  if (!row) {
+    return Response.json({ error: 'not_found' }, { status: 404 })
+  }
+  if (row.passcode_hash) {
+    return Response.json({ error: 'locked' }, { status: 403 })
+  }
+
+  // Load the share's main file bytes to extract the include allowlist.
+  // This is the same blob the public share endpoint serves — at most
+  // one extra fetch per data request, acceptable for MVP without a
+  // separate include-list column in `shares`.
+  const main = await currentBlobForPath(env, row.workspace_id, row.file_path)
+  if (!main) {
+    return Response.json({ error: 'file_no_longer_exists' }, { status: 410 })
+  }
+  const mainBlob = await fetchBlobContent(env, main.blob_sha)
+  if (!mainBlob) {
+    return Response.json({ error: 'content_missing' }, { status: 410 })
+  }
+  const mainText = new TextDecoder('utf-8', { fatal: false }).decode(
+    mainBlob.bytes,
+  )
+  const includeList = parseShareIncludeMeta(mainText)
+  if (!includeList.includes(dataPath)) {
+    return Response.json({ error: 'not_in_include_list' }, { status: 403 })
+  }
+
+  // Resolve dataPath relative to the share file's directory.
+  const sharedDir = dirname(row.file_path)
+  const absolutePath = sharedDir ? sharedDir + '/' + dataPath : dataPath
+
+  const current = await currentBlobForPath(env, row.workspace_id, absolutePath)
+  if (!current) {
+    return Response.json({ error: 'data_not_found' }, { status: 404 })
+  }
+  const blob = await fetchBlobContent(env, current.blob_sha)
+  if (!blob) {
+    return Response.json({ error: 'blob_missing' }, { status: 410 })
+  }
+
+  const contentType = guessDataMime(absolutePath)
+  const body =
+    request.method === 'HEAD' ? null : (blob.bytes.buffer as ArrayBuffer)
+  return new Response(body, {
+    status: 200,
+    headers: {
+      'Content-Type': contentType,
+      'Content-Length': String(blob.size),
+      // Live-mode contract: revalidate every request so HTML pages see
+      // the latest data without hard-refresh. Bytes are still cacheable
+      // by ETag (sha-derived) for unchanged blobs.
+      'Cache-Control': 'public, max-age=0, must-revalidate',
+      'X-Content-Type-Options': 'nosniff',
+      ETag: `"${current.blob_sha}"`,
+    },
+  })
+}
+
+/**
+ * Parse the `huozi:share-include` meta tag from a shared HTML file.
+ * Returns the comma-separated list of allowed sibling paths. Empty when
+ * absent, malformed, or empty.
+ *
+ *   <meta name="huozi:share-include" content="a.jsonl,sub/b.csv">
+ */
+function parseShareIncludeMeta(html: string): string[] {
+  const m = html.match(
+    /<meta\s+[^>]*?\bname\s*=\s*["']huozi:share-include["'][^>]*?\bcontent\s*=\s*["']([^"']+)["']/i,
+  )
+  if (!m) return []
+  return m[1]!
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+function dirname(path: string): string {
+  const i = path.lastIndexOf('/')
+  return i < 0 ? '' : path.slice(0, i)
+}
+
+/**
+ * MIME map for files served through the share-include data proxy.
+ * Targets the data formats authors are likely to embed: jsonl
+ * (Collection), csv/tsv (Table), json. Everything else falls back to
+ * `application/octet-stream` — the page can still fetch it as bytes,
+ * but the browser won't pretend it knows the shape.
+ */
+function guessDataMime(path: string): string {
+  const ext = path.split('.').pop()?.toLowerCase() ?? ''
+  switch (ext) {
+    case 'jsonl':
+    case 'ndjson':
+      return 'application/x-ndjson; charset=utf-8'
+    case 'json':
+      return 'application/json; charset=utf-8'
+    case 'csv':
+      return 'text/csv; charset=utf-8'
+    case 'tsv':
+      return 'text/tab-separated-values; charset=utf-8'
+    case 'txt':
+    case 'md':
+      return 'text/plain; charset=utf-8'
+    case 'xml':
+      return 'application/xml; charset=utf-8'
+    default:
+      return 'application/octet-stream'
+  }
+}

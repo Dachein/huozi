@@ -55,6 +55,7 @@ import {
   handleCreateShare,
   handleGetShare,
   handleGetShareAsset,
+  handleGetShareData,
   handleGetWorkspaceAsset,
   handleListShares,
   handleRevokeShare,
@@ -232,6 +233,29 @@ HTML — sandbox & libraries
   - Optional: <meta name="huozi:theme" content="light|dark|auto">,
               <meta name="huozi:font"  content="sans|serif|mono">
 
+HTML — reading sibling data (Collection / csv / json)
+  - A published HTML can declare sibling files it wants to fetch at
+    runtime. Authors put the meta tag in <head>:
+        <meta name="huozi:share-include" content="threads.jsonl,retros.jsonl">
+    Each path is resolved RELATIVE to the HTML's own directory. The
+    inline JS reads them through the per-share data proxy at
+    /p/<slug>/d/<path>. Build the URL from location.pathname (the page
+    URL has no trailing slash, so plain './threads.jsonl' resolves to
+    /p/threads.jsonl and 404s):
+        const base = location.pathname.replace(/\\/$/, '') + '/d/';
+        const r = await fetch(base + 'threads.jsonl');
+        const events = (await r.text()).trim().split('\\n').map(JSON.parse);
+  - This is the path for custom dashboards over Collection jsonl files:
+    bind multiple Collections from one HTML, fold by id in the browser,
+    render with the libraries declared in huozi:bundle.
+  - Live mode: the data endpoint always serves the CURRENT bytes (no
+    cache). Edits to the listed files show up on next visit.
+  - Security: only files in the include list are reachable; everything
+    else 403s. Authors must enumerate explicitly — same-directory does
+    NOT auto-include.
+  - Without the meta, sibling fetches 403 — by design (this is the
+    "published one file" mental model).
+
 HTML — VALIDATE BEFORE SHARE (strongly recommended)
   - After huozi_write of an HTML file, call huozi_validate({ file_path })
     BEFORE huozi_share. The validator returns structured diagnostics
@@ -369,6 +393,17 @@ const handler: ExportedHandler<HuoziCloudflareBindings> = {
       )
       if (m) {
         return handleGetShareAsset(request, env, m[1]!, m[2]!)
+      }
+    }
+    // GET /shares/<slug>/data/<...> — sibling-file data proxy for
+    // HTML pages that declared `<meta huozi:share-include="a.jsonl,...">`.
+    // Only paths listed in that meta are reachable; everything else 403s.
+    {
+      const m = url.pathname.match(
+        /^\/shares\/([a-z0-9][a-z0-9-]{1,38}[a-z0-9])\/data\/(.+)$/,
+      )
+      if (m) {
+        return handleGetShareData(request, env, m[1]!, m[2]!)
       }
     }
 

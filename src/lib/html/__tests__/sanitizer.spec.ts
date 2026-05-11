@@ -54,14 +54,20 @@ describe("processHtmlDirect — link & asset rewriting", () => {
     expect(matches.length).toBe(2);
   });
 
-  it("still strips <script> for security", async () => {
+  it("preserves inline <script> but strips <script src=...>", async () => {
+    // Documented sandbox contract: inline JS is allowed (dashboards need
+    // it to read sibling files); external src is blocked (validator
+    // already warns about these). on* handlers / javascript: URLs are
+    // neutralized by the same pipeline — markup-level XSS stays closed.
     const input = `<body>
       <link rel="stylesheet" href="/__assets__/x.css">
-      <script>alert(1)</script>
+      <script>const x = 1;</script>
+      <script src="https://evil.example.com/bad.js"></script>
       <p>hi</p>
     </body>`;
     const { html } = await processHtmlDirect(input, { assetBase: "/p/xyz" });
-    expect(html).not.toContain("<script");
+    expect(html).toContain("const x = 1");
+    expect(html).not.toContain("evil.example.com");
     expect(html).toContain('href="/p/xyz/a/x.css"');
   });
 });

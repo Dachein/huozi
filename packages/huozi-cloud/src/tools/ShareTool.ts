@@ -73,7 +73,18 @@ Usage:
 - Optional \`expires_in_seconds\`: positive integer. After that many seconds the link returns not-found. Omit for a permanent link.
 - Slugs are always server-generated (10-char random). There is no custom-slug option — the URL shape is uniform across Web and Agent callers.
 - Live-mode: the URL tracks the file. Editing the file updates what visitors see. Deleting the file returns \`file_no_longer_exists\`.
-- To remove a share, call the owner revoke endpoint or use the /workspace/shares page.`
+- To remove a share, call the owner revoke endpoint or use the /workspace/shares page.
+
+Custom HTML dashboards that read Collection / csv / json siblings:
+- The shared HTML can declare data files it wants to read at runtime:
+    <meta name="huozi:share-include" content="threads.jsonl,retros.jsonl">
+  Each path resolves relative to the HTML's own directory.
+- The data is served at /p/<slug>/d/<path>. Build the URL from
+  location.pathname (the page URL has no trailing slash, so plain
+  './threads.jsonl' will 404):
+    const base = location.pathname.replace(/\\/$/, '') + '/d/';
+    const r = await fetch(base + 'threads.jsonl');
+- Only files in the include list are reachable; everything else 403s.`
 }
 
 export interface ShareToolDeps {
