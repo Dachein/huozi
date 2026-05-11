@@ -69,18 +69,9 @@ export const FORMAT_ASSETS: Record<HuoziFormat, FormatAssets> = {
  * authors re-pinning.
  */
 export const BUNDLES: Record<string, BundleSpec> = {
-  // ─── Tier 1 ─────────────────────────────────────────────────────
-  mermaid: {
-    scripts: ["/lib/mermaid-10.9.4.min.js"],
-    init: `if (window.mermaid) {
-  window.mermaid.initialize({
-    startOnLoad: true,
-    theme: 'default',
-    securityLevel: 'loose',
-    flowchart: { useMaxWidth: true, curve: 'basis' }
-  });
-}`,
-  },
+  // ─── Tier 1 (auto-init — platform runs init for the author) ─────
+  // For Tier 1 you only write the markup; the init shim wires
+  // everything in DOMContentLoaded.
   highlight: {
     scripts: ["/lib/highlight-11.9.0.min.js"],
     css: "/lib/highlight-github-11.9.0.min.css",
@@ -119,13 +110,34 @@ export const BUNDLES: Record<string, BundleSpec> = {
 
   // ─── Tier 2 (manual init — author writes the wiring) ───────────
   // Author owns the DOM container + init call. We just guarantee the
-  // global is available (window.echarts here). Same `<meta huozi:bundle
-  // ="echarts">` opt-in as Tier 1 libs; difference is no auto-init.
+  // global is available. Same `<meta huozi:bundle="...">` opt-in as
+  // Tier 1; difference is no auto-init — gives authors theme / config
+  // control, and avoids surprising side effects on inert markup.
+  mermaid: {
+    // Moved from Tier 1 → Tier 2 so authors can pass their own
+    // `mermaid.initialize({...})` (theme, securityLevel, etc.) without
+    // fighting a default. Call `mermaid.run()` after init to render
+    // `<pre class="mermaid">` blocks.
+    scripts: ["/lib/mermaid-10.9.4.min.js"],
+  },
   echarts: {
     scripts: ["/lib/echarts-5.5.1.min.js"],
   },
-  // uplot, chartjs, vega-lite — keys still reserved below; will gain
-  // entries here as we add their bundles.
+  uplot: {
+    scripts: ["/lib/uplot-1.6.31.iife.min.js"],
+    css: "/lib/uplot-1.6.31.min.css",
+  },
+  "vega-lite": {
+    // Vega-Lite needs vega + vega-lite + vega-embed loaded in order.
+    // vega-embed is the typical entry point: `vegaEmbed(el, spec)`.
+    scripts: [
+      "/lib/vega-5.30.0.min.js",
+      "/lib/vega-lite-5.21.0.min.js",
+      "/lib/vega-embed-6.26.0.min.js",
+    ],
+  },
+  // chartjs — key still reserved below; will gain an entry here when
+  // bundled.
 };
 
 /**
@@ -138,9 +150,7 @@ export const KNOWN_BUNDLE_KEYS: ReadonlySet<string> = new Set([
   // Tier 2 reserved keys — recognized by validator before their runtime
   // is wired, so authors who declare them aren't flagged with a typo
   // warning. Each lands in BUNDLES (above) once its JS file ships.
-  "uplot",
   "chartjs",
-  "vega-lite",
 ]);
 
 /**

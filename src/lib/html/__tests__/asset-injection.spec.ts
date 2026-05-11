@@ -20,7 +20,10 @@ describe("processHtmlDirect — platform asset injection", () => {
     expect(out.html).not.toContain("/lib/huozi-layout-");
   });
 
-  it("injects mermaid bundle script + init shim when declared", async () => {
+  it("injects mermaid bundle script (Tier 2 — no auto-init)", async () => {
+    // Mermaid was moved Tier 1 → Tier 2 so authors can pass their own
+    // `initialize({...})` config (theme, securityLevel) and call
+    // `mermaid.run()` when ready. Platform just guarantees the global.
     const html = `<!doctype html>
       <html>
       <head>
@@ -33,9 +36,8 @@ describe("processHtmlDirect — platform asset injection", () => {
     expect(out.html).toContain(
       '<script defer src="/lib/mermaid-10.9.4.min.js"></script>',
     );
-    // Init shim is appended as inline <script>, contains the auto-init source.
-    expect(out.html).toContain("mermaid.initialize");
-    expect(out.html).toContain("DOMContentLoaded");
+    // No auto-init shim for Tier 2.
+    expect(out.html).not.toContain("mermaid.initialize");
   });
 
   it("injects multiple bundles in declared order with dedup", async () => {

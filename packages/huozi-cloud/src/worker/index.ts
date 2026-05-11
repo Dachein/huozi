@@ -227,8 +227,17 @@ HTML — sandbox & libraries
   - For common libraries, declare them in <head> instead:
         <meta name="huozi:bundle" content="mermaid,echarts">
     Known keys (huozi auto-injects same-origin):
-      Tier 1 (auto-init): mermaid · highlight · katex · marked
-      Tier 2 (manual init): echarts · uplot · chartjs · vega-lite
+      Tier 1 (auto-init): highlight · katex · marked
+        Author writes only the markup; platform runs init on
+        DOMContentLoaded.
+      Tier 2 (manual init): mermaid · echarts · uplot · vega-lite
+        Platform just exposes the global (window.mermaid, window.echarts,
+        window.uPlot, window.vegaEmbed). Author owns the DOM container
+        and the init call. For mermaid that's:
+          mermaid.initialize({ startOnLoad: false, theme: 'default' });
+          mermaid.run();
+      Reserved (not yet wired — declaring it is a no-op, validator
+      still accepts the key): chartjs
     Pages without huozi:bundle ship zero JS.
   - Optional: <meta name="huozi:theme" content="light|dark|auto">,
               <meta name="huozi:font"  content="sans|serif|mono">
