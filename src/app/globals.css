@@ -214,12 +214,13 @@
   --read-strong-weight: 700;
   --read-strong-color: var(--foreground);
   --read-code-size: 0.875rem;
-  /* Inline code: yellow tile + black text. INVERTED from the prior
-   * black-stamp + yellow-text — that was too heavy when a paragraph
-   * has many inline codes. Block-level code in amber stays the heavy
-   * black stamp; inline drops to a "yellow tile" reading as the
-   * lighter sibling. */
-  --read-code-bg: var(--muted);
+  /* Inline code: 50%-alpha yellow tile + black text. Full --muted
+   * yellow (#ffbf00) at 100% read as "too deep" when 8-10 tiles
+   * appear in one paragraph (retro logs etc.). 50% alpha softens
+   * the wash so the tile reads as a tint, not a saturated block,
+   * while the 1px black border still anchors the shape. Code
+   * BLOCKS in amber keep the heavy black stamp. */
+  --read-code-bg: color-mix(in srgb, var(--muted) 50%, transparent);
   --read-code-color: var(--foreground);
   --read-code-border-color: var(--border);
 
