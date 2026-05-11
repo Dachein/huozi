@@ -68,6 +68,26 @@
   /* Decoration toggles — see body::before and `.animate-*` rules below */
   --decoration-paper-grain: 0.03;
   --decoration-ink-animations: 1;
+
+  /* Reading tokens (--read-*) — type scale + weights for content
+   * rendering (md / csv / jsonl / html prose). Separate tier from
+   * chrome tokens above: chrome describes the app shell, reading
+   * tokens describe how documents look INSIDE the shell. Themes
+   * override these to express their reading personality. */
+  --read-h1-size: 1.875rem;
+  --read-h1-weight: 600;
+  --read-h1-line-height: 1.25;
+  --read-h2-size: 1.5rem;
+  --read-h2-weight: 600;
+  --read-h2-line-height: 1.3;
+  --read-h3-size: 1.25rem;
+  --read-h3-weight: 600;
+  --read-h3-line-height: 1.4;
+  --read-body-size: 1rem;
+  --read-body-weight: 400;
+  --read-body-line-height: 1.75;
+  --read-strong-weight: 700;
+  --read-code-size: 0.875rem;
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -148,23 +168,32 @@
 
   --decoration-paper-grain: 0;
   --decoration-ink-animations: 0;
+
+  /* Reading tokens — Amber: slightly compressed scale, bold (not
+   * extrabold) headings; CJK text gets dense at 800, 700 reads
+   * cleanly. Body at 600 matches neobrutalism Amber base; strong
+   * lifts to 800 to differentiate from body inside paragraphs. */
+  --read-h1-size: 1.625rem;
+  --read-h1-weight: 700;
+  --read-h1-line-height: 1.25;
+  --read-h2-size: 1.375rem;
+  --read-h2-weight: 700;
+  --read-h2-line-height: 1.3;
+  --read-h3-size: 1.125rem;
+  --read-h3-weight: 700;
+  --read-h3-line-height: 1.4;
+  --read-body-size: 1rem;
+  --read-body-weight: 600;
+  --read-body-line-height: 1.7;
+  --read-strong-weight: 800;
+  --read-code-size: 0.875rem;
 }
 
-/* Amber theme: heavy weights — 600 body / 800 headings, mirroring
- * the neobrutalism.dev Amber convention (--font-weight-base / heading
- * in the reference CSS). Scoped so the other themes keep their normal
- * weights. */
+/* Amber theme: heavy body weight (600). Headings are handled by the
+ * read-token-driven .prose rules below — no global h1..h6 weight
+ * override here (the prior 800 was too heavy on CJK headings). */
 [data-theme="brutal-mono"] body {
-  font-weight: 600;
-}
-
-[data-theme="brutal-mono"] h1,
-[data-theme="brutal-mono"] h2,
-[data-theme="brutal-mono"] h3,
-[data-theme="brutal-mono"] h4,
-[data-theme="brutal-mono"] h5,
-[data-theme="brutal-mono"] h6 {
-  font-weight: 800;
+  font-weight: var(--read-body-weight);
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -227,6 +256,25 @@
 
   --decoration-paper-grain: 0;
   --decoration-ink-animations: 0;
+
+  /* Reading tokens — Office: smaller scale + tighter line-height,
+   * lighter weights. Productivity-suite reading convention prizes
+   * density and scannability over the relaxed long-form rhythm of
+   * the paper theme. */
+  --read-h1-size: 1.5rem;
+  --read-h1-weight: 600;
+  --read-h1-line-height: 1.25;
+  --read-h2-size: 1.25rem;
+  --read-h2-weight: 600;
+  --read-h2-line-height: 1.3;
+  --read-h3-size: 1.0625rem;
+  --read-h3-weight: 600;
+  --read-h3-line-height: 1.4;
+  --read-body-size: 0.9375rem;
+  --read-body-weight: 400;
+  --read-body-line-height: 1.6;
+  --read-strong-weight: 600;
+  --read-code-size: 0.8125rem;
 }
 
 /* Structural override: zero out all border-radii under brutal-mono.
@@ -379,15 +427,17 @@
   border-right-color: var(--border) !important;
 }
 
-/* Brutal-mono: top app header = surface-elevated (white).
+/* Amber: top app header = solid black strip.
  *
- * Cream-on-cream between AppHeader and the main content reads flat;
- * Slock's reference uses a clear white strip at the top so the
- * yellow sidebar and pink/white interactive blocks have a neutral
- * frame above them. The huozi pill sits inside this white strip. */
+ * Black header anchors the visual hierarchy: amber sidebar below,
+ * black bar above, with the amber-tile workspace pill sitting on
+ * the black — strongest warm-on-dark pop available in the palette.
+ * Non-pill content inside the header (icons, secondary buttons)
+ * inherits a light cream foreground so readable against the black. */
 [data-theme="brutal-mono"] .huozi-app-header {
-  background: var(--surface-elevated) !important;
-  border-bottom-width: var(--border-width);
+  background: var(--foreground) !important;
+  color: var(--background);
+  border-bottom-width: var(--border-width-strong);
   border-bottom-color: var(--border);
 }
 
@@ -1004,6 +1054,68 @@ body::before {
 .katex-display {
   overflow-x: auto;
   padding: 0.5rem 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Reading-token consumers — wire .prose and .prose-huozi to the
+ * --read-* token tier defined per theme above.
+ *
+ * Why this section: Tailwind's typography plugin emits its own h1/
+ * h2/h3/p/strong/code styles via `:where(...)` selectors (specificity
+ * 0,1,1). These rules target the same elements with 0,1,1 specificity
+ * but appear later in source order, so they win without `!important`.
+ * Themes drive sizes/weights/line-heights by overriding --read-*
+ * tokens in their [data-theme] block; the rules below stay theme-
+ * agnostic. Same vocabulary will be extended to csv-grid cells and
+ * jsonl collection cards in a follow-up — token names are reserved.
+ * ───────────────────────────────────────────────────────────────────── */
+
+.prose h1, .prose-huozi h1 {
+  font-size: var(--read-h1-size);
+  font-weight: var(--read-h1-weight);
+  line-height: var(--read-h1-line-height);
+}
+
+.prose h2, .prose-huozi h2 {
+  font-size: var(--read-h2-size);
+  font-weight: var(--read-h2-weight);
+  line-height: var(--read-h2-line-height);
+}
+
+.prose h3, .prose-huozi h3 {
+  font-size: var(--read-h3-size);
+  font-weight: var(--read-h3-weight);
+  line-height: var(--read-h3-line-height);
+}
+
+/* h4/h5/h6 inherit h3 weight by default — most documents stop at h3,
+ * deeper levels are auxiliary structure and don't need their own
+ * scale slot. Themes that want differentiated h4+ can add it later. */
+.prose h4, .prose h5, .prose h6,
+.prose-huozi h4, .prose-huozi h5, .prose-huozi h6 {
+  font-weight: var(--read-h3-weight);
+}
+
+.prose p, .prose-huozi p,
+.prose li, .prose-huozi li {
+  font-size: var(--read-body-size);
+  font-weight: var(--read-body-weight);
+  line-height: var(--read-body-line-height);
+}
+
+.prose strong, .prose-huozi strong {
+  font-weight: var(--read-strong-weight);
+}
+
+.prose code, .prose-huozi code {
+  font-size: var(--read-code-size);
+}
+
+.prose pre code, .prose-huozi pre code {
+  /* code blocks: size already comes from --read-code-size; restore
+   * weight to base so syntax-highlighted code doesn't get the bold
+   * body-strong weight from the rule above. */
+  font-weight: 400;
 }
 
 /* ─────────────────────────────────────────────────────────────────────
