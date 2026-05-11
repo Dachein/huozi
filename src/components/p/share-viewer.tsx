@@ -136,6 +136,19 @@ function renderUnlocked(unlocked: ShareContent) {
 function renderInitial(props: ShareViewerProps) {
   const kind = kindFor(props.filePath, Boolean(props.prerenderedHtml));
   const fullscreenMode = fullscreenModeFor(props.filePath);
+  // HTML files own their typography via the author's <style> block — Tailwind
+  // `prose` is for plain markdown output where there's no inherent CSS to
+  // honor. Doubling them up (`prose` over a styled .container) inflates h1,
+  // mangles `<pre>` padding, and fights margins. Only apply `prose` for
+  // markdown (where renderMarkdown emits unstyled HTML).
+  const ext = (() => {
+    const i = props.filePath.lastIndexOf(".");
+    return i < 0 ? "" : props.filePath.slice(i + 1).toLowerCase();
+  })();
+  const isHtmlAsset = ext === "html" || ext === "htm";
+  const proseClass = isHtmlAsset
+    ? "huozi-html-host"
+    : "prose prose-sm sm:prose-base max-w-none break-words huozi-html-host";
 
   return (
     <FullscreenContent
@@ -163,7 +176,7 @@ function renderInitial(props: ShareViewerProps) {
         )
       ) : kind === "prose" && props.prerenderedHtml ? (
         <article
-          className="prose prose-sm sm:prose-base max-w-none break-words huozi-html-host"
+          className={proseClass}
           {...(props.htmlFormat === "deck"
             ? { "data-huozi-rotate-portrait": "" }
             : {})}
