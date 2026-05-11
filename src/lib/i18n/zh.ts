@@ -290,7 +290,7 @@ export const zh = {
   "menu.theme": "主题",
   "theme.default.name": "纸",
   "theme.brutalMono.name": "琥珀",
-  "theme.office.name": "办",
+  "theme.office.name": "简素",
   "theme.applying": "应用主题",
   "theme.confirm.title": "切换风格",
   "theme.confirm.body": "切换到「{name}」？页面会刷新以应用新风格。",
