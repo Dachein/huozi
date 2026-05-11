@@ -71,59 +71,69 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────
- * Reference theme: brutal-mono
+ * Reference theme: brutal-mono (Amber)
  *
- * Visual reference: neo-brutalist mono — saturated cadmium yellow
- * panels, hot-pink CTA, hard right angles, hard offset shadows,
- * JetBrains Mono throughout. Lines are straight; nothing is rounded
- * (avatars / circle dots opt back in via `rounded-full` carve-out).
+ * Visual reference: neobrutalism Amber palette — pale buttercream
+ * canvas, deep amber main panel, black borders, hard 4×4 offset
+ * shadows, sans-serif at heavy weights (600/800). Lines are straight;
+ * nothing is rounded (avatars / circle dots opt back in via
+ * `rounded-full` carve-out).
+ *
+ * Internal key kept as `brutal-mono` to preserve existing cookies.
+ * User-facing label is "Amber / 琥珀".
  *
  * Used to validate the contract — if a real reskin needs a knob this
  * theme can't reach, that knob is missing from the contract.
  * ───────────────────────────────────────────────────────────────────── */
 [data-theme="brutal-mono"] {
-  /* Color — neo-brutalist v3, Slock-faithful palette + huozi accent.
+  /* Color — neobrutalism Amber, huozi-flavored.
    *
-   * Strategy: replicate Slock's signature yellow panel + pink-active
-   * + white-hover convention, but render every interactive state as
-   * a discrete BLOCK (1px black border + offset shadow) rather than
-   * a flat fill. This goes harder on brutalism than Slock's actual
-   * UI (which uses flat fills) — the user wants "blocks, not fills"
-   * as the interactive grammar.
+   * Strategy: amber-on-cream main palette with a periwinkle pop for
+   * active blocks. Every interactive state still renders as a discrete
+   * BLOCK (border + offset shadow) — that grammar carries from the
+   * earlier brutal-mono iteration; only the palette changed.
    *
-   * background: cream-white (#fff8e1) — page canvas; the right-side
-   *             main content stays here.
-   * muted:      vivid cadmium yellow (#ffd60a) — panel surface
-   *             (menus, sidebar). Black text on it.
-   * accent:     huozi's Paris Review red (#c4594a) — kept from v2.
-   *             Stays for icons, links, brand glyph color.
-   * destructive: bright alarm red (#ef4444).
-   * info:       sky cyan (#7dd3fc) — reserved for runtime tags.
+   * background:    pale buttercream (#fbf6e0 ≈ oklch 96.22 0.057 95.6)
+   *                — page canvas; main content stays here.
+   * muted:         deep amber (#ffbf00, chart-1 amber) — panel surface
+   *                (menus, sidebar). Black text on it.
+   * accent:        huozi's Paris Review red (#c4594a) — kept as the
+   *                brand anchor across all three themes. Icons, links,
+   *                brand glyph color.
+   * destructive:   bright alarm red (#ef4444).
+   * info:          chart-2 bright blue (#0099ff) — runtime tags.
+   * surface-active: periwinkle (#7a83ff, chart-5) — pops as the
+   *                 selected/active block, color-wheel complement to
+   *                 amber (replaces the prior hot pink #ff85a2).
    *
-   * State surfaces (not tokenized — brutal-specific aesthetic, see
-   * `.huozi-menu-item` / `.huozi-tile` override blocks below):
-   *   active interactive: pink  #ff85a2 + 1px black border + 2x2 shadow
-   *   hover  interactive: white #ffffff + 1px black border + 2x2 shadow */
-  --background: #fff8e1;
+   * State surfaces (not tokenized — see `.huozi-row` / `.huozi-tile`
+   * override blocks below):
+   *   active interactive: periwinkle + 2px black border + 2x2 shadow
+   *   hover  interactive: white      + 2px black border + 2x2 shadow */
+  --background: #fbf6e0;
   --foreground: #000000;
-  --muted: #ffd60a;
+  --muted: #ffbf00;
   --muted-foreground: #000000;
   --border: #000000;
   --primary: #000000;
-  --primary-foreground: #fff8e1;
+  --primary-foreground: #fbf6e0;
   --accent: #c4594a;
-  --accent-foreground: #fff8e1;
+  --accent-foreground: #fbf6e0;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --info: #7dd3fc;
-  --info-foreground: #000000;
+  --info: #0099ff;
+  --info-foreground: #ffffff;
   --surface-elevated: #ffffff;
-  --surface-active: #ff85a2;
+  --surface-active: #7a83ff;
 
-  --font-sans-stack: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  /* Fonts — Amber reference uses heavy-weight sans, not mono. The
+   * theme key stays `brutal-mono` for cookie continuity but the
+   * stack is sans now. `--font-mono-stack` keeps JetBrains Mono so
+   * code blocks are still mono. */
+  --font-sans-stack: var(--font-geist-sans);
   --font-mono-stack: "JetBrains Mono", ui-monospace, Menlo, monospace;
-  --font-serif-stack: "JetBrains Mono", ui-monospace, Menlo, monospace;
-  --font-display-stack: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --font-serif-stack: var(--font-geist-sans);
+  --font-display-stack: var(--font-geist-sans);
 
   --radius: 0;
   --radius-sm: 0;
@@ -138,6 +148,23 @@
 
   --decoration-paper-grain: 0;
   --decoration-ink-animations: 0;
+}
+
+/* Amber theme: heavy weights — 600 body / 800 headings, mirroring
+ * the neobrutalism.dev Amber convention (--font-weight-base / heading
+ * in the reference CSS). Scoped so the other themes keep their normal
+ * weights. */
+[data-theme="brutal-mono"] body {
+  font-weight: 600;
+}
+
+[data-theme="brutal-mono"] h1,
+[data-theme="brutal-mono"] h2,
+[data-theme="brutal-mono"] h3,
+[data-theme="brutal-mono"] h4,
+[data-theme="brutal-mono"] h5,
+[data-theme="brutal-mono"] h6 {
+  font-weight: 800;
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -246,7 +273,7 @@
 
 [data-theme="brutal-mono"] .huozi-app-trigger,
 [data-theme="brutal-mono"] .huozi-app-trigger * {
-  color: #ffd60a;
+  color: var(--muted);
 }
 
 /* Hover / open state: lift via increased shadow offset, no other
@@ -445,7 +472,7 @@
 [data-theme="brutal-mono"] .prose pre,
 [data-theme="brutal-mono"] .prose-huozi pre {
   background: var(--foreground) !important;
-  color: #ffd60a !important;
+  color: var(--muted) !important;
   border: var(--border-width-strong) solid var(--border) !important;
   box-shadow: var(--shadow-block) !important;
 }
@@ -454,7 +481,7 @@
 [data-theme="brutal-mono"] .prose :not(pre) > code,
 [data-theme="brutal-mono"] .prose-huozi :not(pre) > code {
   background: var(--foreground) !important;
-  color: #ffd60a !important;
+  color: var(--muted) !important;
   border: 1px solid var(--border) !important;
   padding: 0.1em 0.4em;
 }

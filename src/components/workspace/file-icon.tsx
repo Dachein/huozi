@@ -61,13 +61,13 @@ const OFFICE_COLOR = {
   jsonl: "#7c3aed",
 } as const;
 
-/* Block (brutal-mono) palette — black outlines on white, with the
- * theme's signature cadmium yellow as the single accent. Stroke
- * widths bump to 1.6 to match the brutal "everything stronger" rule. */
+/* Block (brutal-mono / Amber) palette — black outlines on white,
+ * with the theme's amber main as the single accent. Stroke widths
+ * bump to 1.6 to match the brutal "everything stronger" rule. */
 const BLOCK = {
   ink: "#000000",
   paper: "#ffffff",
-  accent: "#ffd60a",
+  accent: "#ffbf00",
 } as const;
 
 const FOLDER_MARKER = ".huozi-keep";
