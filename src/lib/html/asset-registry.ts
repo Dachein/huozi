@@ -118,9 +118,14 @@ export const BUNDLES: Record<string, BundleSpec> = {
   },
 
   // ─── Tier 2 (manual init — author writes the wiring) ───────────
-  // Not yet wired (script files not bundled). Validation already accepts
-  // these keys; once we ship the JS files this becomes live.
-  // echarts, uplot, chartjs, vega-lite.
+  // Author owns the DOM container + init call. We just guarantee the
+  // global is available (window.echarts here). Same `<meta huozi:bundle
+  // ="echarts">` opt-in as Tier 1 libs; difference is no auto-init.
+  echarts: {
+    scripts: ["/lib/echarts-5.5.1.min.js"],
+  },
+  // uplot, chartjs, vega-lite — keys still reserved below; will gain
+  // entries here as we add their bundles.
 };
 
 /**
@@ -130,10 +135,9 @@ export const BUNDLES: Record<string, BundleSpec> = {
  */
 export const KNOWN_BUNDLE_KEYS: ReadonlySet<string> = new Set([
   ...Object.keys(BUNDLES),
-  // Tier 2 reserved keys — recognized by validator even before runtime
+  // Tier 2 reserved keys — recognized by validator before their runtime
   // is wired, so authors who declare them aren't flagged with a typo
-  // warning. Will gain script entries above as we add their bundles.
-  "echarts",
+  // warning. Each lands in BUNDLES (above) once its JS file ships.
   "uplot",
   "chartjs",
   "vega-lite",
