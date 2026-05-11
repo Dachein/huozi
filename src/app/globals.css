@@ -256,31 +256,32 @@
  * See `docs/theme-contract.md` §4 for the pattern's contract.
  * ───────────────────────────────────────────────────────────────────── */
 
-/* Brutal-mono: workspace trigger as a stamped Slock-style pill.
- * Black background, yellow text, hard offset shadow, small rotation
- * for the "stamp" feel. The yellow is hardcoded here (not from
- * --muted) because brutal-mono v2 moved --muted to deep purple for
- * panel surfaces — but the pill is the brand-yellow anchor and
- * needs to stay yellow as a fixed visual mark. */
+/* Amber: workspace trigger as a flat amber tile.
+ *
+ * Replaces the prior Slock-style stamped pill (black fill, amber
+ * text, -1.5° rotation, "ink stamp" feel) with neobrutalism Amber's
+ * primary-button pattern — amber fill, black text + border, flat
+ * geometry, hard offset shadow. No rotation; lines stay straight.
+ * The pill still anchors the header as the brand mark, but in the
+ * Amber dialect ("a bright tile") rather than the Slock dialect
+ * ("a stamped sigil"). */
 [data-theme="brutal-mono"] .huozi-app-trigger {
-  background: var(--foreground);
+  background: var(--muted);
   border: var(--border-width-strong) solid var(--border);
   box-shadow: var(--shadow);
-  padding: 0.3rem 0.7rem;
-  transform: rotate(-1.5deg);
-  transform-origin: center;
+  padding: 0.35rem 0.85rem;
 }
 
 [data-theme="brutal-mono"] .huozi-app-trigger,
 [data-theme="brutal-mono"] .huozi-app-trigger * {
-  color: var(--muted);
+  color: var(--foreground);
 }
 
-/* Hover / open state: lift via increased shadow offset, no other
- * change. Pills don't change color on interaction in Slock-style. */
+/* Hover / open: lift via larger shadow offset only — the Amber
+ * primary-button convention. Fill / border / position stay put. */
 [data-theme="brutal-mono"] .huozi-app-trigger:hover,
 [data-theme="brutal-mono"] .huozi-app-trigger[aria-expanded="true"] {
-  background: var(--foreground);
+  background: var(--muted);
   box-shadow: var(--shadow-block);
 }
 
