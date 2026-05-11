@@ -565,11 +565,7 @@ function EntityCard({
     <button
       type="button"
       onClick={() => onDrill(entity.id)}
-      className={`text-left rounded-lg border bg-background p-3 transition-colors hover:bg-muted/30 ${
-        isDeleted
-          ? "border-border/30 opacity-60"
-          : "border-border/60"
-      }`}
+      className={`huozi-collection-card ${isDeleted ? "opacity-60" : ""}`}
     >
       <div className="flex items-center gap-3 mb-2">
         {avatar && (

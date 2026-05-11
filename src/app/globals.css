@@ -86,8 +86,24 @@
   --read-body-size: 1rem;
   --read-body-weight: 400;
   --read-body-line-height: 1.75;
-  --read-strong-weight: 700;
+  /* Strong weight dropped from 700 → 600 — CJK glyphs at 700 read too
+   * dense in body copy. 600 still differentiates strong from body (400)
+   * without going inky. --read-strong-color stays at foreground for now,
+   * but the token is reserved so a future theme can lean on color
+   * contrast instead of weight to emphasize strong. */
+  --read-strong-weight: 600;
+  --read-strong-color: var(--foreground);
   --read-code-size: 0.875rem;
+
+  /* Reader-area tokens — control the prose container's reading width
+   * and inset. Themes can express different reading personalities:
+   * paper wants a narrow long-form column, office prefers wider for
+   * scannability. csv/html/collection-card containers DO NOT consume
+   * these — their framing tokens are chrome-side (border, shadow,
+   * radius) read directly. */
+  --reader-max-width: 680px;
+  --reader-padding-x: 1rem;
+  --reader-padding-y: 2rem;
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -185,8 +201,17 @@
   --read-body-size: 1rem;
   --read-body-weight: 600;
   --read-body-line-height: 1.7;
-  --read-strong-weight: 800;
+  /* Amber body sits at 600 already; strong drops 800 → 700 to keep
+   * differentiation without going inky on dense CJK. */
+  --read-strong-weight: 700;
+  --read-strong-color: var(--foreground);
   --read-code-size: 0.875rem;
+
+  /* Reader area — slightly wider + tighter inset to match neobrutalism
+   * Amber's content-dense feel. */
+  --reader-max-width: 760px;
+  --reader-padding-x: 1.25rem;
+  --reader-padding-y: 1.5rem;
 }
 
 /* Amber theme: heavy body weight (600). Headings are handled by the
@@ -273,8 +298,18 @@
   --read-body-size: 0.9375rem;
   --read-body-weight: 400;
   --read-body-line-height: 1.6;
-  --read-strong-weight: 600;
+  /* Office is already the lightest theme; strong drops 600 → 500 so
+   * emphasis is subtle and matches the productivity-suite convention
+   * (semantic-bold rather than visual-thick). */
+  --read-strong-weight: 500;
+  --read-strong-color: var(--foreground);
   --read-code-size: 0.8125rem;
+
+  /* Reader area — productivity grids/docs read wider than long-form
+   * paper; padding stays compact. */
+  --reader-max-width: 880px;
+  --reader-padding-x: 1rem;
+  --reader-padding-y: 1.5rem;
 }
 
 /* Structural override: zero out all border-radii under brutal-mono.
@@ -304,17 +339,14 @@
  * See `docs/theme-contract.md` §4 for the pattern's contract.
  * ───────────────────────────────────────────────────────────────────── */
 
-/* Amber: workspace trigger as a flat amber tile.
+/* Amber: workspace trigger as a black stamp on the cream header.
  *
- * Replaces the prior Slock-style stamped pill (black fill, amber
- * text, -1.5° rotation, "ink stamp" feel) with neobrutalism Amber's
- * primary-button pattern — amber fill, black text + border, flat
- * geometry, hard offset shadow. No rotation; lines stay straight.
- * The pill still anchors the header as the brand mark, but in the
- * Amber dialect ("a bright tile") rather than the Slock dialect
- * ("a stamped sigil"). */
+ * Black fill + amber-yellow type + thick border + hard offset shadow.
+ * Sits on the cream header (the header strip is NOT black — only this
+ * pill is). Reads as the brand mark / "ink stamp" against the light
+ * canvas; no rotation, lines stay straight. */
 [data-theme="brutal-mono"] .huozi-app-trigger {
-  background: var(--muted);
+  background: var(--foreground);
   border: var(--border-width-strong) solid var(--border);
   box-shadow: var(--shadow);
   padding: 0.35rem 0.85rem;
@@ -322,14 +354,13 @@
 
 [data-theme="brutal-mono"] .huozi-app-trigger,
 [data-theme="brutal-mono"] .huozi-app-trigger * {
-  color: var(--foreground);
+  color: var(--muted);
 }
 
-/* Hover / open: lift via larger shadow offset only — the Amber
- * primary-button convention. Fill / border / position stay put. */
+/* Hover / open: lift via larger shadow offset only — fill stays black. */
 [data-theme="brutal-mono"] .huozi-app-trigger:hover,
 [data-theme="brutal-mono"] .huozi-app-trigger[aria-expanded="true"] {
-  background: var(--muted);
+  background: var(--foreground);
   box-shadow: var(--shadow-block);
 }
 
@@ -427,16 +458,17 @@
   border-right-color: var(--border) !important;
 }
 
-/* Amber: top app header = solid black strip.
+/* Amber: top app header = cream strip with a black-stamp pill on it.
  *
- * Black header anchors the visual hierarchy: amber sidebar below,
- * black bar above, with the amber-tile workspace pill sitting on
- * the black — strongest warm-on-dark pop available in the palette.
- * Non-pill content inside the header (icons, secondary buttons)
- * inherits a light cream foreground so readable against the black. */
+ * The header surface itself stays cream (--background) so the page
+ * top reads light, matching the buttercream canvas below. The
+ * black anchor lives ONLY in the workspace pill (.huozi-app-trigger
+ * above), which reads as a sharp "ink stamp" against the cream
+ * strip. Non-pill header content (icons, secondary buttons) keeps
+ * dark foreground so it's legible on cream. */
 [data-theme="brutal-mono"] .huozi-app-header {
-  background: var(--foreground) !important;
-  color: var(--background);
+  background: var(--background);
+  color: var(--foreground);
   border-bottom-width: var(--border-width-strong);
   border-bottom-color: var(--border);
 }
@@ -576,7 +608,10 @@
  * Glide DataGrid renders to a canvas — its colors are JS-themed in
  * `csv-grid.tsx` via the `theme` prop (which reads CSS tokens at
  * mount). The wrapper border + shadow here gives the whole grid the
- * same block silhouette as other surfaces. */
+ * same block silhouette as other surfaces. Kept alongside the base
+ * `.huozi-csv-grid` rule below: amber's box-shadow value is the same
+ * --shadow token as the base, but the per-theme rule documents intent
+ * and stays in place for any future amber-only tweak. */
 [data-theme="brutal-mono"] .huozi-csv-grid {
   border: var(--border-width) solid var(--border) !important;
   box-shadow: var(--shadow) !important;
@@ -939,7 +974,8 @@ body::before {
 .delay-800 { animation-delay: 800ms; }
 .delay-1000 { animation-delay: 1000ms; }
 
-/* Published page prose styling */
+/* Published page prose styling. Container dimensions are token-driven
+ * (--reader-*) so each theme controls reading width + inset. */
 .prose-huozi {
   --tw-prose-body: var(--foreground);
   --tw-prose-headings: var(--foreground);
@@ -947,9 +983,9 @@ body::before {
   --tw-prose-code: var(--foreground);
   --tw-prose-pre-bg: var(--muted);
 
-  max-width: 680px;
+  max-width: var(--reader-max-width);
   margin: 0 auto;
-  padding: 2rem 1rem;
+  padding: var(--reader-padding-y) var(--reader-padding-x);
 }
 
 .prose-huozi pre {
@@ -1057,6 +1093,66 @@ body::before {
 }
 
 /* ─────────────────────────────────────────────────────────────────────
+ * Renderer-container frames — uniform base rules
+ *
+ * Markdown / CSV / JSONL-collection / HTML all render inside discrete
+ * containers. Each container reads chrome tokens (--border-width,
+ * --border, --radius, --shadow, --surface-elevated) so theme changes
+ * propagate without per-container overrides. The four classes:
+ *
+ *   .prose-huozi          — markdown publish prose host (consumes
+ *                           --reader-* for width + padding above; no
+ *                           outer frame because prose sits on canvas)
+ *   .huozi-csv-grid       — CSV grid wrapper (frame + bg + clip)
+ *   .huozi-collection-card — JSONL collection-view card (frame + bg
+ *                           + inset)
+ *   .huozi-html-host      — HTML embed host (frame + bg)
+ *
+ * Per-theme overrides may still exist above for cases where a theme
+ * wants to express something the chrome tokens don't (e.g. amber's
+ * `!important` to win over Tailwind utilities), but the base values
+ * here are the single source of truth for "what does a content
+ * container look like in this theme".
+ *
+ * Paper picks up frames too (1px border + soft shadow + small radius)
+ * for consistency with amber/office — previously paper csv/html
+ * containers were naked because the per-theme overrides skipped paper.
+ * ───────────────────────────────────────────────────────────────────── */
+
+.huozi-csv-grid {
+  background: var(--surface-elevated);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.huozi-collection-card {
+  background: var(--surface-elevated);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 0.75rem;
+  text-align: left;
+  transition: background-color var(--motion-duration) var(--motion-easing),
+              box-shadow var(--motion-duration) var(--motion-easing);
+}
+
+.huozi-collection-card:hover {
+  /* Subtle tint — full --muted is too saturated in amber (turns the
+   * whole card yellow on hover). 30% blend over surface-elevated reads
+   * as "warmth shift" across all three themes. */
+  background: color-mix(in srgb, var(--muted) 30%, var(--surface-elevated));
+}
+
+.huozi-html-host {
+  background: var(--surface-elevated);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
  * Reading-token consumers — wire .prose and .prose-huozi to the
  * --read-* token tier defined per theme above.
  *
@@ -1105,6 +1201,7 @@ body::before {
 
 .prose strong, .prose-huozi strong {
   font-weight: var(--read-strong-weight);
+  color: var(--read-strong-color);
 }
 
 .prose code, .prose-huozi code {

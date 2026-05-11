@@ -148,7 +148,7 @@ function renderInitial(props: ShareViewerProps) {
   const isHtmlAsset = ext === "html" || ext === "htm";
   const proseClass = isHtmlAsset
     ? "huozi-html-host"
-    : "prose prose-sm sm:prose-base max-w-none break-words huozi-html-host";
+    : "prose prose-sm sm:prose-base max-w-none break-words prose-huozi";
 
   return (
     <FullscreenContent

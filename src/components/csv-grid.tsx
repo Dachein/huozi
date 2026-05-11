@@ -505,7 +505,7 @@ export function CsvGrid({ content, delim = ",", maxHeight = 720 }: CsvGridProps)
 
       <div
         ref={wrapperRef}
-        className={`huozi-csv-grid ${fullscreen ? "flex-1 min-h-0" : ""} relative rounded-lg border border-border overflow-hidden`}
+        className={`huozi-csv-grid ${fullscreen ? "flex-1 min-h-0" : ""} relative`}
         style={fullscreen ? undefined : { height: gridHeight }}
       >
         <DataEditor
