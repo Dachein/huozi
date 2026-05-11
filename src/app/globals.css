@@ -94,6 +94,14 @@
   --read-strong-weight: 600;
   --read-strong-color: var(--foreground);
   --read-code-size: 0.875rem;
+  /* Inline-code tile — light bg + foreground text + hairline border.
+   * All three themes now share this shape (tokenized below). Code
+   * BLOCKS stay per-theme overridden because their visual weight is
+   * deliberate (e.g. amber block = black stamp, paper block = dark
+   * terminal). Only inline tiles are unified here. */
+  --read-code-bg: var(--muted);
+  --read-code-color: var(--foreground);
+  --read-code-border-color: var(--border);
 
   /* Reader-area tokens — control the prose container's reading width
    * and inset. Themes can express different reading personalities:
@@ -206,6 +214,14 @@
   --read-strong-weight: 700;
   --read-strong-color: var(--foreground);
   --read-code-size: 0.875rem;
+  /* Inline code: yellow tile + black text. INVERTED from the prior
+   * black-stamp + yellow-text — that was too heavy when a paragraph
+   * has many inline codes. Block-level code in amber stays the heavy
+   * black stamp; inline drops to a "yellow tile" reading as the
+   * lighter sibling. */
+  --read-code-bg: var(--muted);
+  --read-code-color: var(--foreground);
+  --read-code-border-color: var(--border);
 
   /* Reader area — slightly wider + tighter inset to match neobrutalism
    * Amber's content-dense feel. */
@@ -304,6 +320,11 @@
   --read-strong-weight: 500;
   --read-strong-color: var(--foreground);
   --read-code-size: 0.8125rem;
+  /* Inline code: light-gray tile + dark text. Same shape as paper,
+   * theme-natural with office's neutral chrome. */
+  --read-code-bg: var(--muted);
+  --read-code-color: var(--foreground);
+  --read-code-border-color: var(--border);
 
   /* Reader area — productivity grids/docs read wider than long-form
    * paper; padding stays compact. */
@@ -560,14 +581,12 @@
   box-shadow: var(--shadow-block) !important;
 }
 
-/* Inline code (not the children of <pre>): smaller stamp version. */
-[data-theme="brutal-mono"] .prose :not(pre) > code,
-[data-theme="brutal-mono"] .prose-huozi :not(pre) > code {
-  background: var(--foreground) !important;
-  color: var(--muted) !important;
-  border: 1px solid var(--border) !important;
-  padding: 0.1em 0.4em;
-}
+/* Inline code: now token-driven (see .prose :not(pre) > code base
+ * rule below). Amber inverts from the prior black-stamp to a yellow
+ * tile via --read-code-bg/-color tokens — too many black stamps in
+ * a CJK paragraph read as visual noise. Code BLOCKS above keep the
+ * heavy stamp because their density is one-per-paragraph, not
+ * many-per-line. */
 
 /* Brutal-mono: HTML embed host = white block.
  *
@@ -811,14 +830,9 @@
   box-shadow: none !important;
 }
 
-[data-theme="office"] .prose :not(pre) > code,
-[data-theme="office"] .prose-huozi :not(pre) > code {
-  background: var(--muted) !important;
-  color: var(--foreground) !important;
-  border: var(--border-width) solid var(--border) !important;
-  border-radius: var(--radius-sm);
-  padding: 0.1em 0.4em;
-}
+/* Office inline code: handled by the token-driven base rule below.
+ * Office's --read-code-* tokens already give muted bg + foreground
+ * text + border, which is what the override did with !important. */
 
 /* Selection: light-blue wash, normal foreground. */
 [data-theme="office"] ::selection,
@@ -1020,10 +1034,13 @@ body::before {
 .prose-huozi .hljs-variable { color: #e8e0d0; }
 .prose-huozi .hljs-meta { color: #8b7e6a; }
 
-/* Inline code */
+/* Inline code — token-driven, covers .prose (workspace) and
+ * .prose-huozi (publish) so both consumers behave identically. */
+.prose :not(pre) > code,
 .prose-huozi :not(pre) > code {
-  background: var(--muted);
-  border: 1px solid var(--border);
+  background: var(--read-code-bg);
+  color: var(--read-code-color);
+  border: 1px solid var(--read-code-border-color);
   border-radius: 0.25rem;
   padding: 0.15rem 0.4rem;
   font-size: 0.85em;
