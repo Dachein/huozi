@@ -47,23 +47,73 @@ export function pagerOrientationFor(
 }
 
 const META_RE =
-  /<meta\s+name=["']huozi:format["']\s+content=["']([a-z]+)["']/i;
+  /<meta\s+name=["']huozi:format["']\s+content=["']([a-z]+)["']/gi;
 
 function classRe(format: HuoziFormat): RegExp {
-  return new RegExp(`class=["'][^"']*\\bhuozi-${format}\\b`);
+  return new RegExp(`class=["'][^"']*\\bhuozi-${format}\\b`, "gi");
+}
+
+/**
+ * Build skip-ranges for inert HTML regions: comments, <pre>, <code>,
+ * <style>, <script>. Patterns inside these aren't real HTML — they're
+ * displayed as text (code examples / spec docs that demonstrate the
+ * very syntax we're detecting). Without this, a spec doc that shows
+ * `<body class="huozi-deck">` inside <pre><code> would be falsely
+ * detected as a deck, locking ShareViewer's viewport-pinned mode and
+ * breaking scroll for the long-form prose.
+ */
+function buildSkipRanges(html: string): Array<[number, number]> {
+  const ranges: Array<[number, number]> = [];
+  const sources: RegExp[] = [
+    /<!--[\s\S]*?-->/g,
+    /<pre\b[^>]*>[\s\S]*?<\/pre>/gi,
+    /<code\b[^>]*>[\s\S]*?<\/code>/gi,
+    /<style\b[^>]*>[\s\S]*?<\/style>/gi,
+    /<script\b[^>]*>[\s\S]*?<\/script>/gi,
+  ];
+  for (const src of sources) {
+    const r = new RegExp(src.source, src.flags);
+    let m: RegExpExecArray | null;
+    while ((m = r.exec(html)) !== null) {
+      ranges.push([m.index, m.index + m[0].length]);
+    }
+  }
+  return ranges;
+}
+
+function isInRanges(pos: number, ranges: Array<[number, number]>): boolean {
+  for (const [s, e] of ranges) {
+    if (pos >= s && pos < e) return true;
+  }
+  return false;
 }
 
 export function detectHuoziFormat(html: string): HuoziFormat {
-  // 1. meta tag is the authoritative declaration.
-  const m = html.match(META_RE);
-  if (m) {
-    const v = m[1].toLowerCase();
-    if ((ALL as string[]).includes(v)) return v as HuoziFormat;
+  const skip = buildSkipRanges(html);
+
+  // 1. meta tag is the authoritative declaration. Skip matches inside
+  //    inert regions (the spec doc shows `<meta huozi:format=...>` examples
+  //    inside <pre><code>).
+  const metaRe = new RegExp(META_RE.source, META_RE.flags);
+  let metaMatch: RegExpExecArray | null;
+  while ((metaMatch = metaRe.exec(html)) !== null) {
+    if (isInRanges(metaMatch.index, skip)) continue;
+    const v = metaMatch[1]?.toLowerCase();
+    if (v && (ALL as string[]).includes(v)) return v as HuoziFormat;
   }
+
   // 2. Class sniff (legacy / hand-rolled HTML using a template's class).
+  //    Same skip-ranges — spec docs demonstrate `class="huozi-deck"` in
+  //    code examples and must not self-report as a deck.
   for (const f of ALL) {
-    if (classRe(f).test(html)) return f;
+    const re = classRe(f);
+    let classMatch: RegExpExecArray | null;
+    while ((classMatch = re.exec(html)) !== null) {
+      if (isInRanges(classMatch.index, skip)) continue;
+      return f;
+    }
   }
+
   // 3. Default: standard web. The publish view treats unmarked HTML as a
   //    plain long page — no pager, no auto-rotate, natural extend.
   return "web";
