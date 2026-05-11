@@ -127,17 +127,11 @@ export const BUNDLES: Record<string, BundleSpec> = {
     scripts: ["/lib/uplot-1.6.31.iife.min.js"],
     css: "/lib/uplot-1.6.31.min.css",
   },
-  "vega-lite": {
-    // Vega-Lite needs vega + vega-lite + vega-embed loaded in order.
-    // vega-embed is the typical entry point: `vegaEmbed(el, spec)`.
-    scripts: [
-      "/lib/vega-5.30.0.min.js",
-      "/lib/vega-lite-5.21.0.min.js",
-      "/lib/vega-embed-6.26.0.min.js",
-    ],
-  },
-  // chartjs — key still reserved below; will gain an entry here when
-  // bundled.
+  // vega-lite, chartjs — reserved keys (see below). Vega-Lite's
+  // grammar-of-graphics niche overlaps ~95% with ECharts at ~3x the
+  // bytes (vega + vega-lite + vega-embed ≈ 800 KB raw / ~250 KB gzip),
+  // so it stays unwired until a dashboard scenario actually needs the
+  // spec-as-data property.
 };
 
 /**
@@ -147,10 +141,12 @@ export const BUNDLES: Record<string, BundleSpec> = {
  */
 export const KNOWN_BUNDLE_KEYS: ReadonlySet<string> = new Set([
   ...Object.keys(BUNDLES),
-  // Tier 2 reserved keys — recognized by validator before their runtime
-  // is wired, so authors who declare them aren't flagged with a typo
-  // warning. Each lands in BUNDLES (above) once its JS file ships.
+  // Reserved keys — recognized by validator before runtime is wired,
+  // so authors who declare them aren't flagged with a typo warning.
+  // Will land in BUNDLES (above) only if a concrete dashboard scenario
+  // proves the value.
   "chartjs",
+  "vega-lite",
 ]);
 
 /**

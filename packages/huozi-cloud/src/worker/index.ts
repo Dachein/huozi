@@ -230,14 +230,16 @@ HTML — sandbox & libraries
       Tier 1 (auto-init): highlight · katex · marked
         Author writes only the markup; platform runs init on
         DOMContentLoaded.
-      Tier 2 (manual init): mermaid · echarts · uplot · vega-lite
+      Tier 2 (manual init): mermaid · echarts · uplot
         Platform just exposes the global (window.mermaid, window.echarts,
-        window.uPlot, window.vegaEmbed). Author owns the DOM container
-        and the init call. For mermaid that's:
+        window.uPlot). Author owns the DOM container and the init call.
+        For mermaid that's:
           mermaid.initialize({ startOnLoad: false, theme: 'default' });
           mermaid.run();
       Reserved (not yet wired — declaring it is a no-op, validator
-      still accepts the key): chartjs
+      still accepts the key): chartjs, vega-lite
+      For most dashboards prefer plain SVG (zero JS) or ECharts; uPlot
+      only for time-series above ~1 k points.
     Pages without huozi:bundle ship zero JS.
   - Optional: <meta name="huozi:theme" content="light|dark|auto">,
               <meta name="huozi:font"  content="sans|serif|mono">
