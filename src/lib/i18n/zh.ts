@@ -288,7 +288,7 @@ export const zh = {
   "menu.identity.workspace": "工作空间",
   "menu.language": "语言",
   "menu.theme": "主题",
-  "theme.default.name": "墨",
+  "theme.default.name": "纸墨",
   "theme.brutalMono.name": "琥珀",
   "theme.office.name": "简素",
   "theme.applying": "应用主题",
