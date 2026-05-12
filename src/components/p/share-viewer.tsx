@@ -22,7 +22,9 @@ import {
   type FullscreenMode,
 } from "@/components/workspace/fullscreen-content";
 import { FullscreenProvider } from "@/components/workspace/fullscreen-context";
+import { DashboardSurface } from "@/components/workspace/dashboard-surface";
 import type { PageEntry } from "@/lib/html/extract-pages";
+import type { TabEntry } from "@/lib/html/extract-tabs";
 import type { ShareContent } from "@/lib/drive/shares";
 
 interface ShareViewerProps {
@@ -40,7 +42,12 @@ interface ShareViewerProps {
   /** Detected huozi layout (meta tag → class sniff → "web" fallback).
    *  Drives auto-landscape on mobile-portrait for deck via the
    *  [data-huozi-rotate-portrait] opt-in. */
-  htmlFormat?: "web" | "mobile" | "deck" | "story" | "paper";
+  htmlFormat?: "web" | "mobile" | "deck" | "story" | "paper" | "dashboard";
+  /** Dashboard tab manifest (parsed from `<meta huozi:tabs>`). Empty for
+   *  non-dashboard formats; the share-viewer ignores it then. */
+  tabs?: TabEntry[];
+  /** Dashboard auto-refresh interval in ms (from `<meta huozi:refresh>`). */
+  refreshMs?: number | null;
 }
 
 type Kind = "csv" | "tsv" | "jsonl" | "prose" | "source";
@@ -175,13 +182,22 @@ function renderInitial(props: ShareViewerProps) {
           <EmptyHint />
         )
       ) : kind === "prose" && props.prerenderedHtml ? (
-        <article
-          className={proseClass}
-          {...(props.htmlFormat === "deck"
-            ? { "data-huozi-rotate-portrait": "" }
-            : {})}
-          dangerouslySetInnerHTML={{ __html: props.prerenderedHtml }}
-        />
+        props.htmlFormat === "dashboard" ? (
+          <DashboardSurface
+            html={props.prerenderedHtml}
+            hostClassName=""
+            tabs={props.tabs ?? []}
+            refreshMs={props.refreshMs ?? null}
+          />
+        ) : (
+          <article
+            className={proseClass}
+            {...(props.htmlFormat === "deck"
+              ? { "data-huozi-rotate-portrait": "" }
+              : {})}
+            dangerouslySetInnerHTML={{ __html: props.prerenderedHtml }}
+          />
+        )
       ) : props.rawText ? (
         <SourceBlock content={props.rawText} />
       ) : (

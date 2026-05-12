@@ -1,0 +1,41 @@
+/*
+ * huozi-layout-dashboard.css — platform structural CSS for
+ * `<meta name="huozi:format" content="dashboard">`.
+ *
+ * Scope is intentionally minimal:
+ *   - .huozi-dashboard is a fixed-aspect-ratio container (16:9 default).
+ *     Override via `<meta huozi:viewport content="aspect-ratio:...">`,
+ *     which the workspace inline preview reads in pickHtmlLayout.
+ *   - [data-tab] sections are mutually exclusive — only the one carrying
+ *     the `is-active` class is visible. The DashboardTabBar component
+ *     adds / removes that class on click + hash change.
+ *   - No typography / colors / spacing — authors style their content.
+ *     Dashboard is a big-screen "information-dense" surface; we don't
+ *     want to fight author CSS by setting opinionated defaults.
+ *
+ * This file is loaded as a `<link rel="stylesheet">` ahead of author
+ * <style> blocks via FORMAT_ASSETS, so any of its rules can be overridden
+ * by author CSS via normal cascade order.
+ */
+
+/* Mutex visibility for [data-tab] sections. Scoping is done by FORMAT
+   ASSETS — this stylesheet only loads when huozi:format=dashboard, so
+   non-dashboard files with stray [data-tab] elements are unaffected.
+   We use `display:none` (not visibility/opacity) so inactive sections
+   don't eat layout space or steal focus. */
+[data-tab] {
+  display: none;
+}
+
+[data-tab].is-active {
+  display: block;
+}
+
+/* No-tabs fallback: when the author doesn't declare `huozi:tabs` (single
+   view dashboard, or tabs not registered), there's no TabBar to flip
+   `is-active`. The platform sets `.huozi-has-tabs` on the host wrapper
+   when tabs ARE declared; this rule shows all sections when they aren't.
+   Loses to `.is-active` (more specific). */
+:not(.huozi-has-tabs) > [data-tab] {
+  display: block;
+}

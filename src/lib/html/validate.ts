@@ -50,6 +50,7 @@ const ALL_FORMATS = new Set<HuoziFormat>([
   "paper",
   "mobile",
   "web",
+  "dashboard",
 ]);
 
 // Bundle key list is the registry's responsibility — single source of

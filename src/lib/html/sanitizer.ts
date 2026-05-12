@@ -1,7 +1,11 @@
 import { injectSourcePositions } from "./source-pos";
 import { ensurePageIds } from "./extract-pages";
 import { detectHuoziFormat } from "./detect-format";
-import { renderInitScript, resolveAssets } from "./asset-registry";
+import {
+  renderInitScript,
+  resolveAssets,
+  type BundleInitContext,
+} from "./asset-registry";
 
 // Dangerous CSS patterns that can execute code or load external resources
 const DANGEROUS_CSS_PATTERNS = [
@@ -233,6 +237,16 @@ export interface ProcessHtmlOptions {
    * the injected attributes ride through to the rendered DOM.
    */
   injectSourcePos?: boolean;
+  /**
+   * Surface-resolved context for bundle inits that need server values.
+   * Today only `bundle=data` consumes it (embeds `dataBase` and `filePath`
+   * into `window.huozi`). Callers MUST construct this with the right
+   * proxy base for their surface:
+   *   - publish (`/p/<slug>`):    `/p/<slug>/d/`
+   *   - workspace inline:          `/workspace/d/<encoded-host>/`
+   * `filePath` is the workspace path of the HTML being rendered.
+   */
+  bundleCtx?: BundleInitContext;
 }
 
 const ASSET_PREFIX = "/__assets__/";
@@ -364,9 +378,17 @@ export async function processHtmlDirect(
     // preview.
     const huoziFormat = detectHuoziFormat(html);
     const bundleKeys = parseBundleMeta(html);
-    const platformAssets = resolveAssets(huoziFormat, bundleKeys);
+    const platformAssets = resolveAssets(
+      huoziFormat,
+      bundleKeys,
+      // Default ctx for callers that don't opt-in (mostly tests). The
+      // `data` bundle is only useful when a real surface fills these in,
+      // so the defaults are deliberately broken paths — fetch() against
+      // them 404s cleanly rather than silently hitting a wrong endpoint.
+      opts.bundleCtx ?? { dataBase: "/__no_data_base__/", filePath: "" },
+    );
 
-    // Rebuild: links + styles + body
+    // Rebuild: links + styles + eager-init + body
     const parts: string[] = [];
 
     // Platform format-CSS first — author CSS cascades on top.
@@ -397,6 +419,13 @@ export async function processHtmlDirect(
         ? `@scope (${opts.scopeTo}) {\n${rewriteRootSelectorsToScope(css)}\n}`
         : css;
       parts.push(`<style>${final}</style>`);
+    }
+    // Eager bundle init (today: only `data`). Inline `<script>` placed
+    // BEFORE author body content so `window.huozi.read` et al. exist by
+    // the time author `<script>` tags in the body run at parse time.
+    // Library bundles' DCL-wrapped init still appends at the end.
+    if (platformAssets.eagerInitSource) {
+      parts.push(`<script>${platformAssets.eagerInitSource}</script>`);
     }
     parts.push(parsed.body);
     // Stash bundle script tags + init shim separately — they get appended
@@ -448,7 +477,11 @@ export async function processHtmlDirect(
   if (isFullDocument) {
     const huoziFormat = detectHuoziFormat(rawHtml);
     const bundleKeys = parseBundleMeta(rawHtml);
-    const platformAssets = resolveAssets(huoziFormat, bundleKeys);
+    const platformAssets = resolveAssets(
+      huoziFormat,
+      bundleKeys,
+      opts.bundleCtx ?? { dataBase: "/__no_data_base__/", filePath: "" },
+    );
     const scriptTags: string[] = [];
     for (const url of platformAssets.scriptUrls) {
       scriptTags.push(`<script defer src="${url}"></script>`);

@@ -4,6 +4,7 @@ import { processHtmlDirect } from "@/lib/html/sanitizer";
 import { processChartComponents } from "@/lib/html/chart-components";
 import { detectHuoziFormat } from "@/lib/html/detect-format";
 import { extractPages } from "@/lib/html/extract-pages";
+import { extractTabs, extractRefreshMs } from "@/lib/html/extract-tabs";
 import { validateHuoziHtml } from "@/lib/html/validate";
 import { cloudFetch } from "@/lib/cloud-fetch";
 import { HUOZI_CLOUD_KEY_COOKIE } from "@/lib/drive/mcp-client";
@@ -12,6 +13,7 @@ import { CollectionView } from "@/components/collection-view";
 import { EditableSurface } from "@/components/workspace/inline-edit";
 import type { ObjectKind } from "@/components/workspace/inline-edit";
 import { HtmlInlineFrame } from "@/components/workspace/html-inline-frame";
+import { DashboardSurface } from "@/components/workspace/dashboard-surface";
 import { HtmlValidationBanner } from "@/components/workspace/html-validation-banner";
 
 /**
@@ -124,6 +126,13 @@ export async function FileRenderer({
       }
     };
 
+    // bundleCtx threads the workspace-side data proxy base into the `data`
+    // bundle's init shim. The full host FILE path is encoded into the URL
+    // (not just its directory) so the proxy can re-parse the host HTML's
+    // `<meta huozi:share-include>` and enforce the same allowlist the
+    // worker enforces on publish — catching missing declarations during
+    // workspace preview instead of after a share has gone out.
+    const dataBase = `/workspace/d/${encodeURIComponent(path)}/`;
     const { html } = await processHtmlDirect(processChartComponents(content), {
       scopeTo: ".huozi-html-host",
       // Route `<link href="/__assets__/...">`, `<img src="/__assets__/...">`,
@@ -133,22 +142,34 @@ export async function FileRenderer({
       assetBase: "/workspace",
       fetchAsset,
       injectSourcePos: inlineEditable,
+      bundleCtx: { dataBase, filePath: path },
     });
     const layout = pickHtmlLayout(content);
     const format = detectHuoziFormat(content);
     const pages = extractPages(content);
+    const tabs = format === "dashboard" ? extractTabs(content) : [];
+    const refreshMs = format === "dashboard" ? extractRefreshMs(content) : null;
     const pageUnit: "slide" | "page" =
       format === "deck" || format === "story" ? "slide" : "page";
-    const frame = (
-      <HtmlInlineFrame
-        html={html}
-        hostClassName={layout.className}
-        hostStyle={layout.style}
-        format={format}
-        pages={pages}
-        pageUnit={pageUnit}
-      />
-    );
+    const frame =
+      format === "dashboard" ? (
+        <DashboardSurface
+          html={html}
+          hostClassName={layout.className}
+          hostStyle={layout.style}
+          tabs={tabs}
+          refreshMs={refreshMs}
+        />
+      ) : (
+        <HtmlInlineFrame
+          html={html}
+          hostClassName={layout.className}
+          hostStyle={layout.style}
+          format={format}
+          pages={pages}
+          pageUnit={pageUnit}
+        />
+      );
     // Validation banner is workspace-only (the publish surface intentionally
     // hides dev hints from readers). `inlineEditable` doubles as the
     // workspace-context flag — `/p/<slug>` always passes false.
@@ -164,7 +185,7 @@ export async function FileRenderer({
     return (
       <>
         {validationIssues.length > 0 && (
-          <HtmlValidationBanner issues={validationIssues} />
+          <HtmlValidationBanner issues={validationIssues} filePath={path} />
         )}
         {editable}
       </>
@@ -329,6 +350,14 @@ function pickHtmlLayout(rawContent: string): HtmlLayout {
     }
     // Paper grows to content; wrapper provides the scroll box.
     cls = "[&_.huozi-paper]:!min-h-0";
+  } else if (format === "dashboard") {
+    // Big-screen, fixed-aspect surface. Default 16:9 (overridable via
+    // `<meta huozi:viewport>` — the meta check above already set
+    // style.aspectRatio when present). Author owns inner layout; we just
+    // provide the box. No max-height: the dashboard fills its aspect-
+    // constrained box and any tab section longer than the box scrolls
+    // internally via the platform CSS rule on [data-tab].
+    if (!meta?.["aspect-ratio"]) style.aspectRatio = "16 / 9";
   } else if (format === "mobile" || format === "web") {
     // Long-flow templates: let the page extend naturally. Workspace's main
     // column already scrolls, so wrapping in a fixed-height scroll box just

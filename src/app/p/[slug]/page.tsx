@@ -7,6 +7,7 @@ import { renderMarkdown } from "@/lib/markdown/renderer";
 import { processHtmlDirect } from "@/lib/html/sanitizer";
 import { processChartComponents } from "@/lib/html/chart-components";
 import { extractPages, type PageEntry } from "@/lib/html/extract-pages";
+import { extractTabs, extractRefreshMs, type TabEntry } from "@/lib/html/extract-tabs";
 import { detectHuoziFormat, type HuoziFormat } from "@/lib/html/detect-format";
 import { extractShareMeta } from "@/lib/share-meta";
 import { parseMarkdown } from "@/lib/share-meta/extract-markdown";
@@ -110,6 +111,10 @@ async function renderForPath(
       // Original selectors stay so the same CSS still works in standalone
       // contexts (file://, GitHub Pages, …).
       hostAsBody: ".huozi-html-host",
+      // `bundle=data` reads dataBase to construct proxy URLs. The worker
+      // at `/shares/<slug>/data/<sibling>` resolves siblings relative to
+      // the share's host file — so the base URL only needs the slug.
+      bundleCtx: { dataBase: `/p/${slug}/d/`, filePath },
     });
     return html;
   }
@@ -155,6 +160,8 @@ export default async function SharedPage({ params }: { params: Params }) {
   let pages: PageEntry[] = [];
   let pageUnit: "page" | "slide" | "sheet" = "page";
   let htmlFormat: HuoziFormat = "web";
+  let tabs: TabEntry[] = [];
+  let refreshMs: number | null = null;
   if (!locked) {
     // share.text is the raw file content
     rawText = share.text;
@@ -167,6 +174,10 @@ export default async function SharedPage({ params }: { params: Params }) {
         htmlFormat = detectHuoziFormat(rawText);
         pageUnit =
           htmlFormat === "deck" || htmlFormat === "story" ? "slide" : "page";
+        if (htmlFormat === "dashboard") {
+          tabs = extractTabs(rawText);
+          refreshMs = extractRefreshMs(rawText);
+        }
       }
     }
   }
@@ -185,6 +196,8 @@ export default async function SharedPage({ params }: { params: Params }) {
       pages={pages}
       pageUnit={pageUnit}
       htmlFormat={htmlFormat}
+      tabs={tabs}
+      refreshMs={refreshMs}
     />
   );
 }

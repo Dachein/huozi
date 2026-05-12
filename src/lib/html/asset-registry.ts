@@ -33,10 +33,36 @@ export interface FormatAssets {
   css: string[];
 }
 
+/**
+ * Per-render context passed to function-form bundle inits. Surface-aware
+ * bundles (today: `data`) need this to embed a server-resolved value
+ * (proxy base, host path, …) at render time — static strings can't.
+ *
+ * Static inits ignore the ctx; only the function form receives it.
+ */
+export interface BundleInitContext {
+  /**
+   * Data proxy base URL with trailing slash. Surface-resolved by the
+   * caller — `/p/<slug>/d/` on publish, `/workspace/d/<host-enc>/` in
+   * the workspace inline preview. The `data` bundle init embeds this
+   * into `window.huozi.data` so author code uses one URL pattern across
+   * surfaces.
+   */
+  dataBase: string;
+  /**
+   * Path of the host file inside the workspace. Mirrors what's encoded
+   * in `dataBase` on the workspace side but is also surfaced as
+   * `window.huozi.file` for author diagnostics.
+   */
+  filePath: string;
+}
+
 export interface BundleSpec {
   /**
    * One or more script URLs to inject as `<script defer>`. Order is
    * preserved — list dependencies first (e.g. dompurify before marked).
+   * Empty array for "runtime-only" bundles like `data` where the API
+   * is platform-injected via `init`, not a library load.
    */
   scripts: string[];
   /** Optional same-origin stylesheet (highlight theme, katex fonts). */
@@ -46,8 +72,27 @@ export interface BundleSpec {
    * to render `<pre class="mermaid">` / `<code class="language-*">` /
    * `$$ … $$` etc. without the author writing init code. Tier 2 libs
    * (charts) leave init=undefined — author owns the DOM container.
+   *
+   * Function form: receives the BundleInitContext so surface-aware
+   * bundles (today: `data`) can embed server-resolved values. Static
+   * string form is sugar for `() => init`.
    */
-  init?: string;
+  init?: string | ((ctx: BundleInitContext) => string);
+  /**
+   * Optional setup JS that runs **eagerly** — emitted as a regular
+   * (non-deferred, non-DCL-wrapped) `<script>` placed BEFORE the body
+   * content, so it's already executed by the time author `<script>`
+   * tags in the body parse.
+   *
+   * Use this when the bundle exposes an API surface that author code
+   * may call inline at parse time. The `data` bundle uses it so
+   * `window.huozi.read` etc. exist before any author `<script>` runs;
+   * libraries that need a real DOM (highlight / katex) stay on `init`.
+   *
+   * No DCL guarantee, no DOM access — keep this small and side-effect-free
+   * beyond assigning to `window`.
+   */
+  eagerInit?: string | ((ctx: BundleInitContext) => string);
 }
 
 export const FORMAT_ASSETS: Record<HuoziFormat, FormatAssets> = {
@@ -55,6 +100,11 @@ export const FORMAT_ASSETS: Record<HuoziFormat, FormatAssets> = {
   story: { css: ["/lib/huozi-layout-story.css"] },
   paper: { css: ["/lib/huozi-layout-paper.css"] },
   mobile: { css: ["/lib/huozi-layout-mobile.css"] },
+  // Big-screen, fixed-aspect, tab-navigated page. Higher information
+  // density than deck. Platform CSS only ships structural rules
+  // (aspect-ratio container + [data-tab] mutual-exclusive visibility);
+  // typography / decoration / grid is author's.
+  dashboard: { css: ["/lib/huozi-layout-dashboard.css"] },
   // web is the catch-all default — long-flow desktop. No platform CSS;
   // unknown HTML stays untouched.
   web: { css: [] },
@@ -105,6 +155,58 @@ export const BUNDLES: Record<string, BundleSpec> = {
     init: `if (window.marked && window.DOMPurify) {
   window.huozi = window.huozi || {};
   window.huozi.md = function(s){ return window.DOMPurify.sanitize(window.marked.parse(s)); };
+}`,
+  },
+
+  // ─── data — runtime-only bundle (no library load, just an API) ───
+  // Surface-aware: the init is a function so `dataBase` can be embedded
+  // at render time. Author opts in with `<meta huozi:bundle="data">`
+  // and declares dependencies via `<meta huozi:share-include="a.jsonl,…">`.
+  // The proxy endpoints (`/p/<slug>/d/*` for publish,
+  // `/workspace/d/<host>/*` for workspace inline) enforce the allowlist.
+  //
+  // `window.huozi.on('tab', fn)` is co-located here even though it's
+  // owned by the DashboardTabBar component: the bus is just a thin
+  // wrapper over a shared EventTarget so the data bundle keeps being
+  // the one place where `window.huozi` is initialized. TabBar wires
+  // events into the same bus from the React side.
+  data: {
+    scripts: [],
+    eagerInit: (ctx) => `
+window.huozi = window.huozi || {};
+window.huozi.data = ${JSON.stringify(ctx.dataBase)};
+window.huozi.file = ${JSON.stringify(ctx.filePath)};
+window.huozi.read = function (p) {
+  return fetch(window.huozi.data + p, { credentials: 'same-origin' }).then(function (r) {
+    if (!r.ok) throw new Error('huozi.read ' + p + ' → ' + r.status);
+    return r.text();
+  });
+};
+window.huozi.readJson = function (p) {
+  return window.huozi.read(p).then(function (t) { return JSON.parse(t); });
+};
+window.huozi.readJsonl = function (p) {
+  return window.huozi.read(p).then(function (t) {
+    return t.trim().split('\\n').filter(Boolean).map(function (line) { return JSON.parse(line); });
+  });
+};
+if (!window.huozi.__bus) {
+  window.huozi.__bus = new EventTarget();
+  window.huozi.on = function (name, fn) {
+    var w = function (e) { fn(e.detail); };
+    fn.__w = w;
+    window.huozi.__bus.addEventListener(name, w);
+  };
+  window.huozi.off = function (name, fn) {
+    if (fn && fn.__w) window.huozi.__bus.removeEventListener(name, fn.__w);
+  };
+  window.huozi.emit = function (name, detail) {
+    window.huozi.__bus.dispatchEvent(new CustomEvent(name, { detail: detail }));
+  };
+  window.huozi.refresh = function () {
+    var tabId = (window.huozi.tabs && window.huozi.activeTab) || null;
+    window.huozi.emit('tab', { tabId: tabId, reason: 'refresh' });
+  };
 }`,
   },
 
@@ -162,15 +264,21 @@ export interface ResolvedAssets {
   scriptUrls: string[];
   /** Concatenated auto-init source to wrap in DOMContentLoaded. */
   initSource: string;
+  /** Concatenated *eager* init source. Emitted as a non-deferred inline
+   *  `<script>` placed BEFORE the body content so author `<script>`
+   *  tags can use the bundle's API at parse time. No DCL wrap. */
+  eagerInitSource: string;
 }
 
 export function resolveAssets(
   format: HuoziFormat,
   bundleKeys: readonly string[],
+  ctx: BundleInitContext,
 ): ResolvedAssets {
   const cssLinks: string[] = [...FORMAT_ASSETS[format].css];
   const scriptUrls: string[] = [];
   const initSnippets: string[] = [];
+  const eagerSnippets: string[] = [];
 
   // Dedup keys preserving first-seen order so author-declared order
   // doesn't surprise. mermaid/highlight/katex/marked have no inter-dep,
@@ -184,13 +292,21 @@ export function resolveAssets(
     if (!spec) continue; // unknown key — validator warns; we silently skip
     if (spec.css) cssLinks.push(spec.css);
     for (const s of spec.scripts) scriptUrls.push(s);
-    if (spec.init) initSnippets.push(spec.init);
+    if (spec.init) {
+      initSnippets.push(typeof spec.init === "function" ? spec.init(ctx) : spec.init);
+    }
+    if (spec.eagerInit) {
+      eagerSnippets.push(
+        typeof spec.eagerInit === "function" ? spec.eagerInit(ctx) : spec.eagerInit,
+      );
+    }
   }
 
   return {
     cssLinks,
     scriptUrls,
     initSource: initSnippets.join("\n"),
+    eagerInitSource: eagerSnippets.join("\n"),
   };
 }
 

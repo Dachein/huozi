@@ -133,7 +133,14 @@ export function FullscreenContent({
   //                   handles the vertical scroll. NEVER force w-screen here:
   //                   100vw includes the scrollbar gutter and produces a
   //                   spurious horizontal scrollbar.
-  const isPaginated = htmlFormat === "deck" || htmlFormat === "story";
+  // dashboard is grouped with the viewport-pinned formats (deck / story):
+  // it has a fixed aspect-ratio in inline preview, and in fullscreen we
+  // want it to fill the viewport instead of being letterboxed. Tab bar
+  // chrome stays visible at the top via flex layout inside the host.
+  const isPaginated =
+    htmlFormat === "deck" ||
+    htmlFormat === "story" ||
+    htmlFormat === "dashboard";
   const containerCls = isPaginated
     ? // Force-to-viewport sizing on the host; lock outer overflow.
       `overflow-hidden

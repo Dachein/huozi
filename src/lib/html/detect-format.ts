@@ -13,11 +13,26 @@
  *      no pager, no auto-rotate — renders like a regular web page.
  */
 
-export type HuoziFormat = "web" | "mobile" | "deck" | "story" | "paper";
+export type HuoziFormat =
+  | "web"
+  | "mobile"
+  | "deck"
+  | "story"
+  | "paper"
+  | "dashboard";
 
-const ALL: HuoziFormat[] = ["web", "mobile", "deck", "story", "paper"];
+const ALL: HuoziFormat[] = [
+  "web",
+  "mobile",
+  "deck",
+  "story",
+  "paper",
+  "dashboard",
+];
 
-/** Set of formats that have [data-page] structure → pager + outline. */
+/** Set of formats that have [data-page] structure → pager + outline.
+ *  Dashboard is *not* paginated — it uses `[data-tab]` + a separate tab
+ *  bar, a different contract from prev/next pagination. */
 export const PAGINATED: ReadonlySet<HuoziFormat> = new Set<HuoziFormat>([
   "deck",
   "story",
@@ -28,7 +43,8 @@ export function isPaginated(format: HuoziFormat): boolean {
   return PAGINATED.has(format);
 }
 
-/** Pager axis derived from format. `null` means no pager (long-flow). */
+/** Pager axis derived from format. `null` means no pager (long-flow OR
+ *  the format uses its own navigation chrome — dashboard's tab bar). */
 export type PagerOrientation = "horizontal" | "vertical";
 
 export function pagerOrientationFor(
@@ -42,6 +58,7 @@ export function pagerOrientationFor(
       return "vertical";
     case "mobile":
     case "web":
+    case "dashboard":
       return null;
   }
 }
