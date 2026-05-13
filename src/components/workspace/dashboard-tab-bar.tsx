@@ -124,15 +124,26 @@ export function DashboardTabBar({
 
   if (tabs.length === 0) return null;
 
+  // Two-layer wrapper:
+  //   .huozi-tab-bar          → full-bleed bar (spans the dashboard width,
+  //                              gets the bg + border-bottom)
+  //   .huozi-tab-bar-inner    → centered inner column (max-width matching
+  //                              author's `.wrap`-style container so the
+  //                              buttons align with the content below)
+  //
+  // Defaults (1400px / 28px) match the dogfood dashboard.html. Authors
+  // with different content widths can pre-empt the misalignment by setting
+  // the same CSS variables on `:scope` — they'll cascade through `.huozi-
+  // tab-bar-inner` thanks to `inherit` semantics for custom properties.
   return (
-    <div
-      role="tablist"
-      aria-label="Dashboard tabs"
-      className="flex flex-wrap items-center gap-1 px-2 py-1.5
-                 border-b border-border bg-background/80 backdrop-blur
-                 text-sm"
-    >
-      {tabs.map((t) => {
+    <div className="huozi-tab-bar border-b border-border bg-background/80 backdrop-blur">
+      <div
+        role="tablist"
+        aria-label="Dashboard tabs"
+        className="huozi-tab-bar-inner flex flex-wrap items-center gap-1
+                   px-2 py-1.5 text-sm"
+      >
+        {tabs.map((t) => {
         const isActive = t.id === activeId;
         return (
           <button
@@ -169,6 +180,7 @@ export function DashboardTabBar({
           </button>
         );
       })}
+      </div>
     </div>
   );
 }

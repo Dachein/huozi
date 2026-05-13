@@ -2,6 +2,34 @@
  * huozi-layout-dashboard.css — platform structural CSS for
  * `<meta name="huozi:format" content="dashboard">`.
  *
+ * Platform-controlled CSS variables (override at :root in author CSS to
+ * tune TabBar alignment — they'll cascade as :scope custom properties
+ * through the @scope rewriting):
+ *   --huozi-content-width    max content width (default 1400px) —
+ *                            matches the dogfood `.wrap` convention.
+ *                            TabBar's inner column uses this to align
+ *                            its buttons with the content beneath.
+ *   --huozi-content-pad-x    horizontal padding (default 28px) —
+ *                            should match author's `.wrap` left/right
+ *                            padding for pixel-perfect alignment.
+ */
+
+:root {
+  --huozi-content-width: 1400px;
+  --huozi-content-pad-x: 28px;
+}
+
+/* TabBar inner column — same max-width + horizontal padding as the
+   dogfood `.wrap`. Buttons line up with content. Buttons inherit color
+   from workspace bg/foreground tokens (set by the TabBar component). */
+.huozi-tab-bar-inner {
+  max-width: var(--huozi-content-width);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--huozi-content-pad-x);
+  padding-right: var(--huozi-content-pad-x);
+}
+ *
  * Scope is intentionally minimal:
  *   - .huozi-dashboard is a fixed-aspect-ratio container (16:9 default).
  *     Override via `<meta huozi:viewport content="aspect-ratio:...">`,

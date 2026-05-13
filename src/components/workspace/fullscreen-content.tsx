@@ -133,15 +133,36 @@ export function FullscreenContent({
   //                   handles the vertical scroll. NEVER force w-screen here:
   //                   100vw includes the scrollbar gutter and produces a
   //                   spurious horizontal scrollbar.
-  // dashboard is grouped with the viewport-pinned formats (deck / story):
-  // it has a fixed aspect-ratio in inline preview, and in fullscreen we
-  // want it to fill the viewport instead of being letterboxed. Tab bar
-  // chrome stays visible at the top via flex layout inside the host.
-  const isPaginated =
-    htmlFormat === "deck" ||
-    htmlFormat === "story" ||
-    htmlFormat === "dashboard";
-  const containerCls = isPaginated
+  // Three sizing regimes:
+  //
+  //   deck / story   — viewport-pinned, paginated. Force `.huozi-html-host`
+  //                    to 100vw × 100vh and drop the inline aspect-ratio
+  //                    so paginated content fills the screen.
+  //
+  //   dashboard      — viewport-pinned, but the OUTER `.huozi-dashboard-
+  //                    surface` carries the aspect-ratio (inline preview)
+  //                    while the inner host takes `flex-1`. In fullscreen
+  //                    we only need to drop that outer aspect-ratio so the
+  //                    surface fills `h-full` (= 100vh) cleanly; TabBar +
+  //                    host flex layout handles the rest. NEVER force
+  //                    `!h-screen` on the host here — that would push the
+  //                    bottom of the host below the viewport by the
+  //                    TabBar's height.
+  //
+  //   paper / mobile / web — long-flow. Host follows block width, container
+  //                    scrolls vertically.
+  const isDashboard = htmlFormat === "dashboard";
+  const isPaginated = htmlFormat === "deck" || htmlFormat === "story";
+  const containerCls = isDashboard
+    ? // Outer surface fills viewport; drop inline aspect-ratio.
+      `overflow-hidden
+       [&_.huozi-dashboard-surface]:![aspect-ratio:auto]
+       [&_.huozi-dashboard-surface]:!w-screen
+       [&_.huozi-dashboard-surface]:!h-screen
+       [&_.huozi-dashboard-surface]:!max-w-none
+       [&_.huozi-dashboard-surface]:!max-h-none
+       [&_.huozi-dashboard-surface]:!m-0`
+    : isPaginated
     ? // Force-to-viewport sizing on the host; lock outer overflow.
       `overflow-hidden
        [&_.huozi-html-host]:!w-screen [&_.huozi-html-host]:!h-screen
