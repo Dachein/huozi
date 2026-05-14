@@ -62,8 +62,17 @@ interface SchemaConfig {
     filters?: string[];
     /** Field keys to substring-match against when the user types in the search box. */
     search?: string[];
+    /**
+     * Initial layout for the entity list. `"block"` (default) is the
+     * grid of cards; `"list"` is a compact one-row-per-entity layout.
+     * Authors set this in the schema event; users can switch from the
+     * header toggle.
+     */
+    default_view?: "list" | "block";
   };
 }
+
+type EntityListMode = "list" | "block";
 
 export interface CollectionViewProps {
   /** Raw .jsonl file content. */
@@ -84,6 +93,18 @@ export function CollectionView({ content }: CollectionViewProps) {
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Block (cards) vs list (rows). Schema can pin the default; user can
+  // override from the header toggle. Re-resolve when the schema loads
+  // so a freshly-fetched schema's `default_view` takes effect before
+  // the user has touched anything.
+  const schemaDefaultView: EntityListMode =
+    schema?.list_view?.default_view === "list" ? "list" : "block";
+  const [viewMode, setViewMode] = useState<EntityListMode>(schemaDefaultView);
+  const [viewTouched, setViewTouched] = useState(false);
+  useEffect(() => {
+    if (!viewTouched) setViewMode(schemaDefaultView);
+  }, [schemaDefaultView, viewTouched]);
 
   // Index into the drilled entity's history (chronologically ordered).
   // `null` = "follow latest" — when set, the detail view renders that
@@ -287,6 +308,16 @@ export function CollectionView({ content }: CollectionViewProps) {
           )}
         </div>
 
+        {!drillEntity && filteredEntities.length > 0 && (
+          <ViewModeToggle
+            mode={viewMode}
+            onChange={(next) => {
+              setViewTouched(true);
+              setViewMode(next);
+            }}
+          />
+        )}
+
         {drillEntity && (
           <div className="flex items-center gap-1">
             <button
@@ -359,6 +390,13 @@ export function CollectionView({ content }: CollectionViewProps) {
           peekDiff={peekDiff}
           t={t}
         />
+      ) : viewMode === "list" ? (
+        <RowListView
+          entities={filteredEntities}
+          schema={schema}
+          onDrill={setDrillEntityId}
+          t={t}
+        />
       ) : (
         <ListView
           entities={filteredEntities}
@@ -367,6 +405,46 @@ export function CollectionView({ content }: CollectionViewProps) {
           t={t}
         />
       )}
+    </div>
+  );
+}
+
+/* ── View-mode toggle ─────────────────────────────────────────────── */
+
+function ViewModeToggle({
+  mode,
+  onChange,
+}: {
+  mode: EntityListMode;
+  onChange: (next: EntityListMode) => void;
+}) {
+  const base =
+    "text-[11px] px-2 py-1 border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors";
+  const active = "bg-muted/80 text-foreground";
+  return (
+    <div className="flex items-center -space-x-px" role="tablist">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={mode === "block"}
+        onClick={() => onChange("block")}
+        className={`${base} rounded-l ${mode === "block" ? active : ""}`}
+        title="Block"
+        aria-label="Block view"
+      >
+        ▦
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={mode === "list"}
+        onClick={() => onChange("list")}
+        className={`${base} rounded-r ${mode === "list" ? active : ""}`}
+        title="List"
+        aria-label="List view"
+      >
+        ☰
+      </button>
     </div>
   );
 }
@@ -518,6 +596,129 @@ function ListView({
   );
 }
 
+/* ── Row list view: compact one-row-per-entity layout ─────────────── */
+
+function RowListView({
+  entities,
+  schema,
+  onDrill,
+  t,
+}: {
+  entities: readonly EntityState[];
+  schema: SchemaConfig | null;
+  onDrill: (id: string) => void;
+  t: (k: string) => string;
+}) {
+  if (entities.length === 0) {
+    return (
+      <div className="text-sm text-muted-foreground py-12 text-center">
+        No entities (only parse errors above).
+      </div>
+    );
+  }
+  return (
+    <ul className="divide-y divide-border/40 border-y border-border/40">
+      {entities.map((e) => (
+        <EntityRow
+          key={e.id}
+          entity={e}
+          schema={schema}
+          onDrill={onDrill}
+          t={t}
+        />
+      ))}
+    </ul>
+  );
+}
+
+function EntityRow({
+  entity,
+  schema,
+  onDrill,
+  t,
+}: {
+  entity: EntityState;
+  schema: SchemaConfig | null;
+  onDrill: (id: string) => void;
+  t: (k: string) => string;
+}) {
+  const isDeleted = entity.status === "deleted";
+  const fields = stripConventions(entity.state);
+
+  const titleField = schema?.entity?.title_field;
+  const subtitleField = schema?.entity?.subtitle_field;
+
+  const title = (titleField && pickString(fields, titleField)) ?? entity.id;
+  const subtitle = subtitleField ? pickString(fields, subtitleField) : null;
+
+  // Up to two compact key:value chips from schema-declared meta/aside
+  // fields — just enough to disambiguate at a glance.
+  const chips = useMemo(() => {
+    if (!schema?.fields) return [];
+    const used = new Set(
+      [titleField, subtitleField, schema.entity?.avatar_field].filter(
+        Boolean,
+      ) as string[],
+    );
+    const picked: [string, unknown][] = [];
+    for (const [k, def] of Object.entries(schema.fields)) {
+      if (used.has(k)) continue;
+      if (def.display === "meta" || def.display === "aside") {
+        if (k in fields) picked.push([def.label ?? k, fields[k]]);
+      }
+      if (picked.length >= 2) break;
+    }
+    return picked;
+  }, [fields, schema, titleField, subtitleField]);
+
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => onDrill(entity.id)}
+        className={`w-full text-left flex items-baseline gap-3 px-2 py-2 hover:bg-muted/40 transition-colors ${
+          isDeleted ? "opacity-60" : ""
+        }`}
+      >
+        <span className="text-sm font-medium text-foreground truncate min-w-0 flex-1">
+          <InlineMarkdown source={title} />
+        </span>
+        {subtitle && (
+          <span className="text-xs text-muted-foreground truncate hidden sm:inline-block max-w-[40%]">
+            {subtitle}
+          </span>
+        )}
+        {chips.map(([k, v]) => (
+          <span
+            key={k}
+            className="hidden md:inline-flex items-baseline gap-1 text-[11px] font-mono text-muted-foreground shrink-0"
+          >
+            <span className="opacity-70">
+              <InlineMarkdown source={k} />
+            </span>
+            <span className="text-foreground/80 truncate max-w-[160px]">
+              {formatScalar(v)}
+            </span>
+          </span>
+        ))}
+        {isDeleted && (
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">
+            {t("ws.coll.deleted")}
+          </span>
+        )}
+        {entity.latest.at && (
+          <time className="text-[10px] font-mono text-muted-foreground shrink-0">
+            {shortAt(entity.latest.at)}
+          </time>
+        )}
+        <span className="text-[10px] text-muted-foreground/60 shrink-0">
+          {entity.history.length}↺
+        </span>
+      </button>
+    </li>
+  );
+}
+
 function EntityCard({
   entity,
   schema,
@@ -602,7 +803,7 @@ function EntityCard({
           {cardKvs.map(([k, v]) => (
             <div key={k} className="flex gap-2 text-[11px] leading-tight">
               <dt className="text-muted-foreground shrink-0 font-mono">
-                {k}
+                <InlineMarkdown source={k} />
               </dt>
               <dd className="text-foreground truncate font-mono">
                 {formatScalar(v)}
@@ -627,6 +828,121 @@ function EntityCard({
         </span>
       </footer>
     </button>
+  );
+}
+
+/* ── Tasks confirm CTA (additive overlay on Tasks Collections) ──────
+ *
+ * When the latest event in this entity is `op:"confirm_requested"` (a
+ * Tasks-specific signal, see `app/docs/tasks.md` §9), surface an inline
+ * Approve / Reject banner. Clicking POSTs to `/api/app/tasks/<id>/confirm`,
+ * which appends a `user_action` event; the daemon's WebSocket subscription
+ * then resumes the Claude session with the user's verdict.
+ *
+ * Heuristic gate: entity.id must look like a UUID v4 (the format daemon
+ * + ingest use for task_id). Any non-Tasks Collection that happens to use
+ * `op:"confirm_requested"` won't have UUID ids; the CTA stays hidden.
+ */
+
+const TASK_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function TaskConfirmCTA({ entity }: { entity: EntityState }) {
+  const last = entity.history[entity.history.length - 1];
+  const visible =
+    !!last && last.op === "confirm_requested" && TASK_ID_RE.test(entity.id);
+
+  const [pending, setPending] = useState<"approve" | "reject" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+
+  if (!visible || !last) return null;
+
+  const prompt =
+    typeof last.fields["prompt"] === "string"
+      ? (last.fields["prompt"] as string)
+      : null;
+
+  async function submit(action: "approve" | "reject") {
+    if (pending) return;
+    setPending(action);
+    setError(null);
+    try {
+      const res = await fetch(`/api/app/tasks/${entity.id}/confirm`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(
+          note.trim().length > 0
+            ? { action, note: note.trim() }
+            : { action },
+        ),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(
+          typeof body.message === "string"
+            ? body.message
+            : `Request failed (${res.status}).`,
+        );
+        setPending(null);
+        return;
+      }
+      // Success — the WS commit event triggers router.refresh upstream,
+      // which re-fetches the file and re-renders this Collection. The
+      // last event will then be `user_action`, hiding this CTA.
+      // We don't reset `pending` here because the imminent re-render
+      // unmounts the component; resetting causes a brief "buttons live
+      // again" flash on slow networks.
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error.");
+      setPending(null);
+    }
+  }
+
+  return (
+    <section className="rounded-md border border-amber-500 bg-amber-50 px-4 py-3 dark:bg-amber-500/10 dark:border-amber-400/60">
+      <div className="flex items-start gap-3 mb-2">
+        <div className="text-xs font-semibold uppercase tracking-wider text-amber-900 dark:text-amber-200">
+          Waiting for your decision
+        </div>
+      </div>
+      {prompt && (
+        <p className="text-sm text-amber-950 dark:text-amber-100 mb-3 whitespace-pre-wrap break-words">
+          {prompt}
+        </p>
+      )}
+      <div className="flex flex-col gap-2">
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Optional note (passed to the agent)…"
+          rows={2}
+          className="w-full rounded border border-amber-300 bg-white px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:bg-amber-950/30 dark:border-amber-700"
+          disabled={pending !== null}
+        />
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => submit("approve")}
+            disabled={pending !== null}
+            className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {pending === "approve" ? "Sending…" : "Approve"}
+          </button>
+          <button
+            type="button"
+            onClick={() => submit("reject")}
+            disabled={pending !== null}
+            className="rounded border border-rose-600 px-3 py-1.5 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:text-rose-300 dark:hover:bg-rose-950/30"
+          >
+            {pending === "reject" ? "Sending…" : "Reject"}
+          </button>
+        </div>
+        {error && (
+          <div className="text-xs text-rose-700 dark:text-rose-300">{error}</div>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -706,9 +1022,28 @@ function DetailView({
     return foldHistorySlice(entity.history, historyIndex - 1);
   }, [entity.history, historyIndex]);
 
+  // Aside is jsonl's standard right column. We render it when there's
+  // something for it to hold — declared aside fields, or the historical-
+  // view chip when scrubbed back. Otherwise the main column takes the
+  // full width. When present, the user can collapse the aside from
+  // its header chevron; collapse state is per-entity (resets when the
+  // user drills into a different one).
+  const hasAsideFields = slotted.aside.length > 0;
+  const historicalChip = !isLatest && !!activeEvent;
+  const asideHasContent = hasAsideFields || historicalChip;
+  const [asideCollapsed, setAsideCollapsed] = useState(false);
+  useEffect(() => {
+    setAsideCollapsed(false);
+  }, [entity.id]);
+  const asideOpen = asideHasContent && !asideCollapsed;
+
   return (
     <div className="flex flex-col gap-8 flex-1 min-h-[calc(100vh-14rem)]">
-    <div className="grid grid-cols-1 md:grid-cols-[1fr_280px] gap-6">
+    <div
+      className={`grid grid-cols-1 gap-6 ${
+        asideOpen ? "md:grid-cols-[1fr_280px]" : "md:grid-cols-1"
+      }`}
+    >
       {/* Main column */}
       <main className="space-y-4">
         <header className="flex items-center gap-4 pb-3 border-b border-border/40">
@@ -735,6 +1070,8 @@ function DetailView({
           </div>
         </header>
 
+        {isLatest && <TaskConfirmCTA entity={entity} />}
+
         {slotted.body.length > 0 && (
           <section className="space-y-3 min-w-0">
             {slotted.body.map(([k, v, label]) => {
@@ -745,7 +1082,7 @@ function DetailView({
                 <div key={k} className="min-w-0 group">
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                      {label}
+                      <InlineMarkdown source={label} />
                     </h3>
                   </div>
                   <div
@@ -778,7 +1115,7 @@ function DetailView({
                 return (
                   <div key={k} className="flex gap-3 text-xs min-w-0 group">
                     <dt className="text-muted-foreground shrink-0 w-32 font-mono">
-                      {label}
+                      <InlineMarkdown source={label} />
                     </dt>
                     <dd className="text-foreground font-mono break-all min-w-0 flex-1">
                       <span
@@ -800,10 +1137,35 @@ function DetailView({
           </section>
         )}
 
+        {asideHasContent && asideCollapsed && (
+          <button
+            type="button"
+            onClick={() => setAsideCollapsed(false)}
+            className="self-start text-[11px] px-2 py-1 rounded border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors font-mono"
+            title="Expand aside"
+            aria-label="Expand aside"
+          >
+            ‹ aside
+          </button>
+        )}
       </main>
 
-      {/* Aside */}
+      {/* Aside — jsonl's standard right column. Hidden when there's
+          no aside content to show; collapsible via the chevron when
+          there is. */}
+      {asideOpen && (
       <aside className="space-y-4 md:border-l md:pl-6 md:border-border/40 min-w-0">
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setAsideCollapsed(true)}
+            className="text-[11px] px-1.5 py-0.5 rounded border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors font-mono"
+            title="Collapse aside"
+            aria-label="Collapse aside"
+          >
+            ›
+          </button>
+        </div>
         {!isLatest && activeEvent && (
           // High-contrast amber chip. Past iterations tried
           // amber-500/5 + amber-700 text (vanished on brutal-mono cream)
@@ -829,7 +1191,7 @@ function DetailView({
                 <div key={k} className="min-w-0 group">
                   <div className="flex items-center gap-2 mb-1">
                     <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                      {label}
+                      <InlineMarkdown source={label} />
                     </dt>
                   </div>
                   <dd
@@ -849,6 +1211,7 @@ function DetailView({
           </dl>
         )}
       </aside>
+      )}
     </div>
 
     {/* History controls — pinned to the bottom of the page (replaces
@@ -1472,6 +1835,155 @@ function renderFieldValue(
   }
 
   return <span className="text-sm break-all">{formatScalar(value)}</span>;
+}
+
+/**
+ * Inline-only markdown for field labels (`schema.fields[k].label`) and
+ * entity titles. Handles the four marks an author actually reaches for
+ * in a column header: `**bold**`, `*italic*`, `` `code` ``, and
+ * `[text](url)`. Everything else stays as-is, so a plain label like
+ * `subject` still renders as the literal text.
+ *
+ * Inline-only by design — labels are single-line; block constructs
+ * (lists, headings, fences) don't make sense here and would only
+ * blow up the row height. Renders to JSX nodes (no
+ * dangerouslySetInnerHTML, no async pipeline) so it composes cleanly
+ * inside `<dt>` / `<h3>` without a Suspense boundary.
+ */
+function InlineMarkdown({ source }: { source: string }): React.ReactNode {
+  return <>{parseInlineMarkdown(source)}</>;
+}
+
+type InlineNode =
+  | { kind: "text"; value: string }
+  | { kind: "bold"; children: InlineNode[] }
+  | { kind: "italic"; children: InlineNode[] }
+  | { kind: "code"; value: string }
+  | { kind: "link"; href: string; children: InlineNode[] };
+
+function parseInlineMarkdown(input: string): React.ReactNode[] {
+  const nodes = tokenizeInline(input);
+  return renderInlineNodes(nodes);
+}
+
+function tokenizeInline(input: string): InlineNode[] {
+  // Walk a single pass, greedily matching the four supported constructs.
+  // Code spans are claimed first (they suppress nested markup); then
+  // links; then bold (longer delimiter); then italic. Unmatched
+  // delimiters fall through as literal text.
+  const out: InlineNode[] = [];
+  let i = 0;
+  let buf = "";
+  const flushText = () => {
+    if (buf.length > 0) {
+      out.push({ kind: "text", value: buf });
+      buf = "";
+    }
+  };
+  while (i < input.length) {
+    const ch = input[i]!;
+
+    // backtick code span: `…`
+    if (ch === "`") {
+      const end = input.indexOf("`", i + 1);
+      if (end > i) {
+        flushText();
+        out.push({ kind: "code", value: input.slice(i + 1, end) });
+        i = end + 1;
+        continue;
+      }
+    }
+
+    // link: [text](href)
+    if (ch === "[") {
+      const close = input.indexOf("]", i + 1);
+      if (close > i && input[close + 1] === "(") {
+        const hrefEnd = input.indexOf(")", close + 2);
+        if (hrefEnd > close + 1) {
+          const text = input.slice(i + 1, close);
+          const href = input.slice(close + 2, hrefEnd);
+          flushText();
+          out.push({
+            kind: "link",
+            href,
+            children: tokenizeInline(text),
+          });
+          i = hrefEnd + 1;
+          continue;
+        }
+      }
+    }
+
+    // bold: **…**
+    if (ch === "*" && input[i + 1] === "*") {
+      const end = input.indexOf("**", i + 2);
+      if (end > i + 1) {
+        flushText();
+        out.push({
+          kind: "bold",
+          children: tokenizeInline(input.slice(i + 2, end)),
+        });
+        i = end + 2;
+        continue;
+      }
+    }
+
+    // italic: *…*  (single-star, not part of a **) and _…_
+    if (ch === "*" || ch === "_") {
+      const end = input.indexOf(ch, i + 1);
+      // Require non-empty content and end not immediately followed by
+      // another same-char (which would be a stray **/__ run).
+      if (end > i + 1 && input[end + 1] !== ch) {
+        flushText();
+        out.push({
+          kind: "italic",
+          children: tokenizeInline(input.slice(i + 1, end)),
+        });
+        i = end + 1;
+        continue;
+      }
+    }
+
+    buf += ch;
+    i++;
+  }
+  flushText();
+  return out;
+}
+
+function renderInlineNodes(nodes: InlineNode[]): React.ReactNode[] {
+  return nodes.map((n, i) => {
+    if (n.kind === "text") return n.value;
+    if (n.kind === "bold")
+      return (
+        <strong key={i} className="font-semibold">
+          {renderInlineNodes(n.children)}
+        </strong>
+      );
+    if (n.kind === "italic")
+      return <em key={i}>{renderInlineNodes(n.children)}</em>;
+    if (n.kind === "code")
+      return (
+        <code key={i} className="font-mono bg-muted/60 rounded px-1 py-px">
+          {n.value}
+        </code>
+      );
+    // link — only http(s) and mailto pass through; anything else
+    // degrades to the link text to keep this safe inside inline labels.
+    const safe = /^(https?:|mailto:)/i.test(n.href);
+    if (!safe) return <span key={i}>{renderInlineNodes(n.children)}</span>;
+    return (
+      <a
+        key={i}
+        href={n.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline hover:text-accent"
+      >
+        {renderInlineNodes(n.children)}
+      </a>
+    );
+  });
 }
 
 /** Render a scalar value to a one-line display string. */
