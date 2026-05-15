@@ -1834,6 +1834,37 @@ function renderFieldValue(
     );
   }
 
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return <span className="text-muted-foreground/50">—</span>;
+    }
+    const allPrimitive = value.every(
+      (item) =>
+        item === null ||
+        typeof item === "string" ||
+        typeof item === "number" ||
+        typeof item === "boolean",
+    );
+    if (allPrimitive) {
+      return (
+        <span className="inline-flex flex-wrap gap-1 max-w-full">
+          {value.map((item, i) => (
+            <span
+              key={i}
+              className="inline-block rounded bg-muted/60 px-1.5 py-0.5 text-xs break-all"
+            >
+              {item === null ? (
+                <span className="text-muted-foreground/60">null</span>
+              ) : (
+                String(item)
+              )}
+            </span>
+          ))}
+        </span>
+      );
+    }
+  }
+
   return <span className="text-sm break-all">{formatScalar(value)}</span>;
 }
 
