@@ -1756,71 +1756,80 @@ function DiffValue({
  * url/email become clickable, etc. Falls back to formatScalar for
  * anything not specially handled.
  */
+function looksLikeUrl(v: unknown): v is string {
+  return typeof v === "string" && /^https?:\/\//i.test(v);
+}
+
+function looksLikeEmail(v: unknown): v is string {
+  return typeof v === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+}
+
+function looksLikeUrlMap(v: unknown): v is Record<string, unknown> {
+  if (v === null || typeof v !== "object" || Array.isArray(v)) return false;
+  const entries = Object.entries(v as Record<string, unknown>);
+  if (entries.length === 0) return false;
+  let hasUrl = false;
+  for (const [, val] of entries) {
+    if (val === null || val === undefined || val === "") continue;
+    if (looksLikeUrl(val)) {
+      hasUrl = true;
+      continue;
+    }
+    return false;
+  }
+  return hasUrl;
+}
+
+function renderUrl(value: string): React.ReactNode {
+  return (
+    <a
+      href={value}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-sm text-foreground hover:text-accent transition-colors break-all"
+    >
+      {value}
+    </a>
+  );
+}
+
+function renderUrlMap(value: Record<string, unknown>): React.ReactNode {
+  const entries = Object.entries(value).filter(
+    ([, v]) => typeof v === "string" && v.length > 0,
+  );
+  if (entries.length === 0) {
+    return <span className="text-muted-foreground/50">—</span>;
+  }
+  return (
+    <ul className="space-y-1">
+      {entries.map(([label, url]) => (
+        <li key={label} className="min-w-0">
+          <a
+            href={url as string}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-baseline gap-1 text-sm text-foreground hover:text-accent transition-colors max-w-full"
+            title={url as string}
+          >
+            <span className="font-mono text-[11px] text-muted-foreground shrink-0">
+              {label}
+            </span>
+            <span aria-hidden className="text-muted-foreground/60 text-[10px]">
+              ↗
+            </span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function renderFieldValue(
   value: unknown,
   type: string | undefined,
 ): React.ReactNode {
   if (value === null || value === undefined || value === "") {
     return <span className="text-muted-foreground/50">—</span>;
-  }
-
-  if (
-    type === "url_map" &&
-    typeof value === "object" &&
-    !Array.isArray(value)
-  ) {
-    const entries = Object.entries(value as Record<string, unknown>).filter(
-      ([, v]) => typeof v === "string" && v.length > 0,
-    );
-    if (entries.length === 0) {
-      return <span className="text-muted-foreground/50">—</span>;
-    }
-    return (
-      <ul className="space-y-1">
-        {entries.map(([label, url]) => (
-          <li key={label} className="min-w-0">
-            <a
-              href={url as string}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-baseline gap-1 text-sm text-foreground hover:text-accent transition-colors max-w-full"
-              title={url as string}
-            >
-              <span className="font-mono text-[11px] text-muted-foreground shrink-0">
-                {label}
-              </span>
-              <span aria-hidden className="text-muted-foreground/60 text-[10px]">
-                ↗
-              </span>
-            </a>
-          </li>
-        ))}
-      </ul>
-    );
-  }
-
-  if (type === "url" && typeof value === "string") {
-    return (
-      <a
-        href={value}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-sm text-foreground hover:text-accent transition-colors break-all"
-      >
-        {value}
-      </a>
-    );
-  }
-
-  if (type === "email" && typeof value === "string") {
-    return (
-      <a
-        href={`mailto:${value}`}
-        className="text-sm text-foreground hover:text-accent transition-colors break-all"
-      >
-        {value}
-      </a>
-    );
   }
 
   if (type === "image" && typeof value === "string") {
@@ -1832,6 +1841,33 @@ function renderFieldValue(
         className="max-w-full h-auto rounded border border-border/40"
       />
     );
+  }
+
+  if (typeof value === "string" && (type === "url" || looksLikeUrl(value))) {
+    return renderUrl(value);
+  }
+
+  if (
+    typeof value === "string" &&
+    (type === "email" || looksLikeEmail(value))
+  ) {
+    return (
+      <a
+        href={`mailto:${value}`}
+        className="text-sm text-foreground hover:text-accent transition-colors break-all"
+      >
+        {value}
+      </a>
+    );
+  }
+
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    (type === "url_map" || looksLikeUrlMap(value))
+  ) {
+    return renderUrlMap(value as Record<string, unknown>);
   }
 
   if (Array.isArray(value)) {
@@ -1855,6 +1891,15 @@ function renderFieldValue(
             >
               {item === null ? (
                 <span className="text-muted-foreground/60">null</span>
+              ) : looksLikeUrl(item) ? (
+                <a
+                  href={item}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-accent transition-colors"
+                >
+                  {item}
+                </a>
               ) : (
                 String(item)
               )}
