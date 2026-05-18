@@ -74,8 +74,6 @@ interface SchemaConfig {
   };
 }
 
-type EntityListMode = "list" | "block";
-
 export interface CollectionViewProps {
   /** Raw .jsonl file content. */
   content: string;
@@ -95,18 +93,6 @@ export function CollectionView({ content }: CollectionViewProps) {
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement | null>(null);
-
-  // Block (cards) vs list (rows). Schema can pin the default; user can
-  // override from the header toggle. Re-resolve when the schema loads
-  // so a freshly-fetched schema's `default_view` takes effect before
-  // the user has touched anything.
-  const schemaDefaultView: EntityListMode =
-    schema?.list_view?.default_view === "list" ? "list" : "block";
-  const [viewMode, setViewMode] = useState<EntityListMode>(schemaDefaultView);
-  const [viewTouched, setViewTouched] = useState(false);
-  useEffect(() => {
-    if (!viewTouched) setViewMode(schemaDefaultView);
-  }, [schemaDefaultView, viewTouched]);
 
   // Index into the drilled entity's history (chronologically ordered).
   // `null` = "follow latest" — when set, the detail view renders that
@@ -257,28 +243,19 @@ export function CollectionView({ content }: CollectionViewProps) {
 
   const filterFieldKeys = schema?.list_view?.filters ?? [];
 
-  // List is always visible (left / main pane); detail slides in on the
-  // right via ListDetailLayout when drillEntity is set. Counts always
-  // reflect the *filtered* list — the user can refine while detail is
-  // open, and the filtered slice is also what prev/next walk over.
-  const listNode =
-    viewMode === "list" ? (
-      <RowListView
-        entities={filteredEntities}
-        schema={schema}
-        onDrill={setDrillEntityId}
-        selectedId={drillEntityId}
-        t={t}
-      />
-    ) : (
-      <ListView
-        entities={filteredEntities}
-        schema={schema}
-        onDrill={setDrillEntityId}
-        selectedId={drillEntityId}
-        t={t}
-      />
-    );
+  // Email/Linear-style 3-pane: list is always a narrow vertical column,
+  // detail pane is always rendered to the right (empty state when nothing
+  // is selected). Grid (block) view doesn't make sense in a narrow
+  // column, so the toggle is hidden and we force the row layout.
+  const listNode = (
+    <RowListView
+      entities={filteredEntities}
+      schema={schema}
+      onDrill={setDrillEntityId}
+      selectedId={drillEntityId}
+      t={t}
+    />
+  );
 
   const detailNode = drillEntity ? (
     <DetailView
@@ -327,15 +304,6 @@ export function CollectionView({ content }: CollectionViewProps) {
           )}
         </div>
 
-        {filteredEntities.length > 0 && (
-          <ViewModeToggle
-            mode={viewMode}
-            onChange={(next) => {
-              setViewTouched(true);
-              setViewMode(next);
-            }}
-          />
-        )}
       </header>
 
       {schema &&
@@ -365,48 +333,19 @@ export function CollectionView({ content }: CollectionViewProps) {
           canGoNext: nav.canGoNext,
         }}
         detailHeader={detailLabel}
-        storageKey="huozi.coll.detail.width"
+        defaultOpen={true}
+        emptyDetail={
+          <div className="h-full flex items-center justify-center text-sm text-muted-foreground p-8 text-center">
+            {filteredEntities.length === 0
+              ? "—"
+              : t("ws.coll.selectToRead")}
+          </div>
+        }
+        storageKey="huozi.coll.list.width"
+        defaultWidth={320}
+        minWidth={240}
+        maxWidth={480}
       />
-    </div>
-  );
-}
-
-/* ── View-mode toggle ─────────────────────────────────────────────── */
-
-function ViewModeToggle({
-  mode,
-  onChange,
-}: {
-  mode: EntityListMode;
-  onChange: (next: EntityListMode) => void;
-}) {
-  const base =
-    "text-[11px] px-2 py-1 border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors";
-  const active = "bg-muted/80 text-foreground";
-  return (
-    <div className="flex items-center -space-x-px" role="tablist">
-      <button
-        type="button"
-        role="tab"
-        aria-selected={mode === "block"}
-        onClick={() => onChange("block")}
-        className={`${base} rounded-l ${mode === "block" ? active : ""}`}
-        title="Block"
-        aria-label="Block view"
-      >
-        ▦
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={mode === "list"}
-        onClick={() => onChange("list")}
-        className={`${base} rounded-r ${mode === "list" ? active : ""}`}
-        title="List"
-        aria-label="List view"
-      >
-        ☰
-      </button>
     </div>
   );
 }
@@ -520,44 +459,6 @@ function ErrorsStrip({ errors }: { errors: readonly ParseError[] }) {
         ))}
       </ul>
     </details>
-  );
-}
-
-/* ── List view: one card per folded entity ───────────────────────── */
-
-function ListView({
-  entities,
-  schema,
-  onDrill,
-  selectedId,
-  t,
-}: {
-  entities: readonly EntityState[];
-  schema: SchemaConfig | null;
-  onDrill: (id: string) => void;
-  selectedId: string | null;
-  t: (k: string) => string;
-}) {
-  if (entities.length === 0) {
-    return (
-      <div className="text-sm text-muted-foreground py-12 text-center">
-        No entities (only parse errors above).
-      </div>
-    );
-  }
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      {entities.map((e) => (
-        <EntityCard
-          key={e.id}
-          entity={e}
-          schema={schema}
-          onDrill={onDrill}
-          selected={e.id === selectedId}
-          t={t}
-        />
-      ))}
-    </div>
   );
 }
 
@@ -687,123 +588,6 @@ function EntityRow({
         </span>
       </button>
     </li>
-  );
-}
-
-function EntityCard({
-  entity,
-  schema,
-  onDrill,
-  selected,
-  t,
-}: {
-  entity: EntityState;
-  schema: SchemaConfig | null;
-  onDrill: (id: string) => void;
-  selected: boolean;
-  t: (k: string) => string;
-}) {
-  const isDeleted = entity.status === "deleted";
-  const fields = stripConventions(entity.state);
-
-  const titleField = schema?.entity?.title_field;
-  const subtitleField = schema?.entity?.subtitle_field;
-  const avatarField = schema?.entity?.avatar_field;
-
-  const title = (titleField && pickString(fields, titleField)) ?? entity.id;
-  const subtitle = subtitleField ? pickString(fields, subtitleField) : null;
-  const avatar = avatarField ? pickString(fields, avatarField) : null;
-
-  // Fields to show as a small kv list in the card body. If a schema
-  // declares display slots, prefer "meta" + "subheadline" fields (skip
-  // any already used as title/subtitle/avatar). Without a schema, fall
-  // back to first six raw fields.
-  const cardKvs = useMemo(() => {
-    if (schema?.fields) {
-      const used = new Set(
-        [titleField, subtitleField, avatarField].filter(Boolean) as string[],
-      );
-      const picked: [string, unknown][] = [];
-      for (const [k, def] of Object.entries(schema.fields)) {
-        if (used.has(k)) continue;
-        if (def.display === "meta" || def.display === "aside") {
-          if (k in fields) picked.push([def.label ?? k, fields[k]]);
-        }
-      }
-      return picked.slice(0, 6);
-    }
-    return Object.entries(fields).slice(0, 6);
-  }, [fields, schema, titleField, subtitleField, avatarField]);
-
-  return (
-    <button
-      type="button"
-      onClick={() => onDrill(entity.id)}
-      aria-current={selected ? "true" : undefined}
-      className={`huozi-collection-card ${
-        selected ? "ring-2 ring-foreground/60" : ""
-      } ${isDeleted ? "opacity-60" : ""}`}
-    >
-      <div className="flex items-center gap-3 mb-2">
-        {avatar && (
-          // Avatar render: a small round image when the field resolves
-          // to a URL string. Fallback initials are not implemented yet.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={avatar}
-            alt=""
-            className="w-10 h-10 rounded-full object-cover bg-muted shrink-0"
-          />
-        )}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="text-sm font-medium text-foreground truncate">
-              {title}
-            </span>
-            {isDeleted && (
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">
-                {t("ws.coll.deleted")}
-              </span>
-            )}
-          </div>
-          {subtitle && (
-            <div className="text-xs text-muted-foreground truncate">
-              {subtitle}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {cardKvs.length > 0 && (
-        <dl className="space-y-1 mb-2">
-          {cardKvs.map(([k, v]) => (
-            <div key={k} className="flex gap-2 text-[11px] leading-tight">
-              <dt className="text-muted-foreground shrink-0 font-mono">
-                <InlineMarkdown source={k} />
-              </dt>
-              <dd className="text-foreground truncate font-mono">
-                {formatScalar(v)}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      )}
-
-      <footer className="flex items-center gap-2 text-[10px] text-muted-foreground pt-2 border-t border-border/30 mt-2">
-        {entity.latest.at && (
-          <time className="font-mono">{shortAt(entity.latest.at)}</time>
-        )}
-        {entity.latest.by && (
-          <>
-            <span className="opacity-40">·</span>
-            <span className="font-mono">{entity.latest.by}</span>
-          </>
-        )}
-        <span className="ml-auto text-muted-foreground/60">
-          {entity.history.length}↺
-        </span>
-      </footer>
-    </button>
   );
 }
 

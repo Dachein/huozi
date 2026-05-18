@@ -43,7 +43,7 @@ export interface ListDetailNavigator {
 export interface ListDetailLayoutProps {
   /** Always-visible list pane content. */
   list: ReactNode;
-  /** Detail pane content. `null` means nothing is selected (no pane shown). */
+  /** Detail pane content. `null` means nothing is selected. */
   detail: ReactNode | null;
   /** Dismiss handler — Esc, close button, and backdrop tap all call this. */
   onClose: () => void;
@@ -51,6 +51,23 @@ export interface ListDetailLayoutProps {
   navigator?: ListDetailNavigator;
   /** Extra content rendered inside the detail chrome row (e.g. a small label). */
   detailHeader?: ReactNode;
+  /**
+   * Email/Linear-style "always-on" layout. When true:
+   *   - lg+ : list is a narrow left column, detail pane is always rendered
+   *     on the right. When `detail` is null, `emptyDetail` shows in its place.
+   *     No close button (you swap selections instead of closing).
+   *   - < lg: behaves like the standard drawer pattern (detail only visible
+   *     while an item is selected; full-screen drawer over the list).
+   * Default false → click-to-open sidebar pattern.
+   */
+  defaultOpen?: boolean;
+  /** Placeholder shown in the always-on pane when nothing is selected. */
+  emptyDetail?: ReactNode;
+  /**
+   * Width strategy:
+   *   - defaultOpen=false: drag-resizable right pane (320-720px)
+   *   - defaultOpen=true:  fixed narrow LIST column (320px), detail takes the rest
+   */
   /**
    * localStorage key for the desktop pane width. Use a path-shaped key so
    * different surfaces keep their own preferred widths
@@ -72,12 +89,23 @@ export function ListDetailLayout({
   onClose,
   navigator,
   detailHeader,
+  defaultOpen = false,
+  emptyDetail,
   storageKey,
   defaultWidth = 400,
   minWidth = 320,
   maxWidth = 720,
 }: ListDetailLayoutProps) {
-  const open = detail !== null;
+  // Selection state — actual data presence.
+  const hasSelection = detail !== null;
+  // Desktop aside is visible iff we're in always-on mode OR something selected.
+  // Mobile drawer is always tied to actual selection (no point showing an
+  // empty full-screen drawer over the list).
+  const asideVisible = defaultOpen || hasSelection;
+  const mobileOpen = hasSelection;
+  // In always-on mode the list column is fixed-width and the *detail*
+  // takes the rest. In click-to-open mode the list grows, detail is fixed.
+  const listColumnFixed = defaultOpen;
 
   const [width, setWidth] = useState<number>(() => {
     if (typeof window === "undefined") return defaultWidth;
@@ -115,12 +143,17 @@ export function ListDetailLayout({
     (e: ReactPointerEvent<HTMLDivElement>) => {
       const state = dragStateRef.current;
       if (!state) return;
-      // Handle sits on the LEFT edge of the detail pane, so moving the
-      // pointer left widens the pane (and vice versa).
-      const dx = state.startX - e.clientX;
-      setWidth(clamp(state.startWidth + dx, minWidth, maxWidth));
+      // The same `width` state means different things in each mode:
+      //   click-to-open → detail width (handle on its left edge,
+      //                                 drag left = wider)
+      //   always-on     → list width   (handle on its right edge,
+      //                                 drag right = wider)
+      const delta = listColumnFixed
+        ? e.clientX - state.startX
+        : state.startX - e.clientX;
+      setWidth(clamp(state.startWidth + delta, minWidth, maxWidth));
     },
-    [minWidth, maxWidth],
+    [minWidth, maxWidth, listColumnFixed],
   );
 
   const onPointerUp = useCallback(
@@ -152,7 +185,7 @@ export function ListDetailLayout({
   // Body-scroll lock for the mobile drawer only. Desktop split-view
   // doesn't need it.
   useEffect(() => {
-    if (!open) return;
+    if (!mobileOpen) return;
     if (typeof window === "undefined") return;
     if (window.innerWidth >= LG_BREAKPOINT) return;
     const prev = document.body.style.overflow;
@@ -160,10 +193,12 @@ export function ListDetailLayout({
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [open]);
+  }, [mobileOpen]);
 
+  // Keyboard only active while there's a real selection — defaultOpen
+  // alone shouldn't hijack ← → when the user is just browsing the list.
   useEffect(() => {
-    if (!open) return;
+    if (!hasSelection) return;
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       const inField =
@@ -191,18 +226,44 @@ export function ListDetailLayout({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose, navigator]);
+  }, [hasSelection, onClose, navigator]);
+
+  // Desktop column sizing:
+  //   listColumnFixed (always-on)  → list = fixed `width` px, detail = flex-1
+  //   click-to-open                → list = flex-1, detail = fixed `width` px
+  // Same `width` state powers both modes; the storageKey naturally
+  // separates "list width" vs "detail width" preferences across surfaces.
+  const listStyle = listColumnFixed ? { width: `${width}px` } : undefined;
+  const asideStyle = listColumnFixed ? undefined : { width: `${width}px` };
 
   return (
     <div className="flex flex-1 min-h-0 min-w-0">
-      <div className="flex-1 min-w-0 min-h-0 flex flex-col">{list}</div>
+      <div
+        className={
+          listColumnFixed
+            ? "hidden lg:flex shrink-0 min-w-0 min-h-0 flex-col"
+            : "flex-1 min-w-0 min-h-0 flex flex-col"
+        }
+        style={listStyle}
+      >
+        {list}
+      </div>
 
-      {open && (
+      {/* On always-on mode below lg, the list takes the full screen and
+          we still show it via a second copy (since the desktop list above
+          is `hidden lg:flex`). Keeps the layout simple — one list source. */}
+      {listColumnFixed && (
+        <div className="lg:hidden flex-1 min-w-0 min-h-0 flex flex-col">
+          {list}
+        </div>
+      )}
+
+      {asideVisible && (
         <>
           <div
             role="separator"
             aria-orientation="vertical"
-            aria-label="Resize detail pane"
+            aria-label="Resize panes"
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
@@ -214,20 +275,26 @@ export function ListDetailLayout({
             }`}
           />
           <aside
-            className="hidden lg:flex shrink-0 flex-col min-h-0 border-l border-border/40 bg-background"
-            style={{ width: `${width}px` }}
+            className={`hidden lg:flex flex-col min-h-0 border-l border-border/40 bg-background ${
+              listColumnFixed ? "flex-1 min-w-0" : "shrink-0"
+            }`}
+            style={asideStyle}
           >
             <DetailChrome
               navigator={navigator}
               onClose={onClose}
               extra={detailHeader}
+              showClose={!defaultOpen}
+              showWhenEmpty={defaultOpen && !hasSelection}
             />
-            <div className="flex-1 min-h-0 overflow-y-auto">{detail}</div>
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              {hasSelection ? detail : emptyDetail}
+            </div>
           </aside>
         </>
       )}
 
-      {open && (
+      {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-50">
           <button
             type="button"
@@ -244,6 +311,8 @@ export function ListDetailLayout({
               navigator={navigator}
               onClose={onClose}
               extra={detailHeader}
+              showClose={true}
+              showWhenEmpty={false}
             />
             <div className="flex-1 min-h-0 overflow-y-auto">{detail}</div>
           </aside>
@@ -257,15 +326,28 @@ function DetailChrome({
   navigator,
   onClose,
   extra,
+  showClose,
+  showWhenEmpty,
 }: {
   navigator?: ListDetailNavigator;
   onClose: () => void;
   extra?: ReactNode;
+  /** Hide the ✕ button when the pane is always-on (no "closed" state). */
+  showClose: boolean;
+  /** Render the chrome row even when nothing is selected (always-on mode). */
+  showWhenEmpty: boolean;
 }) {
-  const showNav = !!(navigator?.goPrev || navigator?.goNext);
+  const hasNav = !!(navigator?.goPrev || navigator?.goNext);
+  // When always-on with no selection, render an empty chrome row to
+  // keep vertical alignment with the list pane's header.
+  if (showWhenEmpty && !hasNav && !extra && !showClose) {
+    return (
+      <header className="border-b border-border/40 shrink-0 h-[34px]" />
+    );
+  }
   return (
     <header className="flex items-center gap-1 px-2 py-1.5 border-b border-border/40 shrink-0">
-      {showNav && (
+      {hasNav && (
         <>
           <button
             type="button"
@@ -292,15 +374,17 @@ function DetailChrome({
       <div className="flex-1 min-w-0 px-2 text-xs text-muted-foreground truncate">
         {extra}
       </div>
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Close"
-        title="esc"
-        className="text-xs px-2 py-1 rounded border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors"
-      >
-        ✕
-      </button>
+      {showClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          title="esc"
+          className="text-xs px-2 py-1 rounded border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors"
+        >
+          ✕
+        </button>
+      )}
     </header>
   );
 }
