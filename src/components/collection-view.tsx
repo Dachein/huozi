@@ -31,6 +31,8 @@ import {
 } from "@/lib/jsonl/parse";
 import { foldByEntity, foldSchema, type EntityState } from "@/lib/jsonl/fold";
 import { useEditableSurface } from "@/components/workspace/inline-edit";
+import { ListDetailLayout } from "@/components/list-detail-layout";
+import { useEntityNavigator } from "@/components/use-entity-navigator";
 
 /** A select-type option as declared in the schema. */
 interface FieldOption {
@@ -159,15 +161,14 @@ export function CollectionView({ content }: CollectionViewProps) {
   const drillEntity = drillEntityId
     ? folded.find((e) => e.id === drillEntityId) ?? null
     : null;
-  const drillIndex = drillEntity
-    ? filteredEntities.findIndex((e) => e.id === drillEntity.id)
-    : -1;
-  const prevEntity =
-    drillIndex > 0 ? (filteredEntities[drillIndex - 1] ?? null) : null;
-  const nextEntity =
-    drillIndex >= 0 && drillIndex < filteredEntities.length - 1
-      ? (filteredEntities[drillIndex + 1] ?? null)
-      : null;
+
+  const entityId = useCallback((e: EntityState) => e.id, []);
+  const nav = useEntityNavigator(
+    filteredEntities,
+    drillEntityId,
+    entityId,
+    setDrillEntityId,
+  );
 
   // History-version cursor: `null` follows latest. The "effective"
   // index resolved against the current drilledEntity's history length.
@@ -177,12 +178,6 @@ export function CollectionView({ content }: CollectionViewProps) {
   const canGoOlder = drillEntity ? effectiveHistoryIndex > 0 : false;
   const canGoNewer = drillEntity ? effectiveHistoryIndex < historyLen - 1 : false;
 
-  const goPrevEntity = useCallback(() => {
-    if (prevEntity) setDrillEntityId(prevEntity.id);
-  }, [prevEntity]);
-  const goNextEntity = useCallback(() => {
-    if (nextEntity) setDrillEntityId(nextEntity.id);
-  }, [nextEntity]);
   const goBack = useCallback(() => setDrillEntityId(null), []);
   const goOlderVersion = useCallback(() => {
     setHistoryIndex((cur) => {
@@ -200,11 +195,12 @@ export function CollectionView({ content }: CollectionViewProps) {
     });
   }, [historyLen]);
 
-  // Keyboard:
-  //   ←/→  prev / next entity (within filtered list)
-  //   ↑/↓  older / newer version of this entity's history
-  //   esc  back to list
-  //   ⌘/Ctrl + K  focus the search input (works in list view too)
+  // Keyboard (collection-specific only — ←/→/Esc are owned by
+  // ListDetailLayout's chrome since they're generic list+detail
+  // shortcuts):
+  //   ↑/↓        older / newer version of this entity's history
+  //   Space      hold to highlight diff at the active event
+  //   ⌘/Ctrl+K   focus the search input (works without selection too)
   // Inputs / textareas opt out so typing isn't hijacked.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -223,21 +219,12 @@ export function CollectionView({ content }: CollectionViewProps) {
       if (inField) return;
 
       if (drillEntity) {
-        if (e.key === "ArrowLeft") {
-          e.preventDefault();
-          goPrevEntity();
-        } else if (e.key === "ArrowRight") {
-          e.preventDefault();
-          goNextEntity();
-        } else if (e.key === "ArrowUp") {
+        if (e.key === "ArrowUp") {
           e.preventDefault();
           goOlderVersion();
         } else if (e.key === "ArrowDown") {
           e.preventDefault();
           goNewerVersion();
-        } else if (e.key === "Escape") {
-          e.preventDefault();
-          goBack();
         } else if (e.code === "Space" && !e.repeat) {
           // Hold-to-peek: highlight diff while pressed. Prevent the
           // browser's default page-down on Space.
@@ -255,14 +242,7 @@ export function CollectionView({ content }: CollectionViewProps) {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [
-    drillEntity,
-    goNextEntity,
-    goPrevEntity,
-    goOlderVersion,
-    goNewerVersion,
-    goBack,
-  ]);
+  }, [drillEntity, goOlderVersion, goNewerVersion]);
 
   // Drop the peek state whenever we leave detail view, so re-entering
   // doesn't show stale highlights.
@@ -277,20 +257,59 @@ export function CollectionView({ content }: CollectionViewProps) {
 
   const filterFieldKeys = schema?.list_view?.filters ?? [];
 
+  // List is always visible (left / main pane); detail slides in on the
+  // right via ListDetailLayout when drillEntity is set. Counts always
+  // reflect the *filtered* list — the user can refine while detail is
+  // open, and the filtered slice is also what prev/next walk over.
+  const listNode =
+    viewMode === "list" ? (
+      <RowListView
+        entities={filteredEntities}
+        schema={schema}
+        onDrill={setDrillEntityId}
+        selectedId={drillEntityId}
+        t={t}
+      />
+    ) : (
+      <ListView
+        entities={filteredEntities}
+        schema={schema}
+        onDrill={setDrillEntityId}
+        selectedId={drillEntityId}
+        t={t}
+      />
+    );
+
+  const detailNode = drillEntity ? (
+    <DetailView
+      entity={drillEntity}
+      schema={schema}
+      historyIndex={effectiveHistoryIndex}
+      isLatest={historyIndex === null}
+      canGoOlder={canGoOlder}
+      canGoNewer={canGoNewer}
+      onOlder={goOlderVersion}
+      onNewer={goNewerVersion}
+      peekDiff={peekDiff}
+      t={t}
+    />
+  ) : null;
+
+  const detailLabel =
+    drillEntity && nav.index >= 0
+      ? `${nav.index + 1}/${filteredEntities.length}`
+      : null;
+
   return (
     <div className="flex flex-col gap-4 flex-1 min-h-0">
-      {/* Header: counts + (when in detail) back / prev / next */}
       <header className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-border/50">
         <div className="text-xs text-muted-foreground flex items-center gap-3">
           <span>
             {t("ws.coll.entities").replace(
               "{n}",
-              String(
-                drillEntity ? folded.length : filteredEntities.length,
-              ),
+              String(filteredEntities.length),
             )}
-            {!drillEntity &&
-            filteredEntities.length !== folded.length ? (
+            {filteredEntities.length !== folded.length ? (
               <span className="opacity-60"> / {folded.length}</span>
             ) : null}
           </span>
@@ -301,14 +320,14 @@ export function CollectionView({ content }: CollectionViewProps) {
           {errors.length > 0 && (
             <>
               <span className="opacity-50">·</span>
-              <span className="text-amber-600 dark:text-amber-400">
+              <span className="text-amber-600">
                 {t("ws.coll.errors").replace("{n}", String(errors.length))}
               </span>
             </>
           )}
         </div>
 
-        {!drillEntity && filteredEntities.length > 0 && (
+        {filteredEntities.length > 0 && (
           <ViewModeToggle
             mode={viewMode}
             onChange={(next) => {
@@ -317,49 +336,9 @@ export function CollectionView({ content }: CollectionViewProps) {
             }}
           />
         )}
-
-        {drillEntity && (
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={goBack}
-              className="text-[11px] px-2.5 py-1 rounded border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors"
-              title="esc"
-            >
-              {t("ws.coll.backToList")}
-            </button>
-            <button
-              type="button"
-              onClick={goPrevEntity}
-              disabled={!prevEntity}
-              className="text-[11px] px-2 py-1 rounded border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
-              title="←"
-              aria-label="Previous entity"
-            >
-              ‹
-            </button>
-            <button
-              type="button"
-              onClick={goNextEntity}
-              disabled={!nextEntity}
-              className="text-[11px] px-2 py-1 rounded border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
-              title="→"
-              aria-label="Next entity"
-            >
-              ›
-            </button>
-            {drillIndex >= 0 && (
-              <span className="text-[10px] text-muted-foreground/60 font-mono ml-1">
-                {drillIndex + 1}/{filteredEntities.length}
-              </span>
-            )}
-          </div>
-        )}
       </header>
 
-      {/* Filter / search bar — list view only */}
-      {!drillEntity &&
-        schema &&
+      {schema &&
         (filterFieldKeys.length > 0 || schema?.list_view?.search) && (
           <FilterBar
             schema={schema}
@@ -373,38 +352,21 @@ export function CollectionView({ content }: CollectionViewProps) {
           />
         )}
 
-      {/* Parse errors strip — always visible above the chosen view */}
       {errors.length > 0 && <ErrorsStrip errors={errors} />}
 
-      {/* Body */}
-      {drillEntity ? (
-        <DetailView
-          entity={drillEntity}
-          schema={schema}
-          historyIndex={effectiveHistoryIndex}
-          isLatest={historyIndex === null}
-          canGoOlder={canGoOlder}
-          canGoNewer={canGoNewer}
-          onOlder={goOlderVersion}
-          onNewer={goNewerVersion}
-          peekDiff={peekDiff}
-          t={t}
-        />
-      ) : viewMode === "list" ? (
-        <RowListView
-          entities={filteredEntities}
-          schema={schema}
-          onDrill={setDrillEntityId}
-          t={t}
-        />
-      ) : (
-        <ListView
-          entities={filteredEntities}
-          schema={schema}
-          onDrill={setDrillEntityId}
-          t={t}
-        />
-      )}
+      <ListDetailLayout
+        list={listNode}
+        detail={detailNode}
+        onClose={goBack}
+        navigator={{
+          goPrev: nav.goPrev,
+          goNext: nav.goNext,
+          canGoPrev: nav.canGoPrev,
+          canGoNext: nav.canGoNext,
+        }}
+        detailHeader={detailLabel}
+        storageKey="huozi.coll.detail.width"
+      />
     </div>
   );
 }
@@ -567,11 +529,13 @@ function ListView({
   entities,
   schema,
   onDrill,
+  selectedId,
   t,
 }: {
   entities: readonly EntityState[];
   schema: SchemaConfig | null;
   onDrill: (id: string) => void;
+  selectedId: string | null;
   t: (k: string) => string;
 }) {
   if (entities.length === 0) {
@@ -589,6 +553,7 @@ function ListView({
           entity={e}
           schema={schema}
           onDrill={onDrill}
+          selected={e.id === selectedId}
           t={t}
         />
       ))}
@@ -602,11 +567,13 @@ function RowListView({
   entities,
   schema,
   onDrill,
+  selectedId,
   t,
 }: {
   entities: readonly EntityState[];
   schema: SchemaConfig | null;
   onDrill: (id: string) => void;
+  selectedId: string | null;
   t: (k: string) => string;
 }) {
   if (entities.length === 0) {
@@ -624,6 +591,7 @@ function RowListView({
           entity={e}
           schema={schema}
           onDrill={onDrill}
+          selected={e.id === selectedId}
           t={t}
         />
       ))}
@@ -635,11 +603,13 @@ function EntityRow({
   entity,
   schema,
   onDrill,
+  selected,
   t,
 }: {
   entity: EntityState;
   schema: SchemaConfig | null;
   onDrill: (id: string) => void;
+  selected: boolean;
   t: (k: string) => string;
 }) {
   const isDeleted = entity.status === "deleted";
@@ -676,9 +646,10 @@ function EntityRow({
       <button
         type="button"
         onClick={() => onDrill(entity.id)}
-        className={`w-full text-left flex items-baseline gap-3 px-2 py-2 hover:bg-muted/40 transition-colors ${
-          isDeleted ? "opacity-60" : ""
-        }`}
+        aria-current={selected ? "true" : undefined}
+        className={`w-full text-left flex items-baseline gap-3 px-2 py-2 hover:bg-muted/40 transition-colors border-l-2 ${
+          selected ? "bg-muted/60 border-foreground/60" : "border-transparent"
+        } ${isDeleted ? "opacity-60" : ""}`}
       >
         <span className="text-sm font-medium text-foreground truncate min-w-0 flex-1">
           <InlineMarkdown source={title} />
@@ -723,11 +694,13 @@ function EntityCard({
   entity,
   schema,
   onDrill,
+  selected,
   t,
 }: {
   entity: EntityState;
   schema: SchemaConfig | null;
   onDrill: (id: string) => void;
+  selected: boolean;
   t: (k: string) => string;
 }) {
   const isDeleted = entity.status === "deleted";
@@ -766,7 +739,10 @@ function EntityCard({
     <button
       type="button"
       onClick={() => onDrill(entity.id)}
-      className={`huozi-collection-card ${isDeleted ? "opacity-60" : ""}`}
+      aria-current={selected ? "true" : undefined}
+      className={`huozi-collection-card ${
+        selected ? "ring-2 ring-foreground/60" : ""
+      } ${isDeleted ? "opacity-60" : ""}`}
     >
       <div className="flex items-center gap-3 mb-2">
         {avatar && (
@@ -1038,12 +1014,8 @@ function DetailView({
   const asideOpen = asideHasContent && !asideCollapsed;
 
   return (
-    <div className="flex flex-col gap-8 flex-1 min-h-[calc(100vh-14rem)]">
-    <div
-      className={`grid grid-cols-1 gap-6 ${
-        asideOpen ? "md:grid-cols-[1fr_280px]" : "md:grid-cols-1"
-      }`}
-    >
+    <div className="flex flex-col gap-8 flex-1 min-h-0 px-4 py-4">
+    <div className="flex flex-col gap-6">
       {/* Main column */}
       <main className="space-y-4">
         <header className="flex items-center gap-4 pb-3 border-b border-border/40">
@@ -1145,16 +1117,15 @@ function DetailView({
             title="Expand aside"
             aria-label="Expand aside"
           >
-            ‹ aside
+            ▸ aside
           </button>
         )}
       </main>
 
-      {/* Aside — jsonl's standard right column. Hidden when there's
-          no aside content to show; collapsible via the chevron when
-          there is. */}
+      {/* Aside — stacks below the main column inside the sidebar pane.
+          Hidden when empty; collapsible via the chevron when present. */}
       {asideOpen && (
-      <aside className="space-y-4 md:border-l md:pl-6 md:border-border/40 min-w-0">
+      <aside className="space-y-4 min-w-0 pt-4 border-t border-border/40">
         <div className="flex justify-end">
           <button
             type="button"
@@ -1163,7 +1134,7 @@ function DetailView({
             title="Collapse aside"
             aria-label="Collapse aside"
           >
-            ›
+            ▾
           </button>
         </div>
         {!isLatest && activeEvent && (
