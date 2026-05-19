@@ -152,8 +152,12 @@ export function WorkspaceShell({
 
       {/* Main content. Most routes are reading surfaces and stay inside the
           centered max-w-4xl gutter. List+detail surfaces (mail + .jsonl view)
-          break out so the email-style 3-pane can span the full viewport. */}
-      <main className="flex-1 min-w-0 relative flex flex-col">
+          break out so the email-style 3-pane can span the full viewport.
+          `min-h-0` is load-bearing: without it the flex column reverts to
+          min-height:auto (= its content's natural height), breaking the
+          height chain so descendant scroll panes can't compute a usable
+          height under the (shell) layout's fixed-viewport cap. */}
+      <main className="flex-1 min-w-0 min-h-0 relative flex flex-col">
         <NavLoadingBar />
         <div
           className={
