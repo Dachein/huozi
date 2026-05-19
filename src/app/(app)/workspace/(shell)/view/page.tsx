@@ -15,7 +15,10 @@ import {
 import { PageOutlineMenu } from "@/components/workspace/page-outline-menu";
 import { ShareFullscreenButton } from "@/components/workspace/share-fullscreen-button";
 import { extractPages } from "@/lib/html/extract-pages";
-import { detectHuoziFormat } from "@/lib/html/detect-format";
+import {
+  detectHuoziFormat,
+  pagerOrientationFor,
+} from "@/lib/html/detect-format";
 import { getServerT } from "@/lib/i18n/server";
 import {
   cloudRead,
@@ -155,8 +158,8 @@ async function FileView({
       ? (readRes.data.file.content ?? "")
       : "";
   // Authoritative format detection (meta first, class sniff second, default
-  // "web"). Drives FullscreenPager visibility + auto-landscape CSS for deck
-  // on mobile portrait.
+  // "web"). Drives PageOutlineMenu arrow orientation + auto-landscape CSS
+  // for deck on mobile portrait.
   const htmlFormat = detectHuoziFormat(fileContent);
   const pageUnit: "slide" | "page" =
     htmlFormat === "deck" || htmlFormat === "story" ? "slide" : "page";
@@ -173,7 +176,11 @@ async function FileView({
             <h1 className="font-mono text-base sm:text-lg break-all min-w-0 flex-1">
               {fileName}
             </h1>
-            <PageOutlineMenu pages={pages} unit={pageUnit} />
+            <PageOutlineMenu
+              pages={pages}
+              unit={pageUnit}
+              orientation={pagerOrientationFor(htmlFormat)}
+            />
             <FullscreenToggleButton enabled={fullscreenMode !== null} />
             <FileActionsMenu
               path={path}
