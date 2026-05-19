@@ -61,13 +61,55 @@ interface SchemaConfig {
       filterable?: boolean;
       searchable?: boolean;
       options?: FieldOption[];
+      /** Hide this field from the detail view entirely. List-pane chips
+       *  and card kvs honor this too. Useful for internal ids / timestamps
+       *  the author doesn't want surfaced to readers. */
+      hide?: boolean;
+      /** Custom placeholder shown in place of the default `—` when the
+       *  field's value is empty (null / undefined / "" / []). */
+      empty_placeholder?: string;
+      /** Conditional display: only render this field when another field
+       *  on the same entity equals the given value. Simple equality only;
+       *  for richer expressions, drop to a dashboard format. */
+      show_when?: { field: string; equals: unknown };
+      /** Force cardinality. `false` = always render as single (uses first
+       *  item of an array); `true` = always render as array (wraps single
+       *  values). When unset, auto-detected from value shape. */
+      multi?: boolean;
     }
   >;
+  /**
+   * Detail-view groups — Notion-style sectioned layout. When present,
+   * `fields[].display` slot allocation is IGNORED for the detail view
+   * (XOR with slots). Fields listed in any group render in that group;
+   * declared fields NOT in any group still render in a tail "Other"
+   * pseudo-section so authors don't accidentally hide them by forgetting
+   * to list them. Within a group, fields render in the order given.
+   */
+  groups?: {
+    title: string;
+    fields: string[];
+    /** Default-collapsed group. User can expand from the chevron. */
+    collapsed?: boolean;
+  }[];
+  detail_view?: {
+    /** Hide the small `<code>entity_id</code>` line under the title. */
+    show_id?: boolean;
+    /** Explicit display order for groups (defaults to the array order
+     *  in `groups`). Strings must match `group.title` exactly. */
+    groups_order?: string[];
+  };
   list_view?: {
     /** Field keys to expose as filter dropdowns. */
     filters?: string[];
     /** Field keys to substring-match against when the user types in the search box. */
     search?: string[];
+    /** Up to ~2 field keys to surface as compact type-aware chips on each
+     *  list row. Each chip renders via the field's declared widget (status
+     *  gets its color, options get their label, datetime gets formatted,
+     *  etc.). When unset, EntityRow falls back to auto-picking the first
+     *  two display:meta/aside fields. */
+    row_chips?: string[];
     /**
      * Initial layout for the entity list. `"block"` (default) is the
      * grid of cards; `"list"` is a compact one-row-per-entity layout.
@@ -531,22 +573,43 @@ function EntityRow({
   const title = (titleField && pickString(fields, titleField)) ?? entity.id;
   const subtitle = subtitleField ? pickString(fields, subtitleField) : null;
 
-  // Up to two compact key:value chips from schema-declared meta/aside
-  // fields — just enough to disambiguate at a glance.
+  // Compact row chips. Prefers schema-declared `list_view.row_chips`
+  // (explicit author intent — pick exactly the fields they want
+  // surfaced on each row). Falls back to auto-picking the first two
+  // display:meta/aside fields when not declared. Each chip's value
+  // renders through FieldValue so status colors / option labels /
+  // formatted dates show up correctly.
   const chips = useMemo(() => {
     if (!schema?.fields) return [];
+    const declared = schema.list_view?.row_chips;
     const used = new Set(
       [titleField, subtitleField, schema.entity?.avatar_field].filter(
         Boolean,
       ) as string[],
     );
-    const picked: [string, unknown][] = [];
-    for (const [k, def] of Object.entries(schema.fields)) {
-      if (used.has(k)) continue;
-      if (def.display === "meta" || def.display === "aside") {
-        if (k in fields) picked.push([def.label ?? k, fields[k]]);
+    const picked: { key: string; label: string; value: unknown }[] = [];
+
+    if (declared && declared.length > 0) {
+      for (const k of declared) {
+        if (used.has(k)) continue;
+        const def = schema.fields[k];
+        if (!def || def.hide) continue;
+        if (!evalShowWhen(def.show_when, fields)) continue;
+        if (!(k in fields)) continue;
+        picked.push({ key: k, label: def.label ?? k, value: fields[k] });
       }
-      if (picked.length >= 2) break;
+    } else {
+      for (const [k, def] of Object.entries(schema.fields)) {
+        if (used.has(k)) continue;
+        if (def.hide) continue;
+        if (!evalShowWhen(def.show_when, fields)) continue;
+        if (def.display === "meta" || def.display === "aside") {
+          if (k in fields) {
+            picked.push({ key: k, label: def.label ?? k, value: fields[k] });
+          }
+        }
+        if (picked.length >= 2) break;
+      }
     }
     return picked;
   }, [fields, schema, titleField, subtitleField]);
@@ -580,16 +643,17 @@ function EntityRow({
             {subtitle}
           </span>
         )}
-        {chips.map(([k, v]) => (
+        {chips.map((c) => (
           <span
-            key={k}
-            className="hidden md:inline-flex items-baseline gap-1 text-[11px] font-mono text-muted-foreground shrink-0"
+            key={c.key}
+            className="hidden md:inline-flex items-baseline gap-1 text-[11px] text-muted-foreground shrink-0"
+            title={c.label}
           >
-            <span className="opacity-70">
-              <InlineMarkdown source={k} />
-            </span>
-            <span className="text-foreground/80 truncate max-w-[160px]">
-              {formatScalar(v)}
+            <span className="text-foreground/80 truncate max-w-[180px] inline-block">
+              <FieldValue
+                value={c.value}
+                fieldDef={schema?.fields?.[c.key]}
+              />
             </span>
           </span>
         ))}
@@ -788,10 +852,21 @@ function DetailView({
   const subtitle = subtitleField ? pickString(fields, subtitleField) : null;
   const avatar = avatarField ? pickString(fields, avatarField) : null;
 
+  // Groups + slots are XOR: if the schema declares `groups`, we use
+  // the grouped path (Notion-style); otherwise we use the legacy slot
+  // path (headline/subheadline/body/aside/meta/avatar). Schema authors
+  // must pick one model — mixing leads to double-rendering of fields
+  // listed in both.
+  const useGroups = !!schema?.groups && schema.groups.length > 0;
   const slotted = useMemo(
     () => slotFields(fields, schema, titleField, subtitleField, avatarField),
     [fields, schema, titleField, subtitleField, avatarField],
   );
+  const grouped = useMemo(
+    () => groupFields(fields, schema, titleField, subtitleField, avatarField),
+    [fields, schema, titleField, subtitleField, avatarField],
+  );
+  const showEntityId = schema?.detail_view?.show_id !== false;
 
   const activeEvent = entity.history[historyIndex];
   // Folded state right *before* the active event — used by the
@@ -840,62 +915,42 @@ function DetailView({
                 {subtitle}
               </p>
             )}
-            <code className="text-[10px] font-mono text-muted-foreground/70">
-              {entity.id}
-            </code>
+            {showEntityId && (
+              <code className="text-[10px] font-mono text-muted-foreground/70">
+                {entity.id}
+              </code>
+            )}
           </div>
         </header>
 
         {isLatest && <TaskConfirmCTA entity={entity} />}
 
-        {slotted.body.length > 0 && (
-          <section className="space-y-3 min-w-0">
-            {slotted.body.map(([k, v, label]) => {
-              const status = peekDiff ? fieldDiffStatus(k, v, priorState) : null;
-              const editable = canEditField(v);
-              const objSrc = jsonlObjSrc(editable, entity.history, k);
-              return (
-                <div key={k} className="min-w-0 group">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                      <InlineMarkdown source={label} />
-                    </h3>
-                  </div>
-                  <div
-                    className="text-sm leading-relaxed whitespace-pre-wrap break-words"
-                    {...(objSrc ? { "data-obj-src": objSrc } : {})}
-                  >
-                    <DiffValue
-                      value={v}
-                      priorValue={priorState[k]}
-                      status={status}
-                      fieldDef={schema?.fields?.[k]}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </section>
-        )}
-
-        {slotted.unslotted.length > 0 && (
-          <section className="min-w-0">
-            <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
-              {t("ws.coll.fields")}
-            </h3>
-            <dl className="space-y-1.5">
-              {slotted.unslotted.map(([k, v, label]) => {
-                const status = peekDiff ? fieldDiffStatus(k, v, priorState) : null;
-                const editable = canEditField(v);
-                const objSrc = jsonlObjSrc(editable, entity.history, k);
-                return (
-                  <div key={k} className="flex gap-3 text-xs min-w-0 group">
-                    <dt className="text-muted-foreground shrink-0 w-32 font-mono">
-                      <InlineMarkdown source={label} />
-                    </dt>
-                    <dd className="text-foreground font-mono break-all min-w-0 flex-1">
-                      <span
-                        className="min-w-0 break-all"
+        {useGroups ? (
+          <GroupedSections
+            groups={grouped}
+            schema={schema}
+            entity={entity}
+            priorState={priorState}
+            peekDiff={peekDiff}
+            canEditField={canEditField}
+          />
+        ) : (
+          <>
+            {slotted.body.length > 0 && (
+              <section className="space-y-3 min-w-0">
+                {slotted.body.map(([k, v, label]) => {
+                  const status = peekDiff ? fieldDiffStatus(k, v, priorState) : null;
+                  const editable = canEditField(v);
+                  const objSrc = jsonlObjSrc(editable, entity.history, k);
+                  return (
+                    <div key={k} className="min-w-0 group">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                          <InlineMarkdown source={label} />
+                        </h3>
+                      </div>
+                      <div
+                        className="text-sm leading-relaxed whitespace-pre-wrap break-words"
                         {...(objSrc ? { "data-obj-src": objSrc } : {})}
                       >
                         <DiffValue
@@ -904,13 +959,48 @@ function DetailView({
                           status={status}
                           fieldDef={schema?.fields?.[k]}
                         />
-                      </span>
-                    </dd>
-                  </div>
-                );
-              })}
-            </dl>
-          </section>
+                      </div>
+                    </div>
+                  );
+                })}
+              </section>
+            )}
+
+            {slotted.unslotted.length > 0 && (
+              <section className="min-w-0">
+                <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
+                  {t("ws.coll.fields")}
+                </h3>
+                <dl className="space-y-1.5">
+                  {slotted.unslotted.map(([k, v, label]) => {
+                    const status = peekDiff ? fieldDiffStatus(k, v, priorState) : null;
+                    const editable = canEditField(v);
+                    const objSrc = jsonlObjSrc(editable, entity.history, k);
+                    return (
+                      <div key={k} className="flex gap-3 text-xs min-w-0 group">
+                        <dt className="text-muted-foreground shrink-0 w-32 font-mono">
+                          <InlineMarkdown source={label} />
+                        </dt>
+                        <dd className="text-foreground font-mono break-all min-w-0 flex-1">
+                          <span
+                            className="min-w-0 break-all"
+                            {...(objSrc ? { "data-obj-src": objSrc } : {})}
+                          >
+                            <DiffValue
+                              value={v}
+                              priorValue={priorState[k]}
+                              status={status}
+                              fieldDef={schema?.fields?.[k]}
+                            />
+                          </span>
+                        </dd>
+                      </div>
+                    );
+                  })}
+                </dl>
+              </section>
+            )}
+          </>
         )}
 
         {asideHasContent && asideCollapsed && (
@@ -1093,6 +1183,111 @@ function foldHistorySlice(
     if (ln.op) merged.op = ln.op;
   }
   return merged;
+}
+
+/**
+ * Notion-style grouped detail layout. Each group is its own collapsible
+ * section with a small chevron next to the title. Inside a group,
+ * fields render in schema-declared order with the same compact
+ * `label : value` shape used by `slotted.unslotted`. Used when the
+ * schema declares `groups`; mutually exclusive with the slot-driven
+ * `slotted` path above (XOR — see DetailView).
+ */
+function GroupedSections({
+  groups,
+  schema,
+  entity,
+  priorState,
+  peekDiff,
+  canEditField,
+}: {
+  groups: GroupedSection[];
+  schema: SchemaConfig | null;
+  entity: EntityState;
+  priorState: Record<string, unknown>;
+  peekDiff: boolean;
+  canEditField: (v: unknown) => v is string;
+}) {
+  return (
+    <div className="space-y-5">
+      {groups.map((g) => (
+        <GroupSection
+          key={g.title}
+          group={g}
+          schema={schema}
+          entity={entity}
+          priorState={priorState}
+          peekDiff={peekDiff}
+          canEditField={canEditField}
+        />
+      ))}
+    </div>
+  );
+}
+
+function GroupSection({
+  group,
+  schema,
+  entity,
+  priorState,
+  peekDiff,
+  canEditField,
+}: {
+  group: GroupedSection;
+  schema: SchemaConfig | null;
+  entity: EntityState;
+  priorState: Record<string, unknown>;
+  peekDiff: boolean;
+  canEditField: (v: unknown) => v is string;
+}) {
+  const [collapsed, setCollapsed] = useState(group.collapsed);
+  return (
+    <section className="min-w-0">
+      <button
+        type="button"
+        onClick={() => setCollapsed((v) => !v)}
+        className="flex items-baseline gap-2 mb-2 text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+        aria-expanded={!collapsed}
+      >
+        <span aria-hidden className="font-mono text-[10px]">
+          {collapsed ? "▸" : "▾"}
+        </span>
+        <span>{group.title}</span>
+        <span className="text-muted-foreground/60 font-mono">
+          · {group.rows.length}
+        </span>
+      </button>
+      {!collapsed && (
+        <dl className="space-y-1.5">
+          {group.rows.map(([k, v, label]) => {
+            const status = peekDiff ? fieldDiffStatus(k, v, priorState) : null;
+            const editable = canEditField(v);
+            const objSrc = jsonlObjSrc(editable, entity.history, k);
+            return (
+              <div key={k} className="flex gap-3 text-xs min-w-0 group">
+                <dt className="text-muted-foreground shrink-0 w-32 font-mono">
+                  <InlineMarkdown source={label} />
+                </dt>
+                <dd className="text-foreground break-words min-w-0 flex-1">
+                  <span
+                    className="min-w-0 break-words"
+                    {...(objSrc ? { "data-obj-src": objSrc } : {})}
+                  >
+                    <DiffValue
+                      value={v}
+                      priorValue={priorState[k]}
+                      status={status}
+                      fieldDef={schema?.fields?.[k]}
+                    />
+                  </span>
+                </dd>
+              </div>
+            );
+          })}
+        </dl>
+      )}
+    </section>
+  );
 }
 
 /**
@@ -1404,6 +1599,94 @@ function pickString(
  * declared in the schema (or declared without a display slot) lands
  * in `unslotted`, which the detail view renders as a generic kv list.
  */
+/**
+ * Evaluate a schema-declared show_when condition against the folded
+ * entity state. Returns true when the field should render. Uses strict
+ * equality on the dependent field's current value — for richer logic,
+ * authors should pre-compute a derived boolean field upstream.
+ */
+function evalShowWhen(
+  cond: { field: string; equals: unknown } | undefined,
+  state: Record<string, unknown>,
+): boolean {
+  if (!cond) return true;
+  return state[cond.field] === cond.equals;
+}
+
+/**
+ * Bucket fields into schema-declared groups for the Notion-style
+ * grouped detail layout. Each group renders as its own collapsible
+ * section. Declared fields not listed in any group are collected
+ * into a tail "Other" pseudo-group so the author doesn't accidentally
+ * lose data by forgetting to list a field.
+ *
+ * Honors `hide` and `show_when` just like `slotFields`.
+ */
+interface GroupedSection {
+  title: string;
+  collapsed: boolean;
+  rows: [string, unknown, string][]; // [key, value, label]
+}
+function groupFields(
+  fields: Record<string, unknown>,
+  schema: SchemaConfig | null,
+  titleField: string | undefined,
+  subtitleField: string | undefined,
+  avatarField: string | undefined,
+): GroupedSection[] {
+  if (!schema?.groups || !schema?.fields) return [];
+  const used = new Set(
+    [titleField, subtitleField, avatarField].filter(Boolean) as string[],
+  );
+
+  const includeField = (k: string): boolean => {
+    if (used.has(k)) return false;
+    if (!(k in fields)) return false;
+    const def = schema.fields?.[k];
+    if (!def) return false;
+    if (def.hide) return false;
+    if (!evalShowWhen(def.show_when, fields)) return false;
+    return true;
+  };
+
+  const labelFor = (k: string): string => schema.fields?.[k]?.label ?? k;
+
+  const groupTitles = schema.groups.map((g) => g.title);
+  const orderedTitles = schema.detail_view?.groups_order
+    ? schema.detail_view.groups_order.filter((t) => groupTitles.includes(t))
+    : groupTitles;
+  const grouped: GroupedSection[] = [];
+  const consumed = new Set<string>();
+
+  for (const t of orderedTitles) {
+    const def = schema.groups.find((g) => g.title === t);
+    if (!def) continue;
+    const rows: [string, unknown, string][] = [];
+    for (const k of def.fields) {
+      if (consumed.has(k)) continue;
+      if (!includeField(k)) continue;
+      rows.push([k, fields[k], labelFor(k)]);
+      consumed.add(k);
+    }
+    if (rows.length > 0) {
+      grouped.push({ title: t, collapsed: !!def.collapsed, rows });
+    }
+  }
+
+  // Tail: declared fields not in any group.
+  const tail: [string, unknown, string][] = [];
+  for (const k of Object.keys(schema.fields)) {
+    if (consumed.has(k)) continue;
+    if (!includeField(k)) continue;
+    tail.push([k, fields[k], labelFor(k)]);
+  }
+  if (tail.length > 0) {
+    grouped.push({ title: "·", collapsed: false, rows: tail });
+  }
+
+  return grouped;
+}
+
 function slotFields(
   fields: Record<string, unknown>,
   schema: SchemaConfig | null,
@@ -1434,6 +1717,8 @@ function slotFields(
   for (const [k, def] of Object.entries(schema.fields)) {
     if (used.has(k)) continue;
     if (!(k in fields)) continue;
+    if (def.hide) continue;
+    if (!evalShowWhen(def.show_when, fields)) continue;
     const label = def.label ?? k;
     if (def.display === "body") {
       body.push([k, fields[k], label]);

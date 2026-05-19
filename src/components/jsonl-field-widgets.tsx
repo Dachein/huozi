@@ -46,8 +46,11 @@ export interface FieldDef {
   type?: string;
   label?: string;
   options?: FieldOption[];
-  /** Force single-value rendering even when value is an array (first item used). */
-  /** Force array layout even when value is a single. */
+  /** Custom text to show in place of the default `—` for empty values. */
+  empty_placeholder?: string;
+  /** Force cardinality. `false` = always single (first item if value
+   *  is an array); `true` = always array (wraps single in `[value]`).
+   *  When unset, auto-detected from `Array.isArray(value)`. */
   multi?: boolean;
 }
 
@@ -57,7 +60,15 @@ export interface FieldValueProps {
   fieldDef?: FieldDef;
 }
 
-const EMPTY = <span className="text-muted-foreground/50">—</span>;
+const DEFAULT_EMPTY = <span className="text-muted-foreground/50">—</span>;
+
+function emptyPlaceholder(fieldDef?: FieldDef) {
+  const custom = fieldDef?.empty_placeholder;
+  if (custom && custom.length > 0) {
+    return <span className="text-muted-foreground/70 text-sm">{custom}</span>;
+  }
+  return DEFAULT_EMPTY;
+}
 
 /**
  * Top-level dispatcher. Resolves type (declared > inferred), normalises
@@ -66,7 +77,7 @@ const EMPTY = <span className="text-muted-foreground/50">—</span>;
  */
 export function FieldValue({ value, type, fieldDef }: FieldValueProps) {
   // Empty value across all shapes.
-  if (isEmpty(value)) return EMPTY;
+  if (isEmpty(value)) return emptyPlaceholder(fieldDef);
 
   const resolvedType = type ?? fieldDef?.type ?? inferType(value);
   const isArr = Array.isArray(value);
@@ -110,7 +121,7 @@ function SingleValue({
   type: string;
   fieldDef?: FieldDef;
 }) {
-  if (isEmpty(value)) return EMPTY;
+  if (isEmpty(value)) return emptyPlaceholder(fieldDef);
 
   switch (type) {
     case "markdown":
@@ -174,7 +185,7 @@ function ArrayValue({
   fieldDef?: FieldDef;
 }) {
   const filtered = items.filter((v) => !isEmpty(v));
-  if (filtered.length === 0) return EMPTY;
+  if (filtered.length === 0) return emptyPlaceholder(fieldDef);
 
   // Compact "chip" layout for short scalar types — fits naturally as a
   // run of inline pills (tags, options, statuses, short text).
@@ -395,7 +406,7 @@ function OptionsValue({
 
 /** Horizontal bar, value clamped 0-100. Accepts 0..1 too (auto-detect). */
 function ProgressValue({ value }: { value: number }) {
-  if (!Number.isFinite(value)) return EMPTY;
+  if (!Number.isFinite(value)) return DEFAULT_EMPTY;
   const pct = value <= 1 ? Math.round(value * 100) : Math.round(value);
   const clamped = Math.max(0, Math.min(100, pct));
   return (
@@ -415,7 +426,7 @@ function ProgressValue({ value }: { value: number }) {
 
 /** ★ stars out of 5 (configurable cap via fieldDef.options[0].value="N"). */
 function RatingValue({ value }: { value: number }) {
-  if (!Number.isFinite(value)) return EMPTY;
+  if (!Number.isFinite(value)) return DEFAULT_EMPTY;
   const max = 5;
   const filled = Math.max(0, Math.min(max, Math.round(value)));
   return (
@@ -458,7 +469,7 @@ function ObjectValue({
   depth: number;
 }) {
   const entries = Object.entries(value);
-  if (entries.length === 0) return EMPTY;
+  if (entries.length === 0) return DEFAULT_EMPTY;
   if (depth >= 3) {
     return (
       <span className="text-xs text-muted-foreground font-mono">
@@ -500,7 +511,7 @@ function UrlMapValue({ value }: { value: Record<string, unknown> }) {
   const entries = Object.entries(value).filter(
     ([, v]) => typeof v === "string" && v.length > 0,
   );
-  if (entries.length === 0) return EMPTY;
+  if (entries.length === 0) return DEFAULT_EMPTY;
   return (
     <ul className="space-y-1">
       {entries.map(([label, url]) => (
