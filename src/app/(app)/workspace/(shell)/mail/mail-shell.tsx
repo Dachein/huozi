@@ -67,6 +67,8 @@ export function MailShell({
   const [selectedId, setSelectedId] = useState<string | null>(
     initialSelectedId ?? null,
   );
+  const [search, setSearch] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [, startTransition] = useTransition();
   const router = useRouter();
   const theme = useTheme();
@@ -81,7 +83,32 @@ export function MailShell({
     [buckets],
   );
 
-  const rows = buckets[tab];
+  // ⌘/Ctrl+K focuses the search input from anywhere on the mail page.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Filter the current tab's rows by the search query. Empty query
+  // = pass-through. Match on subject + sender + preview (case-insensitive).
+  const rows = useMemo(() => {
+    const all = buckets[tab];
+    const q = search.trim().toLowerCase();
+    if (!q) return all;
+    return all.filter((r) => {
+      if (r.subject.toLowerCase().includes(q)) return true;
+      if (r.from.toLowerCase().includes(q)) return true;
+      if (r.preview.toLowerCase().includes(q)) return true;
+      return false;
+    });
+  }, [buckets, tab, search]);
   const selectedRow = useMemo(() => {
     if (!selectedId) return null;
     // Look across all buckets so a selection survives a tab switch.
@@ -147,9 +174,19 @@ export function MailShell({
   const listNode = (
     <div className="flex flex-1 min-h-0 flex-col">
       <TabBar tab={tab} counts={counts} onTabClick={onTabClick} isOffice={isOffice} />
-      <div className="huozi-scrollarea flex-1 min-h-0 overflow-y-auto border-y border-border bg-background">
+      <div className="shrink-0 px-3 py-2 border-b border-border/40">
+        <input
+          ref={searchInputRef}
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search mail  ⌘K"
+          className="w-full text-xs px-2 py-1.5 rounded border border-border/60 bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-foreground/20"
+        />
+      </div>
+      <div className="huozi-scrollarea flex-1 min-h-0 overflow-y-auto border-b border-border bg-background">
         {rows.length === 0 ? (
-          <EmptyTab tab={tab} />
+          <EmptyTab tab={tab} hasSearch={search.trim().length > 0} />
         ) : (
           <MailList rows={rows} selectedId={selectedId} onSelect={onSelectRow} />
         )}
@@ -247,7 +284,14 @@ function TabBar({
   );
 }
 
-function EmptyTab({ tab }: { tab: Tab }) {
+function EmptyTab({ tab, hasSearch }: { tab: Tab; hasSearch?: boolean }) {
+  if (hasSearch) {
+    return (
+      <section className="px-6 py-10 text-center text-sm text-muted-foreground">
+        No matches.
+      </section>
+    );
+  }
   const msg =
     tab === "inbox"
       ? "Inbox is clear. New mail will land here."

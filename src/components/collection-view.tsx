@@ -250,15 +250,31 @@ export function CollectionView({ content }: CollectionViewProps) {
   // column, so the toggle is hidden and we force the row layout.
   // The list wraps its own overflow container so it scrolls inside the
   // pane (not the whole page).
+  // List pane: search input pinned at the top + scrollable rows below.
+  // Search is always available (regardless of schema) — falls back to
+  // matching id + every string field when no schema search is declared
+  // (see `filteredEntities` upstream).
   const listNode = (
-    <div className="huozi-scrollarea flex-1 min-h-0 overflow-y-auto">
-      <RowListView
-        entities={filteredEntities}
-        schema={schema}
-        onDrill={setDrillEntityId}
-        selectedId={drillEntityId}
-        t={t}
-      />
+    <div className="flex flex-1 min-h-0 flex-col">
+      <div className="shrink-0 px-2 py-2 border-b border-border/40">
+        <input
+          ref={searchInputRef}
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={`${t("ws.coll.search")}  ⌘K`}
+          className="w-full text-xs px-2 py-1.5 rounded border border-border/60 bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-foreground/20"
+        />
+      </div>
+      <div className="huozi-scrollarea flex-1 min-h-0 overflow-y-auto">
+        <RowListView
+          entities={filteredEntities}
+          schema={schema}
+          onDrill={setDrillEntityId}
+          selectedId={drillEntityId}
+          t={t}
+        />
+      </div>
     </div>
   );
 
@@ -311,19 +327,14 @@ export function CollectionView({ content }: CollectionViewProps) {
 
       </header>
 
-      {schema &&
-        (filterFieldKeys.length > 0 || schema?.list_view?.search) && (
-          <FilterBar
-            schema={schema}
-            filterFieldKeys={filterFieldKeys}
-            filters={filters}
-            onFiltersChange={setFilters}
-            search={search}
-            onSearchChange={setSearch}
-            searchInputRef={searchInputRef}
-            t={t}
-          />
-        )}
+      {schema && filterFieldKeys.length > 0 && (
+        <FilterBar
+          schema={schema}
+          filterFieldKeys={filterFieldKeys}
+          filters={filters}
+          onFiltersChange={setFilters}
+        />
+      )}
 
       {errors.length > 0 && <ErrorsStrip errors={errors} />}
 
@@ -363,22 +374,12 @@ function FilterBar({
   filterFieldKeys,
   filters,
   onFiltersChange,
-  search,
-  onSearchChange,
-  searchInputRef,
-  t,
 }: {
   schema: SchemaConfig;
   filterFieldKeys: readonly string[];
   filters: Record<string, string>;
   onFiltersChange: (next: Record<string, string>) => void;
-  search: string;
-  onSearchChange: (next: string) => void;
-  searchInputRef: React.RefObject<HTMLInputElement | null>;
-  t: (k: string) => string;
 }) {
-  const hasSearch =
-    schema.list_view?.search && schema.list_view.search.length > 0;
   return (
     <div className="flex flex-wrap items-center gap-2">
       {filterFieldKeys.map((key) => {
@@ -409,16 +410,6 @@ function FilterBar({
           </select>
         );
       })}
-      {hasSearch && (
-        <input
-          ref={searchInputRef}
-          type="search"
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder={`${t("ws.coll.search")}  ⌘K`}
-          className="text-[11px] px-2 py-1 rounded border border-border/60 bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-foreground/20 ml-auto min-w-[180px]"
-        />
-      )}
     </div>
   );
 }

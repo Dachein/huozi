@@ -290,7 +290,7 @@ export function ListDetailLayout({
             }`}
           />
           <aside
-            className={`hidden lg:flex flex-col min-h-0 border-l border-border/40 bg-background ${
+            className={`hidden lg:flex flex-col min-h-0 bg-background ${
               listColumnFixed ? "flex-1 min-w-0" : "shrink-0"
             }`}
             style={asideStyle}
