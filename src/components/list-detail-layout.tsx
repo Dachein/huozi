@@ -196,7 +196,10 @@ export function ListDetailLayout({
   }, [mobileOpen]);
 
   // Keyboard only active while there's a real selection — defaultOpen
-  // alone shouldn't hijack ← → when the user is just browsing the list.
+  // alone shouldn't hijack ↑/↓ when the user is just browsing.
+  // The list is vertical (email-style 3-pane), so ↑/↓ matches scrolling
+  // direction. Domain-specific keys (e.g. jsonl's ←/→ for history
+  // versions) stay owned by the renderer below.
   useEffect(() => {
     if (!hasSelection) return;
     const onKey = (e: KeyboardEvent) => {
@@ -212,11 +215,11 @@ export function ListDetailLayout({
         return;
       }
       if (inField) return;
-      if (e.key === "ArrowLeft" && navigator?.canGoPrev && navigator.goPrev) {
+      if (e.key === "ArrowUp" && navigator?.canGoPrev && navigator.goPrev) {
         e.preventDefault();
         navigator.goPrev();
       } else if (
-        e.key === "ArrowRight" &&
+        e.key === "ArrowDown" &&
         navigator?.canGoNext &&
         navigator.goNext
       ) {
@@ -238,25 +241,19 @@ export function ListDetailLayout({
 
   return (
     <div className="flex flex-1 min-h-0 min-w-0">
+      {/* List pane — single render across breakpoints. In always-on mode
+          the inline `width` applies on lg+; max-lg:!w-full forces full
+          width below lg (where the detail aside becomes a drawer). */}
       <div
-        className={
+        className={`min-w-0 min-h-0 flex flex-col ${
           listColumnFixed
-            ? "hidden lg:flex shrink-0 min-w-0 min-h-0 flex-col"
-            : "flex-1 min-w-0 min-h-0 flex flex-col"
-        }
+            ? "shrink-0 max-lg:!w-full max-lg:!flex-1"
+            : "flex-1"
+        }`}
         style={listStyle}
       >
         {list}
       </div>
-
-      {/* On always-on mode below lg, the list takes the full screen and
-          we still show it via a second copy (since the desktop list above
-          is `hidden lg:flex`). Keeps the layout simple — one list source. */}
-      {listColumnFixed && (
-        <div className="lg:hidden flex-1 min-w-0 min-h-0 flex flex-col">
-          {list}
-        </div>
-      )}
 
       {asideVisible && (
         <>
@@ -354,20 +351,20 @@ function DetailChrome({
             onClick={navigator?.goPrev}
             disabled={!navigator?.canGoPrev}
             aria-label="Previous"
-            title="←"
+            title="↑"
             className="text-xs px-2 py-1 rounded border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
           >
-            ←
+            ↑
           </button>
           <button
             type="button"
             onClick={navigator?.goNext}
             disabled={!navigator?.canGoNext}
             aria-label="Next"
-            title="→"
+            title="↓"
             className="text-xs px-2 py-1 rounded border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
           >
-            →
+            ↓
           </button>
         </>
       )}

@@ -181,10 +181,11 @@ export function CollectionView({ content }: CollectionViewProps) {
     });
   }, [historyLen]);
 
-  // Keyboard (collection-specific only — ←/→/Esc are owned by
+  // Keyboard (collection-specific only — ↑/↓/Esc are owned by
   // ListDetailLayout's chrome since they're generic list+detail
-  // shortcuts):
-  //   ↑/↓        older / newer version of this entity's history
+  // shortcuts; the list is vertical so ↑/↓ walks items):
+  //   ←/→        older / newer version of this entity's history
+  //              (timeline scrubs horizontally)
   //   Space      hold to highlight diff at the active event
   //   ⌘/Ctrl+K   focus the search input (works without selection too)
   // Inputs / textareas opt out so typing isn't hijacked.
@@ -205,10 +206,10 @@ export function CollectionView({ content }: CollectionViewProps) {
       if (inField) return;
 
       if (drillEntity) {
-        if (e.key === "ArrowUp") {
+        if (e.key === "ArrowLeft") {
           e.preventDefault();
           goOlderVersion();
-        } else if (e.key === "ArrowDown") {
+        } else if (e.key === "ArrowRight") {
           e.preventDefault();
           goNewerVersion();
         } else if (e.code === "Space" && !e.repeat) {
@@ -542,14 +543,23 @@ function EntityRow({
     return picked;
   }, [fields, schema, titleField, subtitleField]);
 
+  // Keep the selected row visible as the user keyboard-navigates with
+  // ↑/↓. `block: "nearest"` only scrolls when the row is off-screen,
+  // so clicking a visible row doesn't trigger a jump.
+  const btnRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (selected) btnRef.current?.scrollIntoView({ block: "nearest" });
+  }, [selected]);
+
   return (
     <li>
       <button
+        ref={btnRef}
         type="button"
         onClick={() => onDrill(entity.id)}
         aria-current={selected ? "true" : undefined}
-        className={`w-full text-left flex items-baseline gap-3 px-2 py-2 hover:bg-muted/40 transition-colors border-l-2 ${
-          selected ? "bg-muted/60 border-foreground/60" : "border-transparent"
+        className={`w-full text-left flex items-baseline gap-3 px-3 py-2 transition-colors outline-none ${
+          selected ? "bg-muted/60" : "hover:bg-muted/40"
         } ${isDeleted ? "opacity-60" : ""}`}
       >
         <span className="text-sm font-medium text-foreground truncate min-w-0 flex-1">
