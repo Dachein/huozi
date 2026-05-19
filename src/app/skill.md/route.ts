@@ -83,6 +83,101 @@ Before writing a new file, orient yourself:
 This mirrors how an engineer joins a codebase — and it is the behavior
 Huozi is tuned for.
 
+## Collection (.jsonl) authoring
+
+Collections are JSONL: each non-empty line is one JSON object. Two
+line kinds exist:
+
+- **Entity events** — at minimum \`{ "id": "..." }\`. Recommended:
+  \`at\` (RFC 3339), \`by\` (actor), \`op\` (verb). Multiple events with
+  the same id fold together (later wins per key) — that's the
+  lifecycle.
+- **Schema event** — \`{ "op": "schema", "schema": { ... } }\` (no
+  \`id\`). Drives how the viewer renders entities. Optional but lifts
+  the UX from a generic KV list to Notion-style typed widgets.
+
+### Schema reference
+
+\`\`\`jsonc
+{
+  "op": "schema",
+  "schema": {
+    "entity": {
+      "title_field": "name",
+      "subtitle_field": "company",
+      "avatar_field": "logo"
+    },
+    "fields": {
+      "name":    { "type": "text" },
+      "company": { "type": "text" },
+      "notes":   { "type": "markdown", "empty_placeholder": "(no notes)" },
+      "stage":   {
+        "type": "status",
+        "options": [
+          { "value": "new",  "label": "New",  "color": "#3b82f6" },
+          { "value": "live", "label": "Live", "color": "#22c55e" }
+        ]
+      },
+      "tags":      { "type": "options" },          // array auto-detected
+      "deal_size": { "type": "progress" },         // 0-100 or 0..1
+      "started":   { "type": "datetime" },
+      "links":     { "type": "url_map" },          // {site: "https://..."}
+      "secret":    { "hide": true },               // never render
+      "won_at":    {
+        "type": "datetime",
+        "show_when": { "field": "stage", "equals": "live" }
+      }
+    },
+    "groups": [
+      { "title": "Identity", "fields": ["name", "company"] },
+      { "title": "Pipeline", "fields": ["stage", "deal_size", "started"] },
+      { "title": "Refs",     "fields": ["links", "tags"], "collapsed": true }
+    ],
+    "detail_view": { "show_id": false },
+    "list_view": {
+      "filters":    ["stage"],
+      "search":     ["name", "company"],
+      "row_chips":  ["stage", "deal_size"]
+    }
+  }
+}
+\`\`\`
+
+**Type vocabulary** (every type accepts both single values and
+arrays — the renderer adapts):
+
+| type | rendered as |
+|---|---|
+| \`text\` | inline text |
+| \`paragraph\` | multi-line, preserves newlines |
+| \`markdown\` | inline-grade md (bold/italic/links/code) |
+| \`link\` / \`email\` / \`image\` | clickable / mailto / thumbnail |
+| \`datetime\` | localized timestamp |
+| \`duration\` | human (\`3h 24m\`) |
+| \`status\` / \`options\` | colored chip(s) from \`options[]\` |
+| \`progress\` / \`rating\` | bar / ★ stars |
+| \`object\` | indented KV list, recursive |
+| \`url_map\` | label → URL list |
+
+Unknown types fall back to \`text\`. When no type is declared, the
+renderer auto-detects from value shape (URL string → \`link\`, ISO
+date → \`datetime\`, all-URL object → \`url_map\`, plain object →
+\`object\`).
+
+**Field-level controls:** \`hide\`, \`empty_placeholder\`, \`show_when:
+{field, equals}\`, \`multi: true|false\` (force array vs single).
+
+**Layout — pick one:**
+- **Slots:** per-field \`display\` of \`headline | subheadline | avatar | body | aside | meta\`. Good for short entity records.
+- **Groups:** declare \`groups: [{title, fields, collapsed?}]\` for a Notion-style sectioned detail page. When \`groups\` is set, \`display\` is ignored.
+
+**Use \`huozi_collection_init\`** to create a new Collection with a
+starter schema in place — it refuses to clobber existing files and
+gives you a reasonable scaffold. Plain \`huozi_write\` to a \`.jsonl\`
+path also works for ad-hoc Collections without a schema.
+
+Full reference: docs/four-types.md (\`§3.6 Schema events\`).
+
 ## Security
 
 - **Never** print \`api_key\`, \`device_code\`, or \`key_id\` to the human.

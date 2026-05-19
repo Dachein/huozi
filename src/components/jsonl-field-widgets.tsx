@@ -71,6 +71,21 @@ function emptyPlaceholder(fieldDef?: FieldDef) {
 }
 
 /**
+ * Backward-compat aliases for type names that pre-dated the L2.5
+ * widget rework. Old schemas (`select` / `richtext` / `date` /
+ * `multi_select` / `number`) keep rendering correctly without
+ * touching any author data.
+ */
+const TYPE_ALIASES: Record<string, string> = {
+  select: "status",
+  multi_select: "options",
+  date: "datetime",
+  richtext: "markdown",
+  number: "text",
+  url: "link",
+};
+
+/**
  * Top-level dispatcher. Resolves type (declared > inferred), normalises
  * the value to single or array based on `multi` override, then routes
  * to the matching widget.
@@ -79,7 +94,8 @@ export function FieldValue({ value, type, fieldDef }: FieldValueProps) {
   // Empty value across all shapes.
   if (isEmpty(value)) return emptyPlaceholder(fieldDef);
 
-  const resolvedType = type ?? fieldDef?.type ?? inferType(value);
+  const raw = type ?? fieldDef?.type ?? inferType(value);
+  const resolvedType = TYPE_ALIASES[raw] ?? raw;
   const isArr = Array.isArray(value);
   const multi = fieldDef?.multi;
 

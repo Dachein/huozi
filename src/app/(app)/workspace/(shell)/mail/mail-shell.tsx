@@ -15,6 +15,7 @@ import { useTheme } from "@/lib/theme/context";
 import { ListDetailLayout } from "@/components/list-detail-layout";
 import { useEntityNavigator } from "@/components/use-entity-navigator";
 import { senderEmail, type Channel } from "./channel";
+import { EmailBody } from "./mail-body";
 
 export interface MailRow {
   id: string;
@@ -425,13 +426,7 @@ function MailDetail({ row }: { row: MailRow }) {
       </header>
 
       <section className="px-5 py-5">
-        {row.body ? (
-          <div className="text-[14px] leading-relaxed text-foreground whitespace-pre-wrap break-words">
-            {row.body}
-          </div>
-        ) : (
-          <div className="text-sm text-muted-foreground italic">(empty body)</div>
-        )}
+        <EmailBody raw={row.body ?? ""} />
       </section>
 
       {row.status === "routed" && row.task_id && (

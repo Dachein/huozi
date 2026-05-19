@@ -194,19 +194,56 @@ The viewer ships a soft-schema fallback (id-as-title, generic key/value list) so
     "avatar_field": "logo"
   },
   "fields": {
-    "name":     {"type": "text",   "label": "Name",     "display": "headline",    "searchable": true},
-    "company":  {"type": "text",   "label": "Company",  "display": "subheadline", "filterable": true},
-    "logo":     {"type": "image",  "display": "avatar"},
-    "stage":    {"type": "select", "display": "aside",  "filterable": true,
-                 "options": [{"value":"new","label":"New","color":"blue"}, ...]},
-    "notes":    {"type": "richtext", "display": "body"}
+    "name":     {"type": "text",      "label": "Name",     "display": "headline",    "searchable": true},
+    "company":  {"type": "text",      "label": "Company",  "display": "subheadline", "filterable": true},
+    "logo":     {"type": "image",     "display": "avatar"},
+    "stage":    {"type": "status",    "display": "aside",  "filterable": true,
+                 "options": [{"value":"new","label":"New","color":"#3b82f6"}]},
+    "notes":    {"type": "markdown",  "display": "body"},
+    "internal_score": {"hide": true}
+  },
+  "list_view": {
+    "filters": ["stage"],
+    "search": ["name", "company"],
+    "row_chips": ["stage", "company"]
   }
 }}
 ```
 
-**Field types** the viewer understands today: `text`, `richtext`, `url`, `email`, `select`, `multi_select`, `date`, `number`, `image`, `url_map`. Unknown types render as `text`.
+**Field types** (auto-array-aware — every type renders cleanly whether the value is a single item or an array):
 
-**Display slots** for layout — where the field lands in the card / detail page:
+| `type`       | Single render                          | Array render                       | When to use                     |
+|--------------|-----------------------------------------|------------------------------------|---------------------------------|
+| `text`       | inline text                             | comma-separated chips              | short labels, names             |
+| `paragraph`  | multi-line, preserves newlines          | one paragraph per item             | summaries, notes                |
+| `markdown`   | inline-grade md (bold/italic/code/link) | one md block per item              | rich field bodies               |
+| `link`       | clickable `<a target="_blank">`         | vertical link list                 | URLs                            |
+| `email`      | `mailto:` anchor                        | list of mailtos                    | email addresses                 |
+| `image`      | thumbnail                               | horizontal gallery                 | logos, avatars, images          |
+| `datetime`   | localized timestamp                     | list                               | ISO dates / epochs              |
+| `duration`   | human (e.g. `3h 24m`)                   | list                               | numeric seconds / ISO 8601      |
+| `status`     | colored pill from `options[]`           | multi-pill (rare)                  | single-value lifecycle stages   |
+| `options`    | colored chip from `options[]`           | n chips                            | tags, categories                |
+| `progress`   | 0-100 bar (0..1 auto-detected)          | first item only                    | completion percent              |
+| `rating`     | ★ stars / 5                             | first item only                    | scores                          |
+| `relation`   | id badge → entity (cross-link planned)  | list of badges                     | foreign keys                    |
+| `object`     | markdown-style indented KV list         | list of mini-cards                 | nested / flexible records       |
+| `url_map`    | label → URL list (legacy)               | —                                  | rich link bundles               |
+
+Unknown types fall back to `text`. The renderer also auto-detects when no type is declared (URL string → `link`, ISO date → `datetime`, all-URL object → `url_map`, nested object → `object`).
+
+**Field-level controls:**
+
+| Property               | Effect                                                                                    |
+|------------------------|-------------------------------------------------------------------------------------------|
+| `hide: true`           | Field never renders in detail, row chips, or list KVs. For internal ids, scores, etc.     |
+| `empty_placeholder`    | Replaces the default `—` when the value is null/undefined/""/[]. E.g. `"暂无数据"`.        |
+| `show_when`            | `{field, equals}` — only render when another field on the same entity is strictly equal.  |
+| `multi: true | false`  | Forces array layout (wraps single) or single layout (uses first item of array). Auto otherwise. |
+
+**Two layout models — pick one, don't mix:**
+
+**(A) Slot mode** — `display` per field, places it in a fixed region:
 
 | Slot          | Used in                                         |
 |---------------|--------------------------------------------------|
@@ -215,7 +252,28 @@ The viewer ships a soft-schema fallback (id-as-title, generic key/value list) so
 | `avatar`      | The round image on cards / detail header         |
 | `meta`        | Small kv list at the bottom of cards             |
 | `aside`       | Right-rail properties on detail page             |
-| `body`        | Main body content on detail page (for richtext)  |
+| `body`        | Main body content on detail page (for markdown)  |
+
+**(B) Group mode** — Notion-style sectioned layout. When `groups` is declared, `display` is ignored entirely:
+
+```jsonl
+{"op":"schema","schema":{
+  "fields": { "name": {...}, "company": {...}, "notes": {...}, "stage": {...} },
+  "groups": [
+    { "title": "Identity",   "fields": ["name", "company"] },
+    { "title": "Status",     "fields": ["stage"] },
+    { "title": "Notes",      "fields": ["notes"], "collapsed": true }
+  ],
+  "detail_view": {
+    "show_id":      false,                            // hide the small "cust_acme" line
+    "groups_order": ["Identity", "Status", "Notes"]   // explicit display order
+  }
+}}
+```
+
+Fields not assigned to any group fall into a tail "·" section so authors can't accidentally lose data.
+
+**List view extension** — `list_view.row_chips: [field_key, ...]` picks up to ~2 fields to surface as type-aware chips on each list row (uses each field's widget — status colors, option labels, formatted dates carry through). Falls back to auto-picked `display:meta/aside` fields when undeclared.
 
 **Multiple schema events accumulate.** Schema is event-sourced like everything else — append a new `{"op":"schema",...}` line to add a field or change a filter. The viewer folds all schema events in `at` order via deep-merge (later wins on scalar conflicts; nested objects merge by key; arrays replace wholesale). This means you can extend the schema without touching old lines:
 
