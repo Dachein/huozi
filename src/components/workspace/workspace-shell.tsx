@@ -159,11 +159,15 @@ export function WorkspaceShell({
           height under the (shell) layout's fixed-viewport cap. */}
       <main className="flex-1 min-w-0 min-h-0 relative flex flex-col">
         <NavLoadingBar />
+        {/* `min-h-0` keeps propagating the flex height cap — same
+            reason as <main>: without it this inner column reverts to
+            min-height:auto and child `flex-1 min-h-0` chains can't
+            allocate, which leaves FileHeader floating mid-page. */}
         <div
           className={
             isWideLayout(pathname, currentPath)
-              ? "w-full flex-1 flex flex-col px-3 sm:px-4 pt-3"
-              : "mx-auto w-full max-w-4xl px-4 sm:px-6 py-8 flex-1 flex flex-col"
+              ? "w-full flex-1 min-h-0 flex flex-col px-3 sm:px-4 pt-3"
+              : "mx-auto w-full max-w-4xl px-4 sm:px-6 py-8 flex-1 min-h-0 flex flex-col"
           }
         >
           {children}
