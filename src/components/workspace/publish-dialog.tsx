@@ -187,11 +187,11 @@ export function PublishDialog({ path, open, onClose }: PublishDialogProps) {
                    animate-in fade-in zoom-in-95 duration-150"
       >
         <div className="flex items-start justify-between mb-4 gap-4">
-          <div>
+          <div className="min-w-0 flex-1">
             <h2 className="text-base font-semibold">
               {step === "choose" ? "Share this file" : "Shared"}
             </h2>
-            <p className="mt-1 text-xs text-muted-foreground font-mono truncate">
+            <p className="mt-1 text-xs text-muted-foreground font-mono break-all">
               {path}
             </p>
           </div>
