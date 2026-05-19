@@ -74,7 +74,7 @@ export default async function AppLayout({
   return (
     <ConfirmProvider>
       <ThemeProvider theme={theme}>
-        <div className="flex flex-col min-h-screen">
+        <div className="flex flex-col h-dvh overflow-hidden">
           <AppHeader
             principal={principal}
             workspace={workspace}

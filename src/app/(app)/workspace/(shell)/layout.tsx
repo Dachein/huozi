@@ -34,16 +34,16 @@ export default async function WorkspaceShellLayout({
 
   const shell = await loadShellData();
 
-  // Cap the shell area at the exact viewport height (minus the app
-  // header) so descendants can enforce internal scroll inside their
-  // own panes. Without this cap, `min-h-screen` lets the page grow
-  // taller than the viewport and the whole body scrolls — which
-  // unpins the FileHeader (A) on long jsonl/mail lists.
+  // Fill the remaining space inside (app)'s viewport-locked column.
+  // We deliberately do NOT pin our own height via calc() — that
+  // pattern requires --shell-header-height to perfectly match
+  // AppHeader's actual rendered height, which is fragile across
+  // themes / padding changes. `flex-1 min-h-0` lets flex distribute
+  // (app)'s viewport minus the natural AppHeader height, and
+  // overflow-hidden keeps any inner overflow contained so the per-
+  // pane scroll containers below own all scrolling.
   return (
-    <div
-      className="flex flex-col overflow-hidden"
-      style={{ height: "calc(100dvh - var(--shell-header-height))" }}
-    >
+    <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
       <WorkspaceShell
         paths={shell.glob.filenames}
         numFiles={shell.glob.numFiles}
