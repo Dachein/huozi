@@ -108,8 +108,35 @@ interface SchemaConfig {
      *  list row. Each chip renders via the field's declared widget (status
      *  gets its color, options get their label, datetime gets formatted,
      *  etc.). When unset, EntityRow falls back to auto-picking the first
-     *  two display:meta/aside fields. */
+     *  two display:meta/aside fields.
+     *
+     *  Superseded by `row` when both are set (row's 4-slot layout takes over).
+     */
     row_chips?: string[];
+    /**
+     * 4-slot named layout for the list row (overrides the title+subtitle
+     * +chips fallback). Each slot maps to a field key on the entity; the
+     * value renders via that field's type-aware widget.
+     *
+     *   ┌────────────────────────────────────────┐
+     *   │ title                       timestamp  │
+     *   │ subtitle                          tag  │
+     *   └────────────────────────────────────────┘
+     *
+     * - `title`     defaults to `entity.title_field`
+     * - `subtitle`  defaults to `entity.subtitle_field`
+     * - `tag`       no default — single chip (use `status` / `options`
+     *               type for color), omit to render nothing
+     * - `timestamp` no default — typically a `datetime` field, omit to
+     *               render nothing (entity's commit `at` still shows as
+     *               a small fallback in the same slot)
+     */
+    row?: {
+      title?: string;
+      subtitle?: string;
+      tag?: string;
+      timestamp?: string;
+    };
     /**
      * Initial layout for the entity list. `"block"` (default) is the
      * grid of cards; `"list"` is a compact one-row-per-entity layout.
@@ -567,11 +594,28 @@ function EntityRow({
   const isDeleted = entity.status === "deleted";
   const fields = stripConventions(entity.state);
 
-  const titleField = schema?.entity?.title_field;
-  const subtitleField = schema?.entity?.subtitle_field;
+  // Resolve the 4 named slots. `list_view.row` is the authoritative
+  // mapping; for any slot the schema doesn't pin, fall back to
+  // entity-level title_field / subtitle_field. Falling back further
+  // to `entity.id` for the title slot makes a row-without-a-name read
+  // as "p_xxx" — better to leave it blank than print the internal id.
+  const rowSlots = schema?.list_view?.row;
+  const titleField = rowSlots?.title ?? schema?.entity?.title_field;
+  const subtitleField = rowSlots?.subtitle ?? schema?.entity?.subtitle_field;
+  const tagField = rowSlots?.tag;
+  const timestampField = rowSlots?.timestamp;
 
-  const title = (titleField && pickString(fields, titleField)) ?? entity.id;
+  const titleStr = titleField ? pickString(fields, titleField) : null;
+  // Final fallback: when no title slot resolves (no schema or value is
+  // empty), fall through to id so the row isn't blank — but a schema
+  // that maps `title` to an existing field should never hit this.
+  const title = titleStr ?? entity.id;
   const subtitle = subtitleField ? pickString(fields, subtitleField) : null;
+  const tagValue = tagField ? fields[tagField] : undefined;
+  const tagDef = tagField ? schema?.fields?.[tagField] : undefined;
+  const tsValue = timestampField ? fields[timestampField] : undefined;
+  const tsDef = timestampField ? schema?.fields?.[timestampField] : undefined;
+  const useNamedSlots = !!rowSlots;
 
   // Compact row chips. Prefers schema-declared `list_view.row_chips`
   // (explicit author intent — pick exactly the fields they want
@@ -622,6 +666,66 @@ function EntityRow({
     if (selected) btnRef.current?.scrollIntoView({ block: "nearest" });
   }, [selected]);
 
+  // ─── Render ────────────────────────────────────────────────────
+  // Two layouts share the same hover / selected / accent-bar shell:
+  //   - Named-slots (when schema.list_view.row is set): title +
+  //     timestamp on the first row, subtitle + tag on the second.
+  //   - Legacy: title + subtitle + auto-picked chips + entity.at +
+  //     history count on a single line (backward-compatible).
+  const rowShell =
+    `relative w-full text-left px-3 py-2 transition-colors outline-none ${
+      selected
+        ? "bg-[var(--surface-elevated)] before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[var(--accent)]"
+        : "hover:bg-foreground/5"
+    } ${isDeleted ? "opacity-60" : ""}`;
+
+  if (useNamedSlots) {
+    const tsFallback = !tsValue && entity.latest.at ? entity.latest.at : null;
+    return (
+      <li>
+        <button
+          ref={btnRef}
+          type="button"
+          onClick={() => onDrill(entity.id)}
+          aria-current={selected ? "true" : undefined}
+          className={`${rowShell} flex flex-col gap-0.5`}
+        >
+          <div className="flex items-baseline justify-between gap-2 min-w-0">
+            <span className="text-sm font-medium text-foreground truncate min-w-0 flex-1">
+              <InlineMarkdown source={title} />
+            </span>
+            {tsValue !== undefined ? (
+              <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">
+                <FieldValue value={tsValue} fieldDef={tsDef ?? { type: "datetime" }} />
+              </span>
+            ) : tsFallback ? (
+              <time className="text-[10px] font-mono text-muted-foreground shrink-0">
+                {shortAt(tsFallback)}
+              </time>
+            ) : null}
+          </div>
+          {(subtitle || tagValue !== undefined || isDeleted) && (
+            <div className="flex items-center justify-between gap-2 min-w-0">
+              <span className="text-xs text-muted-foreground truncate min-w-0 flex-1">
+                {subtitle ?? ""}
+              </span>
+              <span className="shrink-0 flex items-center gap-1.5">
+                {tagValue !== undefined && (
+                  <FieldValue value={tagValue} fieldDef={tagDef} />
+                )}
+                {isDeleted && (
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    {t("ws.coll.deleted")}
+                  </span>
+                )}
+              </span>
+            </div>
+          )}
+        </button>
+      </li>
+    );
+  }
+
   return (
     <li>
       <button
@@ -629,11 +733,7 @@ function EntityRow({
         type="button"
         onClick={() => onDrill(entity.id)}
         aria-current={selected ? "true" : undefined}
-        className={`relative w-full text-left flex items-baseline gap-3 px-3 py-2 transition-colors outline-none ${
-          selected
-            ? "bg-[var(--surface-elevated)] before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[var(--accent)]"
-            : "hover:bg-foreground/5"
-        } ${isDeleted ? "opacity-60" : ""}`}
+        className={`${rowShell} flex items-baseline gap-3`}
       >
         <span className="text-sm font-medium text-foreground truncate min-w-0 flex-1">
           <InlineMarkdown source={title} />

@@ -273,7 +273,30 @@ Unknown types fall back to `text`. The renderer also auto-detects when no type i
 
 Fields not assigned to any group fall into a tail "·" section so authors can't accidentally lose data.
 
-**List view extension** — `list_view.row_chips: [field_key, ...]` picks up to ~2 fields to surface as type-aware chips on each list row (uses each field's widget — status colors, option labels, formatted dates carry through). Falls back to auto-picked `display:meta/aside` fields when undeclared.
+**List row layout** — two ways to compose the per-row contents:
+
+**Preferred — `list_view.row`** (4 named slots, mail-client style):
+
+```jsonc
+"list_view": {
+  "row": {
+    "title":     "name",          // big text, first line   (defaults to entity.title_field)
+    "subtitle":  "role",          // small text, second line (defaults to entity.subtitle_field)
+    "tag":       "stage",         // single chip, right side (uses field's type widget — status colors carry through)
+    "timestamp": "last_updated"   // right-aligned time, first line (defaults to the entity's commit `at`)
+  }
+}
+```
+
+Renders each row as:
+```
+title                                             timestamp
+subtitle                                                tag
+```
+
+Omit any slot — that area renders nothing. Schema-mapped `title` falls back to `entity.id` only when the field's value is empty (so a row never appears truly blank).
+
+**Legacy — `list_view.row_chips`** (1-2 chips appended after title+subtitle): picks specific fields to surface as compact chips. Falls back to auto-picked `display:meta/aside` fields when undeclared. Use `row` instead for new schemas — `row_chips` is kept for back-compat.
 
 **Multiple schema events accumulate.** Schema is event-sourced like everything else — append a new `{"op":"schema",...}` line to add a field or change a filter. The viewer folds all schema events in `at` order via deep-merge (later wins on scalar conflicts; nested objects merge by key; arrays replace wholesale). This means you can extend the schema without touching old lines:
 

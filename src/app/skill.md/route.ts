@@ -137,7 +137,12 @@ line kinds exist:
     "list_view": {
       "filters":    ["stage"],
       "search":     ["name", "company"],
-      "row_chips":  ["stage", "deal_size"]
+      "row": {
+        "title":     "name",       // big — falls back to entity.title_field
+        "subtitle":  "company",    // small line under title
+        "tag":       "stage",      // single colored chip on the right
+        "timestamp": "started"     // right-aligned time
+      }
     }
   }
 }
