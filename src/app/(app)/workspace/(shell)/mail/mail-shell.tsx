@@ -308,7 +308,7 @@ const MailItem = memo(function MailItem({
         className={`relative block w-full text-left px-4 py-3 transition-colors outline-none ${
           selected
             ? "bg-[var(--surface-elevated)] before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[var(--accent)]"
-            : "hover:bg-[var(--surface-elevated)]"
+            : "hover:bg-foreground/5"
         }`}
       >
         <div className="flex items-start gap-3">
