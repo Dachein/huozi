@@ -558,8 +558,10 @@ function EntityRow({
         type="button"
         onClick={() => onDrill(entity.id)}
         aria-current={selected ? "true" : undefined}
-        className={`w-full text-left flex items-baseline gap-3 px-3 py-2 transition-colors outline-none ${
-          selected ? "bg-muted/60" : "hover:bg-muted/40"
+        className={`relative w-full text-left flex items-baseline gap-3 px-3 py-2 transition-colors outline-none ${
+          selected
+            ? "bg-muted/60 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[var(--accent)]"
+            : "hover:bg-muted/40"
         } ${isDeleted ? "opacity-60" : ""}`}
       >
         <span className="text-sm font-medium text-foreground truncate min-w-0 flex-1">
