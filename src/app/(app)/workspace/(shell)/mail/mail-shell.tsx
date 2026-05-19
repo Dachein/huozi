@@ -83,10 +83,24 @@ export function MailShell({
     [buckets],
   );
 
-  // ⌘/Ctrl+K focuses the search input from anywhere on the mail page.
+  // `/` (GitHub/Twitter style) focuses the search input from anywhere
+  // on the mail page. ⌘/Ctrl+K kept as a fallback, though most
+  // browsers intercept it for the omnibox.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const inField =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target?.isContentEditable;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+      if (inField) return;
+      if (e.key === "/") {
         e.preventDefault();
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
@@ -180,7 +194,7 @@ export function MailShell({
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search mail  ⌘K"
+          placeholder="Search mail  /"
           className="w-full text-xs px-2 py-1.5 rounded border border-border/60 bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-foreground/20"
         />
       </div>

@@ -184,10 +184,12 @@ export function CollectionView({ content }: CollectionViewProps) {
   // Keyboard (collection-specific only — ↑/↓/Esc are owned by
   // ListDetailLayout's chrome since they're generic list+detail
   // shortcuts; the list is vertical so ↑/↓ walks items):
+  //   /          focus the search input (GitHub-style, no modifier)
+  //   ⌘/Ctrl+K   alt focus (often intercepted by browsers though, so
+  //              `/` is the primary)
   //   ←/→        older / newer version of this entity's history
   //              (timeline scrubs horizontally)
   //   Space      hold to highlight diff at the active event
-  //   ⌘/Ctrl+K   focus the search input (works without selection too)
   // Inputs / textareas opt out so typing isn't hijacked.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -204,6 +206,12 @@ export function CollectionView({ content }: CollectionViewProps) {
         return;
       }
       if (inField) return;
+      if (e.key === "/") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
 
       if (drillEntity) {
         if (e.key === "ArrowLeft") {
@@ -262,7 +270,7 @@ export function CollectionView({ content }: CollectionViewProps) {
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder={`${t("ws.coll.search")}  ⌘K`}
+          placeholder={`${t("ws.coll.search")}  /`}
           className="w-full text-xs px-2 py-1.5 rounded border border-border/60 bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-foreground/20"
         />
       </div>
