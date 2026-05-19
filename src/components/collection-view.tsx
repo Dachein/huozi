@@ -248,14 +248,18 @@ export function CollectionView({ content }: CollectionViewProps) {
   // detail pane is always rendered to the right (empty state when nothing
   // is selected). Grid (block) view doesn't make sense in a narrow
   // column, so the toggle is hidden and we force the row layout.
+  // The list wraps its own overflow container so it scrolls inside the
+  // pane (not the whole page).
   const listNode = (
-    <RowListView
-      entities={filteredEntities}
-      schema={schema}
-      onDrill={setDrillEntityId}
-      selectedId={drillEntityId}
-      t={t}
-    />
+    <div className="flex-1 min-h-0 overflow-y-auto">
+      <RowListView
+        entities={filteredEntities}
+        schema={schema}
+        onDrill={setDrillEntityId}
+        selectedId={drillEntityId}
+        t={t}
+      />
+    </div>
   );
 
   const detailNode = drillEntity ? (
@@ -335,6 +339,7 @@ export function CollectionView({ content }: CollectionViewProps) {
         }}
         detailHeader={detailLabel}
         defaultOpen={true}
+        selectionKey={drillEntityId}
         emptyDetail={
           <div className="h-full flex items-center justify-center text-sm text-muted-foreground p-8 text-center">
             {filteredEntities.length === 0

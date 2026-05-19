@@ -64,6 +64,14 @@ export interface ListDetailLayoutProps {
   /** Placeholder shown in the always-on pane when nothing is selected. */
   emptyDetail?: ReactNode;
   /**
+   * When this value changes, the detail pane's scroll position resets to
+   * the top — so switching list items always shows the new item's detail
+   * from the start, not mid-scrolled to the previous one's offset.
+   * Typically the currently-selected entity id; pass `null` when nothing
+   * is selected.
+   */
+  selectionKey?: string | null;
+  /**
    * Width strategy:
    *   - defaultOpen=false: drag-resizable right pane (320-720px)
    *   - defaultOpen=true:  fixed narrow LIST column (320px), detail takes the rest
@@ -91,6 +99,7 @@ export function ListDetailLayout({
   detailHeader,
   defaultOpen = false,
   emptyDetail,
+  selectionKey,
   storageKey,
   defaultWidth = 400,
   minWidth = 320,
@@ -98,6 +107,15 @@ export function ListDetailLayout({
 }: ListDetailLayoutProps) {
   // Selection state — actual data presence.
   const hasSelection = detail !== null;
+
+  // Reset detail scroll to top whenever the selected entity changes.
+  // Desktop pane and mobile drawer each have their own scroll container.
+  const desktopScrollRef = useRef<HTMLDivElement>(null);
+  const mobileScrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (desktopScrollRef.current) desktopScrollRef.current.scrollTop = 0;
+    if (mobileScrollRef.current) mobileScrollRef.current.scrollTop = 0;
+  }, [selectionKey]);
   // Desktop aside is visible iff we're in always-on mode OR something selected.
   // Mobile drawer is always tied to actual selection (no point showing an
   // empty full-screen drawer over the list).
@@ -284,7 +302,10 @@ export function ListDetailLayout({
               showClose={!defaultOpen}
               showWhenEmpty={defaultOpen && !hasSelection}
             />
-            <div className="flex-1 min-h-0 overflow-y-auto">
+            <div
+              ref={desktopScrollRef}
+              className="flex-1 min-h-0 overflow-y-auto"
+            >
               {hasSelection ? detail : emptyDetail}
             </div>
           </aside>
@@ -311,7 +332,12 @@ export function ListDetailLayout({
               showClose={true}
               showWhenEmpty={false}
             />
-            <div className="flex-1 min-h-0 overflow-y-auto">{detail}</div>
+            <div
+              ref={mobileScrollRef}
+              className="flex-1 min-h-0 overflow-y-auto"
+            >
+              {detail}
+            </div>
           </aside>
         </div>
       )}

@@ -176,6 +176,7 @@ export function MailShell({
           : null
       }
       defaultOpen={true}
+      selectionKey={selectedId}
       emptyDetail={
         <div className="h-full flex items-center justify-center text-sm text-muted-foreground p-8 text-center">
           Select a message to read
