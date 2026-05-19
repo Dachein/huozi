@@ -170,7 +170,11 @@ export function PageOutlineMenu({
   return (
     <div
       ref={rootRef}
-      className="relative inline-flex items-center gap-0.5 h-8 rounded-md border border-border bg-background/90 backdrop-blur px-1 text-xs text-muted-foreground"
+      // z-20 lifts the pill (which `backdrop-blur` makes its own stacking
+      // context) above z-auto siblings — without it the dropdown that hangs
+      // below the pill gets painted under the file body in the workspace
+      // header layout.
+      className="relative z-20 inline-flex items-center gap-0.5 h-8 rounded-md border border-border bg-background/90 backdrop-blur px-1 text-xs text-muted-foreground"
       role="navigation"
       aria-label={`${unit} navigation`}
     >
@@ -192,7 +196,7 @@ export function PageOutlineMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={`inline-flex items-center gap-1.5 px-2 h-7 rounded-sm text-xs font-medium transition-colors
+        className={`inline-flex items-center px-2 h-7 rounded-sm text-xs font-medium transition-colors
                    ${
                      open
                        ? "bg-muted text-foreground"
@@ -201,22 +205,6 @@ export function PageOutlineMenu({
       >
         <span className="hidden sm:inline">{label}</span>
         <span className="sm:hidden tabular-nums">{pages.length}</span>
-        <svg
-          viewBox="0 0 12 12"
-          width="9"
-          height="9"
-          className={`opacity-60 transition-transform ${open ? "rotate-180" : ""}`}
-          aria-hidden="true"
-        >
-          <path
-            d="M2 4 L6 8 L10 4"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
       </button>
       {orientation ? (
         <button
