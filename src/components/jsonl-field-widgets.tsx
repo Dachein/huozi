@@ -1,0 +1,721 @@
+"use client";
+
+/**
+ * Type-aware value renderers for jsonl Collection schemas.
+ *
+ * The `<FieldValue>` component dispatches on the schema-declared
+ * field type and (when no schema is declared) auto-detects from the
+ * runtime value shape. Each type widget natively handles BOTH single
+ * values and arrays — jsonl data is uncurated and the same field
+ * may appear as a string on one entity and an array of strings on
+ * another, so widgets adapt at render time. Schema can override the
+ * auto-detection via `multi: true | false` on the field def.
+ *
+ * Vocabulary (Phase A of L2.5 self-customization, see
+ * project_huozi_layout_lexicon memory):
+ *
+ *   text       paragraph    markdown    link
+ *   email      image        datetime    duration
+ *   status     options      progress    rating
+ *   relation   object       url_map (legacy, kept for back-compat)
+ *
+ * Empty values (null / undefined / "" / []) render as a muted "—"
+ * placeholder. Phase B will let schemas override that per field via
+ * `empty_placeholder`.
+ *
+ * Markdown rendering is currently inline-grade (bold / italic / links
+ * / code) via the existing InlineMarkdown helper in collection-view.
+ * Block-level markdown (lists, headings, code fences) is TODO — would
+ * need to plug in the async @/lib/markdown/renderer.
+ */
+
+import { type ReactNode, useMemo } from "react";
+
+export interface FieldOption {
+  value: string;
+  label?: string;
+  color?: string;
+}
+
+/**
+ * Subset of the schema field definition that widgets consume.
+ * Mirrors `SchemaConfig.fields[key]` in collection-view; kept narrow
+ * so the widgets file can stay self-contained.
+ */
+export interface FieldDef {
+  type?: string;
+  label?: string;
+  options?: FieldOption[];
+  /** Force single-value rendering even when value is an array (first item used). */
+  /** Force array layout even when value is a single. */
+  multi?: boolean;
+}
+
+export interface FieldValueProps {
+  value: unknown;
+  type?: string;
+  fieldDef?: FieldDef;
+}
+
+const EMPTY = <span className="text-muted-foreground/50">—</span>;
+
+/**
+ * Top-level dispatcher. Resolves type (declared > inferred), normalises
+ * the value to single or array based on `multi` override, then routes
+ * to the matching widget.
+ */
+export function FieldValue({ value, type, fieldDef }: FieldValueProps) {
+  // Empty value across all shapes.
+  if (isEmpty(value)) return EMPTY;
+
+  const resolvedType = type ?? fieldDef?.type ?? inferType(value);
+  const isArr = Array.isArray(value);
+  const multi = fieldDef?.multi;
+
+  // Multi override: schema wants single → coerce array to its first
+  // non-empty item.
+  if (isArr && multi === false) {
+    const first = (value as unknown[]).find((v) => !isEmpty(v));
+    return (
+      <SingleValue
+        value={first}
+        type={resolvedType}
+        fieldDef={fieldDef}
+      />
+    );
+  }
+
+  // Schema wants multi → coerce single to [value].
+  const effective =
+    isArr || multi === true ? (isArr ? (value as unknown[]) : [value]) : value;
+
+  if (Array.isArray(effective)) {
+    return (
+      <ArrayValue items={effective} type={resolvedType} fieldDef={fieldDef} />
+    );
+  }
+  return (
+    <SingleValue value={effective} type={resolvedType} fieldDef={fieldDef} />
+  );
+}
+
+/* ── Single-value dispatch ───────────────────────────────────────── */
+
+function SingleValue({
+  value,
+  type,
+  fieldDef,
+}: {
+  value: unknown;
+  type: string;
+  fieldDef?: FieldDef;
+}) {
+  if (isEmpty(value)) return EMPTY;
+
+  switch (type) {
+    case "markdown":
+      return <MarkdownValue source={String(value)} />;
+    case "paragraph":
+      return <ParagraphValue text={String(value)} />;
+    case "link":
+    case "url":
+      return looksLikeUrl(value) ? (
+        <LinkValue href={String(value)} />
+      ) : (
+        <TextValue text={String(value)} />
+      );
+    case "email":
+      return looksLikeEmail(value) ? (
+        <EmailValue email={String(value)} />
+      ) : (
+        <TextValue text={String(value)} />
+      );
+    case "image":
+      return typeof value === "string" ? (
+        <ImageValue src={value} />
+      ) : (
+        <TextValue text={String(value)} />
+      );
+    case "datetime":
+      return <DateTimeValue iso={String(value)} />;
+    case "duration":
+      return <DurationValue value={value} />;
+    case "status":
+      return <StatusValue value={String(value)} options={fieldDef?.options} />;
+    case "options":
+      return <OptionsValue value={String(value)} options={fieldDef?.options} />;
+    case "progress":
+      return <ProgressValue value={Number(value)} />;
+    case "rating":
+      return <RatingValue value={Number(value)} />;
+    case "relation":
+      return <RelationValue id={String(value)} />;
+    case "object":
+      return (
+        <ObjectValue value={value as Record<string, unknown>} depth={0} />
+      );
+    case "url_map":
+      return <UrlMapValue value={value as Record<string, unknown>} />;
+    case "text":
+    default:
+      return <TextValue text={formatScalar(value)} />;
+  }
+}
+
+/* ── Array adaptation ────────────────────────────────────────────── */
+
+function ArrayValue({
+  items,
+  type,
+  fieldDef,
+}: {
+  items: unknown[];
+  type: string;
+  fieldDef?: FieldDef;
+}) {
+  const filtered = items.filter((v) => !isEmpty(v));
+  if (filtered.length === 0) return EMPTY;
+
+  // Compact "chip" layout for short scalar types — fits naturally as a
+  // run of inline pills (tags, options, statuses, short text).
+  const chipTypes = new Set([
+    "text",
+    "options",
+    "status",
+    "email",
+    "duration",
+    "datetime",
+    "rating",
+  ]);
+  if (chipTypes.has(type)) {
+    return (
+      <span className="inline-flex flex-wrap gap-1 max-w-full">
+        {filtered.map((item, i) => (
+          <span key={i} className="inline-block">
+            <SingleValue value={item} type={type} fieldDef={fieldDef} />
+          </span>
+        ))}
+      </span>
+    );
+  }
+
+  // Image arrays → horizontal gallery (thumbnails).
+  if (type === "image") {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {filtered.map((item, i) =>
+          typeof item === "string" ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={i}
+              src={item}
+              alt=""
+              className="h-16 w-16 object-cover rounded border border-border/40"
+            />
+          ) : null,
+        )}
+      </div>
+    );
+  }
+
+  // Everything else (link, markdown, paragraph, object, url_map,
+  // relation) → vertical list. Each item gets its full single-value
+  // render and reads as a discrete entry.
+  return (
+    <ul className="space-y-1.5">
+      {filtered.map((item, i) => (
+        <li key={i} className="min-w-0">
+          <SingleValue value={item} type={type} fieldDef={fieldDef} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/* ── Widgets ─────────────────────────────────────────────────────── */
+
+function TextValue({ text }: { text: string }) {
+  return <span className="text-sm break-words">{text}</span>;
+}
+
+function ParagraphValue({ text }: { text: string }) {
+  return (
+    <span className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+      {text}
+    </span>
+  );
+}
+
+/**
+ * Inline-grade markdown — handles **bold**, *italic*, `code`,
+ * [link](url). Block constructs (headings, lists, code fences) fall
+ * through as plain text for now; upgrade path is to swap in the
+ * async @/lib/markdown/renderer when block fidelity becomes
+ * worth the cost.
+ */
+function MarkdownValue({ source }: { source: string }) {
+  const nodes = useMemo(() => parseInlineMarkdown(source), [source]);
+  return (
+    <span className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+      {nodes}
+    </span>
+  );
+}
+
+function LinkValue({ href }: { href: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-sm text-foreground hover:text-accent transition-colors break-all"
+    >
+      {href}
+    </a>
+  );
+}
+
+function EmailValue({ email }: { email: string }) {
+  return (
+    <a
+      href={`mailto:${email}`}
+      className="text-sm font-mono text-foreground hover:text-accent transition-colors break-all"
+    >
+      {email}
+    </a>
+  );
+}
+
+function ImageValue({ src }: { src: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      className="max-w-full h-auto rounded border border-border/40"
+    />
+  );
+}
+
+/**
+ * Best-effort datetime formatter. Accepts ISO 8601 strings or epoch
+ * numbers. Falls back to raw string when unparseable.
+ */
+function DateTimeValue({ iso }: { iso: string }) {
+  const ts = Date.parse(iso);
+  if (!Number.isFinite(ts)) return <TextValue text={iso} />;
+  const formatted = new Date(ts).toLocaleString();
+  return (
+    <time
+      dateTime={iso}
+      className="text-sm text-foreground tabular-nums"
+      suppressHydrationWarning
+    >
+      {formatted}
+    </time>
+  );
+}
+
+/**
+ * Duration accepts a number (seconds) or an ISO 8601 duration-like
+ * string. Falls back to raw display when neither parses.
+ */
+function DurationValue({ value }: { value: unknown }) {
+  let seconds: number | null = null;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    seconds = value;
+  } else if (typeof value === "string") {
+    const n = Number.parseFloat(value);
+    if (Number.isFinite(n)) seconds = n;
+  }
+  if (seconds === null) return <TextValue text={String(value)} />;
+
+  const s = Math.floor(seconds);
+  if (s < 60) return <TextValue text={`${s}s`} />;
+  const m = Math.floor(s / 60);
+  if (m < 60) return <TextValue text={`${m}m ${s % 60}s`} />;
+  const h = Math.floor(m / 60);
+  if (h < 24) return <TextValue text={`${h}h ${m % 60}m`} />;
+  const d = Math.floor(h / 24);
+  return <TextValue text={`${d}d ${h % 24}h`} />;
+}
+
+/** Chip with optional theme color from schema-declared options. */
+function StatusValue({
+  value,
+  options,
+}: {
+  value: string;
+  options?: FieldOption[];
+}) {
+  const opt = options?.find((o) => o.value === value);
+  const label = opt?.label ?? value;
+  const color = opt?.color;
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium border"
+      style={
+        color
+          ? { borderColor: color, color }
+          : undefined
+      }
+    >
+      {color && (
+        <span
+          aria-hidden
+          className="size-1.5 rounded-full"
+          style={{ background: color }}
+        />
+      )}
+      {label}
+    </span>
+  );
+}
+
+/** Tag chip (lighter weight than status). */
+function OptionsValue({
+  value,
+  options,
+}: {
+  value: string;
+  options?: FieldOption[];
+}) {
+  const opt = options?.find((o) => o.value === value);
+  const label = opt?.label ?? value;
+  const color = opt?.color;
+  return (
+    <span
+      className="inline-block rounded bg-muted/60 px-1.5 py-0.5 text-xs"
+      style={color ? { color } : undefined}
+    >
+      {label}
+    </span>
+  );
+}
+
+/** Horizontal bar, value clamped 0-100. Accepts 0..1 too (auto-detect). */
+function ProgressValue({ value }: { value: number }) {
+  if (!Number.isFinite(value)) return EMPTY;
+  const pct = value <= 1 ? Math.round(value * 100) : Math.round(value);
+  const clamped = Math.max(0, Math.min(100, pct));
+  return (
+    <span className="inline-flex items-center gap-2 text-xs">
+      <span className="inline-block h-1.5 w-24 rounded-full bg-muted/60 overflow-hidden">
+        <span
+          className="block h-full bg-[var(--accent)]"
+          style={{ width: `${clamped}%` }}
+        />
+      </span>
+      <span className="font-mono text-muted-foreground tabular-nums">
+        {clamped}%
+      </span>
+    </span>
+  );
+}
+
+/** ★ stars out of 5 (configurable cap via fieldDef.options[0].value="N"). */
+function RatingValue({ value }: { value: number }) {
+  if (!Number.isFinite(value)) return EMPTY;
+  const max = 5;
+  const filled = Math.max(0, Math.min(max, Math.round(value)));
+  return (
+    <span className="inline-flex items-baseline gap-0.5 text-sm">
+      <span aria-label={`${filled} of ${max}`}>
+        {"★".repeat(filled)}
+        <span className="text-muted-foreground/40">{"☆".repeat(max - filled)}</span>
+      </span>
+    </span>
+  );
+}
+
+/**
+ * Cross-entity link. For now, just a styled badge — clicking does
+ * nothing until cross-collection navigation (planned). When that
+ * lands we'll resolve `id` against a target jsonl declared on the
+ * schema (e.g. `target_collection: "people.jsonl"`).
+ */
+function RelationValue({ id }: { id: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded border border-border/60 px-1.5 py-0.5 text-xs font-mono text-muted-foreground">
+      <span aria-hidden>→</span>
+      {id}
+    </span>
+  );
+}
+
+/**
+ * Object as a markdown-style indented KV list. Each leaf goes back
+ * through `<FieldValue>` with its inferred type so nested URLs /
+ * dates / etc. still render correctly. Recursive — nested objects
+ * indent further. Caps recursion at depth 3 to avoid runaway trees
+ * (display becomes `{ N keys }`).
+ */
+function ObjectValue({
+  value,
+  depth,
+}: {
+  value: Record<string, unknown>;
+  depth: number;
+}) {
+  const entries = Object.entries(value);
+  if (entries.length === 0) return EMPTY;
+  if (depth >= 3) {
+    return (
+      <span className="text-xs text-muted-foreground font-mono">
+        {`{ ${entries.length} keys }`}
+      </span>
+    );
+  }
+  return (
+    <ul className="space-y-0.5 text-sm">
+      {entries.map(([k, v]) => (
+        <li
+          key={k}
+          className="flex items-baseline gap-2 min-w-0"
+          style={{ paddingLeft: depth > 0 ? "0.75rem" : 0 }}
+        >
+          <span className="text-muted-foreground/80 font-mono text-xs shrink-0">
+            {k}:
+          </span>
+          <span className="min-w-0 flex-1 break-words">
+            {v !== null &&
+            typeof v === "object" &&
+            !Array.isArray(v) ? (
+              <ObjectValue
+                value={v as Record<string, unknown>}
+                depth={depth + 1}
+              />
+            ) : (
+              <FieldValue value={v} />
+            )}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Legacy: object whose values are all URLs. Renders as link list. */
+function UrlMapValue({ value }: { value: Record<string, unknown> }) {
+  const entries = Object.entries(value).filter(
+    ([, v]) => typeof v === "string" && v.length > 0,
+  );
+  if (entries.length === 0) return EMPTY;
+  return (
+    <ul className="space-y-1">
+      {entries.map(([label, url]) => (
+        <li key={label} className="min-w-0">
+          <a
+            href={url as string}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-baseline gap-1 text-sm text-foreground hover:text-accent transition-colors max-w-full"
+            title={url as string}
+          >
+            <span className="font-mono text-[11px] text-muted-foreground shrink-0">
+              {label}
+            </span>
+            <span aria-hidden className="text-muted-foreground/60 text-[10px]">
+              ↗
+            </span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/* ── Helpers ─────────────────────────────────────────────────────── */
+
+function isEmpty(v: unknown): boolean {
+  if (v === null || v === undefined) return true;
+  if (typeof v === "string" && v === "") return true;
+  if (Array.isArray(v) && v.length === 0) return true;
+  return false;
+}
+
+/**
+ * Infer a reasonable type from a runtime value when no schema is
+ * declared. Conservative — only commits to a type when the shape is
+ * unambiguous. Falls back to "text" otherwise.
+ */
+function inferType(value: unknown): string {
+  if (Array.isArray(value)) {
+    // Array: infer from first non-empty element
+    const first = value.find((v) => !isEmpty(v));
+    if (first === undefined) return "text";
+    return inferType(first);
+  }
+  if (typeof value === "string") {
+    if (looksLikeUrl(value)) return "link";
+    if (looksLikeEmail(value)) return "email";
+    if (looksLikeISODate(value)) return "datetime";
+    return "text";
+  }
+  if (typeof value === "number") return "text";
+  if (typeof value === "boolean") return "text";
+  if (typeof value === "object" && value !== null) {
+    if (looksLikeUrlMap(value as Record<string, unknown>)) return "url_map";
+    return "object";
+  }
+  return "text";
+}
+
+export function looksLikeUrl(v: unknown): v is string {
+  return typeof v === "string" && /^https?:\/\//i.test(v);
+}
+
+export function looksLikeEmail(v: unknown): v is string {
+  return typeof v === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+}
+
+function looksLikeISODate(v: string): boolean {
+  // YYYY-MM-DD or full ISO 8601 — Date.parse alone isn't reliable
+  // (it'll parse "2026" as a date), so require at least YYYY-MM-DD.
+  return /^\d{4}-\d{2}-\d{2}/.test(v);
+}
+
+function looksLikeUrlMap(v: Record<string, unknown>): boolean {
+  const entries = Object.entries(v);
+  if (entries.length === 0) return false;
+  let hasUrl = false;
+  for (const [, val] of entries) {
+    if (val === null || val === undefined || val === "") continue;
+    if (looksLikeUrl(val)) {
+      hasUrl = true;
+      continue;
+    }
+    return false;
+  }
+  return hasUrl;
+}
+
+function formatScalar(v: unknown): string {
+  if (v === null) return "null";
+  if (v === undefined) return "—";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  try {
+    return JSON.stringify(v);
+  } catch {
+    return String(v);
+  }
+}
+
+/* ── Inline markdown (bold / italic / code / link) ──────────────── */
+
+type InlineNode = string | { kind: "bold" | "italic" | "code"; text: string } | {
+  kind: "link";
+  text: string;
+  href: string;
+};
+
+/**
+ * Lean parser for the four marks that show up in jsonl field values:
+ * **bold**, *italic*, `code`, [text](url). Mirrors the InlineMarkdown
+ * helper in collection-view but kept local here so this file has no
+ * upward dependency.
+ */
+function parseInlineMarkdown(source: string): ReactNode[] {
+  const tokens = tokenize(source);
+  return tokens.map((tok, i) => {
+    if (typeof tok === "string") return <span key={i}>{tok}</span>;
+    if (tok.kind === "bold")
+      return (
+        <strong key={i} className="font-semibold">
+          {tok.text}
+        </strong>
+      );
+    if (tok.kind === "italic")
+      return (
+        <em key={i} className="italic">
+          {tok.text}
+        </em>
+      );
+    if (tok.kind === "code")
+      return (
+        <code
+          key={i}
+          className="rounded bg-muted/60 px-1 py-0.5 text-[0.9em] font-mono"
+        >
+          {tok.text}
+        </code>
+      );
+    if (tok.kind === "link")
+      return (
+        <a
+          key={i}
+          href={tok.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline underline-offset-2 hover:text-accent"
+        >
+          {tok.text}
+        </a>
+      );
+    return null;
+  });
+}
+
+function tokenize(src: string): InlineNode[] {
+  const out: InlineNode[] = [];
+  let i = 0;
+  while (i < src.length) {
+    // [text](url)
+    if (src[i] === "[") {
+      const close = src.indexOf("]", i + 1);
+      if (close > i && src[close + 1] === "(") {
+        const paren = src.indexOf(")", close + 2);
+        if (paren > close) {
+          out.push({
+            kind: "link",
+            text: src.slice(i + 1, close),
+            href: src.slice(close + 2, paren),
+          });
+          i = paren + 1;
+          continue;
+        }
+      }
+    }
+    // **bold**
+    if (src.startsWith("**", i)) {
+      const close = src.indexOf("**", i + 2);
+      if (close > i + 2) {
+        out.push({ kind: "bold", text: src.slice(i + 2, close) });
+        i = close + 2;
+        continue;
+      }
+    }
+    // *italic*
+    if (src[i] === "*") {
+      const close = src.indexOf("*", i + 1);
+      if (close > i + 1) {
+        out.push({ kind: "italic", text: src.slice(i + 1, close) });
+        i = close + 1;
+        continue;
+      }
+    }
+    // `code`
+    if (src[i] === "`") {
+      const close = src.indexOf("`", i + 1);
+      if (close > i + 1) {
+        out.push({ kind: "code", text: src.slice(i + 1, close) });
+        i = close + 1;
+        continue;
+      }
+    }
+    // Plain run — accumulate until the next markdown sigil.
+    let j = i;
+    while (
+      j < src.length &&
+      src[j] !== "[" &&
+      src[j] !== "*" &&
+      src[j] !== "`"
+    ) {
+      j++;
+    }
+    out.push(src.slice(i, j));
+    i = j === i ? j + 1 : j;
+  }
+  return out;
+}

@@ -33,6 +33,10 @@ import { foldByEntity, foldSchema, type EntityState } from "@/lib/jsonl/fold";
 import { useEditableSurface } from "@/components/workspace/inline-edit";
 import { ListDetailLayout } from "@/components/list-detail-layout";
 import { useEntityNavigator } from "@/components/use-entity-navigator";
+import {
+  FieldValue,
+  type FieldDef,
+} from "@/components/jsonl-field-widgets";
 
 /** A select-type option as declared in the schema. */
 interface FieldOption {
@@ -865,7 +869,7 @@ function DetailView({
                       value={v}
                       priorValue={priorState[k]}
                       status={status}
-                      type={schema?.fields?.[k]?.type}
+                      fieldDef={schema?.fields?.[k]}
                     />
                   </div>
                 </div>
@@ -898,7 +902,7 @@ function DetailView({
                           value={v}
                           priorValue={priorState[k]}
                           status={status}
-                          type={schema?.fields?.[k]?.type}
+                          fieldDef={schema?.fields?.[k]}
                         />
                       </span>
                     </dd>
@@ -973,7 +977,7 @@ function DetailView({
                       value={v}
                       priorValue={priorState[k]}
                       status={status}
-                      type={schema?.fields?.[k]?.type}
+                      fieldDef={schema?.fields?.[k]}
                     />
                   </dd>
                 </div>
@@ -1206,7 +1210,7 @@ function EventBanner({
                     value={v}
                     priorValue={prior[k]}
                     status={status}
-                    type={schema?.fields?.[k]?.type}
+                    fieldDef={schema?.fields?.[k]}
                   />
                 </span>
               </div>
@@ -1465,15 +1469,18 @@ function DiffValue({
   value,
   priorValue,
   status,
-  type,
+  fieldDef,
 }: {
   value: unknown;
   priorValue: unknown;
   status: "added" | "modified" | "deleted" | null;
-  type: string | undefined;
+  /** Full field schema definition — type / options / multi all live
+   *  on it. Optional so callers without schema context (e.g. event
+   *  banner) still render via type auto-detection. */
+  fieldDef?: FieldDef;
 }) {
   if (status === null) {
-    return <>{renderFieldValue(value, type)}</>;
+    return <FieldValue value={value} fieldDef={fieldDef} />;
   }
 
   if (status === "added") {
@@ -1486,7 +1493,7 @@ function DiffValue({
           +
         </span>
         <span className="min-w-0 break-words">
-          {renderFieldValue(value, type)}
+          <FieldValue value={value} fieldDef={fieldDef} />
         </span>
       </span>
     );
@@ -1502,7 +1509,7 @@ function DiffValue({
           −
         </span>
         <span className="line-through text-red-700/70 dark:text-red-400/70 min-w-0 break-words">
-          {renderFieldValue(priorValue, type)}
+          <FieldValue value={priorValue} fieldDef={fieldDef} />
         </span>
       </span>
     );
@@ -1512,177 +1519,19 @@ function DiffValue({
   return (
     <span className="inline-flex flex-wrap items-baseline gap-x-2 max-w-full">
       <span className="line-through text-muted-foreground/70 break-words">
-        {renderFieldValue(priorValue, type)}
+        <FieldValue value={priorValue} fieldDef={fieldDef} />
       </span>
       <span className="text-emerald-700 dark:text-emerald-400 break-words">
-        {renderFieldValue(value, type)}
+        <FieldValue value={value} fieldDef={fieldDef} />
       </span>
     </span>
   );
 }
 
-/**
- * Render a field value as JSX, dispatching on the schema-declared
- * type so url_map shows up as a list of links instead of a JSON dump,
- * url/email become clickable, etc. Falls back to formatScalar for
- * anything not specially handled.
- */
-function looksLikeUrl(v: unknown): v is string {
-  return typeof v === "string" && /^https?:\/\//i.test(v);
-}
-
-function looksLikeEmail(v: unknown): v is string {
-  return typeof v === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-}
-
-function looksLikeUrlMap(v: unknown): v is Record<string, unknown> {
-  if (v === null || typeof v !== "object" || Array.isArray(v)) return false;
-  const entries = Object.entries(v as Record<string, unknown>);
-  if (entries.length === 0) return false;
-  let hasUrl = false;
-  for (const [, val] of entries) {
-    if (val === null || val === undefined || val === "") continue;
-    if (looksLikeUrl(val)) {
-      hasUrl = true;
-      continue;
-    }
-    return false;
-  }
-  return hasUrl;
-}
-
-function renderUrl(value: string): React.ReactNode {
-  return (
-    <a
-      href={value}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-sm text-foreground hover:text-accent transition-colors break-all"
-    >
-      {value}
-    </a>
-  );
-}
-
-function renderUrlMap(value: Record<string, unknown>): React.ReactNode {
-  const entries = Object.entries(value).filter(
-    ([, v]) => typeof v === "string" && v.length > 0,
-  );
-  if (entries.length === 0) {
-    return <span className="text-muted-foreground/50">—</span>;
-  }
-  return (
-    <ul className="space-y-1">
-      {entries.map(([label, url]) => (
-        <li key={label} className="min-w-0">
-          <a
-            href={url as string}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-baseline gap-1 text-sm text-foreground hover:text-accent transition-colors max-w-full"
-            title={url as string}
-          >
-            <span className="font-mono text-[11px] text-muted-foreground shrink-0">
-              {label}
-            </span>
-            <span aria-hidden className="text-muted-foreground/60 text-[10px]">
-              ↗
-            </span>
-          </a>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function renderFieldValue(
-  value: unknown,
-  type: string | undefined,
-): React.ReactNode {
-  if (value === null || value === undefined || value === "") {
-    return <span className="text-muted-foreground/50">—</span>;
-  }
-
-  if (type === "image" && typeof value === "string") {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={value}
-        alt=""
-        className="max-w-full h-auto rounded border border-border/40"
-      />
-    );
-  }
-
-  if (typeof value === "string" && (type === "url" || looksLikeUrl(value))) {
-    return renderUrl(value);
-  }
-
-  if (
-    typeof value === "string" &&
-    (type === "email" || looksLikeEmail(value))
-  ) {
-    return (
-      <a
-        href={`mailto:${value}`}
-        className="text-sm text-foreground hover:text-accent transition-colors break-all"
-      >
-        {value}
-      </a>
-    );
-  }
-
-  if (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    (type === "url_map" || looksLikeUrlMap(value))
-  ) {
-    return renderUrlMap(value as Record<string, unknown>);
-  }
-
-  if (Array.isArray(value)) {
-    if (value.length === 0) {
-      return <span className="text-muted-foreground/50">—</span>;
-    }
-    const allPrimitive = value.every(
-      (item) =>
-        item === null ||
-        typeof item === "string" ||
-        typeof item === "number" ||
-        typeof item === "boolean",
-    );
-    if (allPrimitive) {
-      return (
-        <span className="inline-flex flex-wrap gap-1 max-w-full">
-          {value.map((item, i) => (
-            <span
-              key={i}
-              className="inline-block rounded bg-muted/60 px-1.5 py-0.5 text-xs break-all"
-            >
-              {item === null ? (
-                <span className="text-muted-foreground/60">null</span>
-              ) : looksLikeUrl(item) ? (
-                <a
-                  href={item}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-accent transition-colors"
-                >
-                  {item}
-                </a>
-              ) : (
-                String(item)
-              )}
-            </span>
-          ))}
-        </span>
-      );
-    }
-  }
-
-  return <span className="text-sm break-all">{formatScalar(value)}</span>;
-}
+/* Field value rendering moved to `@/components/jsonl-field-widgets`.
+ * DiffValue routes value/priorValue through `<FieldValue>`, which
+ * handles type dispatch (markdown, link, datetime, status, object, …)
+ * and array adaptation. */
 
 /**
  * Inline-only markdown for field labels (`schema.fields[k].label`) and
