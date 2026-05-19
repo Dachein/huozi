@@ -373,16 +373,24 @@ async function FileBody({
 
   const raw = stripCatN(data.file.content);
 
-  // jsonl renders an email-style 3-pane that wants vertical fill; switch
-  // to a flex column so FileRenderer (and the editable-surface chain
-  // below it) can stretch to viewport height. Other file types keep the
-  // natural block-flow with vertical spacing between banners and body.
+  // All file types share the same outer frame: flex-col with a flex-1
+  // body so the FileHeader above (in the parent column) stays pinned to
+  // the top regardless of content type. jsonl renders its own 3-pane
+  // and manages internal scroll inside CollectionView; other types
+  // (markdown, csv, html source, etc.) get wrapped in a scroll container
+  // so the body scrolls on its own without pushing FileHeader off-screen.
   const isCollection = path.endsWith(".jsonl");
-  const wrapperCls = isCollection
-    ? "flex flex-col gap-3 flex-1 min-h-0"
-    : "space-y-3";
+  const renderer = (
+    <FileRenderer
+      path={path}
+      content={raw}
+      raw={wantRaw}
+      inlineEditable={!wantRaw && !paginated}
+      parentBlobSha={data.file.blob_sha ?? null}
+    />
+  );
   return (
-    <div className={wrapperCls}>
+    <div className="flex flex-col gap-3 flex-1 min-h-0">
       {paginated && (
         <div className="text-xs text-muted-foreground shrink-0">
           lines {data.file.startLine ?? 1}–
@@ -397,13 +405,13 @@ async function FileBody({
           looks off.
         </div>
       )}
-      <FileRenderer
-        path={path}
-        content={raw}
-        raw={wantRaw}
-        inlineEditable={!wantRaw && !paginated}
-        parentBlobSha={data.file.blob_sha ?? null}
-      />
+      {isCollection ? (
+        renderer
+      ) : (
+        <div className="huozi-scrollarea flex-1 min-h-0 overflow-y-auto">
+          {renderer}
+        </div>
+      )}
     </div>
   );
 }

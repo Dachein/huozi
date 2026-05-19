@@ -251,7 +251,7 @@ export function CollectionView({ content }: CollectionViewProps) {
   // The list wraps its own overflow container so it scrolls inside the
   // pane (not the whole page).
   const listNode = (
-    <div className="flex-1 min-h-0 overflow-y-auto">
+    <div className="huozi-scrollarea flex-1 min-h-0 overflow-y-auto">
       <RowListView
         entities={filteredEntities}
         schema={schema}

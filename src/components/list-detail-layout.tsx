@@ -304,7 +304,7 @@ export function ListDetailLayout({
             />
             <div
               ref={desktopScrollRef}
-              className="flex-1 min-h-0 overflow-y-auto"
+              className="huozi-scrollarea flex-1 min-h-0 overflow-y-auto"
             >
               {hasSelection ? detail : emptyDetail}
             </div>
@@ -334,7 +334,7 @@ export function ListDetailLayout({
             />
             <div
               ref={mobileScrollRef}
-              className="flex-1 min-h-0 overflow-y-auto"
+              className="huozi-scrollarea flex-1 min-h-0 overflow-y-auto"
             >
               {detail}
             </div>

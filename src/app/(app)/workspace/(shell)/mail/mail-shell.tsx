@@ -147,7 +147,7 @@ export function MailShell({
   const listNode = (
     <div className="flex flex-1 min-h-0 flex-col">
       <TabBar tab={tab} counts={counts} onTabClick={onTabClick} isOffice={isOffice} />
-      <div className="flex-1 min-h-0 overflow-y-auto border-y border-border bg-background">
+      <div className="huozi-scrollarea flex-1 min-h-0 overflow-y-auto border-y border-border bg-background">
         {rows.length === 0 ? (
           <EmptyTab tab={tab} />
         ) : (
