@@ -262,15 +262,16 @@ export function CollectionView({ content }: CollectionViewProps) {
     });
   }, [historyLen]);
 
-  // Keyboard (collection-specific only — ↑/↓/Esc are owned by
-  // ListDetailLayout's chrome since they're generic list+detail
-  // shortcuts; the list is vertical so ↑/↓ walks items):
+  // Keyboard (collection-specific only — ↑/↓/←/→/Esc are owned by
+  // ListDetailLayout's chrome since they walk prev/next entity in the
+  // generic list+detail pager):
   //   /          focus the search input (GitHub-style, no modifier)
   //   ⌘/Ctrl+K   alt focus (often intercepted by browsers though, so
   //              `/` is the primary)
-  //   ←/→        older / newer version of this entity's history
-  //              (timeline scrubs horizontally)
   //   Space      hold to highlight diff at the active event
+  // Version-scrub (older/newer event of the selected entity) is
+  // intentionally button-only on the timeline — ←/→ is reserved for
+  // entity pager so it matches every other list+detail surface.
   // Inputs / textareas opt out so typing isn't hijacked.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -294,19 +295,11 @@ export function CollectionView({ content }: CollectionViewProps) {
         return;
       }
 
-      if (drillEntity) {
-        if (e.key === "ArrowLeft") {
-          e.preventDefault();
-          goOlderVersion();
-        } else if (e.key === "ArrowRight") {
-          e.preventDefault();
-          goNewerVersion();
-        } else if (e.code === "Space" && !e.repeat) {
-          // Hold-to-peek: highlight diff while pressed. Prevent the
-          // browser's default page-down on Space.
-          e.preventDefault();
-          setPeekDiff(true);
-        }
+      if (drillEntity && e.code === "Space" && !e.repeat) {
+        // Hold-to-peek: highlight diff while pressed. Prevent the
+        // browser's default page-down on Space.
+        e.preventDefault();
+        setPeekDiff(true);
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {
@@ -318,7 +311,7 @@ export function CollectionView({ content }: CollectionViewProps) {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [drillEntity, goOlderVersion, goNewerVersion]);
+  }, [drillEntity]);
 
   // Drop the peek state whenever we leave detail view, so re-entering
   // doesn't show stale highlights.

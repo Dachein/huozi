@@ -215,9 +215,9 @@ export function ListDetailLayout({
 
   // Keyboard only active while there's a real selection — defaultOpen
   // alone shouldn't hijack ↑/↓ when the user is just browsing.
-  // The list is vertical (email-style 3-pane), so ↑/↓ matches scrolling
-  // direction. Domain-specific keys (e.g. jsonl's ←/→ for history
-  // versions) stay owned by the renderer below.
+  // Both ↑/↓ and ←/→ walk prev/next: vertical keys match the list's
+  // visual axis, horizontal keys match the "previous/next item" pager
+  // mental model users carry over from mail/photo viewers.
   useEffect(() => {
     if (!hasSelection) return;
     const onKey = (e: KeyboardEvent) => {
@@ -233,14 +233,12 @@ export function ListDetailLayout({
         return;
       }
       if (inField) return;
-      if (e.key === "ArrowUp" && navigator?.canGoPrev && navigator.goPrev) {
+      const isPrev = e.key === "ArrowUp" || e.key === "ArrowLeft";
+      const isNext = e.key === "ArrowDown" || e.key === "ArrowRight";
+      if (isPrev && navigator?.canGoPrev && navigator.goPrev) {
         e.preventDefault();
         navigator.goPrev();
-      } else if (
-        e.key === "ArrowDown" &&
-        navigator?.canGoNext &&
-        navigator.goNext
-      ) {
+      } else if (isNext && navigator?.canGoNext && navigator.goNext) {
         e.preventDefault();
         navigator.goNext();
       }
