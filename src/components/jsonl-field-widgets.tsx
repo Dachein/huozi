@@ -42,6 +42,18 @@ export interface FieldOption {
  * Mirrors `SchemaConfig.fields[key]` in collection-view; kept narrow
  * so the widgets file can stay self-contained.
  */
+export type DatetimeFormat =
+  | "relative"       // "5d", "17h", "now"
+  | "date"           // "2026/05/20"
+  | "month_day"      // "05/20"
+  | "month"          // "2026/05"
+  | "year"           // "2026"
+  | "time"           // "10:20"
+  | "datetime"       // "2026/05/20 10:20"
+  | "datetime_full"  // "2026/05/20 10:20:44"
+  | "zh_date"        // "2026 年 5 月 20 日"
+  | "zh_datetime";   // "2026 年 5 月 20 日 10:20:44"
+
 export interface FieldDef {
   type?: string;
   label?: string;
@@ -52,6 +64,11 @@ export interface FieldDef {
    *  is an array); `true` = always array (wraps single in `[value]`).
    *  When unset, auto-detected from `Array.isArray(value)`. */
   multi?: boolean;
+  /** For `type: "datetime"` only. Picks the rendering style. Open string
+   *  at parse-time (the schema is untyped JSON); the widget narrows to
+   *  the curated set and falls back to `datetime` on unknown values.
+   *  Defaults: `relative` for list-row timestamps, `datetime` for detail. */
+  format?: string;
 }
 
 export interface FieldValueProps {
@@ -164,7 +181,12 @@ function SingleValue({
         <TextValue text={String(value)} />
       );
     case "datetime":
-      return <DateTimeValue iso={String(value)} />;
+      return (
+        <DateTimeValue
+          iso={String(value)}
+          format={normalizeDatetimeFormat(fieldDef?.format) ?? "datetime"}
+        />
+      );
     case "duration":
       return <DurationValue value={value} />;
     case "status":
@@ -325,22 +347,126 @@ function ImageValue({ src }: { src: string }) {
 }
 
 /**
- * Best-effort datetime formatter. Accepts ISO 8601 strings or epoch
- * numbers. Falls back to raw string when unparseable.
+ * Best-effort datetime formatter. Accepts ISO 8601 strings, partial
+ * ISO ("2024", "2024-10", "2024-10-15"), or epoch numbers. Falls
+ * back to raw string when unparseable.
+ *
+ * Format is the curated set from DatetimeFormat — picks how granular
+ * the display gets. List rows default to `relative` (mail style);
+ * detail rows default to `datetime`. Schema authors override per
+ * field via `fields[k].format`.
  */
-function DateTimeValue({ iso }: { iso: string }) {
-  const ts = Date.parse(iso);
-  if (!Number.isFinite(ts)) return <TextValue text={iso} />;
-  const formatted = new Date(ts).toLocaleString();
+function DateTimeValue({
+  iso,
+  format,
+}: {
+  iso: string;
+  format: DatetimeFormat;
+}) {
+  const parsed = parseDateLike(iso);
+  if (!parsed) return <TextValue text={iso} />;
+  const out = formatDatetime(parsed, format);
   return (
     <time
       dateTime={iso}
       className="text-sm text-foreground tabular-nums"
       suppressHydrationWarning
     >
-      {formatted}
+      {out}
     </time>
   );
+}
+
+const DATETIME_FORMATS: ReadonlySet<DatetimeFormat> = new Set([
+  "relative",
+  "date",
+  "month_day",
+  "month",
+  "year",
+  "time",
+  "datetime",
+  "datetime_full",
+  "zh_date",
+  "zh_datetime",
+]);
+
+/** Narrow an open string from the schema to the curated format set. */
+function normalizeDatetimeFormat(
+  raw: string | undefined,
+): DatetimeFormat | null {
+  if (!raw) return null;
+  return DATETIME_FORMATS.has(raw as DatetimeFormat)
+    ? (raw as DatetimeFormat)
+    : null;
+}
+
+/** Parse "2024", "2024-10", "2024-10-15", full ISO, or epoch numbers. */
+function parseDateLike(input: string): Date | null {
+  if (!input) return null;
+  // YYYY only — Date.parse treats "2024" as Jan 1 UTC. Force month=Jan.
+  if (/^\d{4}$/.test(input)) return new Date(Number(input), 0, 1);
+  // YYYY-MM — month-only.
+  const ym = /^(\d{4})-(\d{1,2})$/.exec(input);
+  if (ym) return new Date(Number(ym[1]), Number(ym[2]) - 1, 1);
+  // Date.parse handles YYYY-MM-DD, full ISO, etc.
+  const ts = Date.parse(input);
+  if (Number.isFinite(ts)) return new Date(ts);
+  return null;
+}
+
+function pad(n: number, width = 2): string {
+  return String(n).padStart(width, "0");
+}
+
+function formatDatetime(d: Date, format: DatetimeFormat): string {
+  const y = d.getFullYear();
+  const m = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hh = pad(d.getHours());
+  const mm = pad(d.getMinutes());
+  const ss = pad(d.getSeconds());
+
+  switch (format) {
+    case "relative":
+      return relativeAgo(d.getTime());
+    case "date":
+      return `${y}/${m}/${day}`;
+    case "month_day":
+      return `${m}/${day}`;
+    case "month":
+      return `${y}/${m}`;
+    case "year":
+      return `${y}`;
+    case "time":
+      return `${hh}:${mm}`;
+    case "datetime":
+      return `${y}/${m}/${day} ${hh}:${mm}`;
+    case "datetime_full":
+      return `${y}/${m}/${day} ${hh}:${mm}:${ss}`;
+    case "zh_date":
+      return `${y} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日`;
+    case "zh_datetime":
+      return `${y} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日 ${hh}:${mm}:${ss}`;
+  }
+}
+
+/** "5d", "17h", "3m", "now" — mail-client style. */
+function relativeAgo(ts: number): string {
+  const ms = Date.now() - ts;
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return "now";
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d`;
+  const w = Math.floor(d / 7);
+  if (w < 5) return `${w}w`;
+  const mo = Math.floor(d / 30);
+  if (mo < 12) return `${mo}mo`;
+  const y = Math.floor(d / 365);
+  return `${y}y`;
 }
 
 /**
@@ -367,7 +493,14 @@ function DurationValue({ value }: { value: unknown }) {
   return <TextValue text={`${d}d ${h % 24}h`} />;
 }
 
-/** Chip with optional theme color from schema-declared options. */
+/**
+ * Subtle status indicator — a small colored dot + muted label.
+ * Matches the mail Pending/Routed/Dismissed pattern so status reads
+ * the same across the product without a vibrant pill that clashes
+ * with the paper/brutal-mono cream backgrounds. Schema color drives
+ * only the dot; text stays in muted-foreground so the chip never
+ * dominates a row.
+ */
 function StatusValue({
   value,
   options,
@@ -379,14 +512,7 @@ function StatusValue({
   const label = opt?.label ?? value;
   const color = opt?.color;
   return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium border"
-      style={
-        color
-          ? { borderColor: color, color }
-          : undefined
-      }
-    >
+    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
       {color && (
         <span
           aria-hidden
@@ -394,7 +520,7 @@ function StatusValue({
           style={{ background: color }}
         />
       )}
-      {label}
+      <span>{label}</span>
     </span>
   );
 }

@@ -76,6 +76,14 @@ interface SchemaConfig {
        *  item of an array); `true` = always render as array (wraps single
        *  values). When unset, auto-detected from value shape. */
       multi?: boolean;
+      /** For `type: "datetime"` only. Picks a curated rendering format:
+       *  `relative` (5d/17h/now), `date` (2026/05/20), `month_day` (05/20),
+       *  `month` (2026/05), `year` (2026), `time` (10:20), `datetime`
+       *  (2026/05/20 10:20), `datetime_full` (2026/05/20 10:20:44),
+       *  `zh_date` (2026 年 5 月 20 日), `zh_datetime` (with seconds).
+       *  List-row timestamps default to `relative`; detail defaults to
+       *  `datetime` unless this is set. */
+      format?: string;
     }
   >;
   /**
@@ -114,26 +122,33 @@ interface SchemaConfig {
      */
     row_chips?: string[];
     /**
-     * 4-slot named layout for the list row (overrides the title+subtitle
-     * +chips fallback). Each slot maps to a field key on the entity; the
-     * value renders via that field's type-aware widget.
+     * 5-slot named layout for the list row (mail-client style — same
+     * vocabulary you'd see in Outlook, Linear, Apple Mail). Overrides
+     * the legacy title+subtitle+row_chips fallback. Each slot maps to
+     * a field key on the entity; the value renders via that field's
+     * type-aware widget.
      *
-     *   ┌────────────────────────────────────────┐
-     *   │ title                       timestamp  │
-     *   │ subtitle                          tag  │
-     *   └────────────────────────────────────────┘
+     *   ┌────────────────────────────────────────────┐
+     *   │ title (bold)                  tag   time   │
+     *   │ subtitle (medium gray)                     │
+     *   │ preview (small gray, 2 lines)              │
+     *   └────────────────────────────────────────────┘
      *
-     * - `title`     defaults to `entity.title_field`
-     * - `subtitle`  defaults to `entity.subtitle_field`
-     * - `tag`       no default — single chip (use `status` / `options`
-     *               type for color), omit to render nothing
-     * - `timestamp` no default — typically a `datetime` field, omit to
-     *               render nothing (entity's commit `at` still shows as
-     *               a small fallback in the same slot)
+     * - `title`     defaults to `entity.title_field`. Falls back to
+     *               `entity.id` only when the mapped field is empty.
+     * - `subtitle`  defaults to `entity.subtitle_field`.
+     * - `preview`   no default — multi-line excerpt (line-clamped at 2).
+     * - `tag`       no default — single subtle chip via the field's
+     *               type widget (status colors carry as dots).
+     * - `timestamp` no default — always rendered as RELATIVE time on
+     *               the list row (`5d`, `17h`, `now`) regardless of the
+     *               field's declared type. Fallback when omitted = the
+     *               entity's commit `at`.
      */
     row?: {
       title?: string;
       subtitle?: string;
+      preview?: string;
       tag?: string;
       timestamp?: string;
     };
@@ -594,27 +609,33 @@ function EntityRow({
   const isDeleted = entity.status === "deleted";
   const fields = stripConventions(entity.state);
 
-  // Resolve the 4 named slots. `list_view.row` is the authoritative
-  // mapping; for any slot the schema doesn't pin, fall back to
-  // entity-level title_field / subtitle_field. Falling back further
-  // to `entity.id` for the title slot makes a row-without-a-name read
-  // as "p_xxx" — better to leave it blank than print the internal id.
+  // Resolve the 5 named slots. `list_view.row` is the authoritative
+  // mapping; for the slots the schema doesn't pin, fall back to
+  // entity-level title_field / subtitle_field.
   const rowSlots = schema?.list_view?.row;
   const titleField = rowSlots?.title ?? schema?.entity?.title_field;
   const subtitleField = rowSlots?.subtitle ?? schema?.entity?.subtitle_field;
+  const previewField = rowSlots?.preview;
   const tagField = rowSlots?.tag;
   const timestampField = rowSlots?.timestamp;
 
   const titleStr = titleField ? pickString(fields, titleField) : null;
-  // Final fallback: when no title slot resolves (no schema or value is
-  // empty), fall through to id so the row isn't blank — but a schema
-  // that maps `title` to an existing field should never hit this.
+  // Final fallback: when no title slot resolves, fall through to id so
+  // the row isn't blank — but a schema that maps `title` to an existing
+  // field should never hit this.
   const title = titleStr ?? entity.id;
   const subtitle = subtitleField ? pickString(fields, subtitleField) : null;
+  const preview = previewField ? pickString(fields, previewField) : null;
   const tagValue = tagField ? fields[tagField] : undefined;
   const tagDef = tagField ? schema?.fields?.[tagField] : undefined;
-  const tsValue = timestampField ? fields[timestampField] : undefined;
-  const tsDef = timestampField ? schema?.fields?.[timestampField] : undefined;
+  // Timestamp: always rendered as relative format on list rows (mail
+  // pattern). Strip to a parsable string regardless of the field's
+  // declared `datetime` widget.
+  const tsRaw = timestampField ? fields[timestampField] : undefined;
+  const tsString =
+    typeof tsRaw === "string" || typeof tsRaw === "number"
+      ? String(tsRaw)
+      : null;
   const useNamedSlots = !!rowSlots;
 
   // Compact row chips. Prefers schema-declared `list_view.row_chips`
@@ -680,7 +701,15 @@ function EntityRow({
     } ${isDeleted ? "opacity-60" : ""}`;
 
   if (useNamedSlots) {
-    const tsFallback = !tsValue && entity.latest.at ? entity.latest.at : null;
+    // Timestamp: list rows always render relative-style by default
+    // (mail pattern). Schema can override per field via `format`.
+    // Fallback chain: explicit `timestamp` field → entity.latest.at.
+    const tsToShow = tsString ?? (entity.latest.at ?? null);
+    const tsFieldDef = timestampField ? schema?.fields?.[timestampField] : undefined;
+    const tsRenderDef = {
+      type: "datetime" as const,
+      format: tsFieldDef?.format ?? "relative",
+    };
     return (
       <li>
         <button
@@ -690,35 +719,34 @@ function EntityRow({
           aria-current={selected ? "true" : undefined}
           className={`${rowShell} flex flex-col gap-0.5`}
         >
-          <div className="flex items-baseline justify-between gap-2 min-w-0">
-            <span className="text-sm font-medium text-foreground truncate min-w-0 flex-1">
+          <div className="flex items-baseline gap-2 min-w-0">
+            <span className="text-[14px] font-semibold text-foreground truncate min-w-0 flex-1">
               <InlineMarkdown source={title} />
             </span>
-            {tsValue !== undefined ? (
-              <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">
-                <FieldValue value={tsValue} fieldDef={tsDef ?? { type: "datetime" }} />
-              </span>
-            ) : tsFallback ? (
-              <time className="text-[10px] font-mono text-muted-foreground shrink-0">
-                {shortAt(tsFallback)}
-              </time>
-            ) : null}
+            <span className="shrink-0 flex items-baseline gap-2 text-xs text-muted-foreground">
+              {tagValue !== undefined && (
+                <FieldValue value={tagValue} fieldDef={tagDef} />
+              )}
+              {tsToShow && (
+                <span className="tabular-nums text-[11px]">
+                  <FieldValue value={tsToShow} fieldDef={tsRenderDef} />
+                </span>
+              )}
+            </span>
           </div>
-          {(subtitle || tagValue !== undefined || isDeleted) && (
-            <div className="flex items-center justify-between gap-2 min-w-0">
-              <span className="text-xs text-muted-foreground truncate min-w-0 flex-1">
-                {subtitle ?? ""}
-              </span>
-              <span className="shrink-0 flex items-center gap-1.5">
-                {tagValue !== undefined && (
-                  <FieldValue value={tagValue} fieldDef={tagDef} />
-                )}
-                {isDeleted && (
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                    {t("ws.coll.deleted")}
-                  </span>
-                )}
-              </span>
+          {subtitle && (
+            <div className="text-[12px] text-muted-foreground truncate mt-0.5">
+              {subtitle}
+            </div>
+          )}
+          {preview && (
+            <div className="text-[12px] text-muted-foreground/80 mt-1 line-clamp-2 break-words">
+              {preview}
+            </div>
+          )}
+          {isDeleted && (
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">
+              {t("ws.coll.deleted")}
             </div>
           )}
         </button>

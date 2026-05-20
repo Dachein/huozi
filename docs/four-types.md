@@ -220,7 +220,7 @@ The viewer ships a soft-schema fallback (id-as-title, generic key/value list) so
 | `link`       | clickable `<a target="_blank">`         | vertical link list                 | URLs                            |
 | `email`      | `mailto:` anchor                        | list of mailtos                    | email addresses                 |
 | `image`      | thumbnail                               | horizontal gallery                 | logos, avatars, images          |
-| `datetime`   | localized timestamp                     | list                               | ISO dates / epochs              |
+| `datetime`   | per-`format` (see below)                | list                               | ISO dates / epochs / partial ISO|
 | `duration`   | human (e.g. `3h 24m`)                   | list                               | numeric seconds / ISO 8601      |
 | `status`     | colored pill from `options[]`           | multi-pill (rare)                  | single-value lifecycle stages   |
 | `options`    | colored chip from `options[]`           | n chips                            | tags, categories                |
@@ -240,6 +240,24 @@ Unknown types fall back to `text`. The renderer also auto-detects when no type i
 | `empty_placeholder`    | Replaces the default `—` when the value is null/undefined/""/[]. E.g. `"暂无数据"`.        |
 | `show_when`            | `{field, equals}` — only render when another field on the same entity is strictly equal.  |
 | `multi: true | false`  | Forces array layout (wraps single) or single layout (uses first item of array). Auto otherwise. |
+| `format`               | For `type: "datetime"` only. Curated set (below) controls how the value is rendered.      |
+
+**Datetime formats** (closed enum — unknown values fall back to `datetime`):
+
+| `format`         | Example                       | Use case                              |
+|------------------|-------------------------------|---------------------------------------|
+| `relative`       | `5d` `17h` `now`              | Mail-style "ago" — list-row default   |
+| `date`           | `2026/05/20`                  | Date-only fields (created/updated)    |
+| `month_day`      | `05/20`                       | Same-year compact                     |
+| `month`          | `2026/05`                     | `YYYY-MM` partial dates (e.g. tenures)|
+| `year`           | `2026`                        | Year only                             |
+| `time`           | `10:20`                       | Time-of-day                           |
+| `datetime`       | `2026/05/20 10:20`            | Detail-pane default                   |
+| `datetime_full`  | `2026/05/20 10:20:44`         | With seconds                          |
+| `zh_date`        | `2026 年 5 月 20 日`           | Chinese date                          |
+| `zh_datetime`    | `2026 年 5 月 20 日 10:20:44`  | Chinese full                          |
+
+Parser accepts `"2026"`, `"2026-05"`, `"2026-05-20"`, full ISO, and epoch numbers.
 
 **Two layout models — pick one, don't mix:**
 
