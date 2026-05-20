@@ -1,0 +1,28 @@
+{
+  "name": "huozi-bridge",
+  "version": "0.0.0",
+  "description": "Local daemon that bridges a huozi workspace's Tasks Collection to a locally-installed Claude Code CLI. Subscribes to WebSocket commits, spawns `claude --session-id=<task_id>`, mirrors stream-json output back into the task jsonl.",
+  "type": "module",
+  "private": true,
+  "main": "dist/index.js",
+  "bin": {
+    "huozi-bridge": "dist/index.js"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/ws": "^8.5.13",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

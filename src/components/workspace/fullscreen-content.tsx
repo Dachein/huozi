@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { ArrowsPointingInIcon } from "@heroicons/react/24/outline";
 import { useFullscreen } from "./fullscreen-context";
-import { FullscreenPager } from "./fullscreen-pager";
+import { PageOutlineMenu } from "./page-outline-menu";
 import type { PageEntry } from "@/lib/html/extract-pages";
 import {
   type HuoziFormat,
@@ -57,20 +57,19 @@ export function FullscreenContent({
     </button>
   );
 
-  // Pager rendered INSIDE the same fixed strip as chrome + close so they
-  // never overlap, regardless of how wide the caller's chrome is. Order
-  // (left → right): pager · chrome · close. Orientation is derived from
-  // the format (deck = horizontal; story / paper = vertical) — the single
-  // source of truth lives in `pagerOrientationFor`.
+  // Unified nav widget (prev · "N slides ▾" · next) rendered INSIDE the same
+  // fixed strip as chrome + close so they never overlap. Order (left → right):
+  // outline-menu · chrome · close. Orientation is derived from the format
+  // (deck = horizontal; story / paper = vertical) — the single source of
+  // truth lives in `pagerOrientationFor`.
   const pagerOrientation = pagerOrientationFor(htmlFormat);
   const pagerInChrome =
-    pages.length > 1 && pagerOrientation
+    pages.length > 1
       ? (
-        <FullscreenPager
+        <PageOutlineMenu
           pages={pages}
           unit={pageUnit}
           orientation={pagerOrientation}
-          keyboardScope="global"
         />
       )
       : null;

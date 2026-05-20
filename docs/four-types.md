@@ -194,19 +194,74 @@ The viewer ships a soft-schema fallback (id-as-title, generic key/value list) so
     "avatar_field": "logo"
   },
   "fields": {
-    "name":     {"type": "text",   "label": "Name",     "display": "headline",    "searchable": true},
-    "company":  {"type": "text",   "label": "Company",  "display": "subheadline", "filterable": true},
-    "logo":     {"type": "image",  "display": "avatar"},
-    "stage":    {"type": "select", "display": "aside",  "filterable": true,
-                 "options": [{"value":"new","label":"New","color":"blue"}, ...]},
-    "notes":    {"type": "richtext", "display": "body"}
+    "name":     {"type": "text",      "label": "Name",     "display": "headline",    "searchable": true},
+    "company":  {"type": "text",      "label": "Company",  "display": "subheadline", "filterable": true},
+    "logo":     {"type": "image",     "display": "avatar"},
+    "stage":    {"type": "status",    "display": "aside",  "filterable": true,
+                 "options": [{"value":"new","label":"New","color":"#3b82f6"}]},
+    "notes":    {"type": "markdown",  "display": "body"},
+    "internal_score": {"hide": true}
+  },
+  "list_view": {
+    "filters": ["stage"],
+    "search": ["name", "company"],
+    "row_chips": ["stage", "company"]
   }
 }}
 ```
 
-**Field types** the viewer understands today: `text`, `richtext`, `url`, `email`, `select`, `multi_select`, `date`, `number`, `image`, `url_map`. Unknown types render as `text`.
+**Field types** (auto-array-aware — every type renders cleanly whether the value is a single item or an array):
 
-**Display slots** for layout — where the field lands in the card / detail page:
+| `type`       | Single render                          | Array render                       | When to use                     |
+|--------------|-----------------------------------------|------------------------------------|---------------------------------|
+| `text`       | inline text                             | comma-separated chips              | short labels, names             |
+| `paragraph`  | multi-line, preserves newlines          | one paragraph per item             | summaries, notes                |
+| `markdown`   | inline-grade md (bold/italic/code/link) | one md block per item              | rich field bodies               |
+| `link`       | clickable `<a target="_blank">`         | vertical link list                 | URLs                            |
+| `email`      | `mailto:` anchor                        | list of mailtos                    | email addresses                 |
+| `image`      | thumbnail                               | horizontal gallery                 | logos, avatars, images          |
+| `datetime`   | per-`format` (see below)                | list                               | ISO dates / epochs / partial ISO|
+| `duration`   | human (e.g. `3h 24m`)                   | list                               | numeric seconds / ISO 8601      |
+| `status`     | colored pill from `options[]`           | multi-pill (rare)                  | single-value lifecycle stages   |
+| `options`    | colored chip from `options[]`           | n chips                            | tags, categories                |
+| `progress`   | 0-100 bar (0..1 auto-detected)          | first item only                    | completion percent              |
+| `rating`     | ★ stars / 5                             | first item only                    | scores                          |
+| `relation`   | id badge → entity (cross-link planned)  | list of badges                     | foreign keys                    |
+| `object`     | markdown-style indented KV list         | list of mini-cards                 | nested / flexible records       |
+| `url_map`    | label → URL list (legacy)               | —                                  | rich link bundles               |
+
+Unknown types fall back to `text`. The renderer also auto-detects when no type is declared (URL string → `link`, ISO date → `datetime`, all-URL object → `url_map`, nested object → `object`).
+
+**Field-level controls:**
+
+| Property               | Effect                                                                                    |
+|------------------------|-------------------------------------------------------------------------------------------|
+| `hide: true`           | Field never renders in detail, row chips, or list KVs. For internal ids, scores, etc.     |
+| `empty_placeholder`    | Replaces the default `—` when the value is null/undefined/""/[]. E.g. `"暂无数据"`.        |
+| `show_when`            | `{field, equals}` — only render when another field on the same entity is strictly equal.  |
+| `multi: true | false`  | Forces array layout (wraps single) or single layout (uses first item of array). Auto otherwise. |
+| `format`               | For `type: "datetime"` only. Curated set (below) controls how the value is rendered.      |
+
+**Datetime formats** (closed enum — unknown values fall back to `datetime`):
+
+| `format`         | Example                       | Use case                              |
+|------------------|-------------------------------|---------------------------------------|
+| `relative`       | `5d` `17h` `now`              | Mail-style "ago" — list-row default   |
+| `date`           | `2026/05/20`                  | Date-only fields (created/updated)    |
+| `month_day`      | `05/20`                       | Same-year compact                     |
+| `month`          | `2026/05`                     | `YYYY-MM` partial dates (e.g. tenures)|
+| `year`           | `2026`                        | Year only                             |
+| `time`           | `10:20`                       | Time-of-day                           |
+| `datetime`       | `2026/05/20 10:20`            | Detail-pane default                   |
+| `datetime_full`  | `2026/05/20 10:20:44`         | With seconds                          |
+| `zh_date`        | `2026 年 5 月 20 日`           | Chinese date                          |
+| `zh_datetime`    | `2026 年 5 月 20 日 10:20:44`  | Chinese full                          |
+
+Parser accepts `"2026"`, `"2026-05"`, `"2026-05-20"`, full ISO, and epoch numbers.
+
+**Two layout models — pick one, don't mix:**
+
+**(A) Slot mode** — `display` per field, places it in a fixed region:
 
 | Slot          | Used in                                         |
 |---------------|--------------------------------------------------|
@@ -215,7 +270,73 @@ The viewer ships a soft-schema fallback (id-as-title, generic key/value list) so
 | `avatar`      | The round image on cards / detail header         |
 | `meta`        | Small kv list at the bottom of cards             |
 | `aside`       | Right-rail properties on detail page             |
-| `body`        | Main body content on detail page (for richtext)  |
+| `body`        | Main body content on detail page (for markdown)  |
+
+**(B) Group mode** — Notion-style sectioned layout. When `groups` is declared, `display` is ignored entirely:
+
+```jsonl
+{"op":"schema","schema":{
+  "fields": { "name": {...}, "company": {...}, "notes": {...}, "stage": {...} },
+  "groups": [
+    { "title": "Identity",   "fields": ["name", "company"] },
+    { "title": "Status",     "fields": ["stage"] },
+    { "title": "Notes",      "fields": ["notes"], "collapsed": true }
+  ],
+  "detail_view": {
+    "show_id":      false,                            // hide the small "cust_acme" line
+    "groups_order": ["Identity", "Status", "Notes"]   // explicit display order
+  }
+}}
+```
+
+Fields not assigned to any group fall into a tail "·" section so authors can't accidentally lose data.
+
+**List row layout** — two ways to compose the per-row contents:
+
+**Fixed-shape `list_view.row`** (6 named slots; structure locked, no auto-pick):
+
+```jsonc
+"list_view": {
+  "row": {
+    "title":     "name",          // big text, row 1 left   (defaults to entity.title_field)
+    "status":    "stage",         // inline chip after title (single value — array → first item)
+    "timestamp": "last_updated",  // relative time, row 1 right (defaults to entity commit `at`)
+    "subtitle":  "role",          // small text, row 2       (defaults to entity.subtitle_field)
+    "tag":       "tags",          // multi-pill row 2        (XOR with subtitle — tag wins when present)
+    "preview":   "notes"          // 2-line clamp, row 3
+  }
+}
+```
+
+Renders each row as:
+```
+title [status]                                    timestamp
+subtitle    ─ OR ─    tag1  tag2  tag3
+preview (2-line clamp, body gray)
+```
+
+Slot semantics:
+- `status` is **single-valued** by spec — pointed at an array, only the first item renders. Keeps the title row uncluttered.
+- `subtitle` and `tag` share row 2 — declare both freely; at render time `tag` wins whenever it has a value, else the text subtitle shows. (No need to null-out one when adding the other; the runtime XOR handles it.)
+- `preview` is independent — always row 3 when declared.
+- Omit any slot → that area renders nothing. `title` falls back to `entity.id` only when the mapped field is empty.
+- When `list_view.row` is undeclared, the renderer uses `entity.title_field / subtitle_field + commit timestamp` — it will **not** auto-pick chips from `display:meta` fields anymore (that was the old behavior; it crowded rows with whatever happened to be metadata).
+
+**Legacy — `list_view.row_chips`** (1-2 chips appended after title+subtitle): picks specific fields to surface as compact chips. Falls back to auto-picked `display:meta/aside` fields when undeclared. Use `row` instead for new schemas — `row_chips` is kept for back-compat.
+
+**Default sort — `list_view.sort`** (single key):
+
+```jsonc
+"list_view": {
+  "sort": "name_en"           // shorthand: ascending
+  // "sort": "-published_at"  // leading "-" = descending
+  // "sort": { "field": "stage", "direction": "asc" }   // object form
+}
+```
+
+- `field` is any entity key, plus two pseudo-fields: `"id"` (the entity id) and `"_updated_at"` (the latest event's `at` timestamp).
+- Comparison: numeric when both values are numbers, else locale-aware string compare with `numeric: true` (so `"item 2" < "item 10"`, ISO dates and CJK names both behave). Missing values sort last regardless of direction so a sparse column doesn't dump empty rows at the top.
+- Best-effort: an unknown field is a silent no-op (natural append order wins).
 
 **Multiple schema events accumulate.** Schema is event-sourced like everything else — append a new `{"op":"schema",...}` line to add a field or change a filter. The viewer folds all schema events in `at` order via deep-merge (later wins on scalar conflicts; nested objects merge by key; arrays replace wholesale). This means you can extend the schema without touching old lines:
 

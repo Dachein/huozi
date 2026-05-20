@@ -277,12 +277,20 @@ function wrapEditable({
   children,
 }: WrapEditableArgs): React.ReactElement {
   if (!enabled) return <>{children}</>;
+  // jsonl (Collection) uses an email-style 3-pane that needs vertical
+  // fill all the way down. Pass the flex chain through the editable
+  // surface's wrapper so the inner panes stretch to viewport height.
+  const wrapperClassName =
+    kind === "jsonl-field"
+      ? "relative flex flex-col flex-1 min-h-0"
+      : "relative";
   return (
     <EditableSurface
       filePath={path}
       fileKind={kind}
       sourceContent={content}
       parentBlobSha={parentBlobSha}
+      wrapperClassName={wrapperClassName}
     >
       {children}
     </EditableSurface>

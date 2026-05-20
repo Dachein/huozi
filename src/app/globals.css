@@ -45,6 +45,18 @@
   --surface-elevated: #ffffff;
   --surface-active: #c4594a;
 
+  /* Scrollbar thumb for .huozi-scrollarea (hidden by default, fades in
+     on hover/focus). Warm dark over the paper cream. */
+  --scrollbar-thumb: rgba(45, 37, 25, 0.25);
+  --scrollbar-thumb-hover: rgba(45, 37, 25, 0.45);
+
+  /* Default chip palette — used by jsonl status/options widgets when
+     the schema doesn't declare a per-option color. Per-option `color`
+     in the schema overrides via color-mix at the widget; these tokens
+     define the unstyled fallback so themes carry visual identity. */
+  --chip-bg: color-mix(in srgb, var(--muted) 60%, transparent);
+  --chip-fg: var(--muted-foreground);
+
   /* Typography */
   --font-sans-stack: var(--font-geist-sans);
   --font-mono-stack: var(--font-geist-mono);
@@ -170,6 +182,15 @@
   --surface-elevated: #ffffff;
   --surface-active: #7a83ff;
 
+  /* Scrollbar thumb for brutal-mono — solid black, no soft edges,
+     matches the rest of the theme's heavy strokes. */
+  --scrollbar-thumb: rgba(0, 0, 0, 0.35);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.65);
+
+  /* Chip palette — brutal-mono: signature yellow with hard black text. */
+  --chip-bg: var(--muted);
+  --chip-fg: var(--muted-foreground);
+
   /* Fonts — Amber reference uses heavy-weight sans, not mono. The
    * theme key stays `brutal-mono` for cookie continuity but the
    * stack is sans now. `--font-mono-stack` keeps JetBrains Mono so
@@ -279,6 +300,14 @@
   --info-foreground: #ffffff;
   --surface-elevated: #fafafa;
   --surface-active: #ebf3fc;
+
+  /* Scrollbar thumb for office — neutral gray, low-contrast like Windows. */
+  --scrollbar-thumb: rgba(97, 97, 97, 0.35);
+  --scrollbar-thumb-hover: rgba(97, 97, 97, 0.6);
+
+  /* Chip palette — office: neutral gray, Fluent-style. */
+  --chip-bg: var(--muted);
+  --chip-fg: var(--muted-foreground);
 
   --font-sans-stack: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
   --font-mono-stack: "Cascadia Code", "Cascadia Mono", Consolas, "SF Mono", Menlo, ui-monospace, monospace;
@@ -1279,4 +1308,50 @@ body::before {
 }
 [data-theme="brutal-mono"] .huozi-edit-pill:hover {
   box-shadow: var(--shadow-block) !important;
+}
+
+/* ─── Scrollable panes — token-driven, overlay-style ────────────────────
+ *
+ * Apply `.huozi-scrollarea` to any flex pane that scrolls internally
+ * (list pane, detail pane, body wrapper for non-jsonl files, etc.).
+ *
+ * Behavior:
+ *   - Thumb is invisible at rest (transparent), so the layout reads as
+ *     a clean surface and the 8px reserved gutter doesn't show a bar.
+ *   - On hover / focus of the pane, the thumb fades in using the
+ *     theme's `--scrollbar-thumb` token. The :hover on the thumb
+ *     itself bumps to a slightly stronger shade.
+ *   - `scrollbar-gutter: stable` so the content doesn't reflow when
+ *     the scrollbar appears — important when panes are user-resizable.
+ *   - Works in both Firefox (`scrollbar-*` properties) and WebKit
+ *     (`::-webkit-scrollbar`), each falling back gracefully.
+ */
+.huozi-scrollarea {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  scrollbar-gutter: stable;
+  transition: scrollbar-color 200ms ease;
+}
+.huozi-scrollarea:hover,
+.huozi-scrollarea:focus-within {
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+.huozi-scrollarea::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.huozi-scrollarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+.huozi-scrollarea::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+  transition: background 200ms ease;
+}
+.huozi-scrollarea:hover::-webkit-scrollbar-thumb,
+.huozi-scrollarea:focus-within::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+}
+.huozi-scrollarea::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
 }

@@ -15,6 +15,10 @@ import { oauthApprove } from "@/lib/drive/oauth-admin";
 interface Body {
   session_id?: string;
   workspace_id?: string;
+  /** Optional user-supplied tag captured on the consent form (e.g.
+   *  project name) so the resulting connection's UI subtitle isn't blank
+   *  when the same agent kind is connected from multiple contexts. */
+  label?: string;
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -57,6 +61,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     session_id: sessionId,
     user_id: principal.userId,
     workspace_id: workspaceId,
+    label: typeof body.label === "string" ? body.label : undefined,
   });
   if (!result.ok) {
     return NextResponse.json(

@@ -31,6 +31,12 @@ import {
 } from "@/lib/jsonl/parse";
 import { foldByEntity, foldSchema, type EntityState } from "@/lib/jsonl/fold";
 import { useEditableSurface } from "@/components/workspace/inline-edit";
+import { ListDetailLayout } from "@/components/list-detail-layout";
+import { useEntityNavigator } from "@/components/use-entity-navigator";
+import {
+  FieldValue,
+  type FieldDef,
+} from "@/components/jsonl-field-widgets";
 
 /** A select-type option as declared in the schema. */
 interface FieldOption {
@@ -55,13 +61,106 @@ interface SchemaConfig {
       filterable?: boolean;
       searchable?: boolean;
       options?: FieldOption[];
+      /** Hide this field from the detail view entirely. List-pane chips
+       *  and card kvs honor this too. Useful for internal ids / timestamps
+       *  the author doesn't want surfaced to readers. */
+      hide?: boolean;
+      /** Custom placeholder shown in place of the default `—` when the
+       *  field's value is empty (null / undefined / "" / []). */
+      empty_placeholder?: string;
+      /** Conditional display: only render this field when another field
+       *  on the same entity equals the given value. Simple equality only;
+       *  for richer expressions, drop to a dashboard format. */
+      show_when?: { field: string; equals: unknown };
+      /** Force cardinality. `false` = always render as single (uses first
+       *  item of an array); `true` = always render as array (wraps single
+       *  values). When unset, auto-detected from value shape. */
+      multi?: boolean;
+      /** For `type: "datetime"` only. Picks a curated rendering format:
+       *  `relative` (5d/17h/now), `date` (2026/05/20), `month_day` (05/20),
+       *  `month` (2026/05), `year` (2026), `time` (10:20), `datetime`
+       *  (2026/05/20 10:20), `datetime_full` (2026/05/20 10:20:44),
+       *  `zh_date` (2026 年 5 月 20 日), `zh_datetime` (with seconds).
+       *  List-row timestamps default to `relative`; detail defaults to
+       *  `datetime` unless this is set. */
+      format?: string;
     }
   >;
+  /**
+   * Detail-view groups — Notion-style sectioned layout. When present,
+   * `fields[].display` slot allocation is IGNORED for the detail view
+   * (XOR with slots). Fields listed in any group render in that group;
+   * declared fields NOT in any group still render in a tail "Other"
+   * pseudo-section so authors don't accidentally hide them by forgetting
+   * to list them. Within a group, fields render in the order given.
+   */
+  groups?: {
+    title: string;
+    fields: string[];
+    /** Default-collapsed group. User can expand from the chevron. */
+    collapsed?: boolean;
+  }[];
+  detail_view?: {
+    /** Hide the small `<code>entity_id</code>` line under the title. */
+    show_id?: boolean;
+    /** Explicit display order for groups (defaults to the array order
+     *  in `groups`). Strings must match `group.title` exactly. */
+    groups_order?: string[];
+  };
   list_view?: {
     /** Field keys to expose as filter dropdowns. */
     filters?: string[];
     /** Field keys to substring-match against when the user types in the search box. */
     search?: string[];
+    /** Up to ~2 field keys to surface as compact type-aware chips on each
+     *  list row. Each chip renders via the field's declared widget (status
+     *  gets its color, options get their label, datetime gets formatted,
+     *  etc.). When unset, EntityRow falls back to auto-picking the first
+     *  two display:meta/aside fields.
+     *
+     *  Superseded by `row` when both are set (row's 4-slot layout takes over).
+     */
+    row_chips?: string[];
+    /**
+     * Fixed-shape list row layout. Six named slots, structure locked:
+     *
+     *   ┌────────────────────────────────────────────┐
+     *   │ title [status]                       time  │   row 1
+     *   │ subtitle  ─ OR ─  tag pills                │   row 2 (XOR)
+     *   │ preview (small gray, 2 lines clamped)      │   row 3
+     *   └────────────────────────────────────────────┘
+     *
+     * Each slot maps to a field key on the entity; the value renders
+     * via that field's type widget. None are required.
+     *
+     * - `title`     defaults to `entity.title_field`. Falls back to
+     *               `entity.id` only when the mapped field is empty.
+     * - `status`    inline single chip after the title — must be a
+     *               single value (status / options-single / text). When
+     *               pointed at an array field, only the first item
+     *               renders. Replaces the old `tag` slot's inline-chip
+     *               role; rename in schemas: `tag` → `status`.
+     * - `timestamp` no default — always rendered as RELATIVE time on
+     *               the list row (`5d`, `17h`, `now`) regardless of the
+     *               field's declared type. Fallback when omitted = the
+     *               entity's commit `at`.
+     * - `subtitle`  defaults to `entity.subtitle_field`. XOR with
+     *               `tag` — when both are declared and `tag` has a
+     *               value, `tag` wins and the text subtitle is hidden.
+     * - `tag`       no default — multi-value tag pills rendered in the
+     *               second row in place of the subtitle. Designed for
+     *               array fields (options / multi_select); a single
+     *               value renders as one pill.
+     * - `preview`   no default — multi-line excerpt (line-clamped 2).
+     */
+    row?: {
+      title?: string;
+      status?: string;
+      timestamp?: string;
+      subtitle?: string;
+      tag?: string;
+      preview?: string;
+    };
     /**
      * Initial layout for the entity list. `"block"` (default) is the
      * grid of cards; `"list"` is a compact one-row-per-entity layout.
@@ -69,10 +168,28 @@ interface SchemaConfig {
      * header toggle.
      */
     default_view?: "list" | "block";
+    /**
+     * Default sort order for the list. `field` is a key on the entity
+     * state (or `"id"` / `"_updated_at"` for the entity id / commit
+     * timestamp). `direction` defaults to `"asc"`. Comparison is:
+     *   - numeric when both values are numbers,
+     *   - locale-aware string compare otherwise (works for ISO dates,
+     *     CJK names, etc.).
+     * Missing values sort last regardless of direction so a sparse
+     * column doesn't dump all the entries at the top.
+     *
+     * String shorthand `"name"` ≡ `{field:"name", direction:"asc"}`;
+     * `"-name"` (leading `-`) ≡ `{field:"name", direction:"desc"}` —
+     * matches Django / Algolia conventions.
+     */
+    sort?:
+      | string
+      | {
+          field: string;
+          direction?: "asc" | "desc";
+        };
   };
 }
-
-type EntityListMode = "list" | "block";
 
 export interface CollectionViewProps {
   /** Raw .jsonl file content. */
@@ -90,21 +207,8 @@ export function CollectionView({ content }: CollectionViewProps) {
   );
 
   const [drillEntityId, setDrillEntityId] = useState<string | null>(null);
-  const [filters, setFilters] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement | null>(null);
-
-  // Block (cards) vs list (rows). Schema can pin the default; user can
-  // override from the header toggle. Re-resolve when the schema loads
-  // so a freshly-fetched schema's `default_view` takes effect before
-  // the user has touched anything.
-  const schemaDefaultView: EntityListMode =
-    schema?.list_view?.default_view === "list" ? "list" : "block";
-  const [viewMode, setViewMode] = useState<EntityListMode>(schemaDefaultView);
-  const [viewTouched, setViewTouched] = useState(false);
-  useEffect(() => {
-    if (!viewTouched) setViewMode(schemaDefaultView);
-  }, [schemaDefaultView, viewTouched]);
 
   // Index into the drilled entity's history (chronologically ordered).
   // `null` = "follow latest" — when set, the detail view renders that
@@ -122,35 +226,41 @@ export function CollectionView({ content }: CollectionViewProps) {
   // momentary "show me what changed at this step."
   const [peekDiff, setPeekDiff] = useState(false);
 
-  // Filtered + searched entity list. This is the navigation scope —
-  // both the list and detail prev/next walk this slice.
+  // Searched + sorted entity list. This is the navigation scope —
+  // both the list and detail prev/next walk this slice. (Schema-
+  // declared `filters` are currently dormant — the search box is the
+  // single entry-point. Adding a dropdown surface back later just
+  // means re-wiring this with a `filters` state and the loop.)
   const filteredEntities = useMemo(() => {
-    let out = folded;
-    for (const [key, value] of Object.entries(filters)) {
-      if (!value) continue;
-      out = out.filter((e) => e.state[key] === value);
-    }
-    if (search.trim().length > 0) {
-      const q = search.toLowerCase();
-      const searchFields =
-        schema?.list_view?.search ??
-        // No schema → fall back to id + every string field on the entity.
-        null;
-      out = out.filter((e) => {
-        if (e.id.toLowerCase().includes(q)) return true;
-        if (searchFields) {
-          return searchFields.some((f) => {
-            const v = e.state[f];
-            return typeof v === "string" && v.toLowerCase().includes(q);
+    const q = search.trim().toLowerCase();
+    const searchFields = schema?.list_view?.search ?? null;
+    const matched =
+      q.length === 0
+        ? folded
+        : folded.filter((e) => {
+            if (e.id.toLowerCase().includes(q)) return true;
+            if (searchFields) {
+              return searchFields.some((f) => {
+                const v = e.state[f];
+                return typeof v === "string" && v.toLowerCase().includes(q);
+              });
+            }
+            // No schema → fall back to id + every string field.
+            return Object.values(e.state).some(
+              (v) => typeof v === "string" && v.toLowerCase().includes(q),
+            );
           });
-        }
-        return Object.values(e.state).some(
-          (v) => typeof v === "string" && v.toLowerCase().includes(q),
-        );
-      });
-    }
-    return out;
-  }, [folded, filters, search, schema]);
+
+    const sortSpec = resolveSortSpec(schema?.list_view?.sort);
+    if (!sortSpec) return matched;
+    // Toleration: sort is best-effort. If the field doesn't exist on
+    // any entity, the comparator yields 0 throughout and natural
+    // order is preserved — no crash, just a no-op.
+    const dir = sortSpec.direction === "desc" ? -1 : 1;
+    return [...matched].sort(
+      (a, b) => dir * compareEntityField(a, b, sortSpec.field),
+    );
+  }, [folded, search, schema]);
 
   // The drilled entity is resolved against the *unfiltered* set so a
   // direct link / saved id still works even if the current filters
@@ -159,15 +269,14 @@ export function CollectionView({ content }: CollectionViewProps) {
   const drillEntity = drillEntityId
     ? folded.find((e) => e.id === drillEntityId) ?? null
     : null;
-  const drillIndex = drillEntity
-    ? filteredEntities.findIndex((e) => e.id === drillEntity.id)
-    : -1;
-  const prevEntity =
-    drillIndex > 0 ? (filteredEntities[drillIndex - 1] ?? null) : null;
-  const nextEntity =
-    drillIndex >= 0 && drillIndex < filteredEntities.length - 1
-      ? (filteredEntities[drillIndex + 1] ?? null)
-      : null;
+
+  const entityId = useCallback((e: EntityState) => e.id, []);
+  const nav = useEntityNavigator(
+    filteredEntities,
+    drillEntityId,
+    entityId,
+    setDrillEntityId,
+  );
 
   // History-version cursor: `null` follows latest. The "effective"
   // index resolved against the current drilledEntity's history length.
@@ -177,12 +286,6 @@ export function CollectionView({ content }: CollectionViewProps) {
   const canGoOlder = drillEntity ? effectiveHistoryIndex > 0 : false;
   const canGoNewer = drillEntity ? effectiveHistoryIndex < historyLen - 1 : false;
 
-  const goPrevEntity = useCallback(() => {
-    if (prevEntity) setDrillEntityId(prevEntity.id);
-  }, [prevEntity]);
-  const goNextEntity = useCallback(() => {
-    if (nextEntity) setDrillEntityId(nextEntity.id);
-  }, [nextEntity]);
   const goBack = useCallback(() => setDrillEntityId(null), []);
   const goOlderVersion = useCallback(() => {
     setHistoryIndex((cur) => {
@@ -200,11 +303,16 @@ export function CollectionView({ content }: CollectionViewProps) {
     });
   }, [historyLen]);
 
-  // Keyboard:
-  //   ←/→  prev / next entity (within filtered list)
-  //   ↑/↓  older / newer version of this entity's history
-  //   esc  back to list
-  //   ⌘/Ctrl + K  focus the search input (works in list view too)
+  // Keyboard (collection-specific only — ↑/↓/Esc are owned by
+  // ListDetailLayout's chrome since they walk prev/next entity in the
+  // generic list+detail pager; the list is vertical so ↑/↓ matches it):
+  //   /          focus the search input (GitHub-style, no modifier)
+  //   ⌘/Ctrl+K   alt focus (often intercepted by browsers though, so
+  //              `/` is the primary)
+  //   ←/→        older / newer version of the selected entity's history
+  //              (timeline scrubs horizontally — distinct axis from the
+  //              vertical entity pager, no conflict)
+  //   Space      hold to highlight diff at the active event
   // Inputs / textareas opt out so typing isn't hijacked.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -221,23 +329,20 @@ export function CollectionView({ content }: CollectionViewProps) {
         return;
       }
       if (inField) return;
+      if (e.key === "/") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
 
       if (drillEntity) {
         if (e.key === "ArrowLeft") {
           e.preventDefault();
-          goPrevEntity();
+          goOlderVersion();
         } else if (e.key === "ArrowRight") {
           e.preventDefault();
-          goNextEntity();
-        } else if (e.key === "ArrowUp") {
-          e.preventDefault();
-          goOlderVersion();
-        } else if (e.key === "ArrowDown") {
-          e.preventDefault();
           goNewerVersion();
-        } else if (e.key === "Escape") {
-          e.preventDefault();
-          goBack();
         } else if (e.code === "Space" && !e.repeat) {
           // Hold-to-peek: highlight diff while pressed. Prevent the
           // browser's default page-down on Space.
@@ -255,14 +360,7 @@ export function CollectionView({ content }: CollectionViewProps) {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [
-    drillEntity,
-    goNextEntity,
-    goPrevEntity,
-    goOlderVersion,
-    goNewerVersion,
-    goBack,
-  ]);
+  }, [drillEntity, goOlderVersion, goNewerVersion]);
 
   // Drop the peek state whenever we leave detail view, so re-entering
   // doesn't show stale highlights.
@@ -275,22 +373,73 @@ export function CollectionView({ content }: CollectionViewProps) {
     return <EmptyState t={t} />;
   }
 
-  const filterFieldKeys = schema?.list_view?.filters ?? [];
+  // Email/Linear-style 3-pane: list is always a narrow vertical column,
+  // detail pane is always rendered to the right (empty state when nothing
+  // is selected). Grid (block) view doesn't make sense in a narrow
+  // column, so the toggle is hidden and we force the row layout.
+  // The list wraps its own overflow container so it scrolls inside the
+  // pane (not the whole page).
+  // List pane: search input pinned at the top + scrollable rows below.
+  // Search is always available (regardless of schema) — falls back to
+  // matching id + every string field when no schema search is declared
+  // (see `filteredEntities` upstream).
+  const listNode = (
+    <div className="flex flex-1 min-h-0 flex-col">
+      <div className="shrink-0 px-2 py-2 border-b border-border/40">
+        <input
+          ref={searchInputRef}
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={`${t("ws.coll.search")}  /`}
+          className="w-full text-xs px-2 py-1.5 rounded border border-border/60 bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-foreground/20"
+        />
+      </div>
+      <div className="huozi-scrollarea flex-1 min-h-0 overflow-y-auto">
+        <RowListView
+          entities={filteredEntities}
+          schema={schema}
+          onDrill={setDrillEntityId}
+          selectedId={drillEntityId}
+          t={t}
+        />
+      </div>
+    </div>
+  );
+
+  const detailNode = drillEntity ? (
+    <DetailView
+      entity={drillEntity}
+      schema={schema}
+      historyIndex={effectiveHistoryIndex}
+      isLatest={historyIndex === null}
+      canGoOlder={canGoOlder}
+      canGoNewer={canGoNewer}
+      onOlder={goOlderVersion}
+      onNewer={goNewerVersion}
+      peekDiff={peekDiff}
+      t={t}
+    />
+  ) : null;
+
+  // Position label ("2 / 31") only shown when something's selected.
+  // Used in the inline keyboard hint below instead of the detail chrome
+  // so we save a row of vertical space in the detail body.
+  const positionLabel =
+    drillEntity && nav.index >= 0
+      ? `${nav.index + 1} / ${filteredEntities.length}`
+      : null;
 
   return (
     <div className="flex flex-col gap-4 flex-1 min-h-0">
-      {/* Header: counts + (when in detail) back / prev / next */}
       <header className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-border/50">
         <div className="text-xs text-muted-foreground flex items-center gap-3">
           <span>
             {t("ws.coll.entities").replace(
               "{n}",
-              String(
-                drillEntity ? folded.length : filteredEntities.length,
-              ),
+              String(filteredEntities.length),
             )}
-            {!drillEntity &&
-            filteredEntities.length !== folded.length ? (
+            {filteredEntities.length !== folded.length ? (
               <span className="opacity-60"> / {folded.length}</span>
             ) : null}
           </span>
@@ -301,220 +450,61 @@ export function CollectionView({ content }: CollectionViewProps) {
           {errors.length > 0 && (
             <>
               <span className="opacity-50">·</span>
-              <span className="text-amber-600 dark:text-amber-400">
+              <span className="text-amber-600">
                 {t("ws.coll.errors").replace("{n}", String(errors.length))}
               </span>
             </>
           )}
         </div>
 
-        {!drillEntity && filteredEntities.length > 0 && (
-          <ViewModeToggle
-            mode={viewMode}
-            onChange={(next) => {
-              setViewTouched(true);
-              setViewMode(next);
-            }}
-          />
-        )}
-
         {drillEntity && (
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={goBack}
-              className="text-[11px] px-2.5 py-1 rounded border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors"
-              title="esc"
-            >
-              {t("ws.coll.backToList")}
-            </button>
-            <button
-              type="button"
-              onClick={goPrevEntity}
-              disabled={!prevEntity}
-              className="text-[11px] px-2 py-1 rounded border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
-              title="←"
-              aria-label="Previous entity"
-            >
-              ‹
-            </button>
-            <button
-              type="button"
-              onClick={goNextEntity}
-              disabled={!nextEntity}
-              className="text-[11px] px-2 py-1 rounded border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
-              title="→"
-              aria-label="Next entity"
-            >
-              ›
-            </button>
-            {drillIndex >= 0 && (
-              <span className="text-[10px] text-muted-foreground/60 font-mono ml-1">
-                {drillIndex + 1}/{filteredEntities.length}
-              </span>
+          <div className="text-[11px] text-muted-foreground/70 flex items-center gap-2">
+            {positionLabel && (
+              <span className="tabular-nums">{positionLabel}</span>
             )}
+            <span className="opacity-50">·</span>
+            <span>{t("ws.coll.kbd_hint")}</span>
           </div>
         )}
       </header>
 
-      {/* Filter / search bar — list view only */}
-      {!drillEntity &&
-        schema &&
-        (filterFieldKeys.length > 0 || schema?.list_view?.search) && (
-          <FilterBar
-            schema={schema}
-            filterFieldKeys={filterFieldKeys}
-            filters={filters}
-            onFiltersChange={setFilters}
-            search={search}
-            onSearchChange={setSearch}
-            searchInputRef={searchInputRef}
-            t={t}
-          />
-        )}
-
-      {/* Parse errors strip — always visible above the chosen view */}
       {errors.length > 0 && <ErrorsStrip errors={errors} />}
 
-      {/* Body */}
-      {drillEntity ? (
-        <DetailView
-          entity={drillEntity}
-          schema={schema}
-          historyIndex={effectiveHistoryIndex}
-          isLatest={historyIndex === null}
-          canGoOlder={canGoOlder}
-          canGoNewer={canGoNewer}
-          onOlder={goOlderVersion}
-          onNewer={goNewerVersion}
-          peekDiff={peekDiff}
-          t={t}
-        />
-      ) : viewMode === "list" ? (
-        <RowListView
-          entities={filteredEntities}
-          schema={schema}
-          onDrill={setDrillEntityId}
-          t={t}
-        />
-      ) : (
-        <ListView
-          entities={filteredEntities}
-          schema={schema}
-          onDrill={setDrillEntityId}
-          t={t}
-        />
-      )}
-    </div>
-  );
-}
-
-/* ── View-mode toggle ─────────────────────────────────────────────── */
-
-function ViewModeToggle({
-  mode,
-  onChange,
-}: {
-  mode: EntityListMode;
-  onChange: (next: EntityListMode) => void;
-}) {
-  const base =
-    "text-[11px] px-2 py-1 border border-border/60 text-muted-foreground hover:bg-muted/60 transition-colors";
-  const active = "bg-muted/80 text-foreground";
-  return (
-    <div className="flex items-center -space-x-px" role="tablist">
-      <button
-        type="button"
-        role="tab"
-        aria-selected={mode === "block"}
-        onClick={() => onChange("block")}
-        className={`${base} rounded-l ${mode === "block" ? active : ""}`}
-        title="Block"
-        aria-label="Block view"
-      >
-        ▦
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={mode === "list"}
-        onClick={() => onChange("list")}
-        className={`${base} rounded-r ${mode === "list" ? active : ""}`}
-        title="List"
-        aria-label="List view"
-      >
-        ☰
-      </button>
+      <ListDetailLayout
+        list={listNode}
+        detail={detailNode}
+        onClose={goBack}
+        navigator={{
+          goPrev: nav.goPrev,
+          goNext: nav.goNext,
+          canGoPrev: nav.canGoPrev,
+          canGoNext: nav.canGoNext,
+        }}
+        defaultOpen={true}
+        hideDesktopChrome={true}
+        selectionKey={drillEntityId}
+        emptyDetail={
+          <div className="h-full flex items-center justify-center text-sm text-muted-foreground p-8 text-center">
+            {filteredEntities.length === 0
+              ? "—"
+              : t("ws.coll.selectToRead")}
+          </div>
+        }
+        storageKey="huozi.coll.list.width"
+        defaultWidth={320}
+        minWidth={240}
+        maxWidth={480}
+      />
     </div>
   );
 }
 
 /* ── Filter / search bar ─────────────────────────────────────────── */
 
-function FilterBar({
-  schema,
-  filterFieldKeys,
-  filters,
-  onFiltersChange,
-  search,
-  onSearchChange,
-  searchInputRef,
-  t,
-}: {
-  schema: SchemaConfig;
-  filterFieldKeys: readonly string[];
-  filters: Record<string, string>;
-  onFiltersChange: (next: Record<string, string>) => void;
-  search: string;
-  onSearchChange: (next: string) => void;
-  searchInputRef: React.RefObject<HTMLInputElement | null>;
-  t: (k: string) => string;
-}) {
-  const hasSearch =
-    schema.list_view?.search && schema.list_view.search.length > 0;
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      {filterFieldKeys.map((key) => {
-        const def = schema.fields?.[key];
-        const options = def?.options ?? [];
-        if (options.length === 0) return null;
-        const label = def?.label ?? key;
-        const current = filters[key] ?? "";
-        return (
-          <select
-            key={key}
-            value={current}
-            onChange={(e) => {
-              const v = e.target.value;
-              const next = { ...filters };
-              if (v) next[key] = v;
-              else delete next[key];
-              onFiltersChange(next);
-            }}
-            className="text-[11px] px-2 py-1 rounded border border-border/60 bg-background text-foreground hover:border-border focus:outline-none focus:ring-1 focus:ring-foreground/20"
-          >
-            <option value="">{label}: all</option>
-            {options.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {label}: {opt.label ?? opt.value}
-              </option>
-            ))}
-          </select>
-        );
-      })}
-      {hasSearch && (
-        <input
-          ref={searchInputRef}
-          type="search"
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder={`${t("ws.coll.search")}  ⌘K`}
-          className="text-[11px] px-2 py-1 rounded border border-border/60 bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-foreground/20 ml-auto min-w-[180px]"
-        />
-      )}
-    </div>
-  );
-}
+/* FilterBar removed — `list_view.filters` schema entries still parse
+ * but no longer surface a dropdown. The list-pane search input is the
+ * single entry-point for narrowing the list (lower visual complexity,
+ * one mental model). Schema's `filters` is preserved for future use. */
 
 /* ── Empty state ──────────────────────────────────────────────────── */
 
@@ -561,52 +551,19 @@ function ErrorsStrip({ errors }: { errors: readonly ParseError[] }) {
   );
 }
 
-/* ── List view: one card per folded entity ───────────────────────── */
-
-function ListView({
-  entities,
-  schema,
-  onDrill,
-  t,
-}: {
-  entities: readonly EntityState[];
-  schema: SchemaConfig | null;
-  onDrill: (id: string) => void;
-  t: (k: string) => string;
-}) {
-  if (entities.length === 0) {
-    return (
-      <div className="text-sm text-muted-foreground py-12 text-center">
-        No entities (only parse errors above).
-      </div>
-    );
-  }
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      {entities.map((e) => (
-        <EntityCard
-          key={e.id}
-          entity={e}
-          schema={schema}
-          onDrill={onDrill}
-          t={t}
-        />
-      ))}
-    </div>
-  );
-}
-
 /* ── Row list view: compact one-row-per-entity layout ─────────────── */
 
 function RowListView({
   entities,
   schema,
   onDrill,
+  selectedId,
   t,
 }: {
   entities: readonly EntityState[];
   schema: SchemaConfig | null;
   onDrill: (id: string) => void;
+  selectedId: string | null;
   t: (k: string) => string;
 }) {
   if (entities.length === 0) {
@@ -624,6 +581,7 @@ function RowListView({
           entity={e}
           schema={schema}
           onDrill={onDrill}
+          selected={e.id === selectedId}
           t={t}
         />
       ))}
@@ -635,50 +593,199 @@ function EntityRow({
   entity,
   schema,
   onDrill,
+  selected,
   t,
 }: {
   entity: EntityState;
   schema: SchemaConfig | null;
   onDrill: (id: string) => void;
+  selected: boolean;
   t: (k: string) => string;
 }) {
   const isDeleted = entity.status === "deleted";
   const fields = stripConventions(entity.state);
 
-  const titleField = schema?.entity?.title_field;
-  const subtitleField = schema?.entity?.subtitle_field;
+  // Resolve the 6 named slots. `list_view.row` is the authoritative
+  // mapping; for the slots the schema doesn't pin, fall back to
+  // entity-level title_field / subtitle_field.
+  //
+  // `status` (inline after title) is the post-rename home for what
+  // used to be `tag`; back-compat: if `status` is absent but `tag` is
+  // a string (legacy single-chip use), treat it as `status`. New-style
+  // `tag` is the multi-pills slot that XORs with `subtitle`.
+  const rowSlots = schema?.list_view?.row;
+  const titleField = rowSlots?.title ?? schema?.entity?.title_field;
+  const subtitleField = rowSlots?.subtitle ?? schema?.entity?.subtitle_field;
+  const previewField = rowSlots?.preview;
+  const statusField = rowSlots?.status;
+  const tagField = rowSlots?.tag;
+  const timestampField = rowSlots?.timestamp;
 
-  const title = (titleField && pickString(fields, titleField)) ?? entity.id;
+  const titleStr = titleField ? pickString(fields, titleField) : null;
+  // Final fallback: when no title slot resolves, fall through to id so
+  // the row isn't blank — but a schema that maps `title` to an existing
+  // field should never hit this.
+  const title = titleStr ?? entity.id;
   const subtitle = subtitleField ? pickString(fields, subtitleField) : null;
+  const preview = previewField ? pickString(fields, previewField) : null;
+  const statusRaw = statusField ? fields[statusField] : undefined;
+  // status is single-valued by spec — coerce array → first item so a
+  // schema mistake doesn't crowd the title with a chip strip.
+  const statusValue = Array.isArray(statusRaw) ? statusRaw[0] : statusRaw;
+  const statusDef = statusField ? schema?.fields?.[statusField] : undefined;
+  const tagValue = tagField ? fields[tagField] : undefined;
+  const tagDef = tagField ? schema?.fields?.[tagField] : undefined;
+  const hasTagValue =
+    tagValue !== undefined &&
+    tagValue !== null &&
+    !(Array.isArray(tagValue) && tagValue.length === 0);
+  // XOR: when tag has a value, it takes the subtitle row's slot.
+  const showSubtitleText = !hasTagValue && !!subtitle;
+  // Timestamp: always rendered as relative format on list rows (mail
+  // pattern). Strip to a parsable string regardless of the field's
+  // declared `datetime` widget.
+  const tsRaw = timestampField ? fields[timestampField] : undefined;
+  const tsString =
+    typeof tsRaw === "string" || typeof tsRaw === "number"
+      ? String(tsRaw)
+      : null;
+  const useNamedSlots = !!rowSlots;
 
-  // Up to two compact key:value chips from schema-declared meta/aside
-  // fields — just enough to disambiguate at a glance.
+  // Compact row chips. Prefers schema-declared `list_view.row_chips`
+  // (explicit author intent — pick exactly the fields they want
+  // surfaced on each row). Falls back to auto-picking the first two
+  // display:meta/aside fields when not declared. Each chip's value
+  // renders through FieldValue so status colors / option labels /
+  // formatted dates show up correctly.
   const chips = useMemo(() => {
     if (!schema?.fields) return [];
+    const declared = schema.list_view?.row_chips;
     const used = new Set(
       [titleField, subtitleField, schema.entity?.avatar_field].filter(
         Boolean,
       ) as string[],
     );
-    const picked: [string, unknown][] = [];
-    for (const [k, def] of Object.entries(schema.fields)) {
-      if (used.has(k)) continue;
-      if (def.display === "meta" || def.display === "aside") {
-        if (k in fields) picked.push([def.label ?? k, fields[k]]);
+    const picked: { key: string; label: string; value: unknown }[] = [];
+
+    if (declared && declared.length > 0) {
+      for (const k of declared) {
+        if (used.has(k)) continue;
+        const def = schema.fields[k];
+        if (!def || def.hide) continue;
+        if (!evalShowWhen(def.show_when, fields)) continue;
+        if (!(k in fields)) continue;
+        picked.push({ key: k, label: def.label ?? k, value: fields[k] });
       }
-      if (picked.length >= 2) break;
+    } else {
+      for (const [k, def] of Object.entries(schema.fields)) {
+        if (used.has(k)) continue;
+        if (def.hide) continue;
+        if (!evalShowWhen(def.show_when, fields)) continue;
+        if (def.display === "meta" || def.display === "aside") {
+          if (k in fields) {
+            picked.push({ key: k, label: def.label ?? k, value: fields[k] });
+          }
+        }
+        if (picked.length >= 2) break;
+      }
     }
     return picked;
   }, [fields, schema, titleField, subtitleField]);
 
+  // Keep the selected row visible as the user keyboard-navigates with
+  // ↑/↓. `block: "nearest"` only scrolls when the row is off-screen,
+  // so clicking a visible row doesn't trigger a jump.
+  const btnRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (selected) btnRef.current?.scrollIntoView({ block: "nearest" });
+  }, [selected]);
+
+  // ─── Render ────────────────────────────────────────────────────
+  // Two layouts share the same hover / selected / accent-bar shell:
+  //   - Named-slots (when schema.list_view.row is set): title +
+  //     timestamp on the first row, subtitle + tag on the second.
+  //   - Legacy: title + subtitle + auto-picked chips + entity.at +
+  //     history count on a single line (backward-compatible).
+  const rowShell =
+    `relative w-full text-left px-3 py-2 transition-colors outline-none ${
+      selected
+        ? "bg-[var(--surface-elevated)] before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[var(--accent)]"
+        : "hover:bg-foreground/5"
+    } ${isDeleted ? "opacity-60" : ""}`;
+
+  if (useNamedSlots) {
+    // Timestamp: list rows always render relative-style by default
+    // (mail pattern). Schema can override per field via `format`.
+    // Fallback chain: explicit `timestamp` field → entity.latest.at.
+    const tsToShow = tsString ?? (entity.latest.at ?? null);
+    const tsFieldDef = timestampField ? schema?.fields?.[timestampField] : undefined;
+    const tsRenderDef = {
+      type: "datetime" as const,
+      format: tsFieldDef?.format ?? "relative",
+    };
+    return (
+      <li>
+        <button
+          ref={btnRef}
+          type="button"
+          onClick={() => onDrill(entity.id)}
+          aria-current={selected ? "true" : undefined}
+          className={`${rowShell} flex flex-col gap-0.5`}
+        >
+          <div className="flex items-baseline gap-2 min-w-0">
+            {/* Title cluster: title truncates, status chip sits inline
+                immediately after the title (mail/Gmail label pattern).
+                When the title is long it shrinks but the chip stays
+                visible. status is single-valued by spec. */}
+            <div className="flex items-baseline gap-1.5 min-w-0 flex-1 overflow-hidden">
+              <span className="text-[14px] font-semibold text-foreground truncate min-w-0">
+                <InlineMarkdown source={title} />
+              </span>
+              {statusValue !== undefined && statusValue !== null && (
+                <span className="shrink-0">
+                  <FieldValue value={statusValue} fieldDef={statusDef} />
+                </span>
+              )}
+            </div>
+            {tsToShow && (
+              <span className="shrink-0 text-[10px] text-muted-foreground/80 tabular-nums">
+                <FieldValue value={tsToShow} fieldDef={tsRenderDef} />
+              </span>
+            )}
+          </div>
+          {/* Row 2 — XOR: tag pills win when present, else text subtitle. */}
+          {hasTagValue ? (
+            <div className="mt-0.5 flex flex-wrap items-center gap-1 min-w-0">
+              <FieldValue value={tagValue} fieldDef={tagDef} />
+            </div>
+          ) : showSubtitleText ? (
+            <div className="text-[12px] text-muted-foreground truncate mt-0.5">
+              {subtitle}
+            </div>
+          ) : null}
+          {preview && (
+            <div className="text-[12px] text-muted-foreground/80 mt-1 line-clamp-2 break-words">
+              {preview}
+            </div>
+          )}
+          {isDeleted && (
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mt-0.5">
+              {t("ws.coll.deleted")}
+            </div>
+          )}
+        </button>
+      </li>
+    );
+  }
+
   return (
     <li>
       <button
+        ref={btnRef}
         type="button"
         onClick={() => onDrill(entity.id)}
-        className={`w-full text-left flex items-baseline gap-3 px-2 py-2 hover:bg-muted/40 transition-colors ${
-          isDeleted ? "opacity-60" : ""
-        }`}
+        aria-current={selected ? "true" : undefined}
+        className={`${rowShell} flex items-baseline gap-3`}
       >
         <span className="text-sm font-medium text-foreground truncate min-w-0 flex-1">
           <InlineMarkdown source={title} />
@@ -688,16 +795,17 @@ function EntityRow({
             {subtitle}
           </span>
         )}
-        {chips.map(([k, v]) => (
+        {chips.map((c) => (
           <span
-            key={k}
-            className="hidden md:inline-flex items-baseline gap-1 text-[11px] font-mono text-muted-foreground shrink-0"
+            key={c.key}
+            className="hidden md:inline-flex items-baseline gap-1 text-[11px] text-muted-foreground shrink-0"
+            title={c.label}
           >
-            <span className="opacity-70">
-              <InlineMarkdown source={k} />
-            </span>
-            <span className="text-foreground/80 truncate max-w-[160px]">
-              {formatScalar(v)}
+            <span className="text-foreground/80 truncate max-w-[180px] inline-block">
+              <FieldValue
+                value={c.value}
+                fieldDef={schema?.fields?.[c.key]}
+              />
             </span>
           </span>
         ))}
@@ -716,118 +824,6 @@ function EntityRow({
         </span>
       </button>
     </li>
-  );
-}
-
-function EntityCard({
-  entity,
-  schema,
-  onDrill,
-  t,
-}: {
-  entity: EntityState;
-  schema: SchemaConfig | null;
-  onDrill: (id: string) => void;
-  t: (k: string) => string;
-}) {
-  const isDeleted = entity.status === "deleted";
-  const fields = stripConventions(entity.state);
-
-  const titleField = schema?.entity?.title_field;
-  const subtitleField = schema?.entity?.subtitle_field;
-  const avatarField = schema?.entity?.avatar_field;
-
-  const title = (titleField && pickString(fields, titleField)) ?? entity.id;
-  const subtitle = subtitleField ? pickString(fields, subtitleField) : null;
-  const avatar = avatarField ? pickString(fields, avatarField) : null;
-
-  // Fields to show as a small kv list in the card body. If a schema
-  // declares display slots, prefer "meta" + "subheadline" fields (skip
-  // any already used as title/subtitle/avatar). Without a schema, fall
-  // back to first six raw fields.
-  const cardKvs = useMemo(() => {
-    if (schema?.fields) {
-      const used = new Set(
-        [titleField, subtitleField, avatarField].filter(Boolean) as string[],
-      );
-      const picked: [string, unknown][] = [];
-      for (const [k, def] of Object.entries(schema.fields)) {
-        if (used.has(k)) continue;
-        if (def.display === "meta" || def.display === "aside") {
-          if (k in fields) picked.push([def.label ?? k, fields[k]]);
-        }
-      }
-      return picked.slice(0, 6);
-    }
-    return Object.entries(fields).slice(0, 6);
-  }, [fields, schema, titleField, subtitleField, avatarField]);
-
-  return (
-    <button
-      type="button"
-      onClick={() => onDrill(entity.id)}
-      className={`huozi-collection-card ${isDeleted ? "opacity-60" : ""}`}
-    >
-      <div className="flex items-center gap-3 mb-2">
-        {avatar && (
-          // Avatar render: a small round image when the field resolves
-          // to a URL string. Fallback initials are not implemented yet.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={avatar}
-            alt=""
-            className="w-10 h-10 rounded-full object-cover bg-muted shrink-0"
-          />
-        )}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="text-sm font-medium text-foreground truncate">
-              {title}
-            </span>
-            {isDeleted && (
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">
-                {t("ws.coll.deleted")}
-              </span>
-            )}
-          </div>
-          {subtitle && (
-            <div className="text-xs text-muted-foreground truncate">
-              {subtitle}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {cardKvs.length > 0 && (
-        <dl className="space-y-1 mb-2">
-          {cardKvs.map(([k, v]) => (
-            <div key={k} className="flex gap-2 text-[11px] leading-tight">
-              <dt className="text-muted-foreground shrink-0 font-mono">
-                <InlineMarkdown source={k} />
-              </dt>
-              <dd className="text-foreground truncate font-mono">
-                {formatScalar(v)}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      )}
-
-      <footer className="flex items-center gap-2 text-[10px] text-muted-foreground pt-2 border-t border-border/30 mt-2">
-        {entity.latest.at && (
-          <time className="font-mono">{shortAt(entity.latest.at)}</time>
-        )}
-        {entity.latest.by && (
-          <>
-            <span className="opacity-40">·</span>
-            <span className="font-mono">{entity.latest.by}</span>
-          </>
-        )}
-        <span className="ml-auto text-muted-foreground/60">
-          {entity.history.length}↺
-        </span>
-      </footer>
-    </button>
   );
 }
 
@@ -1008,10 +1004,21 @@ function DetailView({
   const subtitle = subtitleField ? pickString(fields, subtitleField) : null;
   const avatar = avatarField ? pickString(fields, avatarField) : null;
 
+  // Groups + slots are XOR: if the schema declares `groups`, we use
+  // the grouped path (Notion-style); otherwise we use the legacy slot
+  // path (headline/subheadline/body/aside/meta/avatar). Schema authors
+  // must pick one model — mixing leads to double-rendering of fields
+  // listed in both.
+  const useGroups = !!schema?.groups && schema.groups.length > 0;
   const slotted = useMemo(
     () => slotFields(fields, schema, titleField, subtitleField, avatarField),
     [fields, schema, titleField, subtitleField, avatarField],
   );
+  const grouped = useMemo(
+    () => groupFields(fields, schema, titleField, subtitleField, avatarField),
+    [fields, schema, titleField, subtitleField, avatarField],
+  );
+  const showEntityId = schema?.detail_view?.show_id !== false;
 
   const activeEvent = entity.history[historyIndex];
   // Folded state right *before* the active event — used by the
@@ -1038,12 +1045,8 @@ function DetailView({
   const asideOpen = asideHasContent && !asideCollapsed;
 
   return (
-    <div className="flex flex-col gap-8 flex-1 min-h-[calc(100vh-14rem)]">
-    <div
-      className={`grid grid-cols-1 gap-6 ${
-        asideOpen ? "md:grid-cols-[1fr_280px]" : "md:grid-cols-1"
-      }`}
-    >
+    <div className="flex flex-col gap-8 flex-1 min-h-0 px-4 py-4">
+    <div className="flex flex-col gap-6">
       {/* Main column */}
       <main className="space-y-4">
         <header className="flex items-center gap-4 pb-3 border-b border-border/40">
@@ -1064,77 +1067,92 @@ function DetailView({
                 {subtitle}
               </p>
             )}
-            <code className="text-[10px] font-mono text-muted-foreground/70">
-              {entity.id}
-            </code>
+            {showEntityId && (
+              <code className="text-[10px] font-mono text-muted-foreground/70">
+                {entity.id}
+              </code>
+            )}
           </div>
         </header>
 
         {isLatest && <TaskConfirmCTA entity={entity} />}
 
-        {slotted.body.length > 0 && (
-          <section className="space-y-3 min-w-0">
-            {slotted.body.map(([k, v, label]) => {
-              const status = peekDiff ? fieldDiffStatus(k, v, priorState) : null;
-              const editable = canEditField(v);
-              const objSrc = jsonlObjSrc(editable, entity.history, k);
-              return (
-                <div key={k} className="min-w-0 group">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                      <InlineMarkdown source={label} />
-                    </h3>
-                  </div>
-                  <div
-                    className="text-sm leading-relaxed whitespace-pre-wrap break-words"
-                    {...(objSrc ? { "data-obj-src": objSrc } : {})}
-                  >
-                    <DiffValue
-                      value={v}
-                      priorValue={priorState[k]}
-                      status={status}
-                      type={schema?.fields?.[k]?.type}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </section>
-        )}
-
-        {slotted.unslotted.length > 0 && (
-          <section className="min-w-0">
-            <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
-              {t("ws.coll.fields")}
-            </h3>
-            <dl className="space-y-1.5">
-              {slotted.unslotted.map(([k, v, label]) => {
-                const status = peekDiff ? fieldDiffStatus(k, v, priorState) : null;
-                const editable = canEditField(v);
-                const objSrc = jsonlObjSrc(editable, entity.history, k);
-                return (
-                  <div key={k} className="flex gap-3 text-xs min-w-0 group">
-                    <dt className="text-muted-foreground shrink-0 w-32 font-mono">
-                      <InlineMarkdown source={label} />
-                    </dt>
-                    <dd className="text-foreground font-mono break-all min-w-0 flex-1">
-                      <span
-                        className="min-w-0 break-all"
+        {useGroups ? (
+          <GroupedSections
+            groups={grouped}
+            schema={schema}
+            entity={entity}
+            priorState={priorState}
+            peekDiff={peekDiff}
+            canEditField={canEditField}
+          />
+        ) : (
+          <>
+            {slotted.body.length > 0 && (
+              <section className="space-y-3 min-w-0">
+                {slotted.body.map(([k, v, label]) => {
+                  const status = peekDiff ? fieldDiffStatus(k, v, priorState) : null;
+                  const editable = canEditField(v);
+                  const objSrc = jsonlObjSrc(editable, entity.history, k);
+                  return (
+                    <div key={k} className="min-w-0 group">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                          <InlineMarkdown source={label} />
+                        </h3>
+                      </div>
+                      <div
+                        className="text-sm leading-relaxed whitespace-pre-wrap break-words"
                         {...(objSrc ? { "data-obj-src": objSrc } : {})}
                       >
                         <DiffValue
                           value={v}
                           priorValue={priorState[k]}
                           status={status}
-                          type={schema?.fields?.[k]?.type}
+                          fieldDef={schema?.fields?.[k]}
                         />
-                      </span>
-                    </dd>
-                  </div>
-                );
-              })}
-            </dl>
-          </section>
+                      </div>
+                    </div>
+                  );
+                })}
+              </section>
+            )}
+
+            {slotted.unslotted.length > 0 && (
+              <section className="min-w-0">
+                <h3 className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
+                  {t("ws.coll.fields")}
+                </h3>
+                <dl className="space-y-1.5">
+                  {slotted.unslotted.map(([k, v, label]) => {
+                    const status = peekDiff ? fieldDiffStatus(k, v, priorState) : null;
+                    const editable = canEditField(v);
+                    const objSrc = jsonlObjSrc(editable, entity.history, k);
+                    return (
+                      <div key={k} className="flex gap-3 text-xs min-w-0 group">
+                        <dt className="text-muted-foreground shrink-0 w-32 font-mono">
+                          <InlineMarkdown source={label} />
+                        </dt>
+                        <dd className="text-foreground font-mono break-all min-w-0 flex-1">
+                          <span
+                            className="min-w-0 break-all"
+                            {...(objSrc ? { "data-obj-src": objSrc } : {})}
+                          >
+                            <DiffValue
+                              value={v}
+                              priorValue={priorState[k]}
+                              status={status}
+                              fieldDef={schema?.fields?.[k]}
+                            />
+                          </span>
+                        </dd>
+                      </div>
+                    );
+                  })}
+                </dl>
+              </section>
+            )}
+          </>
         )}
 
         {asideHasContent && asideCollapsed && (
@@ -1145,16 +1163,15 @@ function DetailView({
             title="Expand aside"
             aria-label="Expand aside"
           >
-            ‹ aside
+            ▸ aside
           </button>
         )}
       </main>
 
-      {/* Aside — jsonl's standard right column. Hidden when there's
-          no aside content to show; collapsible via the chevron when
-          there is. */}
+      {/* Aside — stacks below the main column inside the sidebar pane.
+          Hidden when empty; collapsible via the chevron when present. */}
       {asideOpen && (
-      <aside className="space-y-4 md:border-l md:pl-6 md:border-border/40 min-w-0">
+      <aside className="space-y-4 min-w-0 pt-4 border-t border-border/40">
         <div className="flex justify-end">
           <button
             type="button"
@@ -1163,7 +1180,7 @@ function DetailView({
             title="Collapse aside"
             aria-label="Collapse aside"
           >
-            ›
+            ▾
           </button>
         </div>
         {!isLatest && activeEvent && (
@@ -1202,7 +1219,7 @@ function DetailView({
                       value={v}
                       priorValue={priorState[k]}
                       status={status}
-                      type={schema?.fields?.[k]?.type}
+                      fieldDef={schema?.fields?.[k]}
                     />
                   </dd>
                 </div>
@@ -1321,6 +1338,116 @@ function foldHistorySlice(
 }
 
 /**
+ * Notion-style grouped detail layout. Each group is its own collapsible
+ * section with a small chevron next to the title. Inside a group,
+ * fields render in schema-declared order with the same compact
+ * `label : value` shape used by `slotted.unslotted`. Used when the
+ * schema declares `groups`; mutually exclusive with the slot-driven
+ * `slotted` path above (XOR — see DetailView).
+ */
+function GroupedSections({
+  groups,
+  schema,
+  entity,
+  priorState,
+  peekDiff,
+  canEditField,
+}: {
+  groups: GroupedSection[];
+  schema: SchemaConfig | null;
+  entity: EntityState;
+  priorState: Record<string, unknown>;
+  peekDiff: boolean;
+  canEditField: (v: unknown) => v is string;
+}) {
+  return (
+    <div className="space-y-5">
+      {groups.map((g) => (
+        <GroupSection
+          key={g.title}
+          group={g}
+          schema={schema}
+          entity={entity}
+          priorState={priorState}
+          peekDiff={peekDiff}
+          canEditField={canEditField}
+        />
+      ))}
+    </div>
+  );
+}
+
+function GroupSection({
+  group,
+  schema,
+  entity,
+  priorState,
+  peekDiff,
+  canEditField,
+}: {
+  group: GroupedSection;
+  schema: SchemaConfig | null;
+  entity: EntityState;
+  priorState: Record<string, unknown>;
+  peekDiff: boolean;
+  canEditField: (v: unknown) => v is string;
+}) {
+  const [collapsed, setCollapsed] = useState(group.collapsed);
+  // Minimal section header: small uppercase title with a thin divider
+  // below (Notion property-group style). The header is the full-width
+  // click target for collapse — no chevron clutter in the open state;
+  // a small ▸ appears only when collapsed so users can re-open.
+  return (
+    <section className="min-w-0">
+      <button
+        type="button"
+        onClick={() => setCollapsed((v) => !v)}
+        className="w-full text-left mb-2 outline-none group/sec"
+        aria-expanded={!collapsed}
+      >
+        <div className="flex items-baseline gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground/80 pb-1.5 border-b border-border/40">
+          <span>{group.title}</span>
+          {collapsed && (
+            <span aria-hidden className="font-mono text-[10px]">
+              ▸
+            </span>
+          )}
+        </div>
+      </button>
+      {!collapsed && (
+        <dl className="space-y-1.5">
+          {group.rows.map(([k, v, label]) => {
+            const status = peekDiff ? fieldDiffStatus(k, v, priorState) : null;
+            const editable = canEditField(v);
+            const objSrc = jsonlObjSrc(editable, entity.history, k);
+            return (
+              <div key={k} className="flex gap-3 text-xs min-w-0 group">
+                <dt className="text-muted-foreground shrink-0 w-32 font-mono">
+                  <InlineMarkdown source={label} />
+                </dt>
+                <dd className="text-foreground break-words min-w-0 flex-1">
+                  <span
+                    className="min-w-0 break-words"
+                    {...(objSrc ? { "data-obj-src": objSrc } : {})}
+                  >
+                    <DiffValue
+                      value={v}
+                      priorValue={priorState[k]}
+                      status={status}
+                      fieldDef={schema?.fields?.[k]}
+                    />
+                  </span>
+                </dd>
+              </div>
+            );
+          })}
+        </dl>
+      )}
+    </section>
+  );
+}
+
+/**
  * One half of the "deck of cards" visual for the version-scrubbed
  * timeline. The active EventCard sits in the center; up to two
  * StackPeek bars sit above (older versions, deeper = narrower /
@@ -1435,7 +1562,7 @@ function EventBanner({
                     value={v}
                     priorValue={prior[k]}
                     status={status}
-                    type={schema?.fields?.[k]?.type}
+                    fieldDef={schema?.fields?.[k]}
                   />
                 </span>
               </div>
@@ -1629,6 +1756,169 @@ function pickString(
  * declared in the schema (or declared without a display slot) lands
  * in `unslotted`, which the detail view renders as a generic kv list.
  */
+/**
+ * Evaluate a schema-declared show_when condition against the folded
+ * entity state. Returns true when the field should render. Uses strict
+ * equality on the dependent field's current value — for richer logic,
+ * authors should pre-compute a derived boolean field upstream.
+ */
+function evalShowWhen(
+  cond: { field: string; equals: unknown } | undefined,
+  state: Record<string, unknown>,
+): boolean {
+  if (!cond) return true;
+  return state[cond.field] === cond.equals;
+}
+
+/**
+ * Normalize a list_view.sort spec from either the string shorthand
+ * (`"name"` / `"-name"`) or the object form into a canonical
+ * `{field, direction}`. Returns null when the spec is missing /
+ * malformed so the caller can skip sorting altogether.
+ */
+type SortSpecInput =
+  | string
+  | { field: string; direction?: "asc" | "desc" }
+  | undefined;
+function resolveSortSpec(
+  spec: SortSpecInput,
+): { field: string; direction: "asc" | "desc" } | null {
+  if (!spec) return null;
+  if (typeof spec === "string") {
+    const trimmed = spec.trim();
+    if (!trimmed) return null;
+    if (trimmed.startsWith("-")) {
+      return { field: trimmed.slice(1), direction: "desc" };
+    }
+    return { field: trimmed, direction: "asc" };
+  }
+  if (typeof spec === "object" && spec.field) {
+    return {
+      field: spec.field,
+      direction: spec.direction === "desc" ? "desc" : "asc",
+    };
+  }
+  return null;
+}
+
+/**
+ * Pluck the sort-key value from a folded entity. Recognizes two
+ * pseudo-fields not present on `state`:
+ *   - "id"           → the entity id itself
+ *   - "_updated_at"  → ISO timestamp of the latest event on this entity
+ */
+function readEntitySortValue(
+  entity: { id: string; state: Record<string, unknown>; history: { at?: string }[] },
+  field: string,
+): unknown {
+  if (field === "id") return entity.id;
+  if (field === "_updated_at") {
+    const last = entity.history[entity.history.length - 1];
+    return last?.at ?? null;
+  }
+  return entity.state[field];
+}
+
+/**
+ * Compare two entities by the given field. Null / undefined sort last
+ * regardless of direction (sparse columns shouldn't blow out the
+ * head). Numbers compare numerically; everything else falls back to a
+ * locale-aware string compare — ISO timestamps and CJK names both
+ * behave correctly.
+ */
+function compareEntityField(
+  a: { id: string; state: Record<string, unknown>; history: { at?: string }[] },
+  b: { id: string; state: Record<string, unknown>; history: { at?: string }[] },
+  field: string,
+): number {
+  const av = readEntitySortValue(a, field);
+  const bv = readEntitySortValue(b, field);
+  const aMissing = av === undefined || av === null || av === "";
+  const bMissing = bv === undefined || bv === null || bv === "";
+  if (aMissing && bMissing) return 0;
+  if (aMissing) return 1; // nulls last
+  if (bMissing) return -1;
+  if (typeof av === "number" && typeof bv === "number") return av - bv;
+  return String(av).localeCompare(String(bv), undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+/**
+ * Bucket fields into schema-declared groups for the Notion-style
+ * grouped detail layout. Each group renders as its own collapsible
+ * section. Declared fields not listed in any group are collected
+ * into a tail "Other" pseudo-group so the author doesn't accidentally
+ * lose data by forgetting to list a field.
+ *
+ * Honors `hide` and `show_when` just like `slotFields`.
+ */
+interface GroupedSection {
+  title: string;
+  collapsed: boolean;
+  rows: [string, unknown, string][]; // [key, value, label]
+}
+function groupFields(
+  fields: Record<string, unknown>,
+  schema: SchemaConfig | null,
+  titleField: string | undefined,
+  subtitleField: string | undefined,
+  avatarField: string | undefined,
+): GroupedSection[] {
+  if (!schema?.groups || !schema?.fields) return [];
+  const used = new Set(
+    [titleField, subtitleField, avatarField].filter(Boolean) as string[],
+  );
+
+  const includeField = (k: string): boolean => {
+    if (used.has(k)) return false;
+    if (!(k in fields)) return false;
+    const def = schema.fields?.[k];
+    if (!def) return false;
+    if (def.hide) return false;
+    if (!evalShowWhen(def.show_when, fields)) return false;
+    return true;
+  };
+
+  const labelFor = (k: string): string => schema.fields?.[k]?.label ?? k;
+
+  const groupTitles = schema.groups.map((g) => g.title);
+  const orderedTitles = schema.detail_view?.groups_order
+    ? schema.detail_view.groups_order.filter((t) => groupTitles.includes(t))
+    : groupTitles;
+  const grouped: GroupedSection[] = [];
+  const consumed = new Set<string>();
+
+  for (const t of orderedTitles) {
+    const def = schema.groups.find((g) => g.title === t);
+    if (!def) continue;
+    const rows: [string, unknown, string][] = [];
+    for (const k of def.fields) {
+      if (consumed.has(k)) continue;
+      if (!includeField(k)) continue;
+      rows.push([k, fields[k], labelFor(k)]);
+      consumed.add(k);
+    }
+    if (rows.length > 0) {
+      grouped.push({ title: t, collapsed: !!def.collapsed, rows });
+    }
+  }
+
+  // Tail: declared fields not in any group.
+  const tail: [string, unknown, string][] = [];
+  for (const k of Object.keys(schema.fields)) {
+    if (consumed.has(k)) continue;
+    if (!includeField(k)) continue;
+    tail.push([k, fields[k], labelFor(k)]);
+  }
+  if (tail.length > 0) {
+    grouped.push({ title: "·", collapsed: false, rows: tail });
+  }
+
+  return grouped;
+}
+
 function slotFields(
   fields: Record<string, unknown>,
   schema: SchemaConfig | null,
@@ -1659,6 +1949,8 @@ function slotFields(
   for (const [k, def] of Object.entries(schema.fields)) {
     if (used.has(k)) continue;
     if (!(k in fields)) continue;
+    if (def.hide) continue;
+    if (!evalShowWhen(def.show_when, fields)) continue;
     const label = def.label ?? k;
     if (def.display === "body") {
       body.push([k, fields[k], label]);
@@ -1694,15 +1986,18 @@ function DiffValue({
   value,
   priorValue,
   status,
-  type,
+  fieldDef,
 }: {
   value: unknown;
   priorValue: unknown;
   status: "added" | "modified" | "deleted" | null;
-  type: string | undefined;
+  /** Full field schema definition — type / options / multi all live
+   *  on it. Optional so callers without schema context (e.g. event
+   *  banner) still render via type auto-detection. */
+  fieldDef?: FieldDef;
 }) {
   if (status === null) {
-    return <>{renderFieldValue(value, type)}</>;
+    return <FieldValue value={value} fieldDef={fieldDef} />;
   }
 
   if (status === "added") {
@@ -1715,7 +2010,7 @@ function DiffValue({
           +
         </span>
         <span className="min-w-0 break-words">
-          {renderFieldValue(value, type)}
+          <FieldValue value={value} fieldDef={fieldDef} />
         </span>
       </span>
     );
@@ -1731,7 +2026,7 @@ function DiffValue({
           −
         </span>
         <span className="line-through text-red-700/70 dark:text-red-400/70 min-w-0 break-words">
-          {renderFieldValue(priorValue, type)}
+          <FieldValue value={priorValue} fieldDef={fieldDef} />
         </span>
       </span>
     );
@@ -1741,177 +2036,20 @@ function DiffValue({
   return (
     <span className="inline-flex flex-wrap items-baseline gap-x-2 max-w-full">
       <span className="line-through text-muted-foreground/70 break-words">
-        {renderFieldValue(priorValue, type)}
+        <FieldValue value={priorValue} fieldDef={fieldDef} />
       </span>
       <span className="text-emerald-700 dark:text-emerald-400 break-words">
-        {renderFieldValue(value, type)}
+        <FieldValue value={value} fieldDef={fieldDef} />
       </span>
     </span>
   );
 }
 
-/**
- * Render a field value as JSX, dispatching on the schema-declared
- * type so url_map shows up as a list of links instead of a JSON dump,
- * url/email become clickable, etc. Falls back to formatScalar for
- * anything not specially handled.
- */
-function looksLikeUrl(v: unknown): v is string {
-  return typeof v === "string" && /^https?:\/\//i.test(v);
-}
-
-function looksLikeEmail(v: unknown): v is string {
-  return typeof v === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-}
-
-function looksLikeUrlMap(v: unknown): v is Record<string, unknown> {
-  if (v === null || typeof v !== "object" || Array.isArray(v)) return false;
-  const entries = Object.entries(v as Record<string, unknown>);
-  if (entries.length === 0) return false;
-  let hasUrl = false;
-  for (const [, val] of entries) {
-    if (val === null || val === undefined || val === "") continue;
-    if (looksLikeUrl(val)) {
-      hasUrl = true;
-      continue;
-    }
-    return false;
-  }
-  return hasUrl;
-}
-
-function renderUrl(value: string): React.ReactNode {
-  return (
-    <a
-      href={value}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-sm text-foreground hover:text-accent transition-colors break-all"
-    >
-      {value}
-    </a>
-  );
-}
-
-function renderUrlMap(value: Record<string, unknown>): React.ReactNode {
-  const entries = Object.entries(value).filter(
-    ([, v]) => typeof v === "string" && v.length > 0,
-  );
-  if (entries.length === 0) {
-    return <span className="text-muted-foreground/50">—</span>;
-  }
-  return (
-    <ul className="space-y-1">
-      {entries.map(([label, url]) => (
-        <li key={label} className="min-w-0">
-          <a
-            href={url as string}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-baseline gap-1 text-sm text-foreground hover:text-accent transition-colors max-w-full"
-            title={url as string}
-          >
-            <span className="font-mono text-[11px] text-muted-foreground shrink-0">
-              {label}
-            </span>
-            <span aria-hidden className="text-muted-foreground/60 text-[10px]">
-              ↗
-            </span>
-          </a>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function renderFieldValue(
-  value: unknown,
-  type: string | undefined,
-): React.ReactNode {
-  if (value === null || value === undefined || value === "") {
-    return <span className="text-muted-foreground/50">—</span>;
-  }
-
-  if (type === "image" && typeof value === "string") {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={value}
-        alt=""
-        className="max-w-full h-auto rounded border border-border/40"
-      />
-    );
-  }
-
-  if (typeof value === "string" && (type === "url" || looksLikeUrl(value))) {
-    return renderUrl(value);
-  }
-
-  if (
-    typeof value === "string" &&
-    (type === "email" || looksLikeEmail(value))
-  ) {
-    return (
-      <a
-        href={`mailto:${value}`}
-        className="text-sm text-foreground hover:text-accent transition-colors break-all"
-      >
-        {value}
-      </a>
-    );
-  }
-
-  if (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    (type === "url_map" || looksLikeUrlMap(value))
-  ) {
-    return renderUrlMap(value as Record<string, unknown>);
-  }
-
-  if (Array.isArray(value)) {
-    if (value.length === 0) {
-      return <span className="text-muted-foreground/50">—</span>;
-    }
-    const allPrimitive = value.every(
-      (item) =>
-        item === null ||
-        typeof item === "string" ||
-        typeof item === "number" ||
-        typeof item === "boolean",
-    );
-    if (allPrimitive) {
-      return (
-        <span className="inline-flex flex-wrap gap-1 max-w-full">
-          {value.map((item, i) => (
-            <span
-              key={i}
-              className="inline-block rounded bg-muted/60 px-1.5 py-0.5 text-xs break-all"
-            >
-              {item === null ? (
-                <span className="text-muted-foreground/60">null</span>
-              ) : looksLikeUrl(item) ? (
-                <a
-                  href={item}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-accent transition-colors"
-                >
-                  {item}
-                </a>
-              ) : (
-                String(item)
-              )}
-            </span>
-          ))}
-        </span>
-      );
-    }
-  }
-
-  return <span className="text-sm break-all">{formatScalar(value)}</span>;
-}
+/* Field value rendering moved to `@/components/jsonl-field-widgets`.
+ * DiffValue routes value/priorValue through `<FieldValue>`, which
+ * handles type dispatch (markdown, link, datetime, status, object,
+ * url_map, …), url/email/url_map auto-detection via inferType, and
+ * primitive-array chip rendering. */
 
 /**
  * Inline-only markdown for field labels (`schema.fields[k].label`) and

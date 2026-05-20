@@ -33,6 +33,30 @@ import {
   type AdminEnv,
 } from '../storage/cloudflare/admin.js'
 import {
+  handleEmailTokenGetOrMint,
+  handleEmailTokenRotate,
+  handleEmailTokenRevoke,
+  handleEmailTokenUpdateSenders,
+} from '../storage/cloudflare/email-tokens.js'
+import {
+  handleTasksIngest,
+  handleTasksEmailIngest,
+} from '../storage/cloudflare/tasks-ingest.js'
+import {
+  handleMailStatus,
+  handleMailSetup,
+} from '../storage/cloudflare/mail-routing.js'
+import { handleInboundEmail } from '../storage/cloudflare/mail-inbound.js'
+import {
+  handleAliasCheck,
+  handleAliasClaim,
+  handleAliasList,
+  handleAliasRelease,
+  handleAliasSetActive,
+  handleAliasUpdateSenders,
+} from '../storage/cloudflare/email-aliases.js'
+import { handleTasksConfirm } from '../storage/cloudflare/tasks-confirm.js'
+import {
   handleAdminSetupForm,
   handleAdminSetupSubmit,
 } from '../storage/cloudflare/admin-setup.js'
@@ -586,6 +610,138 @@ const handler: ExportedHandler<HuoziCloudflareBindings> = {
       }
     }
 
+    // Tasks email-token CRUD (Next.js identity layer calls these on behalf
+    // of the cookie-authed user). See `app/docs/tasks.md` §6.1.
+    if (url.pathname === '/admin/email-tokens/get-or-mint') {
+      try {
+        return await handleEmailTokenGetOrMint(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/admin/email-tokens/rotate') {
+      try {
+        return await handleEmailTokenRotate(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/admin/email-tokens/revoke') {
+      try {
+        return await handleEmailTokenRevoke(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/admin/email-tokens/update-senders') {
+      try {
+        return await handleEmailTokenUpdateSenders(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+
+    // Tasks ingest (called server-to-server by the huozi-email-ingest Worker
+    // and by the Next.js webhook proxy after HMAC verification).
+    if (url.pathname === '/admin/tasks/ingest') {
+      try {
+        return await handleTasksIngest(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/admin/tasks/confirm') {
+      try {
+        return await handleTasksConfirm(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    // Aggregate endpoint for huozi-email-ingest Worker: takes
+    // {token, from, subject, body, headers...}, does token lookup +
+    // allowlist + ingest in one round trip. See tasks-ingest.ts.
+    if (url.pathname === '/admin/tasks/email-ingest') {
+      try {
+        return await handleTasksEmailIngest(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    // CF Email Routing setup — enable routing on the configured zone +
+    // point the catch-all at huozi-email-ingest. Idempotent.
+    if (url.pathname === '/admin/mail/status') {
+      try {
+        return await handleMailStatus(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/admin/mail/setup') {
+      try {
+        return await handleMailSetup(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    // User-chosen email aliases for inbound mail (sibling to email_tokens).
+    if (url.pathname === '/admin/email-aliases/check') {
+      try {
+        return await handleAliasCheck(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/admin/email-aliases/claim') {
+      try {
+        return await handleAliasClaim(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/admin/email-aliases/list') {
+      try {
+        return await handleAliasList(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/admin/email-aliases/set-active') {
+      try {
+        return await handleAliasSetActive(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/admin/email-aliases/release') {
+      try {
+        return await handleAliasRelease(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+    if (url.pathname === '/admin/email-aliases/update-senders') {
+      try {
+        return await handleAliasUpdateSenders(request, env as AdminEnv)
+      } catch (r) {
+        if (r instanceof Response) return r
+        throw r
+      }
+    }
+
     // Device-flow public endpoints (no auth; Agents hit these).
     if (url.pathname === '/auth/device-code') {
       return handleDeviceCode(request, env)
@@ -743,6 +899,12 @@ const handler: ExportedHandler<HuoziCloudflareBindings> = {
         )
       }),
     )
+  },
+
+  // CF Email Routing catch-all on mail.huozi.app → this Worker. Inline
+  // parse + ingest; see storage/cloudflare/mail-inbound.ts.
+  async email(message, env, ctx): Promise<void> {
+    await handleInboundEmail(message, env as AdminEnv, ctx)
   },
 }
 

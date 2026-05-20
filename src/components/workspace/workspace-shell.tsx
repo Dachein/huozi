@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FileTree, type MemberLite } from "./file-tree";
 import { RecentPanel } from "./recent-panel";
@@ -33,7 +34,7 @@ export interface WorkspaceShellProps {
  */
 export function WorkspaceShell({
   paths,
-  currentPath,
+  currentPath: currentPathProp,
   numFiles,
   truncated,
   recent,
@@ -43,6 +44,17 @@ export function WorkspaceShell({
   currentUserId,
 }: WorkspaceShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // The shared `(shell)/layout.tsx` can't read searchParams from a server
+  // layout, so it never passes `currentPath`. Mirror the FileTree /
+  // RecentPanel fallback here for the mobile breadcrumb strip.
+  const pathname = usePathname();
+  const search = useSearchParams();
+  const derivedPath =
+    pathname === "/workspace/view" || pathname === "/workspace/history"
+      ? (search.get("path") ?? null)
+      : null;
+  const currentPath = currentPathProp ?? derivedPath;
 
   // Close drawer on ESC
   useEffect(() => {
@@ -138,16 +150,49 @@ export function WorkspaceShell({
         </aside>
       </div>
 
-      {/* Main content */}
-      <main className="flex-1 min-w-0 relative flex flex-col">
+      {/* Main content. Most routes are reading surfaces and stay inside the
+          centered max-w-4xl gutter. List+detail surfaces (mail + .jsonl view)
+          break out so the email-style 3-pane can span the full viewport.
+          `min-h-0` is load-bearing: without it the flex column reverts to
+          min-height:auto (= its content's natural height), breaking the
+          height chain so descendant scroll panes can't compute a usable
+          height under the (shell) layout's fixed-viewport cap. */}
+      <main className="flex-1 min-w-0 min-h-0 relative flex flex-col">
         <NavLoadingBar />
-        <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 py-8 flex-1 flex flex-col">
+        {/* `min-h-0` keeps propagating the flex height cap — same
+            reason as <main>: without it this inner column reverts to
+            min-height:auto and child `flex-1 min-h-0` chains can't
+            allocate, which leaves FileHeader floating mid-page. */}
+        <div
+          className={
+            isWideLayout(pathname, currentPath)
+              ? "w-full flex-1 min-h-0 flex flex-col px-3 sm:px-4 pt-3"
+              : "mx-auto w-full max-w-4xl px-4 sm:px-6 py-8 flex-1 min-h-0 flex flex-col"
+          }
+        >
           {children}
         </div>
       </main>
     </div>
     </WorkspaceNavProvider>
   );
+}
+
+/**
+ * Routes that adopt the email/Linear 3-pane layout. They escape the
+ * centered max-w-4xl reading gutter so list + detail can span the full
+ * viewport width.
+ */
+function isWideLayout(
+  pathname: string | null,
+  currentPath: string | null,
+): boolean {
+  if (!pathname) return false;
+  if (pathname.startsWith("/workspace/mail")) return true;
+  if (pathname === "/workspace/view") {
+    return !!currentPath && currentPath.endsWith(".jsonl");
+  }
+  return false;
 }
 
 function TreeHeader({

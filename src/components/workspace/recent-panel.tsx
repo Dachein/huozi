@@ -51,7 +51,9 @@ export function RecentPanel({
   const pathname = usePathname();
   const search = useSearchParams();
   const derivedPath =
-    pathname === "/workspace/view" ? (search.get("path") ?? null) : null;
+    pathname === "/workspace/view" || pathname === "/workspace/history"
+      ? (search.get("path") ?? null)
+      : null;
   const currentPath = currentPathProp ?? derivedPath;
   // Server-side recent() returns one row per (commit × path), so a file
   // touched twice shows up twice. Collapse on path here too — same dedup

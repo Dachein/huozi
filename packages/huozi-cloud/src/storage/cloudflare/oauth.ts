@@ -572,12 +572,17 @@ export async function handleOauthApprove(
   // Mint the auth_code.
   const code = randomHex(24)
   const now = Date.now()
+  // Trim + bound the user-supplied label. Empty → NULL (UI falls back
+  // to bare `[<kind>]`). Cap at 80 chars so a runaway paste doesn't
+  // blow up the connections list subtitle.
+  const rawLabel = (body.label ?? '').trim().slice(0, 80)
+  const label = rawLabel.length > 0 ? rawLabel : null
   await env.DB.batch([
     env.DB.prepare(
       `INSERT INTO oauth_authorization_codes
        (code, client_id, user_id, workspace_id, redirect_uri, scope,
-        code_challenge, code_challenge_method, created_at, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        code_challenge, code_challenge_method, created_at, expires_at, label)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(
       code,
       pending.client_id,
@@ -589,6 +594,7 @@ export async function handleOauthApprove(
       pending.code_challenge_method,
       now,
       now + CODE_TTL_SECONDS * 1000,
+      label,
     ),
     env.DB.prepare(
       `UPDATE oauth_pending_authorizations SET consumed_at = ? WHERE session_id = ?`,
@@ -602,14 +608,9 @@ export async function handleOauthApprove(
     code,
     state: pending.state ?? undefined,
   })
-  // Stash agent_kind / label on the session for use by /token (we'll fold
-  // them into the api_keys.name when we mint the access token below).
-  // Lightweight side channel: we re-use the consumed pending row's `state`
-  // field… actually no — we'll persist via a metadata column, but adding
-  // a column for this is overkill. Instead, store on the auth code row
-  // by extending the table later. For v1, mint with a sensible default.
+  // agent_kind is still inferred from client_name at /token time, not
+  // stored — clients lie about it inconsistently. label IS stored.
   void body.agent_kind
-  void body.label
   return Response.json({ redirect_url: redirectUrl })
 }
 
@@ -853,6 +854,7 @@ async function handleAuthCodeGrant(
       code_challenge_method: string
       expires_at: number
       consumed_at: number | null
+      label: string | null
     }>()
   if (!row) return jsonError('invalid_grant', 'code not found', 400)
   if (row.consumed_at) {
@@ -905,12 +907,15 @@ async function handleAuthCodeGrant(
   const refreshHash = await sha256Hex(refreshToken)
   const refreshExpiresAt = now + REFRESH_TOKEN_TTL_SECONDS * 1000
 
-  // Mint with just `[<kind>]` — the renderer derives the bold display
-  // name from the kind taxonomy, and the client_name suffix here was
-  // pure noise (e.g. "[claude-code] Claude Code (huozi)" produced a
-  // redundant "huozi" subtitle in the UI).
+  // `[<kind>]` carries the agent taxonomy for the icon/title; an
+  // optional user-supplied label (captured at consent time) becomes the
+  // UI subtitle so multiple connections of the same kind are
+  // distinguishable. parseName() in @/lib/identity/connections splits
+  // these back out.
   const labelKind = inferAgentKind(client?.client_name ?? null)
-  const apiKeyName = `[${labelKind}]`
+  const apiKeyName = row.label
+    ? `[${labelKind}] ${row.label}`
+    : `[${labelKind}]`
 
   await env.DB.batch([
     env.DB.prepare(
@@ -1016,18 +1021,26 @@ async function handleRefreshGrant(
   const newRefreshHash = await sha256Hex(newRefreshToken)
   const newRefreshExpiresAt = now + REFRESH_TOKEN_TTL_SECONDS * 1000
 
-  // Look up client_name for label continuity.
-  const client = await env.DB.prepare(
-    `SELECT client_name FROM oauth_clients WHERE client_id = ?`,
-  )
-    .bind(clientId)
-    .first<{ client_name: string | null }>()
-  // Mint with just `[<kind>]` — the renderer derives the bold display
-  // name from the kind taxonomy, and the client_name suffix here was
-  // pure noise (e.g. "[claude-code] Claude Code (huozi)" produced a
-  // redundant "huozi" subtitle in the UI).
-  const labelKind = inferAgentKind(client?.client_name ?? null)
-  const apiKeyName = `[${labelKind}]`
+  // Preserve the user-supplied label across refresh by copying the prior
+  // access key's `name` verbatim (already in `[<kind>] <label>` form).
+  // Fall back to inferring from client_name only if the prior row is
+  // gone (shouldn't happen — refresh rotates atomically).
+  const priorKey = row.current_access_key_id
+    ? await env.DB.prepare(
+        `SELECT name FROM api_keys WHERE key_id = ?`,
+      )
+        .bind(row.current_access_key_id)
+        .first<{ name: string | null }>()
+    : null
+  let apiKeyName = priorKey?.name ?? null
+  if (!apiKeyName) {
+    const client = await env.DB.prepare(
+      `SELECT client_name FROM oauth_clients WHERE client_id = ?`,
+    )
+      .bind(clientId)
+      .first<{ client_name: string | null }>()
+    apiKeyName = `[${inferAgentKind(client?.client_name ?? null)}]`
+  }
 
   await env.DB.batch([
     env.DB.prepare(

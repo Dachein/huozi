@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { WorkspaceShell } from "@/components/workspace/workspace-shell";
 import { CloudLiveEvents } from "@/components/workspace/cloud-live-events";
 import {
   StatusSummary,
@@ -15,18 +14,14 @@ import { getLocale } from "@/lib/i18n/server";
 import { t } from "@/lib/i18n";
 import { getIdentity } from "@/lib/identity";
 import {
-  cloudAdminListFolderAcls,
   cloudAdminListKeys,
-  cloudAdminListMembers,
   slugToWorkspaceId,
 } from "@/lib/drive/admin";
 import {
-  cloudGlob,
-  cloudRecent,
   HUOZI_CLOUD_KEY_COOKIE,
   listTools,
-  type GlobData,
 } from "@/lib/drive/mcp-client";
+import { loadShellData } from "./_shell-data";
 
 export const metadata: Metadata = {
   title: "Workspace — huozi Cloud",
@@ -46,159 +41,118 @@ export default async function CloudWorkspacePage() {
     redirect("/api/app/session/refresh?next=/workspace");
   }
 
-  const identity = await getIdentity();
-  const principal = await identity.getPrincipal();
-  const ws = await identity.getPrimaryWorkspace();
+  // Shell data is fetched by the parent `(shell)/layout.tsx`; this call
+  // hits the same React.cache slot, so it costs nothing on top.
+  const [shell, connections] = await Promise.all([
+    loadShellData(),
+    loadConnectionsForStatusSummary(key),
+  ]);
 
-  const [globRes, recentRes, connections, members, folderAcls] =
-    await Promise.all([
-      cloudGlob(key, "**/*"),
-      cloudRecent(key, 20),
-      loadConnectionsForStatusSummary(key),
-      principal && principal.workspaceId
-        ? cloudAdminListMembers(principal.workspaceId).catch(() => [])
-        : Promise.resolve([]),
-      principal && principal.workspaceId
-        ? cloudAdminListFolderAcls({
-            workspaceId: principal.workspaceId,
-          }).catch(() => [])
-        : Promise.resolve([]),
-    ]);
-  // Member view: only show ACLs they're in (matches what the Worker
-  // would actually let them through). Owner sees all.
-  const me = members.find((m) => m.user_id === principal?.userId);
-  const visibleAcls =
-    me?.role === "owner"
-      ? folderAcls
-      : folderAcls.filter((a) =>
-          principal ? a.members.includes(principal.userId) : false,
-        );
-  const privatePrefixes = new Set(visibleAcls.map((a) => a.path_prefix));
-  void ws;
-  const data: GlobData = globRes.ok
-    ? globRes.data
-    : { durationMs: 0, numFiles: 0, filenames: [], truncated: false };
-  const recent = recentRes.ok ? recentRes.entries : [];
-
-  const isEmpty = data.numFiles === 0;
+  const isEmpty = shell.glob.numFiles === 0;
   const _ = (k: string) => t(locale, k);
 
   // Stats: edits in the last 24 h based on the recent feed (we already
   // pull the top 20). Connected-agent count comes from the same row set
   // StatusSummary uses.
   const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-  const recent24h = recent.filter((r) => r.timestamp >= cutoff).length;
+  const recent24h = shell.recent.filter((r) => r.timestamp >= cutoff).length;
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <WorkspaceShell
-        paths={data.filenames}
-        numFiles={data.numFiles}
-        truncated={data.truncated}
-        recent={recent}
-        privatePrefixes={privatePrefixes}
-        members={members.map((m) => ({
-          user_id: m.user_id,
-          email: m.email,
-          display_name: m.display_name,
-        }))}
-        currentUserId={principal?.userId}
-      >
-        <div className="space-y-8">
-          {/* Stats strip — three quick numbers so the workspace home leads
-              with state instead of explanatory copy. Only meaningful once
-              the workspace has files. */}
-          {!isEmpty && (
-            <WorkspaceStats
-              files={data.numFiles}
-              recent24h={recent24h}
-              agents={connections.rows.length}
-              labels={{
-                files: _("ws.stats.files"),
-                recent: _("ws.stats.recent"),
-                agents: _("ws.stats.agents"),
-              }}
-            />
-          )}
-
-          {/* Agent connection status — shown in both empty and filled
-              states. The empty state inlines a one-line "ask your Agent
-              to connect" hint (with the MCP URL to copy), so we no
-              longer need a separate stand-alone Connect banner above. */}
-          <StatusSummary
-            connections={connections.rows}
-            mcpUrl={getPublicMcpUrl()}
+    <>
+      <div className="space-y-8">
+        {/* Stats strip — three quick numbers so the workspace home leads
+            with state instead of explanatory copy. Only meaningful once
+            the workspace has files. */}
+        {!isEmpty && (
+          <WorkspaceStats
+            files={shell.glob.numFiles}
+            recent24h={recent24h}
+            agents={connections.rows.length}
             labels={{
-              title: _("ws.status.title"),
-              connectedAgents: _("ws.status.connectedAgents"),
-              browserSession: _("ws.status.browserSession"),
-              never: _("ws.status.never"),
-              now: _("ws.status.now"),
-              activeKeys: _("ws.status.activeKeys"),
-              manage: _("ws.status.manage"),
-              connectNew: _("ws.status.connectNew"),
+              files: _("ws.stats.files"),
+              recent: _("ws.stats.recent"),
+              agents: _("ws.stats.agents"),
             }}
           />
+        )}
 
-          {!globRes.ok && (
-            <div className="rounded-lg border border-red-500/40 bg-red-500/5 px-4 py-3 text-sm">
-              <strong>Couldn&rsquo;t list files:</strong>{" "}
-              <span className="text-muted-foreground">{globRes.message}</span>
-            </div>
-          )}
+        {/* Agent connection status — shown in both empty and filled
+            states. The empty state inlines a one-line "ask your Agent
+            to connect" hint (with the MCP URL to copy), so we no
+            longer need a separate stand-alone Connect banner above. */}
+        <StatusSummary
+          connections={connections.rows}
+          mcpUrl={getPublicMcpUrl()}
+          labels={{
+            title: _("ws.status.title"),
+            connectedAgents: _("ws.status.connectedAgents"),
+            browserSession: _("ws.status.browserSession"),
+            never: _("ws.status.never"),
+            now: _("ws.status.now"),
+            activeKeys: _("ws.status.activeKeys"),
+            manage: _("ws.status.manage"),
+            connectNew: _("ws.status.connectNew"),
+          }}
+        />
 
-          {isEmpty ? (
-            <OnboardingPrompts
-              heading={_("ws.onboard.heading")}
-              subheading={_("ws.onboard.subheading")}
-              cards={[
-                // Order matches the 4-type framing: Table · Document · Collection · Page
-                // (csv · md · jsonl · html). See app/docs/four-types.md.
-                {
-                  badge: _("ws.onboard.csv.badge"),
-                  glyph: "表",
-                  title: _("ws.onboard.csv.title"),
-                  scenario: _("ws.onboard.csv.scenario"),
-                  prompt: _("ws.onboard.csv.prompt"),
-                  copyLabel: _("ws.onboard.copy"),
-                  copiedLabel: _("ws.onboard.copied"),
-                },
-                {
-                  badge: _("ws.onboard.md.badge"),
-                  glyph: "文",
-                  title: _("ws.onboard.md.title"),
-                  scenario: _("ws.onboard.md.scenario"),
-                  prompt: _("ws.onboard.md.prompt"),
-                  copyLabel: _("ws.onboard.copy"),
-                  copiedLabel: _("ws.onboard.copied"),
-                },
-                {
-                  badge: _("ws.onboard.jsonl.badge"),
-                  glyph: "集",
-                  title: _("ws.onboard.jsonl.title"),
-                  scenario: _("ws.onboard.jsonl.scenario"),
-                  prompt: _("ws.onboard.jsonl.prompt"),
-                  copyLabel: _("ws.onboard.copy"),
-                  copiedLabel: _("ws.onboard.copied"),
-                },
-                {
-                  badge: _("ws.onboard.html.badge"),
-                  glyph: "版",
-                  title: _("ws.onboard.html.title"),
-                  scenario: _("ws.onboard.html.scenario"),
-                  prompt: _("ws.onboard.html.prompt"),
-                  copyLabel: _("ws.onboard.copy"),
-                  copiedLabel: _("ws.onboard.copied"),
-                },
-              ]}
-            />
-          ) : (
-            <WorkspaceSearch paths={data.filenames} />
-          )}
-        </div>
-      </WorkspaceShell>
+        {!shell.globOk && (
+          <div className="rounded-lg border border-red-500/40 bg-red-500/5 px-4 py-3 text-sm">
+            <strong>Couldn&rsquo;t list files:</strong>{" "}
+            <span className="text-muted-foreground">{shell.globError}</span>
+          </div>
+        )}
+
+        {isEmpty ? (
+          <OnboardingPrompts
+            heading={_("ws.onboard.heading")}
+            subheading={_("ws.onboard.subheading")}
+            cards={[
+              // Order matches the 4-type framing: Table · Document · Collection · Page
+              // (csv · md · jsonl · html). See app/docs/four-types.md.
+              {
+                badge: _("ws.onboard.csv.badge"),
+                glyph: "表",
+                title: _("ws.onboard.csv.title"),
+                scenario: _("ws.onboard.csv.scenario"),
+                prompt: _("ws.onboard.csv.prompt"),
+                copyLabel: _("ws.onboard.copy"),
+                copiedLabel: _("ws.onboard.copied"),
+              },
+              {
+                badge: _("ws.onboard.md.badge"),
+                glyph: "文",
+                title: _("ws.onboard.md.title"),
+                scenario: _("ws.onboard.md.scenario"),
+                prompt: _("ws.onboard.md.prompt"),
+                copyLabel: _("ws.onboard.copy"),
+                copiedLabel: _("ws.onboard.copied"),
+              },
+              {
+                badge: _("ws.onboard.jsonl.badge"),
+                glyph: "集",
+                title: _("ws.onboard.jsonl.title"),
+                scenario: _("ws.onboard.jsonl.scenario"),
+                prompt: _("ws.onboard.jsonl.prompt"),
+                copyLabel: _("ws.onboard.copy"),
+                copiedLabel: _("ws.onboard.copied"),
+              },
+              {
+                badge: _("ws.onboard.html.badge"),
+                glyph: "版",
+                title: _("ws.onboard.html.title"),
+                scenario: _("ws.onboard.html.scenario"),
+                prompt: _("ws.onboard.html.prompt"),
+                copyLabel: _("ws.onboard.copy"),
+                copiedLabel: _("ws.onboard.copied"),
+              },
+            ]}
+          />
+        ) : (
+          <WorkspaceSearch paths={shell.glob.filenames} />
+        )}
+      </div>
       <CloudLiveEvents mode="workspace" />
-    </div>
+    </>
   );
 }
 

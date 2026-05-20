@@ -15,7 +15,10 @@ import {
 import { PageOutlineMenu } from "@/components/workspace/page-outline-menu";
 import { ShareFullscreenButton } from "@/components/workspace/share-fullscreen-button";
 import { extractPages } from "@/lib/html/extract-pages";
-import { detectHuoziFormat } from "@/lib/html/detect-format";
+import {
+  detectHuoziFormat,
+  pagerOrientationFor,
+} from "@/lib/html/detect-format";
 import { getServerT } from "@/lib/i18n/server";
 import {
   cloudRead,
@@ -155,8 +158,8 @@ async function FileView({
       ? (readRes.data.file.content ?? "")
       : "";
   // Authoritative format detection (meta first, class sniff second, default
-  // "web"). Drives FullscreenPager visibility + auto-landscape CSS for deck
-  // on mobile portrait.
+  // "web"). Drives PageOutlineMenu arrow orientation + auto-landscape CSS
+  // for deck on mobile portrait.
   const htmlFormat = detectHuoziFormat(fileContent);
   const pageUnit: "slide" | "page" =
     htmlFormat === "deck" || htmlFormat === "story" ? "slide" : "page";
@@ -165,14 +168,19 @@ async function FileView({
     <FullscreenProvider>
       <div className="flex flex-col gap-6 flex-1 min-h-0">
         <LiveUpdateBanner watchPath={path} />
-        {/* Path + actions */}
-        <div>
+        {/* Path + actions — shrink-0 so the file-body pane below can claim
+            the rest of the viewport without squeezing the title row. */}
+        <div className="shrink-0">
           <Breadcrumb parentPath={parentPath} />
           <div className="flex items-center gap-2">
             <h1 className="font-mono text-base sm:text-lg break-all min-w-0 flex-1">
               {fileName}
             </h1>
-            <PageOutlineMenu pages={pages} unit={pageUnit} />
+            <PageOutlineMenu
+              pages={pages}
+              unit={pageUnit}
+              orientation={pagerOrientationFor(htmlFormat)}
+            />
             <FullscreenToggleButton enabled={fullscreenMode !== null} />
             <FileActionsMenu
               path={path}
@@ -372,29 +380,45 @@ async function FileBody({
 
   const raw = stripCatN(data.file.content);
 
+  // All file types share the same outer frame: flex-col with a flex-1
+  // body so the FileHeader above (in the parent column) stays pinned to
+  // the top regardless of content type. jsonl renders its own 3-pane
+  // and manages internal scroll inside CollectionView; other types
+  // (markdown, csv, html source, etc.) get wrapped in a scroll container
+  // so the body scrolls on its own without pushing FileHeader off-screen.
+  const isCollection = path.endsWith(".jsonl");
+  const renderer = (
+    <FileRenderer
+      path={path}
+      content={raw}
+      raw={wantRaw}
+      inlineEditable={!wantRaw && !paginated}
+      parentBlobSha={data.file.blob_sha ?? null}
+    />
+  );
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3 flex-1 min-h-0">
       {paginated && (
-        <div className="text-xs text-muted-foreground">
+        <div className="text-xs text-muted-foreground shrink-0">
           lines {data.file.startLine ?? 1}–
           {(data.file.startLine ?? 1) + (data.file.numLines ?? 0) - 1} of{" "}
           {data.file.totalLines ?? 0}
         </div>
       )}
       {paginated && !wantRaw && isStructured(path) && (
-        <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+        <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground shrink-0">
           Rendered view on partial content may be incomplete (code blocks, lists
           spanning boundaries). Switch to <strong>Source</strong> if something
           looks off.
         </div>
       )}
-      <FileRenderer
-        path={path}
-        content={raw}
-        raw={wantRaw}
-        inlineEditable={!wantRaw && !paginated}
-        parentBlobSha={data.file.blob_sha ?? null}
-      />
+      {isCollection ? (
+        renderer
+      ) : (
+        <div className="huozi-scrollarea flex-1 min-h-0 overflow-y-auto">
+          {renderer}
+        </div>
+      )}
     </div>
   );
 }

@@ -67,6 +67,11 @@ export interface EditableSurfaceProps {
   /** Set to false to render the surface as a no-op pass-through (used
    *  when the user lacks write capability). */
   canEdit?: boolean;
+  /** Override the wrapper div's classes. Defaults to `"relative"`. Use
+   *  e.g. `"relative flex flex-col flex-1 min-h-0"` so children inheriting
+   *  a flex chain (collection-view's email-style 3-pane) keep their
+   *  vertical fill all the way down. */
+  wrapperClassName?: string;
   children: ReactNode;
 }
 
@@ -76,6 +81,7 @@ export function EditableSurface({
   sourceContent,
   parentBlobSha = null,
   canEdit = true,
+  wrapperClassName = "relative",
   children,
 }: EditableSurfaceProps) {
   const t = useT();
@@ -227,7 +233,7 @@ export function EditableSurface({
     <Ctx.Provider value={ctxValue}>
       <div
         ref={hostRef}
-        className="relative"
+        className={wrapperClassName}
         {...(sourceContent !== undefined ? { "data-source": sourceContent } : {})}
       >
         {children}

@@ -145,5 +145,12 @@ export async function createEdgeIdentity(): Promise<IdentityService> {
     markConnectionRevoked: connections.markConnectionRevoked,
     ownsConnection: connections.ownsConnection,
     formatMintName: connections.formatMintName,
+
+    supportsEmailIngest(): boolean {
+      // Edge has no shared inbound mail domain. Deployers who want email
+      // ingest run their own Email Worker against their own domain (see
+      // tasks.md §10.3); that path is opt-in and out of scope for v1.
+      return false;
+    },
   };
 }
