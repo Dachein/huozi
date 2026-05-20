@@ -179,10 +179,20 @@ export function FileTree({
     return c;
   }, [paths]);
 
+  // v3.3 §8 visibility rules: paths whose any segment starts with "."
+  // (e.g. `.huozi/memory.jsonl`, `.archive/old-project/...`,
+  // `.huozi-keep`) are hidden by default. Users can flip the toggle
+  // below the tree to see them — UI state only, not persisted.
+  const [showHidden, setShowHidden] = useState(false);
+
   const filteredPaths = useMemo(() => {
-    if (typeFilter === "all") return paths;
-    return paths.filter((p) => getFileType(p) === typeFilter);
-  }, [paths, typeFilter]);
+    const byType =
+      typeFilter === "all"
+        ? paths
+        : paths.filter((p) => getFileType(p) === typeFilter);
+    if (showHidden) return byType;
+    return byType.filter((p) => !p.split("/").some((seg) => seg.startsWith(".")));
+  }, [paths, typeFilter, showHidden]);
 
   const root = useMemo(
     () => buildTree(filteredPaths, typeFilter === "all"),
@@ -287,6 +297,19 @@ export function FileTree({
           />
         )}
       </nav>
+
+      {/* Show hidden toggle — dot-prefixed paths (`.huozi`, `.archive`,
+          `.huozi-keep`) are hidden by default per spec §8. UI state
+          only, not persisted. */}
+      <div className="px-3 py-2 border-t border-border/40 text-[11px] text-muted-foreground">
+        <button
+          type="button"
+          onClick={() => setShowHidden((v) => !v)}
+          className="hover:text-foreground transition-colors"
+        >
+          {showHidden ? "Hide dot files" : "Show hidden"}
+        </button>
+      </div>
       {aclEnabled && aclEditingPath !== null && (
         <FolderAclModal
           open={true}

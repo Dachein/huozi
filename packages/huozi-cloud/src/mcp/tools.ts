@@ -29,6 +29,11 @@ import { createMemoryAppendTool } from '../tools/MemoryAppendTool.js'
 import { createMemoryListTool } from '../tools/MemoryListTool.js'
 import { createMkdirTool } from '../tools/MkdirTool.js'
 import { createMvTool } from '../tools/MvTool.js'
+import {
+  createProjectArchiveTool,
+  createProjectUnarchiveTool,
+} from '../tools/ProjectArchiveTool.js'
+import { createProjectUpgradeTool } from '../tools/ProjectUpgradeTool.js'
 import { createRmTool } from '../tools/RmTool.js'
 import { createShareTool, type ShareToolDeps } from '../tools/ShareTool.js'
 import { createTemplateTool } from '../tools/TemplateTool/index.js'
@@ -94,6 +99,9 @@ export function createHuoziToolRegistry(
     createValidateTool({ storage }),
     createMemoryAppendTool({ storage }),
     createMemoryListTool({ storage }),
+    createProjectUpgradeTool({ storage }),
+    createProjectArchiveTool({ storage }),
+    createProjectUnarchiveTool({ storage }),
   ]
   if (shareDeps) {
     tools.push(createShareTool(shareDeps))

@@ -209,6 +209,20 @@ PROJECT MEMORY (.huozi/memory.jsonl)
     in the workspace root README.md (human-maintained). There is no
     workspace-level memory file.
 
+PROJECT LIFECYCLE
+  - To turn a plain folder into a Project, call huozi_project_upgrade
+    ({ folder_path: "<name>" }). It mints three files in ONE commit:
+    README.md (frontmatter only — body untouched if README exists),
+    tasks.jsonl, and .huozi/memory.jsonl. Refuses reserved names
+    (.archive / __assets__ / .huozi) and nested paths — top-level only.
+  - To put a Project on ice, call huozi_project_archive. It moves the
+    whole folder under \`.archive/<name>/\`; restore later with
+    huozi_project_unarchive. Reserved system folders cannot be archived.
+  - Tasks live in a Project's \`tasks.jsonl\` — a single-file Collection
+    same shape as inbox.jsonl: schema first line, then one event per
+    line, multiple tasks identified by \`id\`. Use huozi_edit / huozi_write
+    to append.
+
 WHAT IS NOT SUPPORTED (don't try to work around these — tell the user)
   - No Bash, no shell. This is a cloud surface, not a local machine.
   - No file >10 MB inline through huozi_upload. Larger files: split, or use
