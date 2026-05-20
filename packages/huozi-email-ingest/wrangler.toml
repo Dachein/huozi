@@ -1,0 +1,46 @@
+name = "huozi-email-ingest"
+main = "src/index.ts"
+compatibility_date = "2026-04-25"
+compatibility_flags = ["nodejs_compat"]
+
+# This Worker has NO HTTP routes. It only runs on Email Routing events
+# (CF Email Routing → catch-all rule on `mail.huozi.app` → this Worker).
+# Health / debug calls go through the main huozi-cloud Worker instead.
+
+# ── Service binding to the main API Worker ────────────────────────────
+#
+# We forward every parsed message to `/admin/tasks/email-ingest` on
+# huozi-cloud. Using a service binding instead of a public-DNS fetch
+# keeps the call on Cloudflare's internal network — no DNS hop, no
+# TLS handshake, ~5–10 ms saved per email.
+[[services]]
+binding = "CLOUD"
+service = "huozi-cloud"
+
+# ── Vars + secrets ────────────────────────────────────────────────────
+#
+# HUOZI_ADMIN_SECRET is set via `wrangler secret put HUOZI_ADMIN_SECRET`
+# and must match the secret on huozi-cloud. The main Worker's admin
+# endpoints reject any caller without this header — including this one.
+#
+# DEBUG_LOG_DROPS toggles whether silent-drop reasons are written to the
+# Worker's log stream. Off by default to keep wrangler tail quiet during
+# normal traffic; flip to "1" when diagnosing why a sender's mail isn't
+# landing.
+[vars]
+DEBUG_LOG_DROPS = "0"
+
+# ── Notes for deployer ────────────────────────────────────────────────
+#
+# After `wrangler deploy`:
+#   1. Cloudflare dashboard → mail.huozi.app zone → Email Routing →
+#      Enable; this adds MX + SPF records automatically.
+#   2. Routes tab → "Catch-all address" → Send to a Worker →
+#      pick `huozi-email-ingest`.
+#   3. Verify the destination fallback address (any owner-controlled
+#      inbox) — Cloudflare requires one even when the catch-all goes
+#      to a Worker.
+#
+# A future v2 may add an outbound `send_email` binding to push replies
+# back through Email Routing; left out of v1 because Tasks doesn't yet
+# auto-reply.

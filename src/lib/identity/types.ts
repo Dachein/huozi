@@ -88,6 +88,18 @@ export interface IdentityService {
    * connection metadata lives entirely in D1.
    */
   formatMintName(label: string, kind: AgentKind): string;
+
+  // ── Tasks: edition capabilities ───────────────────────────────────────
+  /**
+   * Whether this edition exposes the inbound magic-address ingest path
+   * (`t-<token>@mail.huozi.app`). Cloud returns true; Edge returns false
+   * because no shared inbound domain exists. The Tasks settings UI uses
+   * this to decide between the magic-address panel and the webhook-only
+   * panel. See `app/docs/tasks.md` §10. All other Tasks features (webhook
+   * ingest, manual create, daemon, confirm) are edition-neutral and do
+   * not gate on this flag.
+   */
+  supportsEmailIngest(): boolean;
 }
 
 export type CreateWorkspaceResult =

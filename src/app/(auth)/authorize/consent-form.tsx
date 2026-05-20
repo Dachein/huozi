@@ -23,10 +23,17 @@ const SCOPE_KEYS: Record<string, string> = {
   share: "auth.authorize.scope.share",
 };
 
+// Hard ceiling for the label string; matches the cap the worker
+// enforces in handleOauthApprove. 80 chars is "long enough for a folder
+// path or project descriptor, short enough not to overflow the
+// connections-list subtitle".
+const LABEL_MAX_LEN = 80;
+
 export function ConsentForm(props: Props) {
   const _ = useT();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [label, setLabel] = useState("");
 
   const scopes = (props.scope ?? "mcp").split(/\s+/).filter(Boolean);
 
@@ -44,6 +51,9 @@ export function ConsentForm(props: Props) {
           body: JSON.stringify({
             session_id: props.sessionId,
             workspace_id: props.workspaceId,
+            ...(action === "approve" && label.trim()
+              ? { label: label.trim().slice(0, LABEL_MAX_LEN) }
+              : {}),
           }),
         },
       );
@@ -138,6 +148,36 @@ export function ConsentForm(props: Props) {
             </a>
           </div>
         )}
+
+        {/* Optional label — lets users distinguish multiple connections
+            of the same agent kind in the workspace connections list.
+            OAuth DCR doesn't carry project context (Claude Code uses a
+            fixed `client_name` across all projects), so we ask here. */}
+        <div>
+          <label
+            htmlFor="conn-label"
+            className="block text-xs uppercase tracking-wider text-muted-foreground mb-1"
+          >
+            {_("auth.authorize.labelLabel")}
+            <span className="ml-1 normal-case tracking-normal text-muted-foreground/70">
+              {_("auth.authorize.labelOptional")}
+            </span>
+          </label>
+          <input
+            id="conn-label"
+            type="text"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            maxLength={LABEL_MAX_LEN}
+            disabled={busy}
+            placeholder={_("auth.authorize.labelPlaceholder")}
+            className="w-full text-sm bg-background border border-border rounded-md px-2.5 py-1.5
+                       focus:outline-none focus:ring-1 focus:ring-foreground/40 disabled:opacity-50"
+          />
+          <p className="mt-1 text-[11px] text-muted-foreground/80">
+            {_("auth.authorize.labelHint")}
+          </p>
+        </div>
       </div>
 
       <div className="mt-5 flex items-center justify-end gap-3">

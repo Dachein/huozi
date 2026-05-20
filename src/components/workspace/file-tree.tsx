@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { Fragment, useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { FileIcon } from "@/components/workspace/file-icon";
 import { FolderAclModal } from "@/components/workspace/folder-acl-modal";
 import { useWorkspaceNav } from "@/components/workspace/nav-pending";
@@ -65,26 +65,33 @@ function buildTree(paths: string[], includeAssetsRoot: boolean = true): Node {
     }
   }
 
-  // `__assets__/` is the workspace's default folder for image blobs
-  // (ImageRenderTool dumps hashed PNGs here). Always surface it at root —
-  // even when empty — so users see a consistent home for assets. Suppressed
-  // when a type filter is active (the placeholder is irrelevant in type views).
-  if (includeAssetsRoot && !root.children.find((c) => c.name === ASSETS_DIR)) {
-    root.children.push({
-      name: ASSETS_DIR,
-      path: ASSETS_DIR,
-      isDir: true,
-      children: [],
-    });
+  // System folders — always surfaced at root (even when empty) so they're
+  // one click away. Order: `__mail__/` then `__assets__/`, pinned above all
+  // user dirs. Suppressed when a type filter is active.
+  if (includeAssetsRoot) {
+    for (const sysDir of SYSTEM_DIRS) {
+      if (!root.children.find((c) => c.name === sysDir)) {
+        root.children.push({
+          name: sysDir,
+          path: sysDir,
+          isDir: true,
+          children: [],
+        });
+      }
+    }
   }
 
-  // Sort: dirs first, then alpha. Exception: at the root, `__assets__/`
-  // is pinned at the top so the asset gallery is always one click away.
+  // Sort: dirs first, then alpha. At the root, system dirs are pinned at
+  // the top in SYSTEM_DIRS order, before any user dir.
   const sortNode = (n: Node, isRoot: boolean): void => {
     n.children.sort((a, b) => {
       if (isRoot) {
-        if (a.name === ASSETS_DIR && b.name !== ASSETS_DIR) return -1;
-        if (b.name === ASSETS_DIR && a.name !== ASSETS_DIR) return 1;
+        const sys = SYSTEM_DIRS as readonly string[];
+        const ai = sys.indexOf(a.name);
+        const bi = sys.indexOf(b.name);
+        if (ai !== -1 && bi !== -1) return ai - bi;
+        if (ai !== -1) return -1;
+        if (bi !== -1) return 1;
       }
       if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
       return a.name.localeCompare(b.name);
@@ -96,7 +103,9 @@ function buildTree(paths: string[], includeAssetsRoot: boolean = true): Node {
   return root;
 }
 
+const MAIL_DIR = "__mail__";
 const ASSETS_DIR = "__assets__";
+const SYSTEM_DIRS = [MAIL_DIR, ASSETS_DIR] as const;
 
 /** Ancestors of a path like "a/b/c.ts" → ["a", "a/b"]. */
 function ancestorDirs(path: string): string[] {
@@ -140,14 +149,16 @@ export function FileTree({
   members,
   currentUserId,
 }: FileTreeProps) {
-  // When the caller doesn't pass currentPath (the new view/layout.tsx
-  // can't read searchParams from a Server Layout), derive it from the
-  // URL on the client so the highlight updates as soon as the user
+  // When the caller doesn't pass currentPath (the shared workspace shell
+  // layout can't read searchParams from a Server Layout), derive it from
+  // the URL on the client so the highlight updates as soon as the user
   // clicks a Link — before the new page.tsx finishes loading.
   const pathname = usePathname();
   const search = useSearchParams();
   const derivedPath =
-    pathname === "/workspace/view" ? (search.get("path") ?? null) : null;
+    pathname === "/workspace/view" || pathname === "/workspace/history"
+      ? (search.get("path") ?? null)
+      : null;
   const currentPath = currentPathProp ?? derivedPath;
 
   const t = useT();
@@ -321,20 +332,35 @@ function TreeNodeList({
 
   return (
     <ul>
-      {visibleNodes.map((node) => (
-        <TreeNode
-          key={node.path}
-          node={node}
-          depth={depth}
-          currentPath={currentPath}
-          onToggle={onToggle}
-          isOpen={isOpen}
-          matching={matching}
-          onNavigate={onNavigate}
-          privatePrefixes={privatePrefixes}
-          onEditAcl={onEditAcl}
-        />
-      ))}
+      {visibleNodes.map((node, i) => {
+        const next = visibleNodes[i + 1];
+        const isSystemHere =
+          depth === 0 && (SYSTEM_DIRS as readonly string[]).includes(node.name);
+        const nextIsSystem =
+          depth === 0 && !!next && (SYSTEM_DIRS as readonly string[]).includes(next.name);
+        const drawDivider = isSystemHere && !nextIsSystem && !!next;
+        return (
+          <Fragment key={node.path}>
+            <TreeNode
+              node={node}
+              depth={depth}
+              currentPath={currentPath}
+              onToggle={onToggle}
+              isOpen={isOpen}
+              matching={matching}
+              onNavigate={onNavigate}
+              privatePrefixes={privatePrefixes}
+              onEditAcl={onEditAcl}
+            />
+            {drawDivider && (
+              <li
+                aria-hidden="true"
+                className="my-1 mx-2 border-t border-border/40"
+              />
+            )}
+          </Fragment>
+        );
+      })}
     </ul>
   );
 }
@@ -372,10 +398,24 @@ function TreeNode({
   const selected = !node.isDir && currentPath === node.path;
   const paddingLeft = 8 + depth * 14;
 
-  // Top-level `__assets__/` renders as a leaf link to the gallery, not as
-  // an expandable tree node. The folder is an internal hash-named blob
-  // bucket; nobody wants to drill into it by filename. The gallery view
-  // (/workspace/assets) shows thumbnails + copy-link affordances.
+  // Top-level system folders render as leaf links to their dedicated views,
+  // not as expandable tree nodes. They're system-owned spaces where the
+  // raw file list isn't meaningful to a human.
+  if (node.isDir && depth === 0 && node.name === MAIL_DIR) {
+    const mailActive = currentPath?.startsWith(`${MAIL_DIR}/`) ?? false;
+    return (
+      <li>
+        <FileLeafLink
+          href="/workspace/mail"
+          onNavigate={onNavigate}
+          selected={mailActive}
+          paddingLeft={paddingLeft}
+          name={node.name}
+          isDir
+        />
+      </li>
+    );
+  }
   if (node.isDir && depth === 0 && node.name === ASSETS_DIR) {
     const galleryActive = currentPath?.startsWith(`${ASSETS_DIR}/`) ?? false;
     return (

@@ -159,5 +159,9 @@ export async function createCloudIdentity(): Promise<IdentityService> {
     markConnectionRevoked: connections.markConnectionRevoked,
     ownsConnection: connections.ownsConnection,
     formatMintName: connections.formatMintName,
+
+    supportsEmailIngest(): boolean {
+      return true;
+    },
   };
 }

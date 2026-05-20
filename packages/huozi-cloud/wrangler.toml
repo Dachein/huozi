@@ -47,6 +47,18 @@ routes = [
 [vars]
 HUOZI_PUBLIC_BASE = "https://cloud.huozi.app"
 
+# Cloudflare zone where the magic-address email domain lives. The mail
+# setup helper (POST /admin/mail/setup) calls the CF Email Routing API
+# against this zone. Pair with the CF_API_TOKEN secret — without the
+# token, the zone id is harmless on its own.
+CF_MAIL_ZONE_ID = "c4552e43cc18a95d99cf2160fa49e1dc"
+CF_MAIL_ZONE_NAME = "huozi.chat"
+# Worker that handles inbound mail for *@huozi.chat. The setup
+# helper aims the catch-all rule at this worker. As of the v0 merge
+# this IS huozi-cloud itself — the email() handler lives in this
+# Worker (storage/cloudflare/mail-inbound.ts), so no service binding.
+CF_MAIL_INGEST_WORKER = "huozi-cloud"
+
 # ── R2: blob storage ─────────────────────────────────────────────────
 [[r2_buckets]]
 binding = "BLOBS"

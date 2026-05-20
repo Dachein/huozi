@@ -384,7 +384,11 @@ CREATE TABLE IF NOT EXISTS oauth_authorization_codes (
   code_challenge_method TEXT NOT NULL,         -- 'S256' only
   created_at            INTEGER NOT NULL,
   expires_at            INTEGER NOT NULL,
-  consumed_at           INTEGER
+  consumed_at           INTEGER,
+  -- Optional user-supplied label from the consent form (e.g. project
+  -- name). Folded into api_keys.name at /token time so the UI subtitle
+  -- can distinguish multiple connections of the same agent kind.
+  label                 TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_oauth_codes_expires
@@ -423,3 +427,60 @@ CREATE TABLE IF NOT EXISTS oauth_pending_authorizations (
 
 CREATE INDEX IF NOT EXISTS idx_oauth_pending_expires
   ON oauth_pending_authorizations (expires_at);
+
+-- ── Tasks: email magic-address + thread index ──────────────────────────
+--
+-- See `app/docs/tasks.md` and migration 0010_tasks_email.sql for context.
+--
+-- `email_tokens` resolves a magic address `t-<token>@mail.huozi.app` to
+-- a workspace+user. Cloud-only; Edge uses webhook ingest. Tokens are the
+-- credential — drop unknown addresses silently rather than bouncing.
+--
+-- `task_message_index` maps RFC 2822 Message-Id to task_id, scoped by
+-- workspace so cross-workspace thread spoofing isn't possible. Used to
+-- decide "this reply lands on existing task" vs "new ticket in inbox."
+
+CREATE TABLE IF NOT EXISTS email_tokens (
+  token            TEXT PRIMARY KEY,
+  workspace_id     TEXT NOT NULL,
+  user_id          TEXT NOT NULL,
+  created_at       INTEGER NOT NULL,
+  revoked_at       INTEGER,
+  last_used_at     INTEGER,
+  allowed_senders  TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_tokens_user
+  ON email_tokens (workspace_id, user_id);
+
+CREATE INDEX IF NOT EXISTS idx_email_tokens_active
+  ON email_tokens (revoked_at);
+
+CREATE TABLE IF NOT EXISTS task_message_index (
+  workspace_id  TEXT NOT NULL,
+  message_id    TEXT NOT NULL,
+  task_id       TEXT NOT NULL,
+  recorded_at   INTEGER NOT NULL,
+  PRIMARY KEY (workspace_id, message_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_message_index_task
+  ON task_message_index (workspace_id, task_id);
+
+-- User-chosen email aliases (sibling to email_tokens). See migration
+-- 0012_email_aliases.sql for the full design rationale.
+CREATE TABLE IF NOT EXISTS email_aliases (
+  local_part       TEXT PRIMARY KEY,
+  workspace_id     TEXT NOT NULL,
+  user_id          TEXT NOT NULL,
+  active           INTEGER NOT NULL DEFAULT 1,
+  created_at       INTEGER NOT NULL,
+  last_used_at     INTEGER,
+  allowed_senders  TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_aliases_user
+  ON email_aliases (workspace_id, user_id);
+
+CREATE INDEX IF NOT EXISTS idx_email_aliases_active
+  ON email_aliases (active);

@@ -532,6 +532,133 @@ export async function cloudAdminListFolderAclsForUser(opts: {
   return json.path_prefixes ?? [];
 }
 
+// ── Tasks: email-token admin helpers ────────────────────────────────────
+//
+// Thin wrappers over `/admin/email-tokens/*` on the huozi-cloud Worker.
+// Server-only (carries HUOZI_ADMIN_SECRET). The Cloud Tasks settings UI
+// calls these via the `/api/app/tasks/email-token` route. See
+// `app/docs/tasks.md` §6.1.
+
+export interface EmailTokenInfo {
+  ok: true;
+  token: string;
+  address: string;
+  created_at: number;
+  last_used_at: number | null;
+  allowed_senders: string[] | null;
+}
+
+interface EmailTokenIdent {
+  workspace_id: string;
+  user_id: string;
+}
+
+async function postEmailToken(
+  path: string,
+  body: EmailTokenIdent,
+): Promise<EmailTokenInfo | { ok: false; error: string; status: number }> {
+  const res = await cloudFetch(path, {
+    method: "POST",
+    headers: {
+      "X-Admin-Secret": adminSecret(),
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return { ok: false, error: text || `http_${res.status}`, status: res.status };
+  }
+  return (await res.json()) as EmailTokenInfo;
+}
+
+export async function cloudAdminEmailTokenGetOrMint(
+  input: EmailTokenIdent,
+): Promise<EmailTokenInfo | { ok: false; error: string; status: number }> {
+  return postEmailToken("/admin/email-tokens/get-or-mint", input);
+}
+
+export async function cloudAdminEmailTokenRotate(
+  input: EmailTokenIdent,
+): Promise<EmailTokenInfo | { ok: false; error: string; status: number }> {
+  return postEmailToken("/admin/email-tokens/rotate", input);
+}
+
+export async function cloudAdminEmailTokenRevoke(input: EmailTokenIdent): Promise<
+  { ok: true } | { ok: false; error: string; status: number }
+> {
+  const res = await cloudFetch("/admin/email-tokens/revoke", {
+    method: "POST",
+    headers: {
+      "X-Admin-Secret": adminSecret(),
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return { ok: false, error: text || `http_${res.status}`, status: res.status };
+  }
+  return { ok: true };
+}
+
+export interface TasksConfirmInput {
+  workspace_id: string;
+  task_id: string;
+  user_id: string;
+  action: "approve" | "reject" | "comment";
+  note?: string;
+}
+
+export async function cloudAdminTasksConfirm(input: TasksConfirmInput): Promise<
+  | { ok: true; task_id: string; path: string; at: string; action: string }
+  | { ok: false; error: string; status: number }
+> {
+  const res = await cloudFetch("/admin/tasks/confirm", {
+    method: "POST",
+    headers: {
+      "X-Admin-Secret": adminSecret(),
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return { ok: false, error: text || `http_${res.status}`, status: res.status };
+  }
+  return (await res.json()) as {
+    ok: true;
+    task_id: string;
+    path: string;
+    at: string;
+    action: string;
+  };
+}
+
+export async function cloudAdminEmailTokenUpdateSenders(input: {
+  workspace_id: string;
+  user_id: string;
+  allowed_senders: string[] | null;
+}): Promise<
+  | { ok: true; allowed_senders: string[] | null }
+  | { ok: false; error: string; status: number }
+> {
+  const res = await cloudFetch("/admin/email-tokens/update-senders", {
+    method: "POST",
+    headers: {
+      "X-Admin-Secret": adminSecret(),
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return { ok: false, error: text || `http_${res.status}`, status: res.status };
+  }
+  const j = (await res.json()) as { ok: true; allowed_senders: string[] | null };
+  return j;
+}
+
 export async function cloudAdminDeleteWorkspace(id: string): Promise<void> {
   const res = await cloudFetch(
     `/admin/workspaces?id=${encodeURIComponent(id)}`,
@@ -544,6 +671,220 @@ export async function cloudAdminDeleteWorkspace(id: string): Promise<void> {
     const body = await res.text().catch(() => "?");
     throw new Error(`delete-workspace failed: ${res.status} ${body}`);
   }
+}
+
+// ── User-chosen email aliases ─────────────────────────────────────────
+
+export interface EmailAlias {
+  local_part: string;
+  active: boolean;
+  created_at: number;
+  last_used_at: number | null;
+  allowed_senders: string[] | null;
+}
+
+interface AliasIdent {
+  workspace_id: string;
+  user_id: string;
+}
+
+export async function cloudAdminEmailAliasCheck(input: { local_part: string }): Promise<
+  | { ok: true; taken: boolean; reason?: "invalid" | "reserved" | "taken" }
+  | { ok: false; error: string; status: number }
+> {
+  const res = await cloudFetch("/admin/email-aliases/check", {
+    method: "POST",
+    headers: {
+      "X-Admin-Secret": adminSecret(),
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return { ok: false, error: text || `http_${res.status}`, status: res.status };
+  }
+  return (await res.json()) as {
+    ok: true;
+    taken: boolean;
+    reason?: "invalid" | "reserved" | "taken";
+  };
+}
+
+export async function cloudAdminEmailAliasList(
+  input: AliasIdent,
+): Promise<
+  { ok: true; aliases: EmailAlias[] } | { ok: false; error: string; status: number }
+> {
+  const res = await cloudFetch("/admin/email-aliases/list", {
+    method: "POST",
+    headers: {
+      "X-Admin-Secret": adminSecret(),
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return { ok: false, error: text || `http_${res.status}`, status: res.status };
+  }
+  return (await res.json()) as { ok: true; aliases: EmailAlias[] };
+}
+
+export async function cloudAdminEmailAliasClaim(
+  input: AliasIdent & { local_part: string },
+): Promise<
+  | { ok: true; alias: EmailAlias }
+  | { ok: false; error: string; message?: string; status: number }
+> {
+  const res = await cloudFetch("/admin/email-aliases/claim", {
+    method: "POST",
+    headers: {
+      "X-Admin-Secret": adminSecret(),
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+  const body = (await res.json().catch(() => null)) as
+    | { ok: true; alias: EmailAlias }
+    | { ok: false; error: string; message?: string }
+    | null;
+  if (!body) {
+    return { ok: false, error: `http_${res.status}`, status: res.status };
+  }
+  if ("ok" in body && body.ok) return body;
+  return {
+    ok: false,
+    error: body.error,
+    message: body.message,
+    status: res.status,
+  };
+}
+
+export async function cloudAdminEmailAliasSetActive(
+  input: AliasIdent & { local_part: string; active: boolean },
+): Promise<{ ok: true; active: boolean } | { ok: false; error: string; status: number }> {
+  const res = await cloudFetch("/admin/email-aliases/set-active", {
+    method: "POST",
+    headers: {
+      "X-Admin-Secret": adminSecret(),
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+  const body = (await res.json().catch(() => null)) as
+    | { ok: true; active: boolean }
+    | { ok: false; error: string }
+    | null;
+  if (!body) {
+    return { ok: false, error: `http_${res.status}`, status: res.status };
+  }
+  if ("ok" in body && body.ok) return body;
+  return { ok: false, error: body.error, status: res.status };
+}
+
+export async function cloudAdminEmailAliasRelease(
+  input: AliasIdent & { local_part: string },
+): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
+  const res = await cloudFetch("/admin/email-aliases/release", {
+    method: "POST",
+    headers: {
+      "X-Admin-Secret": adminSecret(),
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+  const body = (await res.json().catch(() => null)) as
+    | { ok: true }
+    | { ok: false; error: string }
+    | null;
+  if (!body) {
+    return { ok: false, error: `http_${res.status}`, status: res.status };
+  }
+  if ("ok" in body && body.ok) return body;
+  return { ok: false, error: body.error, status: res.status };
+}
+
+export async function cloudAdminEmailAliasUpdateSenders(
+  input: AliasIdent & { local_part: string; allowed_senders: string[] | null },
+): Promise<
+  | { ok: true; allowed_senders: string[] | null }
+  | { ok: false; error: string; status: number }
+> {
+  const res = await cloudFetch("/admin/email-aliases/update-senders", {
+    method: "POST",
+    headers: {
+      "X-Admin-Secret": adminSecret(),
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+  const body = (await res.json().catch(() => null)) as
+    | { ok: true; allowed_senders: string[] | null }
+    | { ok: false; error: string }
+    | null;
+  if (!body) {
+    return { ok: false, error: `http_${res.status}`, status: res.status };
+  }
+  if ("ok" in body && body.ok) return body;
+  return { ok: false, error: body.error, status: res.status };
+}
+
+// ── Mail routing setup ────────────────────────────────────────────────
+
+export interface MailRoutingStatus {
+  configured: boolean;
+  enabled: boolean;
+  status: string | null;
+  catch_all_correct: boolean;
+  catch_all_target: string | null;
+  pending_dns: boolean;
+}
+
+export async function cloudAdminMailStatus(): Promise<
+  { ok: true; status: MailRoutingStatus } | { ok: false; error: string; status: number }
+> {
+  const res = await cloudFetch("/admin/mail/status", {
+    method: "GET",
+    headers: { "X-Admin-Secret": adminSecret() },
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return { ok: false, error: text || `http_${res.status}`, status: res.status };
+  }
+  return (await res.json()) as { ok: true; status: MailRoutingStatus };
+}
+
+export async function cloudAdminMailSetup(): Promise<
+  | { ok: true; status: MailRoutingStatus; actions_taken: string[] }
+  | { ok: false; status: MailRoutingStatus; actions_taken: string[]; error: string }
+> {
+  const res = await cloudFetch("/admin/mail/setup", {
+    method: "POST",
+    headers: { "X-Admin-Secret": adminSecret() },
+  });
+  // The worker returns 200 on success and 502 on partial / failed setup,
+  // both with a structured body. Parse the body either way.
+  const body = (await res.json().catch(() => null)) as
+    | { ok: true; status: MailRoutingStatus; actions_taken: string[] }
+    | { ok: false; status: MailRoutingStatus; actions_taken: string[]; error: string }
+    | null;
+  if (!body) {
+    return {
+      ok: false,
+      status: {
+        configured: false,
+        enabled: false,
+        status: null,
+        catch_all_correct: false,
+        catch_all_target: null,
+        pending_dns: false,
+      },
+      actions_taken: [],
+      error: `http_${res.status}`,
+    };
+  }
+  return body;
 }
 
 // ── Device-flow admin helpers ─────────────────────────────────────────

@@ -1,0 +1,22 @@
+{
+  "name": "huozi-email-ingest",
+  "version": "0.0.0",
+  "description": "Cloudflare Email Routing → huozi-cloud Tasks ingest. Inbound mail at *@mail.huozi.app lands here, gets parsed, and posted to /admin/tasks/email-ingest.",
+  "type": "module",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "cf:dev": "wrangler dev --config wrangler.toml",
+    "cf:deploy": "tsc && wrangler deploy --config wrangler.toml"
+  },
+  "dependencies": {
+    "postal-mime": "^2.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "typescript": "^5.6.3",
+    "wrangler": "^3.99.0"
+  }
+}
