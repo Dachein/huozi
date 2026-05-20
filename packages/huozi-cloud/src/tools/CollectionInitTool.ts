@@ -92,7 +92,7 @@ Usage:
     - \`options: [{ value, label?, color? }]\` — for status / options types (colors carry into chips)
   - \`groups: [{ title, fields, collapsed? }]\` — alternative to slot mode. Renders detail as Notion-style sections. XOR with \`display\` slots — when groups is set, display is ignored. Fields not assigned to any group fall into a tail "·" section.
   - \`detail_view: { show_id, groups_order }\` — \`show_id: false\` hides the entity id line; \`groups_order\` overrides group display order.
-  - \`list_view: { filters, search, row, row_chips }\` — \`filters\` adds dropdown filters (uses \`options\`); \`search\` lists field keys to substring-match. List-row layout has two flavors: prefer \`row: { title, subtitle, tag, timestamp }\` (4 named slots, mail-client style) — each maps to a field key, value renders via the field's type widget. Fallback \`row_chips: [...]\` (legacy, 1-2 chips appended after title+subtitle).
+  - \`list_view: { filters, search, sort, row, row_chips }\` — \`filters\` adds dropdown filters; \`search\` lists field keys to substring-match; \`sort\` is the default order: string shorthand (\`"name"\` asc / \`"-name"\` desc) or \`{field, direction}\`. List-row layout has two flavors: prefer \`row: { title, status, timestamp, subtitle, tag, preview }\` (6 named slots, fixed shape) — each maps to a field key, value renders via the field's type widget. Layout: row 1 = title + inline status chip + right-aligned timestamp; row 2 = subtitle OR tag pills (XOR — tag wins when it has a value); row 3 = preview (2-line clamp). \`status\` is single-valued by spec (array → first item). Fallback \`row_chips: [...]\` (legacy, 1-2 chips appended after title+subtitle).
 - After init, append entity events (with \`id\`) via huozi_write or huozi_edit. To evolve the schema later, append another \`{"op":"schema","schema":{...}}\` line — folds latest-wins per field.
 
 Example:
@@ -123,11 +123,14 @@ Example:
     "list_view": {
       "filters": ["stage"],
       "search":  ["name", "company"],
+      "sort":    "-started",
       "row": {
         "title":     "name",
+        "status":    "stage",
+        "timestamp": "started",
         "subtitle":  "company",
-        "tag":       "stage",
-        "timestamp": "started"
+        "tag":       "labels",
+        "preview":   "notes"
       }
     }
   }

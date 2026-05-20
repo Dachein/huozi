@@ -138,10 +138,12 @@ line kinds exist:
       "filters":    ["stage"],
       "search":     ["name", "company"],
       "row": {
-        "title":     "name",       // big — falls back to entity.title_field
-        "subtitle":  "company",    // small line under title
-        "tag":       "stage",      // single colored chip on the right
-        "timestamp": "started"     // right-aligned time
+        "title":     "name",       // row 1 left (defaults to entity.title_field)
+        "status":    "stage",      // inline chip after title (single value)
+        "timestamp": "started",    // row 1 right (relative time)
+        "subtitle":  "company",    // row 2 (XOR with tag)
+        "tag":       "labels",     // row 2 multi pills (wins when present)
+        "preview":   "notes"       // row 3 (2-line clamp)
       }
     }
   }

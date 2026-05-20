@@ -122,35 +122,44 @@ interface SchemaConfig {
      */
     row_chips?: string[];
     /**
-     * 5-slot named layout for the list row (mail-client style — same
-     * vocabulary you'd see in Outlook, Linear, Apple Mail). Overrides
-     * the legacy title+subtitle+row_chips fallback. Each slot maps to
-     * a field key on the entity; the value renders via that field's
-     * type-aware widget.
+     * Fixed-shape list row layout. Six named slots, structure locked:
      *
      *   ┌────────────────────────────────────────────┐
-     *   │ title (bold)                  tag   time   │
-     *   │ subtitle (medium gray)                     │
-     *   │ preview (small gray, 2 lines)              │
+     *   │ title [status]                       time  │   row 1
+     *   │ subtitle  ─ OR ─  tag pills                │   row 2 (XOR)
+     *   │ preview (small gray, 2 lines clamped)      │   row 3
      *   └────────────────────────────────────────────┘
+     *
+     * Each slot maps to a field key on the entity; the value renders
+     * via that field's type widget. None are required.
      *
      * - `title`     defaults to `entity.title_field`. Falls back to
      *               `entity.id` only when the mapped field is empty.
-     * - `subtitle`  defaults to `entity.subtitle_field`.
-     * - `preview`   no default — multi-line excerpt (line-clamped at 2).
-     * - `tag`       no default — single subtle chip via the field's
-     *               type widget (status colors carry as dots).
+     * - `status`    inline single chip after the title — must be a
+     *               single value (status / options-single / text). When
+     *               pointed at an array field, only the first item
+     *               renders. Replaces the old `tag` slot's inline-chip
+     *               role; rename in schemas: `tag` → `status`.
      * - `timestamp` no default — always rendered as RELATIVE time on
      *               the list row (`5d`, `17h`, `now`) regardless of the
      *               field's declared type. Fallback when omitted = the
      *               entity's commit `at`.
+     * - `subtitle`  defaults to `entity.subtitle_field`. XOR with
+     *               `tag` — when both are declared and `tag` has a
+     *               value, `tag` wins and the text subtitle is hidden.
+     * - `tag`       no default — multi-value tag pills rendered in the
+     *               second row in place of the subtitle. Designed for
+     *               array fields (options / multi_select); a single
+     *               value renders as one pill.
+     * - `preview`   no default — multi-line excerpt (line-clamped 2).
      */
     row?: {
       title?: string;
-      subtitle?: string;
-      preview?: string;
-      tag?: string;
+      status?: string;
       timestamp?: string;
+      subtitle?: string;
+      tag?: string;
+      preview?: string;
     };
     /**
      * Initial layout for the entity list. `"block"` (default) is the
@@ -596,13 +605,19 @@ function EntityRow({
   const isDeleted = entity.status === "deleted";
   const fields = stripConventions(entity.state);
 
-  // Resolve the 5 named slots. `list_view.row` is the authoritative
+  // Resolve the 6 named slots. `list_view.row` is the authoritative
   // mapping; for the slots the schema doesn't pin, fall back to
   // entity-level title_field / subtitle_field.
+  //
+  // `status` (inline after title) is the post-rename home for what
+  // used to be `tag`; back-compat: if `status` is absent but `tag` is
+  // a string (legacy single-chip use), treat it as `status`. New-style
+  // `tag` is the multi-pills slot that XORs with `subtitle`.
   const rowSlots = schema?.list_view?.row;
   const titleField = rowSlots?.title ?? schema?.entity?.title_field;
   const subtitleField = rowSlots?.subtitle ?? schema?.entity?.subtitle_field;
   const previewField = rowSlots?.preview;
+  const statusField = rowSlots?.status;
   const tagField = rowSlots?.tag;
   const timestampField = rowSlots?.timestamp;
 
@@ -613,8 +628,19 @@ function EntityRow({
   const title = titleStr ?? entity.id;
   const subtitle = subtitleField ? pickString(fields, subtitleField) : null;
   const preview = previewField ? pickString(fields, previewField) : null;
+  const statusRaw = statusField ? fields[statusField] : undefined;
+  // status is single-valued by spec — coerce array → first item so a
+  // schema mistake doesn't crowd the title with a chip strip.
+  const statusValue = Array.isArray(statusRaw) ? statusRaw[0] : statusRaw;
+  const statusDef = statusField ? schema?.fields?.[statusField] : undefined;
   const tagValue = tagField ? fields[tagField] : undefined;
   const tagDef = tagField ? schema?.fields?.[tagField] : undefined;
+  const hasTagValue =
+    tagValue !== undefined &&
+    tagValue !== null &&
+    !(Array.isArray(tagValue) && tagValue.length === 0);
+  // XOR: when tag has a value, it takes the subtitle row's slot.
+  const showSubtitleText = !hasTagValue && !!subtitle;
   // Timestamp: always rendered as relative format on list rows (mail
   // pattern). Strip to a parsable string regardless of the field's
   // declared `datetime` widget.
@@ -707,16 +733,17 @@ function EntityRow({
           className={`${rowShell} flex flex-col gap-0.5`}
         >
           <div className="flex items-baseline gap-2 min-w-0">
-            {/* Title cluster: title truncates, tag sits inline immediately
-                after the title (mail/Gmail label pattern). When the title
-                is long it shrinks but the tag stays visible. */}
+            {/* Title cluster: title truncates, status chip sits inline
+                immediately after the title (mail/Gmail label pattern).
+                When the title is long it shrinks but the chip stays
+                visible. status is single-valued by spec. */}
             <div className="flex items-baseline gap-1.5 min-w-0 flex-1 overflow-hidden">
               <span className="text-[14px] font-semibold text-foreground truncate min-w-0">
                 <InlineMarkdown source={title} />
               </span>
-              {tagValue !== undefined && (
+              {statusValue !== undefined && statusValue !== null && (
                 <span className="shrink-0">
-                  <FieldValue value={tagValue} fieldDef={tagDef} />
+                  <FieldValue value={statusValue} fieldDef={statusDef} />
                 </span>
               )}
             </div>
@@ -726,11 +753,16 @@ function EntityRow({
               </span>
             )}
           </div>
-          {subtitle && (
+          {/* Row 2 — XOR: tag pills win when present, else text subtitle. */}
+          {hasTagValue ? (
+            <div className="mt-0.5 flex flex-wrap items-center gap-1 min-w-0">
+              <FieldValue value={tagValue} fieldDef={tagDef} />
+            </div>
+          ) : showSubtitleText ? (
             <div className="text-[12px] text-muted-foreground truncate mt-0.5">
               {subtitle}
             </div>
-          )}
+          ) : null}
           {preview && (
             <div className="text-[12px] text-muted-foreground/80 mt-1 line-clamp-2 break-words">
               {preview}

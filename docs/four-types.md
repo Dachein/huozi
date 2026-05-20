@@ -293,26 +293,34 @@ Fields not assigned to any group fall into a tail "·" section so authors can't 
 
 **List row layout** — two ways to compose the per-row contents:
 
-**Preferred — `list_view.row`** (4 named slots, mail-client style):
+**Fixed-shape `list_view.row`** (6 named slots; structure locked, no auto-pick):
 
 ```jsonc
 "list_view": {
   "row": {
-    "title":     "name",          // big text, first line   (defaults to entity.title_field)
-    "subtitle":  "role",          // small text, second line (defaults to entity.subtitle_field)
-    "tag":       "stage",         // single chip, right side (uses field's type widget — status colors carry through)
-    "timestamp": "last_updated"   // right-aligned time, first line (defaults to the entity's commit `at`)
+    "title":     "name",          // big text, row 1 left   (defaults to entity.title_field)
+    "status":    "stage",         // inline chip after title (single value — array → first item)
+    "timestamp": "last_updated",  // relative time, row 1 right (defaults to entity commit `at`)
+    "subtitle":  "role",          // small text, row 2       (defaults to entity.subtitle_field)
+    "tag":       "tags",          // multi-pill row 2        (XOR with subtitle — tag wins when present)
+    "preview":   "notes"          // 2-line clamp, row 3
   }
 }
 ```
 
 Renders each row as:
 ```
-title                                             timestamp
-subtitle                                                tag
+title [status]                                    timestamp
+subtitle    ─ OR ─    tag1  tag2  tag3
+preview (2-line clamp, body gray)
 ```
 
-Omit any slot — that area renders nothing. Schema-mapped `title` falls back to `entity.id` only when the field's value is empty (so a row never appears truly blank).
+Slot semantics:
+- `status` is **single-valued** by spec — pointed at an array, only the first item renders. Keeps the title row uncluttered.
+- `subtitle` and `tag` share row 2 — declare both freely; at render time `tag` wins whenever it has a value, else the text subtitle shows. (No need to null-out one when adding the other; the runtime XOR handles it.)
+- `preview` is independent — always row 3 when declared.
+- Omit any slot → that area renders nothing. `title` falls back to `entity.id` only when the mapped field is empty.
+- When `list_view.row` is undeclared, the renderer uses `entity.title_field / subtitle_field + commit timestamp` — it will **not** auto-pick chips from `display:meta` fields anymore (that was the old behavior; it crowded rows with whatever happened to be metadata).
 
 **Legacy — `list_view.row_chips`** (1-2 chips appended after title+subtitle): picks specific fields to surface as compact chips. Falls back to auto-picked `display:meta/aside` fields when undeclared. Use `row` instead for new schemas — `row_chips` is kept for back-compat.
 
