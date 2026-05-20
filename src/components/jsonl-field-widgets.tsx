@@ -494,14 +494,37 @@ function DurationValue({ value }: { value: unknown }) {
 }
 
 /**
- * Subtle status chip — small rounded rectangle with a low-alpha fill
- * derived from the schema color, so the chip carries a hint of the
- * declared color without throwing a vibrant green/red onto the paper
- * theme's cream bg. `color-mix(in srgb, …)` does the alpha blending in
- * pure CSS — supported in all modern browsers.
+ * Shared chip styling for status + options widgets.
  *
- * Sized small (10px font, tight padding) so it can sit inline next to
- * a 14px title without crowding it. No color → neutral muted chip.
+ * When the schema declares a per-option `color` (hex/rgb/etc.), we
+ * alpha-blend that color via `color-mix(in srgb, …)` so the chip
+ * carries the declared hue without throwing a vibrant green/red onto
+ * the paper theme's cream bg. Background = 14% color, foreground = 70%
+ * color mixed into `--foreground` so the text still reads against the
+ * tinted bg in every theme.
+ *
+ * No color → fall back to the theme-owned `--chip-bg` / `--chip-fg`
+ * tokens (defined per theme in globals.css), so each theme keeps its
+ * own neutral chip palette: paper = warm cream, brutal-mono = signature
+ * yellow, office = neutral gray. The tokens are the customization
+ * surface — themes override them centrally, not per widget.
+ */
+function chipStyleFromColor(color: string | undefined): React.CSSProperties {
+  if (color) {
+    return {
+      backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)`,
+      color: `color-mix(in srgb, ${color} 70%, var(--foreground))`,
+    };
+  }
+  return {
+    backgroundColor: "var(--chip-bg)",
+    color: "var(--chip-fg)",
+  };
+}
+
+/**
+ * Status chip — small (10px), inline-with-title sizing. Same color
+ * pipeline as OptionsValue; the only difference is dimensions.
  */
 function StatusValue({
   value,
@@ -512,24 +535,22 @@ function StatusValue({
 }) {
   const opt = options?.find((o) => o.value === value);
   const label = opt?.label ?? value;
-  const color = opt?.color;
-  const style: React.CSSProperties = color
-    ? {
-        backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)`,
-        color: `color-mix(in srgb, ${color} 70%, var(--foreground))`,
-      }
-    : {};
-  const className = `inline-block rounded px-1.5 py-px text-[10px] font-medium leading-tight ${
-    color ? "" : "bg-muted/50 text-muted-foreground"
-  }`;
   return (
-    <span className={className} style={style}>
+    <span
+      className="inline-block rounded px-1.5 py-px text-[10px] font-medium leading-tight"
+      style={chipStyleFromColor(opt?.color)}
+    >
       {label}
     </span>
   );
 }
 
-/** Tag chip (lighter weight than status). */
+/**
+ * Tag chip — larger (12px), looser padding for standalone pill use.
+ * Shares the color pipeline with StatusValue via chipStyleFromColor,
+ * so schema-declared `options[].color` paints the background + text
+ * uniformly across both widgets.
+ */
 function OptionsValue({
   value,
   options,
@@ -539,11 +560,10 @@ function OptionsValue({
 }) {
   const opt = options?.find((o) => o.value === value);
   const label = opt?.label ?? value;
-  const color = opt?.color;
   return (
     <span
-      className="inline-block rounded bg-muted/60 px-1.5 py-0.5 text-xs"
-      style={color ? { color } : undefined}
+      className="inline-block rounded px-1.5 py-0.5 text-xs"
+      style={chipStyleFromColor(opt?.color)}
     >
       {label}
     </span>

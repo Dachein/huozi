@@ -159,6 +159,26 @@ interface SchemaConfig {
      * header toggle.
      */
     default_view?: "list" | "block";
+    /**
+     * Default sort order for the list. `field` is a key on the entity
+     * state (or `"id"` / `"_updated_at"` for the entity id / commit
+     * timestamp). `direction` defaults to `"asc"`. Comparison is:
+     *   - numeric when both values are numbers,
+     *   - locale-aware string compare otherwise (works for ISO dates,
+     *     CJK names, etc.).
+     * Missing values sort last regardless of direction so a sparse
+     * column doesn't dump all the entries at the top.
+     *
+     * String shorthand `"name"` ≡ `{field:"name", direction:"asc"}`;
+     * `"-name"` (leading `-`) ≡ `{field:"name", direction:"desc"}` —
+     * matches Django / Algolia conventions.
+     */
+    sort?:
+      | string
+      | {
+          field: string;
+          direction?: "asc" | "desc";
+        };
   };
 }
 
@@ -197,28 +217,40 @@ export function CollectionView({ content }: CollectionViewProps) {
   // momentary "show me what changed at this step."
   const [peekDiff, setPeekDiff] = useState(false);
 
-  // Searched entity list. This is the navigation scope — both the list
-  // and detail prev/next walk this slice. (Schema-declared `filters` are
-  // currently dormant — the search box is the single entry-point. Adding
-  // a dropdown surface back later just means re-wiring this with a
-  // `filters` state and the loop.)
+  // Searched + sorted entity list. This is the navigation scope —
+  // both the list and detail prev/next walk this slice. (Schema-
+  // declared `filters` are currently dormant — the search box is the
+  // single entry-point. Adding a dropdown surface back later just
+  // means re-wiring this with a `filters` state and the loop.)
   const filteredEntities = useMemo(() => {
-    if (search.trim().length === 0) return folded;
-    const q = search.toLowerCase();
+    const q = search.trim().toLowerCase();
     const searchFields = schema?.list_view?.search ?? null;
-    return folded.filter((e) => {
-      if (e.id.toLowerCase().includes(q)) return true;
-      if (searchFields) {
-        return searchFields.some((f) => {
-          const v = e.state[f];
-          return typeof v === "string" && v.toLowerCase().includes(q);
-        });
-      }
-      // No schema → fall back to id + every string field on the entity.
-      return Object.values(e.state).some(
-        (v) => typeof v === "string" && v.toLowerCase().includes(q),
-      );
-    });
+    const matched =
+      q.length === 0
+        ? folded
+        : folded.filter((e) => {
+            if (e.id.toLowerCase().includes(q)) return true;
+            if (searchFields) {
+              return searchFields.some((f) => {
+                const v = e.state[f];
+                return typeof v === "string" && v.toLowerCase().includes(q);
+              });
+            }
+            // No schema → fall back to id + every string field.
+            return Object.values(e.state).some(
+              (v) => typeof v === "string" && v.toLowerCase().includes(q),
+            );
+          });
+
+    const sortSpec = resolveSortSpec(schema?.list_view?.sort);
+    if (!sortSpec) return matched;
+    // Toleration: sort is best-effort. If the field doesn't exist on
+    // any entity, the comparator yields 0 throughout and natural
+    // order is preserved — no crash, just a no-op.
+    const dir = sortSpec.direction === "desc" ? -1 : 1;
+    return [...matched].sort(
+      (a, b) => dir * compareEntityField(a, b, sortSpec.field),
+    );
   }, [folded, search, schema]);
 
   // The drilled entity is resolved against the *unfiltered* set so a
@@ -1704,6 +1736,81 @@ function evalShowWhen(
 ): boolean {
   if (!cond) return true;
   return state[cond.field] === cond.equals;
+}
+
+/**
+ * Normalize a list_view.sort spec from either the string shorthand
+ * (`"name"` / `"-name"`) or the object form into a canonical
+ * `{field, direction}`. Returns null when the spec is missing /
+ * malformed so the caller can skip sorting altogether.
+ */
+type SortSpecInput =
+  | string
+  | { field: string; direction?: "asc" | "desc" }
+  | undefined;
+function resolveSortSpec(
+  spec: SortSpecInput,
+): { field: string; direction: "asc" | "desc" } | null {
+  if (!spec) return null;
+  if (typeof spec === "string") {
+    const trimmed = spec.trim();
+    if (!trimmed) return null;
+    if (trimmed.startsWith("-")) {
+      return { field: trimmed.slice(1), direction: "desc" };
+    }
+    return { field: trimmed, direction: "asc" };
+  }
+  if (typeof spec === "object" && spec.field) {
+    return {
+      field: spec.field,
+      direction: spec.direction === "desc" ? "desc" : "asc",
+    };
+  }
+  return null;
+}
+
+/**
+ * Pluck the sort-key value from a folded entity. Recognizes two
+ * pseudo-fields not present on `state`:
+ *   - "id"           → the entity id itself
+ *   - "_updated_at"  → ISO timestamp of the latest event on this entity
+ */
+function readEntitySortValue(
+  entity: { id: string; state: Record<string, unknown>; history: { at?: string }[] },
+  field: string,
+): unknown {
+  if (field === "id") return entity.id;
+  if (field === "_updated_at") {
+    const last = entity.history[entity.history.length - 1];
+    return last?.at ?? null;
+  }
+  return entity.state[field];
+}
+
+/**
+ * Compare two entities by the given field. Null / undefined sort last
+ * regardless of direction (sparse columns shouldn't blow out the
+ * head). Numbers compare numerically; everything else falls back to a
+ * locale-aware string compare — ISO timestamps and CJK names both
+ * behave correctly.
+ */
+function compareEntityField(
+  a: { id: string; state: Record<string, unknown>; history: { at?: string }[] },
+  b: { id: string; state: Record<string, unknown>; history: { at?: string }[] },
+  field: string,
+): number {
+  const av = readEntitySortValue(a, field);
+  const bv = readEntitySortValue(b, field);
+  const aMissing = av === undefined || av === null || av === "";
+  const bMissing = bv === undefined || bv === null || bv === "";
+  if (aMissing && bMissing) return 0;
+  if (aMissing) return 1; // nulls last
+  if (bMissing) return -1;
+  if (typeof av === "number" && typeof bv === "number") return av - bv;
+  return String(av).localeCompare(String(bv), undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
 }
 
 /**

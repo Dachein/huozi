@@ -316,6 +316,20 @@ Omit any slot — that area renders nothing. Schema-mapped `title` falls back to
 
 **Legacy — `list_view.row_chips`** (1-2 chips appended after title+subtitle): picks specific fields to surface as compact chips. Falls back to auto-picked `display:meta/aside` fields when undeclared. Use `row` instead for new schemas — `row_chips` is kept for back-compat.
 
+**Default sort — `list_view.sort`** (single key):
+
+```jsonc
+"list_view": {
+  "sort": "name_en"           // shorthand: ascending
+  // "sort": "-published_at"  // leading "-" = descending
+  // "sort": { "field": "stage", "direction": "asc" }   // object form
+}
+```
+
+- `field` is any entity key, plus two pseudo-fields: `"id"` (the entity id) and `"_updated_at"` (the latest event's `at` timestamp).
+- Comparison: numeric when both values are numbers, else locale-aware string compare with `numeric: true` (so `"item 2" < "item 10"`, ISO dates and CJK names both behave). Missing values sort last regardless of direction so a sparse column doesn't dump empty rows at the top.
+- Best-effort: an unknown field is a silent no-op (natural append order wins).
+
 **Multiple schema events accumulate.** Schema is event-sourced like everything else — append a new `{"op":"schema",...}` line to add a field or change a filter. The viewer folds all schema events in `at` order via deep-merge (later wins on scalar conflicts; nested objects merge by key; arrays replace wholesale). This means you can extend the schema without touching old lines:
 
 ```jsonl

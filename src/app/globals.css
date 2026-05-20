@@ -50,6 +50,13 @@
   --scrollbar-thumb: rgba(45, 37, 25, 0.25);
   --scrollbar-thumb-hover: rgba(45, 37, 25, 0.45);
 
+  /* Default chip palette — used by jsonl status/options widgets when
+     the schema doesn't declare a per-option color. Per-option `color`
+     in the schema overrides via color-mix at the widget; these tokens
+     define the unstyled fallback so themes carry visual identity. */
+  --chip-bg: color-mix(in srgb, var(--muted) 60%, transparent);
+  --chip-fg: var(--muted-foreground);
+
   /* Typography */
   --font-sans-stack: var(--font-geist-sans);
   --font-mono-stack: var(--font-geist-mono);
@@ -180,6 +187,10 @@
   --scrollbar-thumb: rgba(0, 0, 0, 0.35);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.65);
 
+  /* Chip palette — brutal-mono: signature yellow with hard black text. */
+  --chip-bg: var(--muted);
+  --chip-fg: var(--muted-foreground);
+
   /* Fonts — Amber reference uses heavy-weight sans, not mono. The
    * theme key stays `brutal-mono` for cookie continuity but the
    * stack is sans now. `--font-mono-stack` keeps JetBrains Mono so
@@ -293,6 +304,10 @@
   /* Scrollbar thumb for office — neutral gray, low-contrast like Windows. */
   --scrollbar-thumb: rgba(97, 97, 97, 0.35);
   --scrollbar-thumb-hover: rgba(97, 97, 97, 0.6);
+
+  /* Chip palette — office: neutral gray, Fluent-style. */
+  --chip-bg: var(--muted);
+  --chip-fg: var(--muted-foreground);
 
   --font-sans-stack: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
   --font-mono-stack: "Cascadia Code", "Cascadia Mono", Consolas, "SF Mono", Menlo, ui-monospace, monospace;
