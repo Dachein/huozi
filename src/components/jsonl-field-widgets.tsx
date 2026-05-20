@@ -494,12 +494,14 @@ function DurationValue({ value }: { value: unknown }) {
 }
 
 /**
- * Subtle status indicator — a small colored dot + muted label.
- * Matches the mail Pending/Routed/Dismissed pattern so status reads
- * the same across the product without a vibrant pill that clashes
- * with the paper/brutal-mono cream backgrounds. Schema color drives
- * only the dot; text stays in muted-foreground so the chip never
- * dominates a row.
+ * Subtle status chip — small rounded rectangle with a low-alpha fill
+ * derived from the schema color, so the chip carries a hint of the
+ * declared color without throwing a vibrant green/red onto the paper
+ * theme's cream bg. `color-mix(in srgb, …)` does the alpha blending in
+ * pure CSS — supported in all modern browsers.
+ *
+ * Sized small (10px font, tight padding) so it can sit inline next to
+ * a 14px title without crowding it. No color → neutral muted chip.
  */
 function StatusValue({
   value,
@@ -511,16 +513,18 @@ function StatusValue({
   const opt = options?.find((o) => o.value === value);
   const label = opt?.label ?? value;
   const color = opt?.color;
+  const style: React.CSSProperties = color
+    ? {
+        backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)`,
+        color: `color-mix(in srgb, ${color} 70%, var(--foreground))`,
+      }
+    : {};
+  const className = `inline-block rounded px-1.5 py-px text-[10px] font-medium leading-tight ${
+    color ? "" : "bg-muted/50 text-muted-foreground"
+  }`;
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-      {color && (
-        <span
-          aria-hidden
-          className="size-1.5 rounded-full"
-          style={{ background: color }}
-        />
-      )}
-      <span>{label}</span>
+    <span className={className} style={style}>
+      {label}
     </span>
   );
 }

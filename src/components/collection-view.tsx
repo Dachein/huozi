@@ -178,7 +178,6 @@ export function CollectionView({ content }: CollectionViewProps) {
   );
 
   const [drillEntityId, setDrillEntityId] = useState<string | null>(null);
-  const [filters, setFilters] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -198,35 +197,29 @@ export function CollectionView({ content }: CollectionViewProps) {
   // momentary "show me what changed at this step."
   const [peekDiff, setPeekDiff] = useState(false);
 
-  // Filtered + searched entity list. This is the navigation scope —
-  // both the list and detail prev/next walk this slice.
+  // Searched entity list. This is the navigation scope — both the list
+  // and detail prev/next walk this slice. (Schema-declared `filters` are
+  // currently dormant — the search box is the single entry-point. Adding
+  // a dropdown surface back later just means re-wiring this with a
+  // `filters` state and the loop.)
   const filteredEntities = useMemo(() => {
-    let out = folded;
-    for (const [key, value] of Object.entries(filters)) {
-      if (!value) continue;
-      out = out.filter((e) => e.state[key] === value);
-    }
-    if (search.trim().length > 0) {
-      const q = search.toLowerCase();
-      const searchFields =
-        schema?.list_view?.search ??
-        // No schema → fall back to id + every string field on the entity.
-        null;
-      out = out.filter((e) => {
-        if (e.id.toLowerCase().includes(q)) return true;
-        if (searchFields) {
-          return searchFields.some((f) => {
-            const v = e.state[f];
-            return typeof v === "string" && v.toLowerCase().includes(q);
-          });
-        }
-        return Object.values(e.state).some(
-          (v) => typeof v === "string" && v.toLowerCase().includes(q),
-        );
-      });
-    }
-    return out;
-  }, [folded, filters, search, schema]);
+    if (search.trim().length === 0) return folded;
+    const q = search.toLowerCase();
+    const searchFields = schema?.list_view?.search ?? null;
+    return folded.filter((e) => {
+      if (e.id.toLowerCase().includes(q)) return true;
+      if (searchFields) {
+        return searchFields.some((f) => {
+          const v = e.state[f];
+          return typeof v === "string" && v.toLowerCase().includes(q);
+        });
+      }
+      // No schema → fall back to id + every string field on the entity.
+      return Object.values(e.state).some(
+        (v) => typeof v === "string" && v.toLowerCase().includes(q),
+      );
+    });
+  }, [folded, search, schema]);
 
   // The drilled entity is resolved against the *unfiltered* set so a
   // direct link / saved id still works even if the current filters
@@ -338,8 +331,6 @@ export function CollectionView({ content }: CollectionViewProps) {
     return <EmptyState t={t} />;
   }
 
-  const filterFieldKeys = schema?.list_view?.filters ?? [];
-
   // Email/Linear-style 3-pane: list is always a narrow vertical column,
   // detail pane is always rendered to the right (empty state when nothing
   // is selected). Grid (block) view doesn't make sense in a narrow
@@ -423,15 +414,6 @@ export function CollectionView({ content }: CollectionViewProps) {
 
       </header>
 
-      {schema && filterFieldKeys.length > 0 && (
-        <FilterBar
-          schema={schema}
-          filterFieldKeys={filterFieldKeys}
-          filters={filters}
-          onFiltersChange={setFilters}
-        />
-      )}
-
       {errors.length > 0 && <ErrorsStrip errors={errors} />}
 
       <ListDetailLayout
@@ -465,50 +447,10 @@ export function CollectionView({ content }: CollectionViewProps) {
 
 /* ── Filter / search bar ─────────────────────────────────────────── */
 
-function FilterBar({
-  schema,
-  filterFieldKeys,
-  filters,
-  onFiltersChange,
-}: {
-  schema: SchemaConfig;
-  filterFieldKeys: readonly string[];
-  filters: Record<string, string>;
-  onFiltersChange: (next: Record<string, string>) => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      {filterFieldKeys.map((key) => {
-        const def = schema.fields?.[key];
-        const options = def?.options ?? [];
-        if (options.length === 0) return null;
-        const label = def?.label ?? key;
-        const current = filters[key] ?? "";
-        return (
-          <select
-            key={key}
-            value={current}
-            onChange={(e) => {
-              const v = e.target.value;
-              const next = { ...filters };
-              if (v) next[key] = v;
-              else delete next[key];
-              onFiltersChange(next);
-            }}
-            className="text-[11px] px-2 py-1 rounded border border-border/60 bg-background text-foreground hover:border-border focus:outline-none focus:ring-1 focus:ring-foreground/20"
-          >
-            <option value="">{label}: all</option>
-            {options.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {label}: {opt.label ?? opt.value}
-              </option>
-            ))}
-          </select>
-        );
-      })}
-    </div>
-  );
-}
+/* FilterBar removed — `list_view.filters` schema entries still parse
+ * but no longer surface a dropdown. The list-pane search input is the
+ * single entry-point for narrowing the list (lower visual complexity,
+ * one mental model). Schema's `filters` is preserved for future use. */
 
 /* ── Empty state ──────────────────────────────────────────────────── */
 
@@ -720,19 +662,24 @@ function EntityRow({
           className={`${rowShell} flex flex-col gap-0.5`}
         >
           <div className="flex items-baseline gap-2 min-w-0">
-            <span className="text-[14px] font-semibold text-foreground truncate min-w-0 flex-1">
-              <InlineMarkdown source={title} />
-            </span>
-            <span className="shrink-0 flex items-baseline gap-2 text-xs text-muted-foreground">
+            {/* Title cluster: title truncates, tag sits inline immediately
+                after the title (mail/Gmail label pattern). When the title
+                is long it shrinks but the tag stays visible. */}
+            <div className="flex items-baseline gap-1.5 min-w-0 flex-1 overflow-hidden">
+              <span className="text-[14px] font-semibold text-foreground truncate min-w-0">
+                <InlineMarkdown source={title} />
+              </span>
               {tagValue !== undefined && (
-                <FieldValue value={tagValue} fieldDef={tagDef} />
-              )}
-              {tsToShow && (
-                <span className="tabular-nums text-[11px]">
-                  <FieldValue value={tsToShow} fieldDef={tsRenderDef} />
+                <span className="shrink-0">
+                  <FieldValue value={tagValue} fieldDef={tagDef} />
                 </span>
               )}
-            </span>
+            </div>
+            {tsToShow && (
+              <span className="shrink-0 text-[10px] text-muted-foreground/80 tabular-nums">
+                <FieldValue value={tsToShow} fieldDef={tsRenderDef} />
+              </span>
+            )}
           </div>
           {subtitle && (
             <div className="text-[12px] text-muted-foreground truncate mt-0.5">
@@ -1369,21 +1316,26 @@ function GroupSection({
   canEditField: (v: unknown) => v is string;
 }) {
   const [collapsed, setCollapsed] = useState(group.collapsed);
+  // Minimal section header: small uppercase title with a thin divider
+  // below (Notion property-group style). The header is the full-width
+  // click target for collapse — no chevron clutter in the open state;
+  // a small ▸ appears only when collapsed so users can re-open.
   return (
     <section className="min-w-0">
       <button
         type="button"
         onClick={() => setCollapsed((v) => !v)}
-        className="flex items-baseline gap-2 mb-2 text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+        className="w-full text-left mb-2 outline-none group/sec"
         aria-expanded={!collapsed}
       >
-        <span aria-hidden className="font-mono text-[10px]">
-          {collapsed ? "▸" : "▾"}
-        </span>
-        <span>{group.title}</span>
-        <span className="text-muted-foreground/60 font-mono">
-          · {group.rows.length}
-        </span>
+        <div className="flex items-baseline gap-1.5 text-[11px] uppercase tracking-wider text-muted-foreground/80 pb-1.5 border-b border-border/40">
+          <span>{group.title}</span>
+          {collapsed && (
+            <span aria-hidden className="font-mono text-[10px]">
+              ▸
+            </span>
+          )}
+        </div>
       </button>
       {!collapsed && (
         <dl className="space-y-1.5">
