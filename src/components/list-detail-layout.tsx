@@ -85,6 +85,15 @@ export interface ListDetailLayoutProps {
   defaultWidth?: number;
   minWidth?: number;
   maxWidth?: number;
+  /**
+   * Suppress the detail-pane chrome row (prev/next buttons, label,
+   * close) entirely on desktop, even when a navigator is bound.
+   * Keyboard shortcuts still fire — useful when the renderer would
+   * rather surface "31 / ↑↓ to switch" in its own header to save a
+   * row of vertical space. Mobile drawer keeps its chrome regardless
+   * (it owns the only Close affordance on small screens).
+   */
+  hideDesktopChrome?: boolean;
 }
 
 // Matches tailwind `lg:` breakpoint. Below this, detail renders as a
@@ -104,6 +113,7 @@ export function ListDetailLayout({
   defaultWidth = 400,
   minWidth = 320,
   maxWidth = 720,
+  hideDesktopChrome = false,
 }: ListDetailLayoutProps) {
   // Selection state — actual data presence.
   const hasSelection = detail !== null;
@@ -215,9 +225,9 @@ export function ListDetailLayout({
 
   // Keyboard only active while there's a real selection — defaultOpen
   // alone shouldn't hijack ↑/↓ when the user is just browsing.
-  // Both ↑/↓ and ←/→ walk prev/next: vertical keys match the list's
-  // visual axis, horizontal keys match the "previous/next item" pager
-  // mental model users carry over from mail/photo viewers.
+  // The list is vertical (email-style 3-pane), so ↑/↓ matches the
+  // visual axis. Horizontal keys (←/→) are intentionally left to the
+  // domain renderer — jsonl uses them for history version scrub.
   useEffect(() => {
     if (!hasSelection) return;
     const onKey = (e: KeyboardEvent) => {
@@ -233,12 +243,14 @@ export function ListDetailLayout({
         return;
       }
       if (inField) return;
-      const isPrev = e.key === "ArrowUp" || e.key === "ArrowLeft";
-      const isNext = e.key === "ArrowDown" || e.key === "ArrowRight";
-      if (isPrev && navigator?.canGoPrev && navigator.goPrev) {
+      if (e.key === "ArrowUp" && navigator?.canGoPrev && navigator.goPrev) {
         e.preventDefault();
         navigator.goPrev();
-      } else if (isNext && navigator?.canGoNext && navigator.goNext) {
+      } else if (
+        e.key === "ArrowDown" &&
+        navigator?.canGoNext &&
+        navigator.goNext
+      ) {
         e.preventDefault();
         navigator.goNext();
       }
@@ -293,13 +305,15 @@ export function ListDetailLayout({
             }`}
             style={asideStyle}
           >
-            <DetailChrome
-              navigator={navigator}
-              onClose={onClose}
-              extra={detailHeader}
-              showClose={!defaultOpen}
-              showWhenEmpty={defaultOpen && !hasSelection}
-            />
+            {!hideDesktopChrome && (
+              <DetailChrome
+                navigator={navigator}
+                onClose={onClose}
+                extra={detailHeader}
+                showClose={!defaultOpen}
+                showWhenEmpty={defaultOpen && !hasSelection}
+              />
+            )}
             <div
               ref={desktopScrollRef}
               className="huozi-scrollarea flex-1 min-h-0 overflow-y-auto"
@@ -359,13 +373,9 @@ function DetailChrome({
   showWhenEmpty: boolean;
 }) {
   const hasNav = !!(navigator?.goPrev || navigator?.goNext);
-  // When always-on with no selection, render an empty chrome row to
-  // keep vertical alignment with the list pane's header.
-  if (showWhenEmpty && !hasNav && !extra && !showClose) {
-    return (
-      <header className="border-b border-border/40 shrink-0 h-[34px]" />
-    );
-  }
+  // Nothing to render — let the detail body claim the whole pane
+  // instead of reserving an empty 34px strip.
+  if (!hasNav && !extra && !showClose) return null;
   return (
     <header className="flex items-center gap-1 px-2 py-1.5 border-b border-border/40 shrink-0">
       {hasNav && (

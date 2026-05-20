@@ -153,6 +153,7 @@ export const en = {
   "ws.coll.view.timeline": "Timeline",
   "ws.coll.entities": "{n} entities",
   "ws.coll.events": "{n} events",
+  "ws.coll.kbd_hint": "↑↓ switch entity · ←→ history",
   "ws.coll.errors": "{n} parse errors",
   "ws.coll.empty.title": "This is a Collection",
   "ws.coll.empty.body": "Collections are one of huozi's four data types — a stream of entities with identity and time. Ask your Agent to append the first event.",

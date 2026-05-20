@@ -152,6 +152,7 @@ export const zh = {
   "ws.coll.view.timeline": "时间线",
   "ws.coll.entities": "{n} 个实体",
   "ws.coll.events": "{n} 行事件",
+  "ws.coll.kbd_hint": "↑↓ 切换实体 · ←→ 历史版本",
   "ws.coll.errors": "{n} 行解析错误",
   "ws.coll.empty.title": "这是一集 Collection",
   "ws.coll.empty.body": "Collection 是 huozi 的 4 件套之一,记录有身份和时间的实体流水。让 Agent 追加第一条事件来开始。",

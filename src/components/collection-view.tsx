@@ -262,16 +262,16 @@ export function CollectionView({ content }: CollectionViewProps) {
     });
   }, [historyLen]);
 
-  // Keyboard (collection-specific only — ↑/↓/←/→/Esc are owned by
+  // Keyboard (collection-specific only — ↑/↓/Esc are owned by
   // ListDetailLayout's chrome since they walk prev/next entity in the
-  // generic list+detail pager):
+  // generic list+detail pager; the list is vertical so ↑/↓ matches it):
   //   /          focus the search input (GitHub-style, no modifier)
   //   ⌘/Ctrl+K   alt focus (often intercepted by browsers though, so
   //              `/` is the primary)
+  //   ←/→        older / newer version of the selected entity's history
+  //              (timeline scrubs horizontally — distinct axis from the
+  //              vertical entity pager, no conflict)
   //   Space      hold to highlight diff at the active event
-  // Version-scrub (older/newer event of the selected entity) is
-  // intentionally button-only on the timeline — ←/→ is reserved for
-  // entity pager so it matches every other list+detail surface.
   // Inputs / textareas opt out so typing isn't hijacked.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -295,11 +295,19 @@ export function CollectionView({ content }: CollectionViewProps) {
         return;
       }
 
-      if (drillEntity && e.code === "Space" && !e.repeat) {
-        // Hold-to-peek: highlight diff while pressed. Prevent the
-        // browser's default page-down on Space.
-        e.preventDefault();
-        setPeekDiff(true);
+      if (drillEntity) {
+        if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          goOlderVersion();
+        } else if (e.key === "ArrowRight") {
+          e.preventDefault();
+          goNewerVersion();
+        } else if (e.code === "Space" && !e.repeat) {
+          // Hold-to-peek: highlight diff while pressed. Prevent the
+          // browser's default page-down on Space.
+          e.preventDefault();
+          setPeekDiff(true);
+        }
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {
@@ -311,7 +319,7 @@ export function CollectionView({ content }: CollectionViewProps) {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [drillEntity]);
+  }, [drillEntity, goOlderVersion, goNewerVersion]);
 
   // Drop the peek state whenever we leave detail view, so re-entering
   // doesn't show stale highlights.
@@ -373,9 +381,12 @@ export function CollectionView({ content }: CollectionViewProps) {
     />
   ) : null;
 
-  const detailLabel =
+  // Position label ("2 / 31") only shown when something's selected.
+  // Used in the inline keyboard hint below instead of the detail chrome
+  // so we save a row of vertical space in the detail body.
+  const positionLabel =
     drillEntity && nav.index >= 0
-      ? `${nav.index + 1}/${filteredEntities.length}`
+      ? `${nav.index + 1} / ${filteredEntities.length}`
       : null;
 
   return (
@@ -405,6 +416,15 @@ export function CollectionView({ content }: CollectionViewProps) {
           )}
         </div>
 
+        {drillEntity && (
+          <div className="text-[11px] text-muted-foreground/70 flex items-center gap-2">
+            {positionLabel && (
+              <span className="tabular-nums">{positionLabel}</span>
+            )}
+            <span className="opacity-50">·</span>
+            <span>{t("ws.coll.kbd_hint")}</span>
+          </div>
+        )}
       </header>
 
       {errors.length > 0 && <ErrorsStrip errors={errors} />}
@@ -419,8 +439,8 @@ export function CollectionView({ content }: CollectionViewProps) {
           canGoPrev: nav.canGoPrev,
           canGoNext: nav.canGoNext,
         }}
-        detailHeader={detailLabel}
         defaultOpen={true}
+        hideDesktopChrome={true}
         selectionKey={drillEntityId}
         emptyDetail={
           <div className="h-full flex items-center justify-center text-sm text-muted-foreground p-8 text-center">

@@ -153,6 +153,7 @@ export const ja = {
   "ws.coll.view.timeline": "タイムライン",
   "ws.coll.entities": "{n} エンティティ",
   "ws.coll.events": "{n} イベント",
+  "ws.coll.kbd_hint": "↑↓ エンティティ · ←→ 履歴",
   "ws.coll.errors": "{n} 解析エラー",
   "ws.coll.empty.title": "これは Collection です",
   "ws.coll.empty.body": "Collection は huozi の 4 つのデータ型の 1 つ — ID と時刻を持つエンティティの流れ。Agent に最初のイベントを追加するよう依頼してください。",
