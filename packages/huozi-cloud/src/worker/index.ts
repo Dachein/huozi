@@ -192,6 +192,23 @@ FOLDER-LEVEL CONVENTIONS
     file_path: "blog/"). There is no per-folder log file; commits are
     the log.
 
+PROJECT MEMORY (.huozi/memory.jsonl)
+  - A folder is an "upgraded Project" iff it contains \`.huozi/memory.jsonl\`.
+    That file holds the agent's persistent observations for that scope:
+    feedback the user has given, project facts, references to external
+    systems, user-role context.
+  - When entering a Project folder, FIRST call
+    huozi_memory_list({ project_path: "<folder>" }) to load currently
+    effective memories. Apply learned feedback / project facts to your
+    behavior before responding.
+  - To capture a new memory, call huozi_memory_append with the project
+    path and an event body { type, name, body, why?, how_to_apply? }.
+    \`type\` is one of: feedback / project / reference / user. The server
+    fills id / at / by automatically.
+  - Cross-project user preferences and workspace-wide conventions live
+    in the workspace root README.md (human-maintained). There is no
+    workspace-level memory file.
+
 WHAT IS NOT SUPPORTED (don't try to work around these — tell the user)
   - No Bash, no shell. This is a cloud surface, not a local machine.
   - No file >10 MB inline through huozi_upload. Larger files: split, or use

@@ -25,6 +25,8 @@ import {
 import { createDownloadTool } from '../tools/DownloadTool.js'
 import { createImageRenderTool } from '../tools/ImageRenderTool.js'
 import { createListTreeTool } from '../tools/ListTreeTool.js'
+import { createMemoryAppendTool } from '../tools/MemoryAppendTool.js'
+import { createMemoryListTool } from '../tools/MemoryListTool.js'
 import { createMkdirTool } from '../tools/MkdirTool.js'
 import { createMvTool } from '../tools/MvTool.js'
 import { createRmTool } from '../tools/RmTool.js'
@@ -90,6 +92,8 @@ export function createHuoziToolRegistry(
     createTemplateTool(),
     createUploadTool({ storage }),
     createValidateTool({ storage }),
+    createMemoryAppendTool({ storage }),
+    createMemoryListTool({ storage }),
   ]
   if (shareDeps) {
     tools.push(createShareTool(shareDeps))

@@ -288,14 +288,23 @@ export class Orchestrator {
       const resume = claudeSessionExists(taskId, workdir)
       const taskPath = `${TASK_PREFIX}${taskId}${TASK_SUFFIX}`
 
-      // Emit a `dispatch` marker before spawning so the timeline records
-      // intent even if claude exits immediately.
+      // Per v3.3 spec §5.5: a task can have multiple runs. Every
+      // dispatch starts a fresh `run_id`; all events emitted during
+      // that run carry the same id so the timeline can fold into a
+      // per-run view (resume / pause / restart all become discoverable).
+      // `session_id` stays equal to `taskId` for now because Claude's
+      // CLI couples its session-uuid to that argument — they're
+      // logically distinct (run_id is "this dispatch", session_id is
+      // "this Claude process") and may diverge once the bridge knows
+      // a separate Claude session uuid.
+      const runId = crypto.randomUUID()
       const dispatchEvent = {
         id: taskId,
         at: nowIso(),
         by: 'agent:huozi-bridge',
         op: 'dispatch',
         agent: 'claude-code',
+        run_id: runId,
         session_id: taskId,
         ...(resume ? { resume: true } : {}),
       }
@@ -305,7 +314,9 @@ export class Orchestrator {
         { taskId, prompt, isFirst: !resume },
         async (events) => {
           if (events.length === 0) return
-          const lines = events.map((e) => JSON.stringify(e))
+          // Stamp every streamed event with this run's id so consumers
+          // can group by run without re-deriving from timestamps.
+          const lines = events.map((e) => JSON.stringify({ ...e, run_id: runId }))
           await this.mcp.appendJsonl(taskPath, lines)
         },
       )
@@ -320,6 +331,7 @@ export class Orchestrator {
           at: nowIso(),
           by: 'agent:huozi-bridge',
           op: 'result',
+          run_id: runId,
           result_kind: 'error',
           summary: result.error ?? 'unknown error',
         }

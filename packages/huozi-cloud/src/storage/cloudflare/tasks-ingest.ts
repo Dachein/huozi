@@ -94,6 +94,67 @@ const CANONICAL_TASK_SCHEMA = {
   },
 } as const
 
+/**
+ * Canonical Inbox schema — v3.3.
+ *
+ * The workspace inbox is a pure raw event log: only `op:"ingest"` is
+ * written by new code (legacy `routed`/`dismissed` events are parsed
+ * but the schema no longer surfaces a `status` field — triage state
+ * is computed at render time from referential relationships).
+ *
+ * Mirrors `CANONICAL_INBOX_SCHEMA` in `app/src/lib/tasks/schema.ts`.
+ * Keep them in sync the same way `CANONICAL_TASK_SCHEMA` is kept in
+ * sync — same reason, same trade-off.
+ */
+const CANONICAL_INBOX_SCHEMA = {
+  title: 'Inbox',
+  entity: {
+    title_field: 'subject',
+    subtitle_field: 'from',
+    avatar_field: 'source_icon',
+  },
+  fields: {
+    subject: { type: 'text', label: 'Subject', display: 'headline', searchable: true },
+    from: { type: 'email', label: 'From', display: 'subheadline' },
+    source: {
+      type: 'select',
+      label: 'Source',
+      display: 'aside',
+      filterable: true,
+      options: [
+        { value: 'email', label: 'Email' },
+        { value: 'webhook', label: 'Webhook' },
+        { value: 'upload', label: 'Upload' },
+        { value: 'clip', label: 'Clip' },
+        { value: 'manual', label: 'Manual' },
+        { value: 'handoff', label: 'Handoff' },
+      ],
+    },
+    body: { type: 'richtext', label: 'Body', display: 'body', searchable: true },
+    attachments: {
+      type: 'multi_select',
+      label: 'Attachments',
+      display: 'meta',
+    },
+    to_hint: {
+      type: 'text',
+      label: 'To',
+      display: 'aside',
+    },
+  },
+  list_view: {
+    filters: ['source'],
+    search: ['subject', 'from', 'body'],
+    sort: '-_updated_at',
+    row: {
+      title: 'subject',
+      subtitle: 'from',
+      timestamp: '_updated_at',
+      preview: 'body',
+    },
+  },
+} as const
+
 // ── Payload + helpers ─────────────────────────────────────────────────
 
 export interface IngestRequest {
@@ -223,13 +284,22 @@ async function recordMessageId(
 
 // ── Event composition ─────────────────────────────────────────────────
 
-function buildSchemaLine(): string {
+/**
+ * Pick the schema event line to seed a fresh Collection. We currently
+ * have two shapes: the workspace inbox (`inbox.jsonl`) uses the v3.3
+ * Inbox schema, everything else (per-task files) uses the Task schema.
+ *
+ * Caller passes the destination path so we can dispatch without
+ * leaking the convention up the stack.
+ */
+function buildSchemaLine(path: string): string {
+  const isInbox = path === INBOX_PATH
   const event = {
     op: 'schema',
     at: nowIso(),
     by: 'system',
     version: 1,
-    schema: CANONICAL_TASK_SCHEMA,
+    schema: isInbox ? CANONICAL_INBOX_SCHEMA : CANONICAL_TASK_SCHEMA,
   }
   return JSON.stringify(event)
 }
@@ -314,7 +384,7 @@ export async function appendLines(
       if (!seedIfMissing) {
         throw new Error(`task file missing and seedIfMissing=false: ${path}`)
       }
-      nextContent = [buildSchemaLine(), ...lines].join('\n') + '\n'
+      nextContent = [buildSchemaLine(path), ...lines].join('\n') + '\n'
       parentSha = null
     }
     try {
