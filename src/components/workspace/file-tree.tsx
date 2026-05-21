@@ -40,7 +40,11 @@ interface Node {
 }
 
 /** Build nested tree nodes from flat path list. */
-function buildTree(paths: string[], includeAssetsRoot: boolean = true): Node {
+function buildTree(
+  paths: string[],
+  includeAssetsRoot: boolean = true,
+  topLevelProjects: ReadonlySet<string> = new Set(),
+): Node {
   const root: Node = { name: "", path: "", isDir: true, children: [] };
 
   for (const p of paths) {
@@ -81,17 +85,28 @@ function buildTree(paths: string[], includeAssetsRoot: boolean = true): Node {
     }
   }
 
-  // Sort: dirs first, then alpha. At the root, system dirs are pinned at
-  // the top in SYSTEM_DIRS order, before any user dir.
+  // Sort:
+  //   - At root: SYSTEM_DIRS (pinned, in declared order) → upgraded
+  //     Projects (alpha) → other dirs (alpha) → files (alpha). The
+  //     Project tier is the only one that needs an external set; we
+  //     keep the helper local here.
+  //   - Deeper levels: dirs first, then files, alpha within each.
+  const sys = SYSTEM_DIRS as readonly string[];
   const sortNode = (n: Node, isRoot: boolean): void => {
     n.children.sort((a, b) => {
       if (isRoot) {
-        const sys = SYSTEM_DIRS as readonly string[];
         const ai = sys.indexOf(a.name);
         const bi = sys.indexOf(b.name);
         if (ai !== -1 && bi !== -1) return ai - bi;
         if (ai !== -1) return -1;
         if (bi !== -1) return 1;
+        if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
+        if (a.isDir && b.isDir) {
+          const ap = topLevelProjects.has(a.name) ? 0 : 1;
+          const bp = topLevelProjects.has(b.name) ? 0 : 1;
+          if (ap !== bp) return ap - bp;
+        }
+        return a.name.localeCompare(b.name);
       }
       if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
       return a.name.localeCompare(b.name);
@@ -194,12 +209,7 @@ export function FileTree({
     return byType.filter((p) => !p.split("/").some((seg) => seg.startsWith(".")));
   }, [paths, typeFilter, showHidden]);
 
-  const root = useMemo(
-    () => buildTree(filteredPaths, typeFilter === "all"),
-    [filteredPaths, typeFilter],
-  );
-
-  // v3.3 — top-level folders whose sentinel `.huozi/memory.jsonl`
+  // v-final — top-level folders whose sentinel `.huozi/memory.md`
   // exists in the path list are upgraded Projects. We always look at
   // the full `paths` (not `filteredPaths`) so the hide-dot toggle
   // doesn't strip the sentinel and lose the Project status.
@@ -210,13 +220,18 @@ export function FileTree({
       if (
         segs.length >= 3 &&
         segs[1] === ".huozi" &&
-        segs[2] === "memory.jsonl"
+        segs[2] === "memory.md"
       ) {
         if (segs[0]) out.add(segs[0]);
       }
     }
     return out;
   }, [paths]);
+
+  const root = useMemo(
+    () => buildTree(filteredPaths, typeFilter === "all", topLevelProjects),
+    [filteredPaths, typeFilter, topLevelProjects],
+  );
 
   // Expanded folders live in state + localStorage.
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
@@ -517,10 +532,10 @@ function TreeNode({
             </span>
             {isProject && (
               <span
-                className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-50 px-1 text-[9px] font-medium text-emerald-900 shrink-0"
-                title="Upgraded Project — has tasks.jsonl + .huozi/memory.jsonl"
+                className="text-[11px] font-mono font-medium text-emerald-700 shrink-0"
+                title="Upgraded Project — has tasks.jsonl + .huozi/memory.md"
               >
-                P
+                [P]
               </span>
             )}
             {isSystemNamed && (
