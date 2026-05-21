@@ -20,6 +20,12 @@ import { resvgSvgRenderer } from '../render/svgRendererResvg.js'
 import { CloudflareStorage } from '../storage/cloudflare/storage.js'
 import { resolveBearer, touchAction } from '../storage/cloudflare/auth.js'
 import {
+  archiveProject,
+  unarchiveProject,
+  upgradeProject,
+} from '../lib/project-actions.js'
+import type { Author } from '../storage/types.js'
+import {
   createBlobSigner,
   verifyBlobUrl,
 } from '../storage/cloudflare/blob-signer.js'
@@ -209,19 +215,32 @@ PROJECT MEMORY (.huozi/memory.jsonl)
     in the workspace root README.md (human-maintained). There is no
     workspace-level memory file.
 
-PROJECT LIFECYCLE
-  - To turn a plain folder into a Project, call huozi_project_upgrade
-    ({ folder_path: "<name>" }). It mints three files in ONE commit:
-    README.md (frontmatter only — body untouched if README exists),
-    tasks.jsonl, and .huozi/memory.jsonl. Refuses reserved names
-    (.archive / __assets__ / .huozi) and nested paths — top-level only.
-  - To put a Project on ice, call huozi_project_archive. It moves the
-    whole folder under \`.archive/<name>/\`; restore later with
-    huozi_project_unarchive. Reserved system folders cannot be archived.
-  - Tasks live in a Project's \`tasks.jsonl\` — a single-file Collection
-    same shape as inbox.jsonl: schema first line, then one event per
-    line, multiple tasks identified by \`id\`. Use huozi_edit / huozi_write
-    to append.
+PROJECT LIFECYCLE (user-only, no MCP)
+  - Creating / archiving / restoring Projects is a USER action,
+    triggered from the Web Settings page (⚙ icon on a folder row
+    in the file tree). There is no MCP tool for it — agents should
+    NOT propose to upgrade or archive folders. If a user asks for
+    it in chat, point them at the Settings page.
+
+TASKS (agent-driven, three tools)
+  - Tasks live in a Project's \`tasks.jsonl\` — a single-file
+    Collection, same shape as inbox.jsonl: schema first line, then
+    one event per line, multiple tasks identified by \`id\`.
+  - To CREATE a task: huozi_task_create({ project_path, title,
+    deliverable?, source_refs? }). Returns a fresh uuid.
+    \`source_refs\` is the standard form for Promote-from-inbox:
+    ["inbox.jsonl#<i_id>"].
+  - To LIST tasks with their current state (status folded from the
+    op sequence): huozi_task_list({ project_path, status?,
+    include_archived? }). Call this when entering a Project to see
+    what's open before deciding what to do.
+  - To APPEND an event onto an existing task (status / archive /
+    result / dispatch / ...): huozi_task_append({ project_path,
+    task_id, event: { op, status?, ... } }). Common case:
+    { op: "status", status: "done" }.
+  - The huozi-bridge daemon writes its own dispatch / agent_turn /
+    tool_use / result events directly through huozi_edit — you
+    won't normally need to emit those from chat.
 
 WHAT IS NOT SUPPORTED (don't try to work around these — tell the user)
   - No Bash, no shell. This is a cloud surface, not a local machine.
@@ -898,6 +917,15 @@ const handler: ExportedHandler<HuoziCloudflareBindings> = {
       }
     }
 
+    // POST /me/project — Bearer-authed Project lifecycle (upgrade /
+    // archive / unarchive). Deliberately outside the MCP surface:
+    // Project state changes are user-driven UI actions, not something
+    // an agent should trigger autonomously. The Web Settings page is
+    // the only caller.
+    if (url.pathname === '/me/project') {
+      return handleMeProject(request, env)
+    }
+
     // TEMPORARY DEBUG: clear session state for the token's principal.
     if (url.pathname === '/debug/clear-session' && request.method === 'POST') {
       const authRes = await resolveBearer(
@@ -937,6 +965,87 @@ const handler: ExportedHandler<HuoziCloudflareBindings> = {
   async email(message, env, ctx): Promise<void> {
     await handleInboundEmail(message, env as AdminEnv, ctx)
   },
+}
+
+async function handleMeProject(
+  request: Request,
+  env: HuoziCloudflareBindings,
+): Promise<Response> {
+  if (request.method !== 'POST') {
+    return new Response('method not allowed', { status: 405 })
+  }
+  const authRes = await resolveBearer(request.headers.get('authorization'), env)
+  if (!authRes.ok) {
+    return Response.json(
+      { error: authRes.failure.message },
+      { status: 401 },
+    )
+  }
+  const principal = authRes.principal
+
+  let body: { action?: unknown; folder_path?: unknown; readme_content?: unknown }
+  try {
+    body = (await request.json()) as typeof body
+  } catch {
+    return Response.json({ error: 'invalid_json' }, { status: 400 })
+  }
+  const action = typeof body.action === 'string' ? body.action : ''
+  const folderPath = typeof body.folder_path === 'string' ? body.folder_path : ''
+  if (folderPath.length === 0) {
+    return Response.json({ error: 'invalid_folder_path' }, { status: 400 })
+  }
+
+  const storage = new CloudflareStorage(env)
+  const author: Author = {
+    id: principal.principalId,
+    type: principal.principalType,
+  }
+
+  switch (action) {
+    case 'upgrade': {
+      const readme =
+        typeof body.readme_content === 'string' && body.readme_content.length > 0
+          ? body.readme_content
+          : undefined
+      const r = await upgradeProject(storage, principal.workspaceId, author, {
+        folderPath,
+        readmeContent: readme,
+      })
+      if (!r.ok) {
+        return Response.json({ error: r.message }, { status: r.status })
+      }
+      return Response.json({ ok: true, ...r.data })
+    }
+    case 'archive': {
+      const r = await archiveProject(
+        storage,
+        principal.workspaceId,
+        author,
+        folderPath,
+      )
+      if (!r.ok) {
+        return Response.json({ error: r.message }, { status: r.status })
+      }
+      return Response.json({ ok: true, ...r.data })
+    }
+    case 'unarchive': {
+      const r = await unarchiveProject(
+        storage,
+        principal.workspaceId,
+        author,
+        folderPath,
+      )
+      if (!r.ok) {
+        return Response.json({ error: r.message }, { status: r.status })
+      }
+      return Response.json({ ok: true, ...r.data })
+    }
+    default:
+      return Response.json(
+        { error: 'invalid_action', allowed: ['upgrade', 'archive', 'unarchive'] },
+        { status: 400 },
+      )
+  }
 }
 
 async function handleBlobDownload(

@@ -1,18 +1,23 @@
 /**
- * Server-side thin wrappers around the project-lifecycle MCP tools.
+ * Server-side thin wrappers around Project-lifecycle and Task MCP
+ * surfaces.
  *
- * These exist for two reasons:
- *   - Route handlers (`/api/app/project/*`) need to invoke the tools
- *     under the request's cookie-resolved api_key.
- *   - The Folder Settings server component reads sentinel + memory +
- *     tasks files; centralising the "is this an upgraded Project?"
- *     check here keeps that page out of the MCP plumbing weeds.
+ * Two flavors live here:
+ *   - **Project lifecycle** (upgrade / archive / unarchive). Deliberately
+ *     OFF the MCP surface — agents shouldn't auto-mutate Project
+ *     boundaries. Calls go to the Bearer-auth `/me/project` endpoint on
+ *     the Worker, which dispatches to pure functions in
+ *     `packages/huozi-cloud/src/lib/project-actions.ts`.
+ *   - **Task creation + memory listing** (status read-back). These DO
+ *     live on MCP and are reached via `callTool()`. The wrappers are
+ *     kept here so the Settings page and any future API route share
+ *     one place to update if the contract drifts.
  *
- * Everything here imports `cookies()` indirectly via `mcp-client.ts`
- * so it's runtime-server-only. Do not import this from a "use client"
- * file.
+ * Everything here is runtime-server-only — do not import from a
+ * "use client" file.
  */
 
+import { cloudFetch } from '@/lib/cloud-fetch'
 import { callTool, cloudRead, type McpResult } from './mcp-client'
 
 const SENTINEL_SUFFIX = '/.huozi/memory.jsonl'
@@ -117,12 +122,48 @@ export async function fetchProjectStatus(
   return status
 }
 
+// ── Project lifecycle (Bearer /me/project, not MCP) ──────────────────
+
+export type ActionResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; status: number; message: string }
+
+async function meProjectAction<T>(
+  key: string,
+  body: Record<string, unknown>,
+): Promise<ActionResult<T>> {
+  const res = await cloudFetch('/me/project', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${key}`,
+    },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  })
+  let parsed: unknown = null
+  try {
+    parsed = await res.json()
+  } catch {
+    // fall through to status-based handling
+  }
+  if (!res.ok) {
+    const msg =
+      (parsed && typeof parsed === 'object' && 'error' in parsed
+        ? String((parsed as { error?: unknown }).error)
+        : null) ?? `HTTP ${res.status}`
+    return { ok: false, status: res.status, message: msg }
+  }
+  return { ok: true, data: parsed as T }
+}
+
 export function projectUpgrade(
   key: string,
   folder_path: string,
   readme_content?: string,
-): Promise<McpResult<UpgradeData>> {
-  return callTool<UpgradeData>(key, 'huozi_project_upgrade', {
+): Promise<ActionResult<UpgradeData>> {
+  return meProjectAction<UpgradeData>(key, {
+    action: 'upgrade',
     folder_path,
     ...(readme_content ? { readme_content } : {}),
   })
@@ -131,15 +172,21 @@ export function projectUpgrade(
 export function projectArchive(
   key: string,
   folder_path: string,
-): Promise<McpResult<ArchiveData>> {
-  return callTool<ArchiveData>(key, 'huozi_project_archive', { folder_path })
+): Promise<ActionResult<ArchiveData>> {
+  return meProjectAction<ArchiveData>(key, {
+    action: 'archive',
+    folder_path,
+  })
 }
 
 export function projectUnarchive(
   key: string,
   folder_path: string,
-): Promise<McpResult<ArchiveData>> {
-  return callTool<ArchiveData>(key, 'huozi_project_unarchive', { folder_path })
+): Promise<ActionResult<ArchiveData>> {
+  return meProjectAction<ArchiveData>(key, {
+    action: 'unarchive',
+    folder_path,
+  })
 }
 
 export function projectTaskCreate(

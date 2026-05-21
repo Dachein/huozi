@@ -115,8 +115,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const r = await projectUpgrade(key, folderPath, readme)
       if (!r.ok) {
         return NextResponse.json(
-          { error: 'upgrade_failed', code: r.errorCode, message: r.message },
-          { status: statusFor(r.errorCode) },
+          { error: 'upgrade_failed', message: r.message },
+          { status: r.status },
         )
       }
       return NextResponse.json({ ok: true, ...r.data })
@@ -125,8 +125,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const r = await projectArchive(key, folderPath)
       if (!r.ok) {
         return NextResponse.json(
-          { error: 'archive_failed', code: r.errorCode, message: r.message },
-          { status: statusFor(r.errorCode) },
+          { error: 'archive_failed', message: r.message },
+          { status: r.status },
         )
       }
       return NextResponse.json({ ok: true, ...r.data })
@@ -135,8 +135,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const r = await projectUnarchive(key, folderPath)
       if (!r.ok) {
         return NextResponse.json(
-          { error: 'unarchive_failed', code: r.errorCode, message: r.message },
-          { status: statusFor(r.errorCode) },
+          { error: 'unarchive_failed', message: r.message },
+          { status: r.status },
         )
       }
       return NextResponse.json({ ok: true, ...r.data })
