@@ -3,7 +3,11 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getIdentity } from "@/lib/identity";
-import { cloudRead, HUOZI_CLOUD_KEY_COOKIE } from "@/lib/drive/mcp-client";
+import {
+  cloudGlob,
+  cloudRead,
+  HUOZI_CLOUD_KEY_COOKIE,
+} from "@/lib/drive/mcp-client";
 import { deriveChannel } from "./channel";
 import { MailShell, type MailRow, type Tab } from "./mail-shell";
 
@@ -48,20 +52,69 @@ export default async function MailInboxPage({ searchParams }: SearchParams) {
   let loadError: string | null = null;
   let inboxExists = false;
 
+  // Upgraded Projects power the Promote picker; their tasks.jsonl files
+  // power the "Promoted" chip via source_refs. We load both alongside
+  // the inbox so the whole page renders from a single round trip per
+  // file. Empty result = no Projects upgraded yet, Promote disabled.
+  let projects: ProjectInfo[] = [];
+  let taskRefs: Record<string, TaskRef[]> = {};
+
   if (ws) {
-    const r = await cloudRead(key, INBOX_PATH);
-    if (r.ok && r.data.type === "text" && typeof r.data.file.content === "string") {
+    const [inboxR, sentinelR] = await Promise.all([
+      cloudRead(key, INBOX_PATH),
+      cloudGlob(key, "**/.huozi/memory.md"),
+    ]);
+
+    if (
+      inboxR.ok &&
+      inboxR.data.type === "text" &&
+      typeof inboxR.data.file.content === "string"
+    ) {
       inboxExists = true;
-      buckets = parseAndBucket(r.data.file.content);
-    } else if (r.ok && r.data.type === "file_unchanged") {
+      buckets = parseAndBucket(inboxR.data.file.content);
+    } else if (inboxR.ok && inboxR.data.type === "file_unchanged") {
       inboxExists = true;
-    } else if (!r.ok) {
-      const code = r.errorCode;
-      if (code === 8 || /not found|FILE_NOT_FOUND/i.test(r.message ?? "")) {
+    } else if (!inboxR.ok) {
+      const code = inboxR.errorCode;
+      if (code === 8 || /not found|FILE_NOT_FOUND/i.test(inboxR.message ?? "")) {
         inboxExists = false;
       } else {
-        loadError = r.message ?? `error_${code}`;
+        loadError = inboxR.message ?? `error_${code}`;
       }
+    }
+
+    if (sentinelR.ok) {
+      const projectNames = sentinelR.data.filenames
+        .map((p) => {
+          const segs = p.split("/");
+          if (segs.length === 3 && segs[1] === ".huozi") return segs[0] ?? "";
+          return "";
+        })
+        .filter((n): n is string => n.length > 0);
+      projects = projectNames.map((name) => ({ name }));
+
+      // Pull each Project's tasks.jsonl in parallel and extract every
+      // create event's source_refs that points back into inbox.jsonl.
+      // Skipping files that 404 (a freshly-upgraded Project may not
+      // have an op:"create" yet; tasks.jsonl will just be the schema
+      // header).
+      const taskReads = await Promise.all(
+        projectNames.map(async (name) => {
+          const r = await cloudRead(key, `${name}/tasks.jsonl`);
+          if (
+            r.ok &&
+            r.data.type === "text" &&
+            typeof r.data.file.content === "string"
+          ) {
+            return {
+              name,
+              content: r.data.file.content,
+            };
+          }
+          return null;
+        }),
+      );
+      taskRefs = collectTaskRefs(taskReads);
     }
   }
 
@@ -117,9 +170,10 @@ export default async function MailInboxPage({ searchParams }: SearchParams) {
             <EmptyInbox inboxExists={inboxExists} />
           ) : (
             <MailShell
-              buckets={buckets}
+              buckets={applyTaskRefs(buckets, taskRefs)}
               initialTab={resolvedTab}
               initialSelectedId={initialSelectedId}
+              projects={projects}
             />
           )}
         </div>
@@ -149,6 +203,105 @@ function EmptyInbox({ inboxExists }: { inboxExists: boolean }) {
       </Link>
     </section>
   );
+}
+
+// ── Projects + task references (v3.3 Promote linkage) ──────────────────
+
+export interface ProjectInfo {
+  name: string;
+}
+
+export interface TaskRef {
+  project: string;
+  task_id: string;
+}
+
+/**
+ * Scan every Project's tasks.jsonl for `op:"create"` events whose
+ * `source_refs` point back to the workspace inbox. The resulting map
+ * is `inbox_event_id → TaskRef[]` — any inbox ticket with a non-empty
+ * array is "Promoted" (the v3.3 replacement for the legacy
+ * `op:"routed"` event on inbox).
+ *
+ * Tolerates missing files (a freshly-upgraded Project with no tasks
+ * yet just contributes nothing).
+ */
+function collectTaskRefs(
+  reads: Array<{ name: string; content: string } | null>,
+): Record<string, TaskRef[]> {
+  const out: Record<string, TaskRef[]> = {};
+  for (const r of reads) {
+    if (!r) continue;
+    const content = stripLineNumbers(r.content);
+    for (const line of content.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      let evt: Record<string, unknown>;
+      try {
+        evt = JSON.parse(trimmed) as Record<string, unknown>;
+      } catch {
+        continue;
+      }
+      if (evt.op !== "create") continue;
+      if (typeof evt.id !== "string") continue;
+      const refs = evt.source_refs;
+      if (!Array.isArray(refs)) continue;
+      for (const ref of refs) {
+        if (typeof ref !== "string") continue;
+        const m = ref.match(/^inbox\.jsonl#([0-9a-zA-Z-]+)$/);
+        if (!m || !m[1]) continue;
+        const inboxId = m[1];
+        const arr = out[inboxId] ?? [];
+        arr.push({ project: r.name, task_id: evt.id });
+        out[inboxId] = arr;
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Re-bucket parsed inbox rows by task reference: anything with at least
+ * one entry in `taskRefs` is "Promoted" and moves to the Todo tab
+ * (overriding the legacy `routed`/`dismissed` derivation). The
+ * `task_id` field gets populated so the detail panel can link to the
+ * destination tasks.jsonl.
+ */
+function applyTaskRefs(
+  buckets: { inbox: MailRow[]; todo: MailRow[]; archive: MailRow[] },
+  taskRefs: Record<string, TaskRef[]>,
+): { inbox: MailRow[]; todo: MailRow[]; archive: MailRow[] } {
+  if (Object.keys(taskRefs).length === 0) return buckets;
+  const all: MailRow[] = [...buckets.inbox, ...buckets.todo, ...buckets.archive];
+  const inbox: MailRow[] = [];
+  const todo: MailRow[] = [];
+  const archive: MailRow[] = [];
+  for (const row of all) {
+    const refs = taskRefs[row.id];
+    if (refs && refs.length > 0) {
+      const first = refs[0]!;
+      todo.push({
+        ...row,
+        status: "routed",
+        task_id: first.task_id,
+        task_project: first.project,
+      });
+    } else if (row.status === "dismissed") {
+      archive.push(row);
+    } else if (row.status === "routed") {
+      // Legacy op:"routed" event without a discoverable task ref —
+      // keep in Todo for back-compat.
+      todo.push(row);
+    } else {
+      inbox.push(row);
+    }
+  }
+  const byAtDesc = (a: MailRow, b: MailRow) =>
+    Date.parse(b.at) - Date.parse(a.at);
+  inbox.sort(byAtDesc);
+  todo.sort(byAtDesc);
+  archive.sort(byAtDesc);
+  return { inbox, todo, archive };
 }
 
 // ── inbox.jsonl parsing + bucketing ─────────────────────────────────────

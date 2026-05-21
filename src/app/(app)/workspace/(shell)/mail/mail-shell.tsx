@@ -36,6 +36,12 @@ export interface MailRow {
   dismissReason?: string;
   status: "pending" | "routed" | "dismissed";
   task_id?: string;
+  /** v3.3: name of the Project whose tasks.jsonl contains this task. */
+  task_project?: string;
+}
+
+export interface ProjectInfo {
+  name: string;
 }
 
 export type Tab = "inbox" | "todo" | "archive";
@@ -58,11 +64,14 @@ export function MailShell({
   buckets,
   initialTab,
   initialSelectedId,
+  projects,
 }: {
   buckets: Buckets;
   initialTab: Tab;
   /** Pre-selected ticket id from `?id=` searchParam (deep link). */
   initialSelectedId?: string | null;
+  /** Upgraded Projects available as Promote targets. Empty disables Promote. */
+  projects: ProjectInfo[];
 }) {
   const [tab, setTab] = useState<Tab>(initialTab);
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -209,7 +218,9 @@ export function MailShell({
     </div>
   );
 
-  const detailNode = selectedRow ? <MailDetail row={selectedRow} /> : null;
+  const detailNode = selectedRow ? (
+    <MailDetail row={selectedRow} projects={projects} />
+  ) : null;
 
   return (
     <ListDetailLayout
@@ -397,7 +408,13 @@ const MailItem = memo(function MailItem({
   );
 });
 
-function MailDetail({ row }: { row: MailRow }) {
+function MailDetail({
+  row,
+  projects,
+}: {
+  row: MailRow;
+  projects: ProjectInfo[];
+}) {
   const email = senderEmail(row.from);
   return (
     <article className="flex flex-col">
@@ -429,17 +446,110 @@ function MailDetail({ row }: { row: MailRow }) {
         <EmailBody raw={row.body ?? ""} />
       </section>
 
-      {row.status === "routed" && row.task_id && (
-        <section className="px-5 pb-6 border-t border-border/40 pt-4">
+      <section className="px-5 pb-6 border-t border-border/40 pt-4">
+        {row.status === "pending" ? (
+          <PromoteAction row={row} projects={projects} />
+        ) : row.status === "routed" && row.task_id && row.task_project ? (
           <Link
-            href={`/workspace/view?path=${encodeURIComponent(`tasks/${row.task_id}.jsonl`)}`}
+            href={`/workspace/view?path=${encodeURIComponent(`${row.task_project}/tasks.jsonl`)}`}
             className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
           >
-            Open task timeline →
+            Open task in {row.task_project} →
           </Link>
-        </section>
-      )}
+        ) : row.status === "routed" && row.task_id ? (
+          <span className="text-xs text-muted-foreground">
+            Routed (legacy task {row.task_id.slice(0, 8)}…)
+          </span>
+        ) : null}
+      </section>
     </article>
+  );
+}
+
+function PromoteAction({
+  row,
+  projects,
+}: {
+  row: MailRow;
+  projects: ProjectInfo[];
+}) {
+  const router = useRouter();
+  const [selected, setSelected] = useState<string>(projects[0]?.name ?? "");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (projects.length === 0) {
+    return (
+      <div className="text-xs text-muted-foreground">
+        Promote disabled — upgrade a folder to a Project first (file tree → ⚙).
+      </div>
+    );
+  }
+
+  const onPromote = async () => {
+    if (!selected) return;
+    setPending(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/app/jsonl/append-event", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          file_path: `${selected}/tasks.jsonl`,
+          event: {
+            op: "create",
+            title: row.subject || "(no subject)",
+            source_refs: [`inbox.jsonl#${row.id}`],
+            body: row.body,
+          },
+        }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as
+          | { message?: string; error?: string }
+          | null;
+        setError(data?.message ?? data?.error ?? `HTTP ${res.status}`);
+        setPending(false);
+        return;
+      }
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setPending(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="text-xs text-muted-foreground">Promote to</label>
+        <select
+          value={selected}
+          onChange={(e) => setSelected(e.target.value)}
+          disabled={pending}
+          className="rounded border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:border-foreground/40"
+        >
+          {projects.map((p) => (
+            <option key={p.name} value={p.name}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          disabled={pending || !selected}
+          onClick={onPromote}
+          className="inline-flex items-center rounded-md border border-emerald-500/40 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-900 transition-colors hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {pending ? "Promoting…" : "Create task"}
+        </button>
+      </div>
+      {error && (
+        <div className="rounded border border-red-500/40 bg-red-50 px-2 py-1 text-xs text-red-900">
+          {error}
+        </div>
+      )}
+    </div>
   );
 }
 
