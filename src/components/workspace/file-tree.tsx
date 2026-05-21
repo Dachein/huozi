@@ -318,10 +318,17 @@ export function FileTree({
         )}
       </nav>
 
-      {/* Show hidden toggle — dot-prefixed paths (`.huozi`, `.archive`,
-          `.huozi-keep`) are hidden by default per spec §8. UI state
-          only, not persisted. */}
-      <div className="px-3 py-2 border-t border-border/40 text-[11px] text-muted-foreground">
+      {/* Footer controls — Projects overview link + Show-hidden toggle.
+          Dot-prefixed paths (`.huozi`, `.archive`, `.huozi-keep`) are
+          hidden by default per spec §8. UI state only, not persisted. */}
+      <div className="px-3 py-2 border-t border-border/40 text-[11px] text-muted-foreground flex items-center gap-3">
+        <Link
+          href="/workspace/projects"
+          className="hover:text-foreground transition-colors"
+        >
+          Projects
+        </Link>
+        <span className="text-muted-foreground/40">·</span>
         <button
           type="button"
           onClick={() => setShowHidden((v) => !v)}
