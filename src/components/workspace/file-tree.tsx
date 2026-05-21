@@ -541,24 +541,14 @@ function TreeNode({
               </span>
             )}
           </button>
-          {onEditAcl && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEditAcl(node.path);
-              }}
-              className="opacity-0 group-hover/folder:opacity-100 hover:bg-muted text-xs text-muted-foreground hover:text-foreground rounded px-1 transition-opacity shrink-0"
-              aria-label="Folder access settings"
-              title="Access"
-            >
-              ⋯
-            </button>
-          )}
-          {/* Top-level folder Settings link — opens the per-folder
-              status page (Project state, tasks/memory counts, archive
-              actions). System dirs handle this themselves; nested
-              folders don't carry Project state. */}
+          {/* Single hover affordance on top-level folder rows: the
+              "⋯" jumps to the per-folder Settings page (Project state,
+              tasks/memory counts, archive actions). System dirs handle
+              their own routing; nested folders don't carry Project
+              state. Folder ACL editing previously lived behind this
+              icon — re-introduce it as a section of the Settings page
+              when needed (the `onEditAcl` prop is intentionally
+              unreferenced now). */}
           {depth === 0 &&
             !(SYSTEM_DIRS as readonly string[]).includes(node.name) && (
               <Link
@@ -568,7 +558,7 @@ function TreeNode({
                 aria-label="Folder settings"
                 title="Settings"
               >
-                ⚙
+                ⋯
               </Link>
             )}
         </div>
