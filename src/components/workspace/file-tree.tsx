@@ -199,6 +199,25 @@ export function FileTree({
     [filteredPaths, typeFilter],
   );
 
+  // v3.3 — top-level folders whose sentinel `.huozi/memory.jsonl`
+  // exists in the path list are upgraded Projects. We always look at
+  // the full `paths` (not `filteredPaths`) so the hide-dot toggle
+  // doesn't strip the sentinel and lose the Project status.
+  const topLevelProjects = useMemo(() => {
+    const out = new Set<string>();
+    for (const p of paths) {
+      const segs = p.split("/");
+      if (
+        segs.length >= 3 &&
+        segs[1] === ".huozi" &&
+        segs[2] === "memory.jsonl"
+      ) {
+        if (segs[0]) out.add(segs[0]);
+      }
+    }
+    return out;
+  }, [paths]);
+
   // Expanded folders live in state + localStorage.
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [hydrated, setHydrated] = useState(false);
@@ -293,6 +312,7 @@ export function FileTree({
             matching={matching}
             onNavigate={onNavigate}
             privatePrefixes={privatePrefixes}
+            topLevelProjects={topLevelProjects}
             onEditAcl={aclEnabled ? (p) => setAclEditingPath(p) : undefined}
           />
         )}
@@ -332,6 +352,7 @@ interface TreeNodeListProps {
   matching: Set<string> | null;
   onNavigate?: () => void;
   privatePrefixes?: Set<string>;
+  topLevelProjects?: Set<string>;
   onEditAcl?: (folderPath: string) => void;
 }
 
@@ -344,6 +365,7 @@ function TreeNodeList({
   matching,
   onNavigate,
   privatePrefixes,
+  topLevelProjects,
   onEditAcl,
 }: TreeNodeListProps) {
   // When filtering, hide nodes whose subtree has no matches
@@ -373,6 +395,7 @@ function TreeNodeList({
               matching={matching}
               onNavigate={onNavigate}
               privatePrefixes={privatePrefixes}
+              topLevelProjects={topLevelProjects}
               onEditAcl={onEditAcl}
             />
             {drawDivider && (
@@ -403,6 +426,7 @@ interface TreeNodeProps {
   matching: Set<string> | null;
   onNavigate?: () => void;
   privatePrefixes?: Set<string>;
+  topLevelProjects?: Set<string>;
   onEditAcl?: (folderPath: string) => void;
 }
 
@@ -415,6 +439,7 @@ function TreeNode({
   matching,
   onNavigate,
   privatePrefixes,
+  topLevelProjects,
   onEditAcl,
 }: TreeNodeProps) {
   const open = isOpen(node.path);
@@ -457,6 +482,17 @@ function TreeNode({
 
   if (node.isDir) {
     const isPrivate = privatePrefixes?.has(`${node.path}/`) ?? false;
+    const isProject =
+      depth === 0 && (topLevelProjects?.has(node.name) ?? false);
+    // v3.3 §8: any folder whose name matches `__X__` is a system dir.
+    // The two known cases (__mail__, __assets__) get their own dedicated
+    // routes via SYSTEM_DIRS; anything else just gets a quiet "system"
+    // pill so users know the folder is platform-managed.
+    const isSystemNamed =
+      depth === 0 &&
+      node.name.startsWith("__") &&
+      node.name.endsWith("__") &&
+      node.name.length > 4;
     return (
       <li className="group/folder">
         <div
@@ -472,6 +508,22 @@ function TreeNode({
             <span className="text-sm text-muted-foreground truncate">
               {node.name}
             </span>
+            {isProject && (
+              <span
+                className="inline-flex items-center rounded border border-emerald-500/30 bg-emerald-50 px-1 text-[9px] font-medium text-emerald-900 shrink-0"
+                title="Upgraded Project — has tasks.jsonl + .huozi/memory.jsonl"
+              >
+                P
+              </span>
+            )}
+            {isSystemNamed && (
+              <span
+                className="inline-flex items-center rounded border border-border bg-muted px-1 text-[9px] font-medium text-muted-foreground shrink-0"
+                title="System folder — platform-managed"
+              >
+                sys
+              </span>
+            )}
             {isPrivate && (
               <span
                 className="text-[10px] text-accent shrink-0"
@@ -496,6 +548,22 @@ function TreeNode({
               ⋯
             </button>
           )}
+          {/* Top-level folder Settings link — opens the per-folder
+              status page (Project state, tasks/memory counts, archive
+              actions). System dirs handle this themselves; nested
+              folders don't carry Project state. */}
+          {depth === 0 &&
+            !(SYSTEM_DIRS as readonly string[]).includes(node.name) && (
+              <Link
+                href={`/workspace/folder/${encodeURIComponent(node.path)}`}
+                onClick={(e) => e.stopPropagation()}
+                className="opacity-0 group-hover/folder:opacity-100 hover:bg-muted text-xs text-muted-foreground hover:text-foreground rounded px-1 transition-opacity shrink-0"
+                aria-label="Folder settings"
+                title="Settings"
+              >
+                ⚙
+              </Link>
+            )}
         </div>
         {open && (
           <TreeNodeList
@@ -507,6 +575,7 @@ function TreeNode({
             matching={matching}
             onNavigate={onNavigate}
             privatePrefixes={privatePrefixes}
+            topLevelProjects={topLevelProjects}
             onEditAcl={onEditAcl}
           />
         )}

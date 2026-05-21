@@ -76,7 +76,7 @@ async function rpc(
   return (await res.json()) as RpcEnvelope
 }
 
-async function callTool<T>(
+export async function callTool<T>(
   key: string,
   name: string,
   args: Record<string, unknown>,

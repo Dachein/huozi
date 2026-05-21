@@ -36,6 +36,7 @@ import {
 import { createProjectUpgradeTool } from '../tools/ProjectUpgradeTool.js'
 import { createRmTool } from '../tools/RmTool.js'
 import { createShareTool, type ShareToolDeps } from '../tools/ShareTool.js'
+import { createTaskCreateTool } from '../tools/TaskCreateTool.js'
 import { createTemplateTool } from '../tools/TemplateTool/index.js'
 import { createUploadTool } from '../tools/UploadTool/index.js'
 import { createValidateTool } from '../tools/ValidateTool.js'
@@ -102,6 +103,7 @@ export function createHuoziToolRegistry(
     createProjectUpgradeTool({ storage }),
     createProjectArchiveTool({ storage }),
     createProjectUnarchiveTool({ storage }),
+    createTaskCreateTool({ storage }),
   ]
   if (shareDeps) {
     tools.push(createShareTool(shareDeps))
