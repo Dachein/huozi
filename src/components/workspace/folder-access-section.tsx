@@ -39,7 +39,7 @@ export function FolderAccessSection({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="inline-flex items-center rounded-md border border-border bg-background/50 px-3 py-1.5 text-xs font-medium hover:bg-muted/40 transition-colors"
+          className="inline-flex items-center rounded border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
         >
           Manage access
         </button>
@@ -69,16 +69,19 @@ function AccessChip({
   isPrivate: boolean;
   memberCount: number;
 }) {
+  // Matches the StatusPill family on the Folder Settings page —
+  // rounded (not rounded-full), tokenized border + bg-muted, a single
+  // dot for state. Keep visual grammar consistent across the page.
   if (isPrivate) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900">
+      <span className="inline-flex items-center gap-1.5 rounded border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground/80">
         <span aria-hidden className="size-1.5 rounded-full bg-amber-600" />
         Private — {memberCount} member{memberCount === 1 ? "" : "s"}
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+    <span className="inline-flex items-center gap-1.5 rounded border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
       <span aria-hidden className="size-1.5 rounded-full bg-muted-foreground/50" />
       Public to workspace
     </span>

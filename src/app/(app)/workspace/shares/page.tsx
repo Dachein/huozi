@@ -45,7 +45,7 @@ export default async function SharesPage() {
   return (
     <div className="flex flex-col min-h-screen">
       <main className="flex-1">
-        <div className="mx-auto max-w-3xl px-6 py-12">
+        <div className="mx-auto max-w-6xl px-6 py-12">
           {/* Top-of-page "← Workspace" return link — primary escape hatch. */}
           <Link
             href="/workspace"
@@ -90,7 +90,7 @@ export default async function SharesPage() {
               to create one.
             </div>
           ) : shares.length > 0 ? (
-            <div className="huozi-card rounded-lg border border-border/60 overflow-hidden">
+            <div className="huozi-card rounded-lg border border-border/60 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-xs uppercase tracking-wider text-muted-foreground border-b border-border/60">
                   <tr>

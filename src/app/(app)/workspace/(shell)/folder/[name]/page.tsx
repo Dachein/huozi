@@ -202,23 +202,33 @@ function ProjectStatusChip({
   isProject: boolean;
   isArchived: boolean;
 }) {
+  // All status chips share one shape — rounded border + bg-muted base,
+  // a single accented dot for state. Keeps the page brutalist-aligned
+  // (no rounded-full pills) and themable via tokens.
   if (isArchived) {
-    return (
-      <span className="inline-flex items-center rounded-full border border-slate-500/40 bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-900">
-        Archived
-      </span>
-    );
+    return <StatusPill label="Archived" tone="muted" />;
   }
   if (isProject) {
-    return (
-      <span className="inline-flex items-center rounded-full border border-emerald-500/40 bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-900">
-        Project
-      </span>
-    );
+    return <StatusPill label="Project" tone="accent" />;
   }
+  return <StatusPill label="Folder" tone="muted" />;
+}
+
+function StatusPill({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: "accent" | "muted";
+}) {
+  const dot =
+    tone === "accent"
+      ? "bg-emerald-600"
+      : "bg-muted-foreground/50";
   return (
-    <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-      Folder
+    <span className="inline-flex items-center gap-1.5 rounded border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground/80">
+      <span aria-hidden className={`size-1.5 rounded-full ${dot}`} />
+      {label}
     </span>
   );
 }
@@ -233,11 +243,11 @@ function StatTile({
   hint: string;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-background/50 p-3">
+    <div className="huozi-card rounded border border-border bg-background/50 p-3">
       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
-      <div className="mt-1 text-xl font-semibold">{value}</div>
+      <div className="mt-1 text-xl font-semibold tabular-nums">{value}</div>
       <div className="mt-1 text-[11px] text-muted-foreground">{hint}</div>
     </div>
   );
