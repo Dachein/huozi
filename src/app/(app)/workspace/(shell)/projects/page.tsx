@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { SideDrawer } from "@/components/workspace/side-drawer";
 import {
   HUOZI_CLOUD_KEY_COOKIE,
   cloudGlob,
@@ -68,23 +69,13 @@ export default async function ProjectsOverviewPage() {
   const isEmpty = statuses.length === 0;
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-8 space-y-6">
-      <nav className="text-xs text-muted-foreground">
-        <Link href="/workspace" className="hover:text-foreground transition-colors">
-          Workspace
-        </Link>
-        <span className="mx-1.5">/</span>
-        <span className="text-foreground">Projects</span>
-      </nav>
-
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold">Projects</h1>
-        <p className="text-sm text-muted-foreground">
-          {isEmpty
-            ? "No upgraded Projects yet. Use the ⚙ icon on a folder row in the file tree to upgrade one."
-            : `${statuses.length} project${statuses.length === 1 ? "" : "s"} (${statuses.filter((s) => !s.isArchived).length} active, ${statuses.filter((s) => s.isArchived).length} archived).`}
-        </p>
-      </header>
+    <SideDrawer title="Projects" size="lg">
+      <div className="space-y-6">
+      <p className="text-sm text-muted-foreground">
+        {isEmpty
+          ? "No upgraded Projects yet. Use the ⋯ icon on a folder row in the file tree to open Settings, then click Upgrade."
+          : `${statuses.length} project${statuses.length === 1 ? "" : "s"} — ${statuses.filter((s) => !s.isArchived).length} active, ${statuses.filter((s) => s.isArchived).length} archived.`}
+      </p>
 
       {!isEmpty && (
         <ul className="space-y-2">
@@ -100,7 +91,8 @@ export default async function ProjectsOverviewPage() {
             ))}
         </ul>
       )}
-    </div>
+      </div>
+    </SideDrawer>
   );
 }
 

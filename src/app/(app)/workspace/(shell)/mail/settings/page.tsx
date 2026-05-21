@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { SideDrawer } from "@/components/workspace/side-drawer";
 import { getIdentity } from "@/lib/identity";
 import {
   cloudAdminEmailAliasList,
@@ -26,16 +26,12 @@ export default async function MailSettingsPage() {
 
   if (!supported || !principal || !ws) {
     return (
-      <main className="mx-auto max-w-3xl px-6 py-10">
-        <BackLink />
-        <h1 className="font-serif text-2xl font-bold tracking-[0.05em] mb-2">
-          Mail · Settings
-        </h1>
-        <section className="rounded border border-border/60 bg-muted/30 px-4 py-3 text-sm">
+      <SideDrawer title="Mail · Settings" closeFallback="/workspace/mail">
+        <section className="rounded border border-border bg-muted px-4 py-3 text-sm">
           Mail forwarding is a Cloud-only feature. Self-hosted Edge
           deployments don&rsquo;t have shared inbound mail infrastructure.
         </section>
-      </main>
+      </SideDrawer>
     );
   }
 
@@ -47,12 +43,8 @@ export default async function MailSettingsPage() {
   const initialError = initial.ok ? null : initial.error;
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-10">
-      <BackLink />
-      <h1 className="font-serif text-2xl font-bold tracking-[0.05em] mb-2">
-        Mail · Settings
-      </h1>
-      <p className="text-sm text-muted-foreground mb-8">
+    <SideDrawer title="Mail · Settings" closeFallback="/workspace/mail">
+      <p className="text-sm text-muted-foreground mb-6">
         Pick a memorable address at <code className="font-mono">@{zoneDomain}</code>{" "}
         and any mail sent there shows up in your inbox as a task. Pause an
         address anytime; release it when you&rsquo;re done with it.
@@ -64,17 +56,6 @@ export default async function MailSettingsPage() {
         initialError={initialError}
         defaultPrefix={ws.slug}
       />
-    </main>
-  );
-}
-
-function BackLink() {
-  return (
-    <Link
-      href="/workspace/mail"
-      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-4"
-    >
-      <span aria-hidden="true">←</span> Back to inbox
-    </Link>
+    </SideDrawer>
   );
 }

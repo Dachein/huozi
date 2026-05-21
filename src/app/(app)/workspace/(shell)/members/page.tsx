@@ -7,6 +7,7 @@
  * Member: see-only member list. Own keys expandable (no others').
  */
 
+import { SideDrawer } from "@/components/workspace/side-drawer";
 import { getIdentity } from "@/lib/identity";
 import {
   cloudAdminListInvites,
@@ -63,11 +64,8 @@ export default async function MembersPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-10">
-      <h1 className="font-serif text-2xl font-bold tracking-[0.05em] mb-2">
-        {_("members.title")}
-      </h1>
-      <p className="text-sm text-muted-foreground mb-8">
+    <SideDrawer title={_("members.title")} size="lg">
+      <p className="text-sm text-muted-foreground mb-6">
         {isOwner ? _("members.subtitle.owner") : _("members.subtitle.member")}
       </p>
       <MembersClient
@@ -90,6 +88,6 @@ export default async function MembersPage() {
           ]),
         )}
       />
-    </main>
+    </SideDrawer>
   );
 }

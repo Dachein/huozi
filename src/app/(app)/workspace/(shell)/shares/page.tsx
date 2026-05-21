@@ -3,6 +3,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { RevokeShareButton } from "@/components/workspace/revoke-share-button";
+import { SideDrawer } from "@/components/workspace/side-drawer";
 import { getLocale } from "@/lib/i18n/server";
 import { getIdentity } from "@/lib/identity";
 import { HUOZI_CLOUD_KEY_COOKIE } from "@/lib/drive/mcp-client";
@@ -43,53 +44,33 @@ export default async function SharesPage() {
   const err = res.ok ? null : res.message;
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <main className="flex-1">
-        <div className="mx-auto max-w-6xl px-6 py-12">
-          {/* Top-of-page "← Workspace" return link — primary escape hatch. */}
+    <SideDrawer title="Shares" size="xl">
+      <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+        Each share is a public URL that tracks a file live — every visit
+        serves the latest bytes. Revoking turns the URL off immediately;
+        the file itself is unchanged.
+      </p>
+
+      {err && (
+        <div className="mb-6 rounded border border-border bg-muted px-4 py-2 text-sm">
+          <strong>Couldn&rsquo;t load shares:</strong>{" "}
+          <span className="text-muted-foreground">{err}</span>
+        </div>
+      )}
+
+      {shares.length === 0 && !err ? (
+        <div className="rounded-lg border border-dashed border-border p-8 text-sm text-muted-foreground">
+          No active shares.{" "}
           <Link
             href="/workspace"
-            className="inline-flex items-center gap-1 text-xs uppercase tracking-wider text-accent hover:text-foreground transition-colors mb-6"
+            className="underline hover:text-foreground"
           >
-            <span aria-hidden>←</span>
-            <span>Workspace</span>
-            <span className="text-border mx-0.5">·</span>
-            <code className="rounded bg-muted px-1 font-mono normal-case">
-              {ws.slug}
-            </code>
-          </Link>
-
-          <div className="mb-8">
-            <h1 className="font-serif text-3xl font-bold tracking-wide">
-              Shares
-            </h1>
-            <p className="mt-3 text-sm text-muted-foreground max-w-lg leading-relaxed">
-              Each share is a public URL that tracks a file live — every visit
-              serves the latest bytes. Revoking turns the URL off immediately;
-              the file itself is unchanged.
-            </p>
-          </div>
-
-          {err && (
-            <div className="mb-6 rounded-lg border border-red-500/40 bg-red-500/5 px-4 py-2 text-sm">
-              <strong>Couldn&rsquo;t load shares:</strong>{" "}
-              <span className="text-muted-foreground">{err}</span>
-            </div>
-          )}
-
-          {shares.length === 0 && !err ? (
-            <div className="rounded-lg border border-dashed border-border p-8 text-sm text-muted-foreground">
-              No active shares.{" "}
-              <Link
-                href="/workspace"
-                className="underline hover:text-foreground"
-              >
-                Open a file
-              </Link>{" "}
-              and use the <span className="font-mono">⋯ · Publish</span> menu
-              to create one.
-            </div>
-          ) : shares.length > 0 ? (
+            Open a file
+          </Link>{" "}
+          and use the <span className="font-mono">⋯ · Publish</span> menu
+          to create one.
+        </div>
+      ) : shares.length > 0 ? (
             <div className="huozi-card rounded-lg border border-border/60 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-xs uppercase tracking-wider text-muted-foreground border-b border-border/60">
@@ -153,25 +134,7 @@ export default async function SharesPage() {
                 </tbody>
               </table>
             </div>
-          ) : null}
-
-          <div className="mt-10 pt-6 border-t border-border/50 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-            <Link
-              href="/workspace"
-              className="hover:text-foreground transition-colors"
-            >
-              ← Back to workspace
-            </Link>
-            <span className="text-border">·</span>
-            <Link
-              href="/docs"
-              className="hover:text-foreground transition-colors"
-            >
-              API docs
-            </Link>
-          </div>
-        </div>
-      </main>
-    </div>
+      ) : null}
+    </SideDrawer>
   );
 }

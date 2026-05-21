@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { FolderAccessSection } from "@/components/workspace/folder-access-section";
 import { FolderSettingsActions } from "@/components/workspace/folder-settings-actions";
+import { SideDrawer } from "@/components/workspace/side-drawer";
 import {
   cloudAdminListFolderAcls,
   cloudAdminListMembers,
@@ -57,25 +58,14 @@ export default async function FolderSettingsPage({ params }: PageProps) {
   const acl = acls.find((a) => a.path_prefix === folderPrefix) ?? null;
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-8 space-y-8">
-      {/* Breadcrumb back to workspace */}
-      <nav className="text-xs text-muted-foreground">
-        <Link href="/workspace" className="hover:text-foreground transition-colors">
-          Workspace
-        </Link>
-        <span className="mx-1.5">/</span>
-        <span className="text-foreground">{folder}</span>
-      </nav>
-
-      {/* Header */}
+    <SideDrawer title={folder}>
+      <div className="space-y-8">
+      {/* Header: status chip + descriptor (drawer header carries the title) */}
       <header className="space-y-2">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold">{folder}</h1>
-          <ProjectStatusChip
-            isProject={status.isProject}
-            isArchived={status.isArchived}
-          />
-        </div>
+        <ProjectStatusChip
+          isProject={status.isProject}
+          isArchived={status.isArchived}
+        />
         <p className="text-sm text-muted-foreground">
           {status.isArchived
             ? `Archived. Lives under .archive/${folder}/. Restore to bring it back to the top level.`
@@ -191,7 +181,8 @@ export default async function FolderSettingsPage({ params }: PageProps) {
           />
         </section>
       )}
-    </div>
+      </div>
+    </SideDrawer>
   );
 }
 
