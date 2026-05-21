@@ -2,9 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { FolderAccessSection } from "@/components/workspace/folder-access-section";
 import { FolderSettingsActions } from "@/components/workspace/folder-settings-actions";
+import {
+  cloudAdminListFolderAcls,
+  cloudAdminListMembers,
+} from "@/lib/drive/admin";
 import { HUOZI_CLOUD_KEY_COOKIE } from "@/lib/drive/mcp-client";
 import { fetchProjectStatus } from "@/lib/drive/project-actions";
+import { getIdentity } from "@/lib/identity";
 
 export const dynamic = "force-dynamic";
 
@@ -33,10 +39,22 @@ export default async function FolderSettingsPage({ params }: PageProps) {
     redirect(`/api/app/session/refresh?next=/workspace/folder/${name}`);
   }
 
-  const status = await fetchProjectStatus(key, folder);
-  // Live source the page derives values from. The status object is the
-  // single source of truth — read by both the action bar (so it can
-  // show the right CTAs) and the chrome below.
+  const identity = await getIdentity();
+  const principal = await identity.getPrincipal();
+  const workspaceId = principal?.workspaceId ?? null;
+
+  const [status, members, acls] = await Promise.all([
+    fetchProjectStatus(key, folder),
+    workspaceId
+      ? cloudAdminListMembers(workspaceId).catch(() => [])
+      : Promise.resolve([]),
+    workspaceId
+      ? cloudAdminListFolderAcls({ workspaceId }).catch(() => [])
+      : Promise.resolve([]),
+  ]);
+
+  const folderPrefix = `${folder}/`;
+  const acl = acls.find((a) => a.path_prefix === folderPrefix) ?? null;
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8 space-y-8">
@@ -100,7 +118,7 @@ export default async function FolderSettingsPage({ params }: PageProps) {
             status.isArchived
               ? ".archive/<folder>/"
               : status.isProject
-                ? "Sentinel: .huozi/memory.jsonl"
+                ? "Sentinel: .huozi/memory.md"
                 : "No sentinel — Upgrade to mint one"
           }
         />
@@ -145,14 +163,32 @@ export default async function FolderSettingsPage({ params }: PageProps) {
             </li>
             <li>
               <Link
-                href={`/workspace/view?path=${encodeURIComponent(`${folder}/.huozi/memory.jsonl`)}`}
+                href={`/workspace/view?path=${encodeURIComponent(`${folder}/.huozi/memory.md`)}`}
                 className="text-foreground underline-offset-2 hover:underline"
               >
-                .huozi/memory.jsonl
+                .huozi/memory.md
               </Link>
-              <span className="text-muted-foreground"> — agent memory ({status.memoryCount})</span>
+              <span className="text-muted-foreground"> — agent memory ({status.memoryCount} entr{status.memoryCount === 1 ? "y" : "ies"})</span>
             </li>
           </ul>
+        </section>
+      )}
+
+      {/* Folder access — was the ⋯ modal on the file tree before P2.4
+          file-tree consolidation. Now lives here so the file tree stays
+          single-affordance. */}
+      {principal && workspaceId && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+            Folder access
+          </h2>
+          <FolderAccessSection
+            folder={folder}
+            isPrivate={acl !== null}
+            memberCount={acl?.members.length ?? 0}
+            members={members}
+            currentUserId={principal.userId}
+          />
         </section>
       )}
     </div>
