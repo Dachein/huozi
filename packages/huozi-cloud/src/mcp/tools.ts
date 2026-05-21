@@ -25,15 +25,10 @@ import {
 import { createDownloadTool } from '../tools/DownloadTool.js'
 import { createImageRenderTool } from '../tools/ImageRenderTool.js'
 import { createListTreeTool } from '../tools/ListTreeTool.js'
-import { createMemoryAppendTool } from '../tools/MemoryAppendTool.js'
-import { createMemoryListTool } from '../tools/MemoryListTool.js'
 import { createMkdirTool } from '../tools/MkdirTool.js'
 import { createMvTool } from '../tools/MvTool.js'
 import { createRmTool } from '../tools/RmTool.js'
 import { createShareTool, type ShareToolDeps } from '../tools/ShareTool.js'
-import { createTaskAppendTool } from '../tools/TaskAppendTool.js'
-import { createTaskCreateTool } from '../tools/TaskCreateTool.js'
-import { createTaskListTool } from '../tools/TaskListTool.js'
 import { createTemplateTool } from '../tools/TemplateTool/index.js'
 import { createUploadTool } from '../tools/UploadTool/index.js'
 import { createValidateTool } from '../tools/ValidateTool.js'
@@ -95,11 +90,6 @@ export function createHuoziToolRegistry(
     createTemplateTool(),
     createUploadTool({ storage }),
     createValidateTool({ storage }),
-    createMemoryAppendTool({ storage }),
-    createMemoryListTool({ storage }),
-    createTaskCreateTool({ storage }),
-    createTaskAppendTool({ storage }),
-    createTaskListTool({ storage }),
   ]
   if (shareDeps) {
     tools.push(createShareTool(shareDeps))

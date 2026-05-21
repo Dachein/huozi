@@ -198,49 +198,73 @@ FOLDER-LEVEL CONVENTIONS
     file_path: "blog/"). There is no per-folder log file; commits are
     the log.
 
+PROJECTS
+  - A folder is an "upgraded Project" iff it contains
+    \`.huozi/memory.jsonl\` (the sentinel). Upgrade is a USER action
+    via the Web Settings page (⚙ icon on the folder row); the act of
+    upgrading mints three files in one atomic commit:
+        README.md           — human doc, frontmatter \`huozi: project\`
+        tasks.jsonl         — Tasks Collection (schema first line)
+        .huozi/memory.jsonl — Agent memory Collection (schema first line)
+  - There is no MCP tool for upgrade / archive / restore. If a user
+    asks in chat, point them at the Settings page.
+  - Once a Project exists, EVERYTHING is plain file editing through
+    the standard primitives: huozi_read to load, huozi_edit /
+    huozi_write to update, huozi_history to audit. The next two
+    sections document the Collection conventions agents follow.
+
 PROJECT MEMORY (.huozi/memory.jsonl)
-  - A folder is an "upgraded Project" iff it contains \`.huozi/memory.jsonl\`.
-    That file holds the agent's persistent observations for that scope:
-    feedback the user has given, project facts, references to external
-    systems, user-role context.
-  - When entering a Project folder, FIRST call
-    huozi_memory_list({ project_path: "<folder>" }) to load currently
-    effective memories. Apply learned feedback / project facts to your
-    behavior before responding.
-  - To capture a new memory, call huozi_memory_append with the project
-    path and an event body { type, name, body, why?, how_to_apply? }.
-    \`type\` is one of: feedback / project / reference / user. The server
-    fills id / at / by automatically.
-  - Cross-project user preferences and workspace-wide conventions live
-    in the workspace root README.md (human-maintained). There is no
-    workspace-level memory file.
+  - On entering a Project folder, huozi_read \`<folder>/.huozi/memory.jsonl\`
+    BEFORE doing other work. Fold the events to get the active set
+    and apply any feedback / project facts to your behavior:
+        op:"record"    — a new memory (active until superseded / tombstoned)
+        op:"supersede" — a new record that retires another by id (supersedes: "<old_id>")
+        op:"tombstone" — retires a record without replacement (target: "<id>")
+    Fold algorithm: scan in order; record+supersede add to active map (keyed by id);
+    supersede also drops \`supersedes\`; tombstone drops \`target\`. Final map is active.
+  - To capture a new observation, huozi_edit the same file: append a
+    JSON line with fields:
+        { "op":"record", "id":"m_<short>", "at":"<iso>", "by":"user:<id>" or "agent:<name>",
+          "type":"feedback"|"project"|"reference"|"user",
+          "name":"<headline>", "body":"<full text, markdown ok>",
+          "why":"<reason>"?, "how_to_apply":"<when/where>"? }
+  - Cross-Project user preferences live in the workspace root
+    README.md (human-maintained). No workspace-level memory file.
+  - Memory types:
+      feedback  — user conduct guidance ("don't summarize trailing")
+      project   — project facts / state / constraints
+      reference — pointer to where info lives in external systems
+      user      — user role / preferences / background
 
-PROJECT LIFECYCLE (user-only, no MCP)
-  - Creating / archiving / restoring Projects is a USER action,
-    triggered from the Web Settings page (⚙ icon on a folder row
-    in the file tree). There is no MCP tool for it — agents should
-    NOT propose to upgrade or archive folders. If a user asks for
-    it in chat, point them at the Settings page.
-
-TASKS (agent-driven, three tools)
-  - Tasks live in a Project's \`tasks.jsonl\` — a single-file
-    Collection, same shape as inbox.jsonl: schema first line, then
-    one event per line, multiple tasks identified by \`id\`.
-  - To CREATE a task: huozi_task_create({ project_path, title,
-    deliverable?, source_refs? }). Returns a fresh uuid.
-    \`source_refs\` is the standard form for Promote-from-inbox:
-    ["inbox.jsonl#<i_id>"].
-  - To LIST tasks with their current state (status folded from the
-    op sequence): huozi_task_list({ project_path, status?,
-    include_archived? }). Call this when entering a Project to see
-    what's open before deciding what to do.
-  - To APPEND an event onto an existing task (status / archive /
-    result / dispatch / ...): huozi_task_append({ project_path,
-    task_id, event: { op, status?, ... } }). Common case:
-    { op: "status", status: "done" }.
-  - The huozi-bridge daemon writes its own dispatch / agent_turn /
-    tool_use / result events directly through huozi_edit — you
-    won't normally need to emit those from chat.
+PROJECT TASKS (tasks.jsonl)
+  - A single-file Collection, same shape as inbox.jsonl: schema first
+    line, then one event per line, each task identified by \`id\`. To
+    survey state, huozi_read the file and fold by id. To mutate state,
+    huozi_edit / huozi_write to append a new event.
+  - Canonical ops (TASK_OPS):
+      create     — open a new task; mint a UUID v4 for \`id\`; include
+                   \`title\` and optionally \`deliverable\`, \`body\`,
+                   \`source_refs\` (e.g. ["inbox.jsonl#<i_id>"] when
+                   Promoting from inbox)
+      status     — explicit status set; include \`status\`: one of
+                   "pending"/"working"/"awaiting_user"/"done"/"archived"
+      archive    — final state, same effect as status:"archived"
+      result     — run finished (used by huozi-bridge daemon); include
+                   \`result_kind\`: "ok"|"error" and optional \`summary\`
+      dispatch / agent_turn / tool_use / tool_result / confirm_requested
+      run_paused / run_resumed                  ← bridge-daemon-emitted
+      user_action                               ← UI / user reply
+  - Status projection (used by the renderer): scan the event sequence
+    of a task; an explicit op:"status" event wins; otherwise the latest
+    matching op projects via this table:
+      archive → archived ; result → done ; confirm_requested → awaiting_user ;
+      dispatch / agent_turn / tool_use / tool_result / run_resumed / user_action → working ;
+      create / ingest / run_paused → pending.
+  - run_id: a task can have multiple runs (resume / restart). The
+    daemon generates a fresh run_id per dispatch; all events in that
+    run carry the same id, so consumers can fold a per-run view.
+    Manual chat-driven edits can omit run_id; events without it render
+    as a single "default run".
 
 WHAT IS NOT SUPPORTED (don't try to work around these — tell the user)
   - No Bash, no shell. This is a cloud surface, not a local machine.

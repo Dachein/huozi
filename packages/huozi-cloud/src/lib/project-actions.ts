@@ -20,7 +20,7 @@
  */
 
 import { isProject } from './project.js'
-import { buildInitialMemorySchemaLine } from '../storage/collection-schemas/memory.js'
+import { INITIAL_MEMORY_DOC } from '../storage/collection-schemas/memory.js'
 import type { Author, StorageBackend } from '../storage/types.js'
 
 const ARCHIVE_PREFIX = '.archive/'
@@ -209,7 +209,7 @@ export async function upgradeProject(
     return {
       ok: false,
       status: 409,
-      message: `"${folder}" is already an upgraded Project (sentinel ${folder}/.huozi/memory.jsonl exists).`,
+      message: `"${folder}" is already an upgraded Project (sentinel ${folder}/.huozi/memory.md exists).`,
     }
   }
 
@@ -230,7 +230,7 @@ export async function upgradeProject(
   }
 
   const tasksPath = `${folder}/tasks.jsonl`
-  const memoryPath = `${folder}/.huozi/memory.jsonl`
+  const memoryPath = `${folder}/.huozi/memory.md`
 
   const encoder = new TextEncoder()
   const edits = [
@@ -246,7 +246,7 @@ export async function upgradeProject(
     },
     {
       path: memoryPath,
-      content: encoder.encode(buildInitialMemorySchemaLine({ at }) + '\n'),
+      content: encoder.encode(INITIAL_MEMORY_DOC),
       parent_sha: null as string | null,
     },
   ]

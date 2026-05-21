@@ -1,26 +1,20 @@
 /**
- * Server-side thin wrappers around Project-lifecycle and Task MCP
- * surfaces.
+ * Server-side wrappers for the Folder Settings page.
  *
- * Two flavors live here:
- *   - **Project lifecycle** (upgrade / archive / unarchive). Deliberately
- *     OFF the MCP surface — agents shouldn't auto-mutate Project
- *     boundaries. Calls go to the Bearer-auth `/me/project` endpoint on
- *     the Worker, which dispatches to pure functions in
- *     `packages/huozi-cloud/src/lib/project-actions.ts`.
- *   - **Task creation + memory listing** (status read-back). These DO
- *     live on MCP and are reached via `callTool()`. The wrappers are
- *     kept here so the Settings page and any future API route share
- *     one place to update if the contract drifts.
+ * Project lifecycle (upgrade / archive / unarchive) is deliberately OFF
+ * the MCP surface — agents shouldn't auto-mutate Project boundaries.
+ * Calls go to the Bearer-auth `/me/project` endpoint on the Worker,
+ * which dispatches to pure functions in
+ * `packages/huozi-cloud/src/lib/project-actions.ts`.
  *
  * Everything here is runtime-server-only — do not import from a
  * "use client" file.
  */
 
 import { cloudFetch } from '@/lib/cloud-fetch'
-import { callTool, cloudRead, type McpResult } from './mcp-client'
+import { cloudRead } from './mcp-client'
 
-const SENTINEL_SUFFIX = '/.huozi/memory.jsonl'
+const SENTINEL_SUFFIX = '/.huozi/memory.md'
 
 export interface ProjectStatus {
   folder: string
@@ -43,20 +37,6 @@ interface ArchiveData {
   to: string
   commit_sha: string
   moved_paths: number
-}
-
-interface TaskCreateData {
-  filePath: string
-  task_id: string
-  at: string
-  commit_sha: string
-  new_blob_sha: string
-}
-
-interface MemoryListData {
-  filePath: string
-  records: Array<{ id: string; type: string }>
-  total_events: number
 }
 
 /**
@@ -82,6 +62,21 @@ function countDistinctIds(text: string): number {
     }
   }
   return ids.size
+}
+
+/**
+ * Count entries in a `.huozi/memory.md` document. Each entry is a
+ * `## <name>` H2 section; the seed template contains no entries so a
+ * fresh file returns 0. We intentionally count only real entries —
+ * the H1 ("# Project Memory") and any blockquote / HTML comment
+ * boilerplate are filtered out.
+ */
+function countMemoryEntries(text: string): number {
+  let count = 0
+  for (const line of text.split('\n')) {
+    if (line.startsWith('## ')) count++
+  }
+  return count
 }
 
 export async function fetchProjectStatus(
@@ -112,11 +107,8 @@ export async function fetchProjectStatus(
     status.taskCount = countDistinctIds(tasksFile.data.file.content)
   }
 
-  if (status.isProject) {
-    const mem = await callTool<MemoryListData>(key, 'huozi_memory_list', {
-      project_path: folder,
-    })
-    if (mem.ok) status.memoryCount = mem.data.records.length
+  if (status.isProject && sentinel.ok && sentinel.data.file?.content) {
+    status.memoryCount = countMemoryEntries(sentinel.data.file.content)
   }
 
   return status
@@ -189,21 +181,3 @@ export function projectUnarchive(
   })
 }
 
-export function projectTaskCreate(
-  key: string,
-  project_path: string,
-  title: string,
-  options?: {
-    deliverable?: string
-    body?: string
-    source_refs?: string[]
-  },
-): Promise<McpResult<TaskCreateData>> {
-  return callTool<TaskCreateData>(key, 'huozi_task_create', {
-    project_path,
-    title,
-    ...(options?.deliverable ? { deliverable: options.deliverable } : {}),
-    ...(options?.body ? { body: options.body } : {}),
-    ...(options?.source_refs ? { source_refs: options.source_refs } : {}),
-  })
-}

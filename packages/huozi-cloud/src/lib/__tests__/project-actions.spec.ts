@@ -67,7 +67,7 @@ describe('upgradeProject — fresh folder', () => {
     expect(r.ok).toBe(true)
     if (!r.ok) return
     expect(r.data.paths_written.sort()).toEqual([
-      'fresh/.huozi/memory.jsonl',
+      'fresh/.huozi/memory.md',
       'fresh/README.md',
       'fresh/tasks.jsonl',
     ])
@@ -80,10 +80,11 @@ describe('upgradeProject — fresh folder', () => {
     )
     expect(tasksSchema.op).toBe('schema')
     expect(tasksSchema.schema.title).toBe('Tasks')
-    const memSchema = JSON.parse(
-      (await readText(storage, 'fresh/.huozi/memory.jsonl')).trim(),
-    )
-    expect(memSchema.schema.title).toBe('Agent Memory')
+    // Memory is now a markdown doc — verify the frontmatter + heading
+    // are seeded, no JSON to parse.
+    const memDoc = await readText(storage, 'fresh/.huozi/memory.md')
+    expect(memDoc).toMatch(/^---\nhuozi: project-memory\n---/)
+    expect(memDoc).toContain('# Project Memory')
   })
 })
 
@@ -107,7 +108,7 @@ describe('upgradeProject — README already exists', () => {
 describe('upgradeProject — refusals', () => {
   it('refuses already-upgraded folders', async () => {
     const storage = new InMemoryStorage()
-    await writeFile(storage, 'huozi-dev/.huozi/memory.jsonl', '{"op":"schema"}\n')
+    await writeFile(storage, 'huozi-dev/.huozi/memory.md', '{"op":"schema"}\n')
     const r = await upgradeProject(storage, 'ws', author, {
       folderPath: 'huozi-dev',
     })

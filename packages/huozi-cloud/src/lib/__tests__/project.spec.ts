@@ -26,16 +26,16 @@ describe('isProject', () => {
     expect(await isProject(storage, 'ws', 'huozi-dev')).toBe(false)
   })
 
-  it('returns true once .huozi/memory.jsonl exists', async () => {
+  it('returns true once .huozi/memory.md exists', async () => {
     const storage = new InMemoryStorage()
     await touch(storage, 'ws', 'huozi-dev/README.md')
-    await touch(storage, 'ws', 'huozi-dev/.huozi/memory.jsonl', '{"op":"schema"}\n')
+    await touch(storage, 'ws', 'huozi-dev/.huozi/memory.md', '{"op":"schema"}\n')
     expect(await isProject(storage, 'ws', 'huozi-dev')).toBe(true)
   })
 
   it('accepts trailing slash on the folder path', async () => {
     const storage = new InMemoryStorage()
-    await touch(storage, 'ws', 'huozi-dev/.huozi/memory.jsonl', '{"op":"schema"}\n')
+    await touch(storage, 'ws', 'huozi-dev/.huozi/memory.md', '{"op":"schema"}\n')
     expect(await isProject(storage, 'ws', 'huozi-dev/')).toBe(true)
   })
 
@@ -55,23 +55,23 @@ describe('listProjects', () => {
 
   it('returns the top-level folders that carry a sentinel', async () => {
     const storage = new InMemoryStorage()
-    await touch(storage, 'ws', 'huozi-dev/.huozi/memory.jsonl', 's')
-    await touch(storage, 'ws', 'fargo/.huozi/memory.jsonl', 's')
+    await touch(storage, 'ws', 'huozi-dev/.huozi/memory.md', 's')
+    await touch(storage, 'ws', 'fargo/.huozi/memory.md', 's')
     await touch(storage, 'ws', 'fargo/README.md')
     await touch(storage, 'ws', 'random/file.md') // no sentinel
     expect(await listProjects(storage, 'ws')).toEqual(['fargo', 'huozi-dev'])
   })
 
-  it('ignores nested .huozi/memory.jsonl (no nested projects)', async () => {
+  it('ignores nested .huozi/memory.md (no nested projects)', async () => {
     const storage = new InMemoryStorage()
-    await touch(storage, 'ws', 'fargo/sub/.huozi/memory.jsonl', 's')
+    await touch(storage, 'ws', 'fargo/sub/.huozi/memory.md', 's')
     expect(await listProjects(storage, 'ws')).toEqual([])
   })
 
   it('does not list workspaces from other tenants', async () => {
     const storage = new InMemoryStorage()
-    await touch(storage, 'ws-a', 'huozi-dev/.huozi/memory.jsonl', 's')
-    await touch(storage, 'ws-b', 'other/.huozi/memory.jsonl', 's')
+    await touch(storage, 'ws-a', 'huozi-dev/.huozi/memory.md', 's')
+    await touch(storage, 'ws-b', 'other/.huozi/memory.md', 's')
     expect(await listProjects(storage, 'ws-a')).toEqual(['huozi-dev'])
     expect(await listProjects(storage, 'ws-b')).toEqual(['other'])
   })

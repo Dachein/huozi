@@ -13,7 +13,7 @@
 import type { StorageBackend } from '../storage/types.js'
 
 /** Path suffix that marks an upgraded Project. */
-export const PROJECT_SENTINEL_SUFFIX = '.huozi/memory.jsonl'
+export const PROJECT_SENTINEL_SUFFIX = '.huozi/memory.md'
 
 /**
  * Returns true iff `<folderPath>/.huozi/memory.jsonl` exists in the
