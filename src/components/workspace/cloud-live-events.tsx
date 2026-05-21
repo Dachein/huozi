@@ -255,26 +255,40 @@ export function CloudLiveEvents({ mode, watchPath }: CloudLiveEventsProps) {
 function StatusPill({ status }: { status: "connecting" | "online" | "offline" }) {
   const map = {
     connecting: {
-      label: "Connecting live sync…",
+      label: "Connecting…",
+      tip:
+        "Opening a WebSocket to huozi-cloud. New file commits will arrive once " +
+        "the connection is established.",
       cls: "border-border text-muted-foreground",
       dot: "bg-muted-foreground/60 animate-pulse",
     },
     online: {
       label: "Live",
+      tip:
+        "Real-time sync is on. Any file written by another tab, agent, or the " +
+        "huozi-bridge daemon shows up here without a reload.",
       cls: "border-emerald-500/30 text-emerald-500",
       dot: "bg-emerald-500",
     },
     offline: {
-      label: "Live sync offline",
+      label: "Offline",
+      tip:
+        "WebSocket disconnected. The page still works but won't reflect remote " +
+        "commits until the connection comes back; reload if you need the latest.",
       cls: "border-border text-muted-foreground",
       dot: "bg-muted-foreground/60",
     },
   };
-  const { label, cls, dot } = map[status];
+  const { label, tip, cls, dot } = map[status];
   return (
+    // Pinned top-right of the viewport, sitting just inside the AppHeader's
+    // right padding so it reads as part of the workspace chrome rather than
+    // a floating toast. Native `title` carries the multi-line tooltip — keeps
+    // bundle size flat (no popover library) and screen readers pick it up via
+    // accessible name.
     <span
-      className={`fixed bottom-4 right-4 z-40 inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] bg-background/80 backdrop-blur ${cls}`}
-      title={label}
+      className={`fixed top-3 right-4 z-40 inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] bg-background/80 backdrop-blur ${cls}`}
+      title={`${label} — ${tip}`}
       role="status"
       aria-live="polite"
     >
