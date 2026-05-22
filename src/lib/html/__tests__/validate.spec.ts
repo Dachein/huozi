@@ -7,6 +7,8 @@ describe("validateHuoziHtml", () => {
       <html>
         <head>
           <meta name="huozi:format" content="deck">
+          <title>Deck</title>
+          <meta property="og:image" content="https://example.com/og.png">
         </head>
         <body>
           <section data-page id="s1" data-title="封面">A</section>

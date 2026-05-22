@@ -23,6 +23,8 @@ import { StaleError, type StorageBackend } from '../storage/types.js'
 import { buildTool } from '../Tool.js'
 import type { Tool, ToolResult, ToolUseContext } from '../types.js'
 import { canonicalizePath } from '../utils/path.js'
+import { gateHtmlWrite } from '../validate/html-gate.js'
+import type { ValidationIssue } from '../validate/html-validate.js'
 
 export const WRITE_TOOL_NAME = 'huozi_write'
 
@@ -43,6 +45,15 @@ const hunkSchema = z.object({
   lines: z.array(z.string()),
 })
 
+const validationIssueSchema = z.object({
+  level: z.enum(['error', 'warning', 'hint']),
+  code: z.string(),
+  message: z.string(),
+  line: z.number().int().positive().optional(),
+  remedy: z.string().optional(),
+  docRef: z.string().optional(),
+})
+
 export const writeOutputSchema = z.object({
   type: z.enum(['create', 'update']),
   filePath: z.string(),
@@ -52,6 +63,10 @@ export const writeOutputSchema = z.object({
   commit_sha: z.string(),
   new_blob_sha: z.string(),
   userModified: z.boolean().optional(),
+  /** Non-error lint issues (warning + hint) detected on the written
+   *  content. Errors block the write entirely; this field never carries
+   *  them. Omitted when the file is not HTML or has no findings. */
+  validation_warnings: z.array(validationIssueSchema).optional(),
 })
 
 export type WriteOutput = z.infer<typeof writeOutputSchema>
@@ -65,7 +80,13 @@ Usage:
 - Prefer the Edit tool for modifying existing files — it only sends the diff. Only use this tool to create new files or for complete rewrites.
 - NEVER create documentation files (*.md) or README files unless explicitly requested by the User.
 - Only use emojis if the user explicitly requests it. Avoid writing emojis to files unless asked.
-- The content you provide will be written with LF line endings regardless of what the file currently uses.`
+- The content you provide will be written with LF line endings regardless of what the file currently uses.
+
+HTML lint gate (.html / .htm files only):
+- Before writing, the tool runs the huozi HTML validator on the new content.
+- If any error-level issues are detected (e.g. format-unknown, paginated-no-pages, page-id-duplicate), the write is REFUSED with errorCode 120 and meta.issues containing the structured findings. Apply each issue's remedy and call huozi_write again.
+- Warning and hint issues do not block the write; they are returned in the success payload as validation_warnings[] so you can fix them on the next pass.
+- Call huozi_validate_rules to enumerate the full rule catalog with each rule's why/remedy ahead of time.`
 }
 
 export interface WriteToolDeps {
@@ -117,6 +138,18 @@ export function createWriteTool(
           errorCode: ERR.SECRET_DETECTED,
           message: formatSecretError(secret),
           meta: { rule: secret.rule, line: secret.lineNumber, column: secret.column },
+        }
+      }
+      // HTML lint gate (.html / .htm only): refuse writes that would
+      // introduce error-level issues. Warnings/hints don't block — they
+      // ride along on the success payload in `call`.
+      const gate = gateHtmlWrite(canon.path, input.content)
+      if (gate.kind === 'block') {
+        return {
+          result: false,
+          errorCode: ERR.HTML_VALIDATION_FAILED,
+          message: gate.message,
+          meta: { issues: gate.errors, warnings: gate.warnings },
         }
       }
       const existing = await deps.storage.readFile(ctx.workspaceId, canon.path)
@@ -200,6 +233,15 @@ export function createWriteTool(
         readAt: Date.now(),
       })
 
+      // Re-run the gate to capture any warnings on a now-non-blocking
+      // write. (validateInput's gate call already proved there are no
+      // errors; we re-run to pull the warning slice for the payload.)
+      const postGate = gateHtmlWrite(path, input.content)
+      const warnings: ValidationIssue[] | undefined =
+        postGate.kind === 'ok' && postGate.warnings.length > 0
+          ? postGate.warnings
+          : undefined
+
       return {
         kind: 'success',
         data: {
@@ -211,6 +253,7 @@ export function createWriteTool(
           commit_sha: writeResult.commit_sha,
           new_blob_sha: writeResult.record.blob_sha,
           userModified: ctx.principalType === 'user' ? true : false,
+          ...(warnings ? { validation_warnings: warnings } : {}),
         },
       }
     },

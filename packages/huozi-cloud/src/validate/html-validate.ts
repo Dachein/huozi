@@ -439,21 +439,24 @@ export function validateHuoziHtml(html: string): ValidationIssue[] {
     }
   }
 
-  // <title> + og:image
-  if (!/<title\b[^>]*>[\s\S]*?<\/title>/i.test(html)) {
-    issues.push(
-      issueFromRule('title-missing', { message: '<head> 缺少 <title>' }),
-    )
-  }
-  if (
-    !/<meta\s+property=["']og:image["']/i.test(html) &&
-    !/<meta\s+name=["']twitter:image["']/i.test(html)
-  ) {
-    issues.push(
-      issueFromRule('og-image-missing', {
-        message: '<head> 缺少 og:image / twitter:image',
-      }),
-    )
+  // <title> + og:image — only meaningful when the file is a full document
+  // (has a <head>). Fragments / includes don't own their own metadata.
+  if (/<head\b[^>]*>/i.test(html)) {
+    if (!/<title\b[^>]*>[\s\S]*?<\/title>/i.test(html)) {
+      issues.push(
+        issueFromRule('title-missing', { message: '<head> 缺少 <title>' }),
+      )
+    }
+    if (
+      !/<meta\s+property=["']og:image["']/i.test(html) &&
+      !/<meta\s+name=["']twitter:image["']/i.test(html)
+    ) {
+      issues.push(
+        issueFromRule('og-image-missing', {
+          message: '<head> 缺少 og:image / twitter:image',
+        }),
+      )
+    }
   }
 
   return issues

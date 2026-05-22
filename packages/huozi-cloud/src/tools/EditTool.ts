@@ -29,6 +29,8 @@ import { StaleError, type StorageBackend } from '../storage/types.js'
 import { buildTool } from '../Tool.js'
 import type { Tool, ToolResult, ToolUseContext } from '../types.js'
 import { canonicalizePath } from '../utils/path.js'
+import { gateHtmlWrite } from '../validate/html-gate.js'
+import type { ValidationIssue } from '../validate/html-validate.js'
 
 export const EDIT_TOOL_NAME = 'huozi_edit'
 
@@ -63,6 +65,15 @@ const hunkSchema = z.object({
   lines: z.array(z.string()),
 })
 
+const validationIssueSchema = z.object({
+  level: z.enum(['error', 'warning', 'hint']),
+  code: z.string(),
+  message: z.string(),
+  line: z.number().int().positive().optional(),
+  remedy: z.string().optional(),
+  docRef: z.string().optional(),
+})
+
 export const editOutputSchema = z.object({
   filePath: z.string(),
   oldString: z.string(),
@@ -73,6 +84,11 @@ export const editOutputSchema = z.object({
   replaceAll: z.boolean(),
   commit_sha: z.string(),
   new_blob_sha: z.string(),
+  /** Non-error lint issues (warning + hint) detected on the post-edit
+   *  content. Errors block the edit (returned as ToolResult.error with
+   *  errorCode 120); this field never carries them. Omitted when the
+   *  file is not HTML or has no findings. */
+  validation_warnings: z.array(validationIssueSchema).optional(),
 })
 
 export type EditOutput = z.infer<typeof editOutputSchema>
@@ -89,7 +105,13 @@ Usage:
 - Only use emojis if the user explicitly requests it. Avoid adding emojis to files unless asked.
 - The edit will FAIL if old_string is not unique in the file. Either provide a larger old_string with more surrounding context, or use replace_all: true to change every instance.
 - Use the smallest old_string that's clearly unique — usually 2-4 adjacent lines is sufficient. Avoid including 10+ lines of context when less uniquely identifies the target.
-- Use replace_all for renaming variables or other symbol-level substitutions.`
+- Use replace_all for renaming variables or other symbol-level substitutions.
+
+HTML lint gate (.html / .htm files only):
+- After computing the post-edit content, the tool runs the huozi HTML validator.
+- If the edit would introduce error-level issues (e.g. format-unknown, paginated-no-pages, page-id-duplicate, format-deprecated), the edit is REFUSED with errorCode 120 and meta.issues containing the structured findings. The file is left unchanged. Apply each issue's remedy and try again.
+- Warning and hint issues do not block the edit; they are returned in the success payload as validation_warnings[] so you can fix them in a follow-up edit.
+- Call huozi_validate_rules to enumerate the full rule catalog ahead of time.`
 }
 
 // ── Tool ─────────────────────────────────────────────────────────────────
@@ -313,6 +335,23 @@ export function createEditTool(deps: EditToolDeps): Tool<EditInput, EditOutput> 
         }
       }
 
+      // HTML lint gate: validate the post-edit content. Errors refuse
+      // the edit before any storage write happens; warnings/hints ride
+      // out on the success payload. Skips non-HTML files.
+      const gate = gateHtmlWrite(path, updatedFile)
+      if (gate.kind === 'block') {
+        return {
+          kind: 'error',
+          errorCode: ERR.HTML_VALIDATION_FAILED,
+          message: gate.message,
+          meta: { issues: gate.errors, warnings: gate.warnings },
+        }
+      }
+      const editWarnings: ValidationIssue[] | undefined =
+        gate.kind === 'ok' && gate.warnings.length > 0
+          ? gate.warnings
+          : undefined
+
       // Preserve original encoding + line endings (Edit keeps them; Write
       // forces LF, per SPEC §4.2 CRLF/编码 约定).
       const { encodeContentForWrite } = await import('../cc-compat/index.js')
@@ -365,6 +404,7 @@ export function createEditTool(deps: EditToolDeps): Tool<EditInput, EditOutput> 
           replaceAll: (input.replace_all ?? false),
           commit_sha: writeResult.commit_sha,
           new_blob_sha: writeResult.record.blob_sha,
+          ...(editWarnings ? { validation_warnings: editWarnings } : {}),
         },
       }
     },

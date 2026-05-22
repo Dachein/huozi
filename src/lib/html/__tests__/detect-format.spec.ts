@@ -16,37 +16,37 @@ describe("detectHuoziFormat", () => {
     );
   });
 
-  it("falls back to web when nothing is declared", () => {
-    expect(detectHuoziFormat(`<html><body>plain</body></html>`)).toBe("web");
+  it("falls back to blog when nothing is declared", () => {
+    expect(detectHuoziFormat(`<html><body>plain</body></html>`)).toBe("blog");
   });
 
   it("does NOT detect format from <pre><code> example markup", () => {
-    // Spec doc that shows example HTML inside code blocks must stay "web".
+    // Spec doc that shows example HTML inside code blocks must stay "blog".
     // Previously this false-positived to deck and broke ShareViewer scroll.
     const specDoc = `<html><head></head><body>
       <h1>spec</h1>
       <p>example:</p>
       <pre><code>&lt;body class="huozi-deck"&gt; ... &lt;/body&gt;</code></pre>
     </body></html>`;
-    expect(detectHuoziFormat(specDoc)).toBe("web");
+    expect(detectHuoziFormat(specDoc)).toBe("blog");
   });
 
   it("does NOT detect format from meta inside code blocks", () => {
     const html = `<html><body>
       <pre><code>&lt;meta name="huozi:format" content="story"&gt;</code></pre>
     </body></html>`;
-    expect(detectHuoziFormat(html)).toBe("web");
+    expect(detectHuoziFormat(html)).toBe("blog");
   });
 
   it("does NOT detect format from HTML comments", () => {
     const html = `<!-- <body class="huozi-paper"> example --><body>x</body>`;
-    expect(detectHuoziFormat(html)).toBe("web");
+    expect(detectHuoziFormat(html)).toBe("blog");
   });
 
   it("does NOT detect format from <style> rules", () => {
     // CSS rules mentioning huozi-deck shouldn't trigger format detection.
     const html = `<style>.huozi-deck { color: red }</style><body>x</body>`;
-    expect(detectHuoziFormat(html)).toBe("web");
+    expect(detectHuoziFormat(html)).toBe("blog");
   });
 
   it("real format declaration outside code wins over examples inside", () => {

@@ -26,6 +26,7 @@ export const ERR = {
   INVALID_URI: 110, // not a huozi:// URI
   CONFLICT: 111, // resource already exists (e.g. slug taken)
   INTERNAL: 112, // unexpected server-side failure
+  HTML_VALIDATION_FAILED: 120, // .html write would introduce error-level lint issues
 } as const
 
 export type ErrorCode = (typeof ERR)[keyof typeof ERR]

@@ -35,6 +35,8 @@ import type { BatchWriteArgs, StorageBackend } from '../storage/types.js'
 import { buildTool } from '../Tool.js'
 import type { Tool, ToolResult, ToolUseContext } from '../types.js'
 import { canonicalizePath } from '../utils/path.js'
+import { gateHtmlWrite } from '../validate/html-gate.js'
+import type { ValidationIssue } from '../validate/html-validate.js'
 
 export const BATCH_EDIT_TOOL_NAME = 'huozi_batch_edit'
 
@@ -63,6 +65,15 @@ const hunkSchema = z.object({
   lines: z.array(z.string()),
 })
 
+const validationIssueSchema = z.object({
+  level: z.enum(['error', 'warning', 'hint']),
+  code: z.string(),
+  message: z.string(),
+  line: z.number().int().positive().optional(),
+  remedy: z.string().optional(),
+  docRef: z.string().optional(),
+})
+
 const batchItemResultSchema = z.object({
   file_path: z.string(),
   success: z.boolean(),
@@ -70,6 +81,7 @@ const batchItemResultSchema = z.object({
     .object({
       code: z.number(),
       message: z.string(),
+      issues: z.array(validationIssueSchema).optional(),
     })
     .optional(),
   structuredPatch: z.array(hunkSchema).optional(),
@@ -77,6 +89,8 @@ const batchItemResultSchema = z.object({
   newString: z.string().optional(),
   originalFile: z.string().optional(),
   new_blob_sha: z.string().optional(),
+  /** Non-error lint issues on the post-edit content (HTML files only). */
+  validation_warnings: z.array(validationIssueSchema).optional(),
 })
 
 export const batchEditOutputSchema = z.object({
@@ -94,9 +108,15 @@ function batchEditPrompt(): string {
 Usage:
 - Every file in the edits array must have been Read before calling this tool (the batch enforces staleness per file).
 - The same file may appear multiple times in edits; later edits see the result of earlier ones (like running Edit sequentially on that file).
-- With all_or_nothing: true (default), if ANY edit can't be applied (stale, old_string not found, ambiguous match), nothing is written. Check results[] for per-file errors.
+- With all_or_nothing: true (default), if ANY edit can't be applied (stale, old_string not found, ambiguous match, or HTML lint error), nothing is written. Check results[] for per-file errors.
 - With all_or_nothing: false, failed edits are reported but successful ones are committed together.
-- The entire batch produces ONE commit_sha. Use this tool instead of many sequential huozi_edit calls when you want a clean audit trail for a logical grouping.`
+- The entire batch produces ONE commit_sha. Use this tool instead of many sequential huozi_edit calls when you want a clean audit trail for a logical grouping.
+
+HTML lint gate (.html / .htm files in the batch):
+- After computing each file's post-edit content, the validator runs over it.
+- A file with error-level issues (code 120) is marked failed in results[]; results[i].error.issues lists the structured findings.
+- Warning and hint issues do not fail the file; they appear on the success entry as validation_warnings[] so you can clean them up next pass.
+- Call huozi_validate_rules to enumerate the full rule catalog ahead of time.`
 }
 
 export interface BatchEditToolDeps {
@@ -106,7 +126,7 @@ export interface BatchEditToolDeps {
 interface PerFileResult {
   file_path: string
   success: boolean
-  error?: { code: number; message: string }
+  error?: { code: number; message: string; issues?: ValidationIssue[] }
   // when success:
   actualOldString?: string
   actualNewString?: string
@@ -118,6 +138,9 @@ interface PerFileResult {
   parent_sha?: string
   additions?: number
   deletions?: number
+  /** Non-error lint findings; passed through to the per-file result on
+   *  success. Errors short-circuit to the `error` field. */
+  validationWarnings?: ValidationIssue[]
 }
 
 export function createBatchEditTool(
@@ -316,6 +339,20 @@ export function createBatchEditTool(
           newContent: updatedFile,
         })
 
+        // HTML lint gate per file. Errors fail the file (the batch
+        // aborts under all_or_nothing); warnings/hints ride out on the
+        // per-file success entry. Skips non-HTML paths.
+        const gate = gateHtmlWrite(path, updatedFile)
+        if (gate.kind === 'block') {
+          out.error = {
+            code: ERR.HTML_VALIDATION_FAILED,
+            message: `${path}: ${gate.message}`,
+            issues: gate.errors,
+          }
+          perFile.push(out)
+          continue
+        }
+
         const lineCounts = countLinesChanged(patch)
         out.success = true
         out.actualOldString = resolved[0]?.old_string ?? ''
@@ -328,6 +365,9 @@ export function createBatchEditTool(
         out.parent_sha = record.blob_sha
         out.additions = lineCounts.additions
         out.deletions = lineCounts.removals
+        if (gate.kind === 'ok' && gate.warnings.length > 0) {
+          out.validationWarnings = gate.warnings
+        }
         perFile.push(out)
       }
 
@@ -343,7 +383,15 @@ export function createBatchEditTool(
             results: perFile.map((f) => ({
               file_path: f.file_path,
               success: f.success,
-              ...(f.error ? { error: f.error } : {}),
+              ...(f.error
+                ? {
+                    error: {
+                      code: f.error.code,
+                      message: f.error.message,
+                      ...(f.error.issues ? { issues: f.error.issues } : {}),
+                    },
+                  }
+                : {}),
             })),
             allOrNothing,
           },
@@ -378,7 +426,15 @@ export function createBatchEditTool(
             results: perFile.map((f) => ({
               file_path: f.file_path,
               success: f.success,
-              ...(f.error ? { error: f.error } : {}),
+              ...(f.error
+                ? {
+                    error: {
+                      code: f.error.code,
+                      message: f.error.message,
+                      ...(f.error.issues ? { issues: f.error.issues } : {}),
+                    },
+                  }
+                : {}),
             })),
             allOrNothing,
           },
@@ -422,7 +478,15 @@ export function createBatchEditTool(
           results: perFile.map((f) => ({
             file_path: f.file_path,
             success: f.success,
-            ...(f.error ? { error: f.error } : {}),
+            ...(f.error
+              ? {
+                  error: {
+                    code: f.error.code,
+                    message: f.error.message,
+                    ...(f.error.issues ? { issues: f.error.issues } : {}),
+                  },
+                }
+              : {}),
             ...(f.success
               ? {
                   structuredPatch: f.structuredPatch,
@@ -430,6 +494,9 @@ export function createBatchEditTool(
                   newString: f.actualNewString,
                   originalFile: f.originalFile,
                   new_blob_sha: shaByPath.get(f.file_path),
+                  ...(f.validationWarnings && f.validationWarnings.length > 0
+                    ? { validation_warnings: f.validationWarnings }
+                    : {}),
                 }
               : {}),
           })),
