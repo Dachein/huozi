@@ -27,21 +27,48 @@
 
 import { type HuoziFormat, isPaginated } from "./detect-format";
 import { KNOWN_BUNDLE_KEYS } from "./asset-registry";
+import { getRule, type ValidationLevel } from "./validate-rules";
 
-export type ValidationLevel = "error" | "warning" | "hint";
+export type { ValidationLevel } from "./validate-rules";
+export { listValidationRules } from "./validate-rules";
 
 export interface ValidationIssue {
   level: ValidationLevel;
-  /** Stable identifier for docs + i18n. kebab-case. */
+  /** Stable identifier for docs + i18n. kebab-case. Look up the full
+   *  rule via `getRule(code)` for title / why / remedy / docRef. */
   code: string;
-  /** Human-readable. zh-first; UI can swap by locale via `code`. */
+  /** Human-readable, with file-specific context (line numbers, values).
+   *  Generic guidance lives in the catalog's `title` + `why`. */
   message: string;
   /** 1-based source line, when locatable. */
   line?: number;
-  /** Optional next-step hint. */
+  /** Optional next-step hint, file-specific. Falls back to the catalog's
+   *  generic `remedy` when not set. */
   remedy?: string;
-  /** Anchor in spec docs (e.g. "norms#3-format-types"). */
+  /** Anchor in spec docs (e.g. "norms#3-format-types"). Falls back to
+   *  the catalog entry. */
   docRef?: string;
+}
+
+/** Helper: pull metadata defaults from the catalog so detection sites
+ *  only need to provide context-specific fields (message, line). */
+function issueFromRule(
+  code: string,
+  context: { message: string; line?: number; remedy?: string },
+): ValidationIssue {
+  const rule = getRule(code);
+  if (!rule) {
+    // Programmer error — every emitted code must exist in validate-rules.
+    return { level: "warning", code, message: context.message, line: context.line };
+  }
+  return {
+    level: rule.level,
+    code,
+    message: context.message,
+    line: context.line,
+    remedy: context.remedy ?? rule.remedy,
+    docRef: rule.docRef,
+  };
 }
 
 const ALL_FORMATS = new Set<HuoziFormat>([
@@ -365,15 +392,130 @@ export function validateHuoziHtml(html: string): ValidationIssue[] {
     externalScripts.push({ url: scriptMatch[1], offset: scriptMatch.index });
   }
   if (externalScripts.length > 0) {
-    issues.push({
-      level: "warning",
-      code: "external-script-blocked",
-      message: `检测到 ${externalScripts.length} 个 <script src="https://...">，发布时会被沙箱 strip`,
-      line: lineFor(html, externalScripts[0].offset),
-      remedy:
-        '如果是 mermaid / echarts 等已知库，改用 <meta name="huozi:bundle"> 声明加载',
-      docRef: "toolbox-spec#3-2-author-constraints",
-    });
+    issues.push(
+      issueFromRule("external-script-blocked", {
+        message: `检测到 ${externalScripts.length} 个 <script src="https://...">，发布时会被沙箱 strip`,
+        line: lineFor(html, externalScripts[0].offset),
+      }),
+    );
+  }
+
+  // ── Rule: inline <script> blocks will be stripped ──
+  // Match <script>…</script> where the opening tag has NO src attribute.
+  // We're not looking inside skip ranges (which include <script> itself),
+  // so we run our own scan over the raw html. Skip code-example regions
+  // (pre/code) but not script regions themselves.
+  const INLINE_SCRIPT_RE = /<script\b([^>]*)>/gi;
+  const codeOnlySkip = displaySkip;
+  const inlineScripts: number[] = [];
+  let inlineMatch: RegExpExecArray | null;
+  while ((inlineMatch = INLINE_SCRIPT_RE.exec(html)) !== null) {
+    if (isInRanges(inlineMatch.index, codeOnlySkip)) continue;
+    // Has src? Already covered by external-script-blocked.
+    if (/\bsrc\s*=/i.test(inlineMatch[1])) continue;
+    inlineScripts.push(inlineMatch.index);
+  }
+  if (inlineScripts.length > 0) {
+    issues.push(
+      issueFromRule("inline-script-blocked", {
+        message: `检测到 ${inlineScripts.length} 个内联 <script>，发布时会被沙箱 strip`,
+        line: lineFor(html, inlineScripts[0]),
+      }),
+    );
+  }
+
+  // ── Rule: <iframe> / <embed> / <object> will be stripped ──
+  const EMBED_RE = /<(iframe|embed|object)\b[^>]*>/gi;
+  const embeds: Array<{ tag: string; offset: number }> = [];
+  let embedMatch: RegExpExecArray | null;
+  while ((embedMatch = EMBED_RE.exec(html)) !== null) {
+    if (isInRanges(embedMatch.index, codeOnlySkip)) continue;
+    embeds.push({ tag: embedMatch[1].toLowerCase(), offset: embedMatch.index });
+  }
+  if (embeds.length > 0) {
+    const tags = [...new Set(embeds.map((e) => `<${e.tag}>`))].join(" / ");
+    issues.push(
+      issueFromRule("iframe-or-embed-stripped", {
+        message: `检测到 ${embeds.length} 个 ${tags}，发布时会被沙箱 strip，留下空洞`,
+        line: lineFor(html, embeds[0].offset),
+      }),
+    );
+  }
+
+  // ── Rule: vw / vh units inside a paginated format ──
+  // Author writes the file targeting a fixed canvas; the platform
+  // transform-scales it to fit the viewport. vw/vh resolve against the
+  // viewport (NOT the canvas), so any size or position using them
+  // de-syncs from the rest of the layout — exactly the bug that bit us
+  // when stories were rendered on desktop.
+  if (
+    effectiveFormat === "deck" ||
+    effectiveFormat === "story" ||
+    effectiveFormat === "dashboard"
+  ) {
+    // Match the units only inside CSS contexts. We scan <style> blocks
+    // and inline style attributes. (The skip ranges normally EXCLUDE
+    // these regions for us — for THIS rule we want to scan them.)
+    const cssContexts: Array<{ text: string; baseOffset: number }> = [];
+    const STYLE_BLOCK_RE = /<style\b[^>]*>([\s\S]*?)<\/style>/gi;
+    let sm: RegExpExecArray | null;
+    while ((sm = STYLE_BLOCK_RE.exec(html)) !== null) {
+      // Skip if the <style> tag itself is inside a code example.
+      if (isInRanges(sm.index, codeOnlySkip)) continue;
+      cssContexts.push({
+        text: sm[1],
+        baseOffset: sm.index + sm[0].indexOf(sm[1]),
+      });
+    }
+    const STYLE_ATTR_RE = /\sstyle\s*=\s*"([^"]*)"|\sstyle\s*=\s*'([^']*)'/gi;
+    let am: RegExpExecArray | null;
+    while ((am = STYLE_ATTR_RE.exec(html)) !== null) {
+      if (isInRanges(am.index, skip)) continue;
+      const inner = am[1] ?? am[2] ?? "";
+      const innerStart = am[0].indexOf(inner);
+      cssContexts.push({ text: inner, baseOffset: am.index + innerStart });
+    }
+    const VW_VH_RE = /\b\d+(?:\.\d+)?(vw|vh)\b/gi;
+    const vwHits: number[] = [];
+    for (const ctx of cssContexts) {
+      let vm: RegExpExecArray | null;
+      const re = new RegExp(VW_VH_RE.source, VW_VH_RE.flags);
+      while ((vm = re.exec(ctx.text)) !== null) {
+        // 100vh on .huozi-X root rules is OK — the canvas wrapper
+        // overrides them with !important. Be slightly forgiving: only
+        // flag obvious in-content uses by checking proximity to common
+        // root selectors is overkill, so just count ALL and let the
+        // agent decide. A future iteration can be smarter.
+        vwHits.push(ctx.baseOffset + vm.index);
+      }
+    }
+    if (vwHits.length > 0) {
+      issues.push(
+        issueFromRule("vw-vh-in-paginated", {
+          message: `paginated format ${effectiveFormat} 内检测到 ${vwHits.length} 处 vw/vh 使用；cqw/cqh 才能跨内嵌/全屏/发布稳定`,
+          line: lineFor(html, vwHits[0]),
+        }),
+      );
+    }
+  }
+
+  // ── Rule: <title> missing ──
+  if (!/<title\b[^>]*>[\s\S]*?<\/title>/i.test(html)) {
+    issues.push(
+      issueFromRule("title-missing", { message: "<head> 缺少 <title>" }),
+    );
+  }
+
+  // ── Rule: og:image missing ──
+  if (
+    !/<meta\s+property=["']og:image["']/i.test(html) &&
+    !/<meta\s+name=["']twitter:image["']/i.test(html)
+  ) {
+    issues.push(
+      issueFromRule("og-image-missing", {
+        message: "<head> 缺少 og:image / twitter:image",
+      }),
+    );
   }
 
   return issues;

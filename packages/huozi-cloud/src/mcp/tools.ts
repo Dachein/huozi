@@ -31,6 +31,7 @@ import { createRmTool } from '../tools/RmTool.js'
 import { createShareTool, type ShareToolDeps } from '../tools/ShareTool.js'
 import { createTemplateTool } from '../tools/TemplateTool/index.js'
 import { createUploadTool } from '../tools/UploadTool/index.js'
+import { createValidateRulesTool } from '../tools/ValidateRulesTool.js'
 import { createValidateTool } from '../tools/ValidateTool.js'
 import { createWhoamiTool, type WhoamiToolDeps } from '../tools/WhoamiTool.js'
 import type { BinaryRefSigner } from '../tools/ReadTool/ReadTool.js'
@@ -90,6 +91,7 @@ export function createHuoziToolRegistry(
     createTemplateTool(),
     createUploadTool({ storage }),
     createValidateTool({ storage }),
+    createValidateRulesTool(),
   ]
   if (shareDeps) {
     tools.push(createShareTool(shareDeps))

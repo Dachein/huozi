@@ -2,17 +2,23 @@
  * HTML validation — port of `app/src/lib/html/validate.ts`.
  *
  * Same rule set, same diagnostic shape. Lives here so the worker-side
- * `huozi_validate` MCP tool can run without reaching back into the
- * Next.js app's source tree (the worker is a separate package with its
- * own rootDir; the two trees can't share modules directly).
+ * `huozi_validate` / `huozi_validate_rules` MCP tools can run without
+ * reaching back into the Next.js app's source tree (the worker is a
+ * separate package with its own rootDir; the two trees can't share
+ * modules directly).
  *
- * KEEP IN SYNC with the frontend copy. Both files duplicate intentionally
- * — the alternative (a shared sub-package) is more ceremony than two
- * ~300-line pure functions warrant. If a rule is added or tightened on
- * one side, mirror it on the other.
+ * KEEP IN SYNC with the frontend copy. If a rule is added or tightened
+ * on one side, mirror it on the other.
  */
 
-export type ValidationLevel = 'error' | 'warning' | 'hint'
+import {
+  getRule,
+  type HuoziFormat,
+  type ValidationLevel,
+} from './validate-rules.js'
+
+export type { ValidationLevel } from './validate-rules.js'
+export { listValidationRules, VALIDATION_RULES } from './validate-rules.js'
 
 export interface ValidationIssue {
   level: ValidationLevel
@@ -30,18 +36,15 @@ export interface ValidationSummary {
   total: number
 }
 
-type HuoziFormat = 'deck' | 'story' | 'paper' | 'mobile' | 'web'
-
 const ALL_FORMATS = new Set<HuoziFormat>([
   'deck',
   'story',
   'paper',
-  'mobile',
-  'web',
+  'dashboard',
+  'blog',
 ])
-
+const DEPRECATED_FORMAT_VALUES = new Set<string>(['mobile', 'web'])
 const PAGINATED_FORMATS = new Set<HuoziFormat>(['deck', 'story', 'paper'])
-
 const KNOWN_BUNDLES = new Set<string>([
   'mermaid',
   'highlight',
@@ -64,6 +67,31 @@ function lineFor(html: string, offset: number): number {
     if (html.charCodeAt(i) === 10) line += 1
   }
   return line
+}
+
+/** Helper: pull metadata defaults from the catalog so detection sites
+ *  only need to provide context-specific fields (message, line). */
+function issueFromRule(
+  code: string,
+  context: { message: string; line?: number; remedy?: string },
+): ValidationIssue {
+  const rule = getRule(code)
+  if (!rule) {
+    return {
+      level: 'warning',
+      code,
+      message: context.message,
+      ...(context.line !== undefined ? { line: context.line } : {}),
+    }
+  }
+  return {
+    level: rule.level,
+    code,
+    message: context.message,
+    ...(context.line !== undefined ? { line: context.line } : {}),
+    remedy: context.remedy ?? rule.remedy,
+    ...(rule.docRef !== undefined ? { docRef: rule.docRef } : {}),
+  }
 }
 
 interface FormatMetaMatch {
@@ -190,23 +218,35 @@ export function validateHuoziHtml(html: string): ValidationIssue[] {
   const issues: ValidationIssue[] = []
   const skip = buildSkipRanges(html)
 
+  // Format declaration
   const formatMeta = readFormatMeta(html, skip)
-  if (formatMeta && !ALL_FORMATS.has(formatMeta.value as HuoziFormat)) {
-    issues.push({
-      level: 'error',
-      code: 'format-unknown',
-      message: `huozi:format="${formatMeta.value}" 不在已知 5 种类型里，已退化为 web`,
-      line: lineFor(html, formatMeta.index),
-      remedy: '使用 deck / story / paper / mobile / web 之一',
-      docRef: 'norms#1-format-types',
-    })
+  if (formatMeta) {
+    if (DEPRECATED_FORMAT_VALUES.has(formatMeta.value)) {
+      issues.push(
+        issueFromRule('format-deprecated', {
+          message: `huozi:format="${formatMeta.value}" 已废弃，已并入 blog`,
+          line: lineFor(html, formatMeta.index),
+          remedy: '改写为 huozi:format="blog"（响应式长文，自适应桌面与手机）',
+        }),
+      )
+    } else if (!ALL_FORMATS.has(formatMeta.value as HuoziFormat)) {
+      issues.push(
+        issueFromRule('format-unknown', {
+          message: `huozi:format="${formatMeta.value}" 不在已知 5 种类型里，已退化为 blog`,
+          line: lineFor(html, formatMeta.index),
+        }),
+      )
+    }
   }
 
   const effectiveFormat: HuoziFormat = (() => {
-    if (formatMeta && ALL_FORMATS.has(formatMeta.value as HuoziFormat)) {
-      return formatMeta.value as HuoziFormat
+    if (formatMeta) {
+      if (ALL_FORMATS.has(formatMeta.value as HuoziFormat)) {
+        return formatMeta.value as HuoziFormat
+      }
+      if (DEPRECATED_FORMAT_VALUES.has(formatMeta.value)) return 'blog'
     }
-    return readClassFormat(html, skip) ?? 'web'
+    return readClassFormat(html, skip) ?? 'blog'
   })()
 
   const classFormat = readClassFormat(html, skip)
@@ -216,36 +256,30 @@ export function validateHuoziHtml(html: string): ValidationIssue[] {
     classFormat &&
     classFormat !== formatMeta.value
   ) {
-    issues.push({
-      level: 'warning',
-      code: 'format-meta-class-mismatch',
-      message: `huozi:format=${formatMeta.value} 与 class="huozi-${classFormat}" 不一致；meta 优先生效`,
-      line: lineFor(html, formatMeta.index),
-      remedy: `统一为 huozi-${formatMeta.value} 或调整 meta 值`,
-      docRef: 'norms#1-3-format-declaration',
-    })
+    issues.push(
+      issueFromRule('format-meta-class-mismatch', {
+        message: `huozi:format=${formatMeta.value} 与 class="huozi-${classFormat}" 不一致；meta 优先生效`,
+        line: lineFor(html, formatMeta.index),
+      }),
+    )
   }
 
   if (!formatMeta && classFormat) {
-    issues.push({
-      level: 'hint',
-      code: 'format-meta-missing',
-      message: `推荐显式写 <meta name="huozi:format" content="${classFormat}">`,
-      remedy: 'class 嗅探是 legacy 兜底，meta 是 authoritative declaration',
-      docRef: 'norms#1-3-format-declaration',
-    })
+    issues.push(
+      issueFromRule('format-meta-missing', {
+        message: `推荐显式写 <meta name="huozi:format" content="${classFormat}">`,
+      }),
+    )
   }
 
+  // Paginated structure
   const sections = findDataPageSections(html, skip)
   if (isPaginated(effectiveFormat) && sections.length === 0) {
-    issues.push({
-      level: 'error',
-      code: 'paginated-no-pages',
-      message: `huozi:format=${effectiveFormat} 但找不到任何 <section data-page>，分页器和大纲都不会工作`,
-      remedy:
-        '把每页内容包在 <section data-page id="..." data-title="..."> 里',
-      docRef: 'norms#2-page-marker',
-    })
+    issues.push(
+      issueFromRule('paginated-no-pages', {
+        message: `huozi:format=${effectiveFormat} 但找不到任何 <section data-page>，分页器和大纲都不会工作`,
+      }),
+    )
   }
 
   const idCounts = new Map<string, number[]>()
@@ -258,29 +292,26 @@ export function validateHuoziHtml(html: string): ValidationIssue[] {
   for (const [id, indices] of idCounts) {
     if (indices.length > 1) {
       const first = sections.find((s) => s.id === id)!
-      issues.push({
-        level: 'error',
-        code: 'page-id-duplicate',
-        message: `id="${id}" 在 ${indices.length} 个 <section data-page> 上重复，scrollIntoView 会永远跳到第一个`,
-        line: lineFor(html, first.offset),
-        remedy: '每个 data-page 给唯一 id，或留空让 huozi 自动注入 s${N}',
-        docRef: 'norms#2-page-marker',
-      })
+      issues.push(
+        issueFromRule('page-id-duplicate', {
+          message: `id="${id}" 在 ${indices.length} 个 <section data-page> 上重复`,
+          line: lineFor(html, first.offset),
+        }),
+      )
     }
   }
 
   const sectionsWithoutTitle = sections.filter((s) => !s.hasTitle)
   if (sectionsWithoutTitle.length > 0) {
-    issues.push({
-      level: 'hint',
-      code: 'data-title-missing',
-      message: `${sectionsWithoutTitle.length} 个 <section data-page> 缺 data-title，大纲菜单会 fallback 到页内 h1/h2/h3`,
-      line: lineFor(html, sectionsWithoutTitle[0]!.offset),
-      remedy: 'data-title 让大纲更稳，不依赖标题层级',
-      docRef: 'norms#2-page-marker',
-    })
+    issues.push(
+      issueFromRule('data-title-missing', {
+        message: `${sectionsWithoutTitle.length} 个 <section data-page> 缺 data-title`,
+        line: lineFor(html, sectionsWithoutTitle[0]!.offset),
+      }),
+    )
   }
 
+  // Bundle keys
   const bundleMeta = readBundleMeta(html, skip)
   if (bundleMeta) {
     const keys = bundleMeta.value
@@ -289,40 +320,140 @@ export function validateHuoziHtml(html: string): ValidationIssue[] {
       .filter(Boolean)
     const unknown = keys.filter((k) => !KNOWN_BUNDLES.has(k))
     if (unknown.length > 0) {
-      issues.push({
-        level: 'warning',
-        code: 'bundle-unknown-key',
-        message: `huozi:bundle 含未识别 key: ${unknown.join(', ')}`,
-        line: lineFor(html, bundleMeta.index),
-        remedy: `已知 keys: ${[...KNOWN_BUNDLES].join(', ')}`,
-        docRef: 'toolbox-spec#2-bundles',
-      })
+      issues.push(
+        issueFromRule('bundle-unknown-key', {
+          message: `huozi:bundle 含未识别 key: ${unknown.join(', ')}`,
+          line: lineFor(html, bundleMeta.index),
+          remedy: `已知 keys: ${[...KNOWN_BUNDLES].join(', ')}`,
+        }),
+      )
     }
   }
 
-  const re = new RegExp(SCRIPT_SRC_RE.source, SCRIPT_SRC_RE.flags)
+  // Script / iframe stripping
   const displaySkip = skip.filter(([s, e]) => {
     const slice = html.slice(s, Math.min(e, s + 8)).toLowerCase()
     return !slice.startsWith('<script')
   })
+
+  // External scripts
+  const reExt = new RegExp(SCRIPT_SRC_RE.source, SCRIPT_SRC_RE.flags)
   let scriptMatch: RegExpExecArray | null
   const externalScripts: Array<{ url: string; offset: number }> = []
-  while ((scriptMatch = re.exec(html)) !== null) {
+  while ((scriptMatch = reExt.exec(html)) !== null) {
     if (isInRanges(scriptMatch.index, displaySkip)) continue
     const url = scriptMatch[1]
     if (url === undefined) continue
     externalScripts.push({ url, offset: scriptMatch.index })
   }
   if (externalScripts.length > 0) {
-    issues.push({
-      level: 'warning',
-      code: 'external-script-blocked',
-      message: `检测到 ${externalScripts.length} 个 <script src="https://...">，发布时会被沙箱 strip`,
-      line: lineFor(html, externalScripts[0]!.offset),
-      remedy:
-        '如果是 mermaid / echarts 等已知库，改用 <meta name="huozi:bundle"> 声明加载',
-      docRef: 'toolbox-spec#3-2-author-constraints',
-    })
+    issues.push(
+      issueFromRule('external-script-blocked', {
+        message: `检测到 ${externalScripts.length} 个 <script src="https://...">，发布时会被沙箱 strip`,
+        line: lineFor(html, externalScripts[0]!.offset),
+      }),
+    )
+  }
+
+  // Inline scripts (without src)
+  const INLINE_SCRIPT_RE = /<script\b([^>]*)>/gi
+  const inlineScripts: number[] = []
+  let inlineMatch: RegExpExecArray | null
+  while ((inlineMatch = INLINE_SCRIPT_RE.exec(html)) !== null) {
+    if (isInRanges(inlineMatch.index, displaySkip)) continue
+    const attrs = inlineMatch[1] ?? ''
+    if (/\bsrc\s*=/i.test(attrs)) continue
+    inlineScripts.push(inlineMatch.index)
+  }
+  if (inlineScripts.length > 0) {
+    issues.push(
+      issueFromRule('inline-script-blocked', {
+        message: `检测到 ${inlineScripts.length} 个内联 <script>，发布时会被沙箱 strip`,
+        line: lineFor(html, inlineScripts[0]!),
+      }),
+    )
+  }
+
+  // iframe / embed / object
+  const EMBED_RE = /<(iframe|embed|object)\b[^>]*>/gi
+  const embeds: Array<{ tag: string; offset: number }> = []
+  let embedMatch: RegExpExecArray | null
+  while ((embedMatch = EMBED_RE.exec(html)) !== null) {
+    if (isInRanges(embedMatch.index, displaySkip)) continue
+    const tag = embedMatch[1]
+    if (tag === undefined) continue
+    embeds.push({ tag: tag.toLowerCase(), offset: embedMatch.index })
+  }
+  if (embeds.length > 0) {
+    const tags = [...new Set(embeds.map((e) => `<${e.tag}>`))].join(' / ')
+    issues.push(
+      issueFromRule('iframe-or-embed-stripped', {
+        message: `检测到 ${embeds.length} 个 ${tags}，发布时会被沙箱 strip，留下空洞`,
+        line: lineFor(html, embeds[0]!.offset),
+      }),
+    )
+  }
+
+  // vw / vh inside paginated/dashboard
+  if (
+    effectiveFormat === 'deck' ||
+    effectiveFormat === 'story' ||
+    effectiveFormat === 'dashboard'
+  ) {
+    const cssContexts: Array<{ text: string; baseOffset: number }> = []
+    const STYLE_BLOCK_RE = /<style\b[^>]*>([\s\S]*?)<\/style>/gi
+    let sm: RegExpExecArray | null
+    while ((sm = STYLE_BLOCK_RE.exec(html)) !== null) {
+      if (isInRanges(sm.index, displaySkip)) continue
+      const inner = sm[1]
+      if (inner === undefined) continue
+      cssContexts.push({
+        text: inner,
+        baseOffset: sm.index + sm[0].indexOf(inner),
+      })
+    }
+    const STYLE_ATTR_RE = /\sstyle\s*=\s*"([^"]*)"|\sstyle\s*=\s*'([^']*)'/gi
+    let am: RegExpExecArray | null
+    while ((am = STYLE_ATTR_RE.exec(html)) !== null) {
+      if (isInRanges(am.index, skip)) continue
+      const inner = am[1] ?? am[2] ?? ''
+      const innerStart = am[0].indexOf(inner)
+      cssContexts.push({ text: inner, baseOffset: am.index + innerStart })
+    }
+    const VW_VH_RE = /\b\d+(?:\.\d+)?(vw|vh)\b/gi
+    const vwHits: number[] = []
+    for (const ctx of cssContexts) {
+      let vm: RegExpExecArray | null
+      const re = new RegExp(VW_VH_RE.source, VW_VH_RE.flags)
+      while ((vm = re.exec(ctx.text)) !== null) {
+        vwHits.push(ctx.baseOffset + vm.index)
+      }
+    }
+    if (vwHits.length > 0) {
+      issues.push(
+        issueFromRule('vw-vh-in-paginated', {
+          message: `paginated format ${effectiveFormat} 内检测到 ${vwHits.length} 处 vw/vh 使用；cqw/cqh 才能跨内嵌/全屏/发布稳定`,
+          line: lineFor(html, vwHits[0]!),
+        }),
+      )
+    }
+  }
+
+  // <title> + og:image
+  if (!/<title\b[^>]*>[\s\S]*?<\/title>/i.test(html)) {
+    issues.push(
+      issueFromRule('title-missing', { message: '<head> 缺少 <title>' }),
+    )
+  }
+  if (
+    !/<meta\s+property=["']og:image["']/i.test(html) &&
+    !/<meta\s+name=["']twitter:image["']/i.test(html)
+  ) {
+    issues.push(
+      issueFromRule('og-image-missing', {
+        message: '<head> 缺少 og:image / twitter:image',
+      }),
+    )
   }
 
   return issues

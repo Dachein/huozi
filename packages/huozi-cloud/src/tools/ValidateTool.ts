@@ -83,31 +83,34 @@ function canonicalizePath(raw: string): string {
 function validatePrompt(): string {
   return `Validate a workspace file against huozi design conventions.
 
-Currently runs the HTML rule set (8 rules) on .html / .htm files:
-  - format-unknown            error    huozi:format value not in 5 types
-  - paginated-no-pages        error    deck/story/paper without <section data-page>
-  - page-id-duplicate         error    same id on multiple data-page sections
-  - format-meta-class-mismatch warning meta vs class disagree
-  - bundle-unknown-key        warning  huozi:bundle has typo / unknown key
-  - external-script-blocked   warning  <script src="https://..."> will be stripped
-  - format-meta-missing       hint     class only, no explicit meta
-  - data-title-missing        hint     <section data-page> lacks data-title
+Runs the HTML rule set on .html / .htm files (14 rules across format
+declaration, paginated structure, sandbox/strip behavior, geometry, and
+share-card metadata). Call \`huozi_validate_rules\` to enumerate the
+full catalog with each rule's \`why\` and \`remedy\` — recommended once
+per session before authoring HTML.
 
 For non-HTML files, returns validator: "none" with empty issues.
 
 Returns:
   - issues[] — each with level / code / message / line / remedy / docRef
-  - summary — counts by level
+  - summary — counts by level (error / warning / hint)
   - blob_sha — content identity (use it to detect drift before huozi_share)
 
-Recommended flow when generating HTML:
-  1. huozi_write({ file_path, content })
-  2. huozi_validate({ file_path })
-  3. If summary.error > 0 → fix using each issue's \`remedy\` and goto 1
-  4. huozi_share({ file_path })
+Severity contract:
+  - error    write WILL produce broken render. huozi_write refuses these.
+  - warning  write succeeds but the result probably isn't what the author
+             intended.
+  - hint     best-practice nudge.
 
-The tool is read-only and does not block — it always returns even if
-issues exist. The Agent decides whether to act on them.`
+Recommended flow when generating HTML:
+  1. (Optional, once per session) huozi_validate_rules() → learn the catalog
+  2. huozi_write({ file_path, content })
+     ↳ write is rejected if it would introduce error-level issues
+  3. huozi_validate({ file_path })
+  4. If summary.warning > 0 → fix using each issue's \`remedy\` and goto 2
+  5. huozi_share({ file_path })
+
+The tool is read-only — it always returns even if issues exist.`
 }
 
 export function createValidateTool(
