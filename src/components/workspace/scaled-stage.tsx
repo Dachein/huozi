@@ -117,7 +117,15 @@ export function ScaledStage({
     transformOrigin: "center center",
   };
   return (
-    <div className="huozi-canvas-frame w-full h-full overflow-hidden grid place-items-center [container-type:size]">
+    // place-content centers the GRID TRACK in the container; place-items
+    // alone only centers the item inside its track. Critical when the
+    // stage's layout box (e.g. 1920×1080) is larger than the frame
+    // (canvas outer ~848×477 in workspace inline): without
+    // place-content-center the track anchors at the frame's top-left,
+    // the transform-origin lands well outside the visible area, and the
+    // scaled stage appears pinned to the bottom-right corner of the
+    // canvas instead of filling it.
+    <div className="huozi-canvas-frame w-full h-full overflow-hidden grid place-content-center place-items-center [container-type:size]">
       {/* React 19 hoists in-tree <style> to <head>; the per-dims class
           name keeps the rule local to this instance. */}
       <style dangerouslySetInnerHTML={{ __html: css }} />
