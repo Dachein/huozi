@@ -48,10 +48,13 @@ const ALL_FORMATS = new Set<HuoziFormat>([
   "deck",
   "story",
   "paper",
-  "mobile",
-  "web",
   "dashboard",
+  "blog",
 ]);
+
+/** Deprecated `huozi:format` values that still parse at render time
+ *  (aliased to "blog" by detect-format) but should warn the author. */
+const DEPRECATED_FORMAT_VALUES = new Set<string>(["mobile", "web"]);
 
 // Bundle key list is the registry's responsibility — single source of
 // truth. Importing here keeps the validator's "unknown key" warning in
@@ -207,24 +210,42 @@ export function validateHuoziHtml(html: string): ValidationIssue[] {
 
   // ── Rule: huozi:format value must be in the 5 known types ──
   const formatMeta = readFormatMeta(html, skip);
-  if (formatMeta && !ALL_FORMATS.has(formatMeta.value as HuoziFormat)) {
-    issues.push({
-      level: "error",
-      code: "format-unknown",
-      message: `huozi:format="${formatMeta.value}" 不在已知 5 种类型里，已退化为 web`,
-      line: lineFor(html, formatMeta.index),
-      remedy: "使用 deck / story / paper / mobile / web 之一",
-      docRef: "norms#1-format-types",
-    });
+  if (formatMeta) {
+    if (DEPRECATED_FORMAT_VALUES.has(formatMeta.value)) {
+      // mobile / web were collapsed into "blog" — renderer still aliases
+      // them, but we surface the deprecation so the next save updates
+      // the marker.
+      issues.push({
+        level: "error",
+        code: "format-deprecated",
+        message: `huozi:format="${formatMeta.value}" 已废弃，已并入 blog`,
+        line: lineFor(html, formatMeta.index),
+        remedy: "改写为 huozi:format=\"blog\"（响应式长文，自适应桌面与手机）",
+        docRef: "norms#1-format-types",
+      });
+    } else if (!ALL_FORMATS.has(formatMeta.value as HuoziFormat)) {
+      issues.push({
+        level: "error",
+        code: "format-unknown",
+        message: `huozi:format="${formatMeta.value}" 不在已知 5 种类型里，已退化为 blog`,
+        line: lineFor(html, formatMeta.index),
+        remedy: "使用 deck / story / paper / dashboard / blog 之一",
+        docRef: "norms#1-format-types",
+      });
+    }
   }
 
   // Effective format used by the rest of the rules. Mirrors detect-format.ts
-  // resolution order: meta → class → "web".
+  // resolution order: meta → class → "blog". Deprecated values resolve to
+  // their alias so subsequent rules don't get confused.
   const effectiveFormat: HuoziFormat = (() => {
-    if (formatMeta && ALL_FORMATS.has(formatMeta.value as HuoziFormat)) {
-      return formatMeta.value as HuoziFormat;
+    if (formatMeta) {
+      if (ALL_FORMATS.has(formatMeta.value as HuoziFormat)) {
+        return formatMeta.value as HuoziFormat;
+      }
+      if (DEPRECATED_FORMAT_VALUES.has(formatMeta.value)) return "blog";
     }
-    return readClassFormat(html, skip) ?? "web";
+    return readClassFormat(html, skip) ?? "blog";
   })();
 
   // ── Rule: meta vs class disagreement ──

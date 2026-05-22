@@ -451,15 +451,13 @@ function pickHtmlLayout(rawContent: string): HtmlLayout {
     // constrained box and any tab section longer than the box scrolls
     // internally via the platform CSS rule on [data-tab].
     if (!meta?.["aspect-ratio"]) style.aspectRatio = "16 / 9";
-  } else if (format === "mobile" || format === "web") {
-    // Long-flow templates: let the page extend naturally. Workspace's main
-    // column already scrolls, so wrapping in a fixed-height scroll box just
-    // makes a window-in-a-window. Only the paginated formats (deck / story /
-    // paper) need a constraint to keep one "page" visible at a time.
-    cls =
-      format === "mobile"
-        ? "[&_.huozi-mobile]:!min-h-0"
-        : "[&_.huozi-web]:!min-h-0";
+  } else if (format === "blog") {
+    // Long-flow responsive content: let the page extend naturally.
+    // Workspace's main column already scrolls, so wrapping in a
+    // fixed-height scroll box just makes a window-in-a-window. Only the
+    // paginated formats (deck / story / paper) need a constraint to
+    // keep one "page" visible at a time.
+    cls = "[&_.huozi-blog]:!min-h-0";
   } else if (!meta?.["aspect-ratio"] && !meta?.["max-height"]) {
     // Unknown HTML, no meta → also let it flow naturally. The host page
     // (workspace) handles the scroll; no need for a nested 80vh box.

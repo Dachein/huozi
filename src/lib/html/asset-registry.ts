@@ -99,15 +99,15 @@ export const FORMAT_ASSETS: Record<HuoziFormat, FormatAssets> = {
   deck: { css: ["/lib/huozi-layout-deck.css"] },
   story: { css: ["/lib/huozi-layout-story.css"] },
   paper: { css: ["/lib/huozi-layout-paper.css"] },
-  mobile: { css: ["/lib/huozi-layout-mobile.css"] },
   // Big-screen, fixed-aspect, tab-navigated page. Higher information
   // density than deck. Platform CSS only ships structural rules
   // (aspect-ratio container + [data-tab] mutual-exclusive visibility);
   // typography / decoration / grid is author's.
   dashboard: { css: ["/lib/huozi-layout-dashboard.css"] },
-  // web is the catch-all default — long-flow desktop. No platform CSS;
-  // unknown HTML stays untouched.
-  web: { css: [] },
+  // blog is the catch-all default — responsive long-flow content
+  // (articles, landing pages, notes). No platform CSS; the author's
+  // own responsive rules drive layout.
+  blog: { css: [] },
 };
 
 /**

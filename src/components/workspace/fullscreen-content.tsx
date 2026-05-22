@@ -20,7 +20,7 @@ export function FullscreenContent({
   children,
   pages = [],
   pageUnit = "page",
-  htmlFormat = "web",
+  htmlFormat = "blog",
   alwaysOpen = false,
   chrome,
 }: {

@@ -42,10 +42,10 @@ interface ShareViewerProps {
   pages?: PageEntry[];
   /** Singular noun shown in the outline label. "page" / "slide" / "sheet". */
   pageUnit?: "page" | "slide" | "sheet";
-  /** Detected huozi layout (meta tag → class sniff → "web" fallback).
+  /** Detected huozi layout (meta tag → class sniff → "blog" fallback).
    *  Drives auto-landscape on mobile-portrait for deck via the
    *  [data-huozi-rotate-portrait] opt-in. */
-  htmlFormat?: "web" | "mobile" | "deck" | "story" | "paper" | "dashboard";
+  htmlFormat?: "deck" | "story" | "paper" | "dashboard" | "blog";
   /** Dashboard tab manifest (parsed from `<meta huozi:tabs>`). Empty for
    *  non-dashboard formats; the share-viewer ignores it then. */
   tabs?: TabEntry[];
@@ -128,7 +128,7 @@ function renderUnlocked(unlocked: ShareContent) {
       mode={fullscreenModeFor(filePath)}
       pages={[]}
       pageUnit="page"
-      htmlFormat="web"
+      htmlFormat="blog"
       alwaysOpen
       chrome={<OpenInHuoziLink filePath={filePath} />}
     >
@@ -165,7 +165,7 @@ function renderInitial(props: ShareViewerProps) {
       mode={fullscreenMode}
       pages={props.pages ?? []}
       pageUnit={props.pageUnit ?? "page"}
-      htmlFormat={props.htmlFormat ?? "web"}
+      htmlFormat={props.htmlFormat ?? "blog"}
       alwaysOpen
       chrome={<OpenInHuoziLink filePath={props.filePath} />}
     >
@@ -207,7 +207,7 @@ function renderInitial(props: ShareViewerProps) {
  */
 function renderProse(props: ShareViewerProps): React.ReactNode {
   if (!props.prerenderedHtml) return null;
-  const format = props.htmlFormat ?? "web";
+  const format = props.htmlFormat ?? "blog";
   const canvas = props.rawText ? resolveCanvas(props.rawText, format) : null;
 
   // Dashboard always uses DashboardSurface (it has its own internal

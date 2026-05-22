@@ -159,7 +159,7 @@ export default async function SharedPage({ params }: { params: Params }) {
   let rawText: string | undefined;
   let pages: PageEntry[] = [];
   let pageUnit: "page" | "slide" | "sheet" = "page";
-  let htmlFormat: HuoziFormat = "web";
+  let htmlFormat: HuoziFormat = "blog";
   let tabs: TabEntry[] = [];
   let refreshMs: number | null = null;
   if (!locked) {

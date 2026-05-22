@@ -1,10 +1,26 @@
 /**
- * The 5 huozi standard layout ("版") templates.
+ * The 4 huozi standard layout ("版") templates surfaced via huozi_template.
  *
  * Each is a self-contained, single-file HTML scaffold the agent fills with
  * content before publishing via huozi_share. Inlined here as `const` strings
  * so they ship with the Worker bundle — no runtime asset loading required.
  * This file is the canonical source; edits land here directly.
+ *
+ * Format taxonomy (mirrors HuoziFormat):
+ *
+ *   Canvas formats (platform scales to fit):
+ *     - deck       16:9 horizontal slides, contain-fit, 1920×1080 canvas
+ *     - story       9:16 vertical immersive, cover-fit, 390×844 canvas
+ *     - dashboard  16:9 ops surface (no scaffold yet — author writes directly)
+ *
+ *   Lock-width formats (platform locks the column, content flows vertically):
+ *     - paper      816×auto, US Letter / A4 column for printable reports
+ *
+ *   Free-flow formats:
+ *     - blog       responsive long-form; adapts to phone + desktop
+ *                  via the template's own @media queries.
+ *
+ *   (Deprecated: `mobile` and `web` collapsed into `blog` 2026-05-22.)
  *
  * Design constraints:
  *   - Pure CSS (no JS) — the publish surface strips <script>.
@@ -25,13 +41,12 @@
  *   - Print: pages-menu is hidden in @media print.
  */
 
-// Order: 2 unpaginated (web / mobile) then 3 paginated (deck / story / paper).
+// Order: 1 free-flow (blog) then 3 paginated (deck / story / paper).
 // Paginated formats include [data-page] markers + outline + pager chrome.
-// "web" is the catch-all default — desktop-first long page; the publish view
-// treats unmarked HTML as "web" too.
+// `blog` is the catch-all default — the publish view treats unmarked HTML
+// as `blog` too.
 export const TEMPLATE_FORMATS = [
-  'web',
-  'mobile',
+  'blog',
   'deck',
   'story',
   'paper',
@@ -427,82 +442,12 @@ const PAPER_HTML = `<!doctype html>
 </html>
 `
 
-const MOBILE_HTML = `<!doctype html>
-<html lang="zh">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="huozi:format" content="mobile">
-<!-- Card / OG meta — fill before publishing. og:image is optional;
-     leave blank to use the huozi default banner. -->
-<title>Untitled</title>
-<meta name="description" content="">
-<meta property="og:title" content="">
-<meta property="og:description" content="">
-<meta property="og:type" content="article">
-<meta property="og:image" content="">
-<meta name="twitter:card" content="summary_large_image">
-<style>
-:root{
-  --color-bg:#ffffff;
-  --color-fg:#111111;
-  --color-muted:#6b7280;
-  --color-accent:#0066ff;
-  --color-border:#e5e7eb;
-  --font-sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI","PingFang SC","Hiragino Sans GB",sans-serif;
-  --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-  --safe-top:env(safe-area-inset-top);
-  --safe-bottom:env(safe-area-inset-bottom);
-}
-.huozi-mobile{
-  margin:0;
-  background:var(--color-bg);
-  color:var(--color-fg);
-  font-family:var(--font-sans);
-  font-size:16px;
-  line-height:1.65;
-  -webkit-font-smoothing:antialiased;
-  padding:calc(var(--safe-top) + 20px) 20px calc(var(--safe-bottom) + 40px);
-  min-height:100vh;
-  box-sizing:border-box;
-}
-.huozi-mobile .container{max-width:560px; margin:0 auto}
-.huozi-mobile h1{font-size:28px; margin:0 0 .35em; letter-spacing:-.02em; line-height:1.2; font-weight:700}
-.huozi-mobile h2{font-size:21px; margin:1.4em 0 .4em; line-height:1.3; font-weight:600}
-.huozi-mobile h3{font-size:17px; margin:1.1em 0 .3em; font-weight:600}
-.huozi-mobile p{margin:0 0 1em}
-.huozi-mobile ul,.huozi-mobile ol{margin:0 0 1em; padding-left:1.3em}
-.huozi-mobile li{margin-bottom:.3em}
-.huozi-mobile img{max-width:100%; height:auto; border-radius:8px; margin:.5em 0}
-.huozi-mobile a{color:var(--color-accent); text-decoration:none}
-.huozi-mobile a:hover{text-decoration:underline}
-.huozi-mobile code{font-family:var(--font-mono); background:#f4f4f5; padding:.1em .35em; border-radius:.25em; font-size:.92em}
-.huozi-mobile pre{background:#f4f4f5; padding:14px; border-radius:8px; overflow-x:auto; font-size:14px; line-height:1.5; margin:0 0 1em}
-.huozi-mobile pre code{background:none; padding:0}
-.huozi-mobile blockquote{border-left:3px solid var(--color-accent); margin:0 0 1em; padding:.2em 0 .2em 14px; color:var(--color-muted)}
-.huozi-mobile hr{border:0; border-top:1px solid var(--color-border); margin:1.6em 0}
-.huozi-mobile .muted{color:var(--color-muted); font-size:14px}
-.huozi-mobile .meta{color:var(--color-muted); font-size:14px; margin:0 0 1.6em}
-</style>
-</head>
-<body>
-<div class="huozi-mobile">
-  <main class="container">
-    <h1>页面标题</h1>
-    <p class="meta">作者 · 日期</p>
-    <p>正文…</p>
-  </main>
-</div>
-</body>
-</html>
-`
-
-const WEB_HTML = `<!doctype html>
+const BLOG_HTML = `<!doctype html>
 <html lang="zh">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="huozi:format" content="web">
+<meta name="huozi:format" content="blog">
 <!-- Card / OG meta — fill before publishing. og:image is optional;
      leave blank to use the huozi default banner. -->
 <title>Untitled</title>
@@ -522,7 +467,7 @@ const WEB_HTML = `<!doctype html>
   --font-sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI","PingFang SC","Hiragino Sans GB",sans-serif;
   --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
 }
-.huozi-page{
+.huozi-blog{
   margin:0;
   background:var(--color-bg);
   color:var(--color-fg);
@@ -532,7 +477,7 @@ const WEB_HTML = `<!doctype html>
   -webkit-font-smoothing:antialiased;
   scroll-behavior:smooth;
 }
-.huozi-page .layout{
+.huozi-blog .layout{
   display:grid;
   grid-template-columns:1fr min(720px, calc(100% - 64px)) 220px;
   gap:0 48px;
@@ -540,8 +485,8 @@ const WEB_HTML = `<!doctype html>
   max-width:1200px;
   margin:0 auto;
 }
-.huozi-page .layout > main{grid-column:2}
-.huozi-page .toc{
+.huozi-blog .layout > main{grid-column:2}
+.huozi-blog .toc{
   grid-column:3;
   align-self:start;
   position:sticky;
@@ -550,41 +495,41 @@ const WEB_HTML = `<!doctype html>
   border-left:2px solid var(--color-border);
   padding:4px 0 4px 16px;
 }
-.huozi-page .toc-title{font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--color-muted); margin:0 0 .8em}
-.huozi-page .toc ul{list-style:none; padding:0; margin:0}
-.huozi-page .toc li{margin-bottom:.4em}
-.huozi-page .toc a{color:var(--color-muted); text-decoration:none; line-height:1.4}
-.huozi-page .toc a:hover{color:var(--color-fg)}
-.huozi-page h1{font-size:42px; margin:0 0 .25em; letter-spacing:-.02em; line-height:1.15; font-weight:700}
-.huozi-page h2{font-size:28px; margin:1.6em 0 .4em; scroll-margin-top:32px; font-weight:700; letter-spacing:-.01em}
-.huozi-page h3{font-size:21px; margin:1.3em 0 .4em; scroll-margin-top:32px; font-weight:600}
-.huozi-page p{margin:0 0 1em}
-.huozi-page ul,.huozi-page ol{margin:0 0 1em; padding-left:1.4em}
-.huozi-page li{margin-bottom:.3em}
-.huozi-page img{max-width:100%; height:auto; border-radius:8px; margin:.5em 0}
-.huozi-page a{color:var(--color-accent); text-decoration:none}
-.huozi-page a:hover{text-decoration:underline}
-.huozi-page code{font-family:var(--font-mono); background:#f4f4f5; padding:.1em .35em; border-radius:.25em; font-size:.92em}
-.huozi-page pre{background:#f6f8fa; padding:16px 18px; border-radius:8px; overflow-x:auto; font-size:14px; line-height:1.55; margin:0 0 1em}
-.huozi-page pre code{background:none; padding:0}
-.huozi-page blockquote{border-left:3px solid var(--color-accent); margin:0 0 1em; padding:.3em 0 .3em 16px; color:var(--color-muted)}
-.huozi-page hr{border:0; border-top:1px solid var(--color-border); margin:2em 0}
-.huozi-page table{width:100%; border-collapse:collapse; margin:0 0 1em; font-size:15px}
-.huozi-page th,.huozi-page td{border-bottom:1px solid var(--color-border); padding:.6em .8em; text-align:left}
-.huozi-page th{font-weight:600}
-.huozi-page .muted{color:var(--color-muted)}
-.huozi-page .meta{color:var(--color-muted); font-size:15px; margin:0 0 2em}
+.huozi-blog .toc-title{font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--color-muted); margin:0 0 .8em}
+.huozi-blog .toc ul{list-style:none; padding:0; margin:0}
+.huozi-blog .toc li{margin-bottom:.4em}
+.huozi-blog .toc a{color:var(--color-muted); text-decoration:none; line-height:1.4}
+.huozi-blog .toc a:hover{color:var(--color-fg)}
+.huozi-blog h1{font-size:42px; margin:0 0 .25em; letter-spacing:-.02em; line-height:1.15; font-weight:700}
+.huozi-blog h2{font-size:28px; margin:1.6em 0 .4em; scroll-margin-top:32px; font-weight:700; letter-spacing:-.01em}
+.huozi-blog h3{font-size:21px; margin:1.3em 0 .4em; scroll-margin-top:32px; font-weight:600}
+.huozi-blog p{margin:0 0 1em}
+.huozi-blog ul,.huozi-blog ol{margin:0 0 1em; padding-left:1.4em}
+.huozi-blog li{margin-bottom:.3em}
+.huozi-blog img{max-width:100%; height:auto; border-radius:8px; margin:.5em 0}
+.huozi-blog a{color:var(--color-accent); text-decoration:none}
+.huozi-blog a:hover{text-decoration:underline}
+.huozi-blog code{font-family:var(--font-mono); background:#f4f4f5; padding:.1em .35em; border-radius:.25em; font-size:.92em}
+.huozi-blog pre{background:#f6f8fa; padding:16px 18px; border-radius:8px; overflow-x:auto; font-size:14px; line-height:1.55; margin:0 0 1em}
+.huozi-blog pre code{background:none; padding:0}
+.huozi-blog blockquote{border-left:3px solid var(--color-accent); margin:0 0 1em; padding:.3em 0 .3em 16px; color:var(--color-muted)}
+.huozi-blog hr{border:0; border-top:1px solid var(--color-border); margin:2em 0}
+.huozi-blog table{width:100%; border-collapse:collapse; margin:0 0 1em; font-size:15px}
+.huozi-blog th,.huozi-blog td{border-bottom:1px solid var(--color-border); padding:.6em .8em; text-align:left}
+.huozi-blog th{font-weight:600}
+.huozi-blog .muted{color:var(--color-muted)}
+.huozi-blog .meta{color:var(--color-muted); font-size:15px; margin:0 0 2em}
 @media (max-width:960px){
-  .huozi-page .layout{grid-template-columns:1fr; padding:40px 20px; gap:0}
-  .huozi-page .layout > main{grid-column:1}
-  .huozi-page .toc{display:none}
-  .huozi-page h1{font-size:32px}
-  .huozi-page h2{font-size:24px}
+  .huozi-blog .layout{grid-template-columns:1fr; padding:40px 20px; gap:0}
+  .huozi-blog .layout > main{grid-column:1}
+  .huozi-blog .toc{display:none}
+  .huozi-blog h1{font-size:32px}
+  .huozi-blog h2{font-size:24px}
 }
 </style>
 </head>
 <body>
-<div class="huozi-web">
+<div class="huozi-blog">
   <div class="layout">
     <main>
       <h1>页面标题</h1>
@@ -630,18 +575,11 @@ export const TEMPLATES: Record<TemplateFormat, TemplateMeta> = {
     shape: 'A4',
     body: PAPER_HTML,
   },
-  mobile: {
-    format: 'mobile',
+  blog: {
+    format: 'blog',
     description:
-      'Long scroll, mobile-first. Articles read on phones, narrow-viewport optimized.',
-    shape: 'long, mobile-first',
-    body: MOBILE_HTML,
-  },
-  web: {
-    format: 'web',
-    description:
-      'Long scroll, desktop-first. Landing pages, long-form essays with sticky TOC. Default for unmarked HTML.',
-    shape: 'long, desktop-first',
-    body: WEB_HTML,
+      'Responsive long-form. Articles, landing pages, essays — same file reads well on phone AND desktop via @media queries baked into the template. Default for unmarked HTML.',
+    shape: 'responsive long, sticky TOC on wide',
+    body: BLOG_HTML,
   },
 }

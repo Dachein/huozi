@@ -19,8 +19,8 @@
  *                       transform — width is shown 1:1. Mirrors
  *                       Notion / Docs / Substack reading column.
  *
- * The remaining formats (mobile / web) have NO canvas — they reflow
- * freely. resolveCanvas returns null for them and the renderer falls
+ * The remaining format (blog) has NO canvas — it reflows
+ * freely. resolveCanvas returns null for it and the renderer falls
  * back to the legacy flow-based sizing.
  *
  * Authors opt in to a custom canvas via:
@@ -81,8 +81,8 @@ export interface CanvasSpec {
  *                               Word, Pages, LibreOffice all default here.
  *                               Height is content-driven.)
  *
- * Long-flow formats (mobile / web) intentionally have no canvas — their
- * typography is meant to reflow, not lock. */
+ * Long-flow format (blog) intentionally has no canvas — its typography
+ * is meant to reflow, not lock. */
 const DEFAULTS: Partial<Record<HuoziFormat, CanvasSpec>> = {
   // story is short-form immersive (Reels / TikTok / Shorts style) —
   // default to "cover" so the canvas fills the short edge of the
@@ -189,7 +189,7 @@ function parseAspectRatio(s: string): number | null {
 /**
  * Resolve the target canvas for an HTML file.
  *
- * Returns `null` for formats without a canvas (mobile / web). For
+ * Returns `null` for formats without a canvas (blog). For
  * canvas formats, resolution order:
  *
  *   1. Explicit `width` + `height` from `<meta huozi:viewport>` (scale mode)
