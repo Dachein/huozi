@@ -12,11 +12,8 @@ import { CsvGrid } from "@/components/csv-grid";
 import { CollectionView } from "@/components/collection-view";
 import { EditableSurface } from "@/components/workspace/inline-edit";
 import type { ObjectKind } from "@/components/workspace/inline-edit";
-import { HtmlInlineFrame } from "@/components/workspace/html-inline-frame";
-import { DashboardSurface } from "@/components/workspace/dashboard-surface";
 import { HtmlValidationBanner } from "@/components/workspace/html-validation-banner";
-import { ScaledStage } from "@/components/workspace/scaled-stage";
-import { FixedWidthStage } from "@/components/workspace/fixed-width-stage";
+import { HtmlCanvasFrame } from "@/components/workspace/html-canvas-frame";
 import { resolveCanvas } from "@/lib/html/canvas";
 
 /**
@@ -154,107 +151,24 @@ export async function FileRenderer({
     const pageUnit: "slide" | "page" =
       format === "deck" || format === "story" ? "slide" : "page";
 
-    // Canvas dispatch — see lib/html/canvas.ts.
-    //
-    //   - scale mode (story / deck / dashboard): fixed W×H, ScaledStage
-    //     uses transform: scale to fit the surrounding box. cqw/cqh
-    //     inside resolves to canvas dims.
-    //   - lock-width mode (paper): fixed W, content-driven H,
-    //     FixedWidthStage centers a column with vertical scroll.
-    //   - null (mobile / web / unknown): fall through to legacy
-    //     pickHtmlLayout — these formats reflow freely, no canvas.
+    // Canvas dispatch is fully owned by HtmlCanvasFrame — the same
+    // component that share-viewer (the public /p/<slug> page) uses, so
+    // the visible output is byte-identical across workspace inline,
+    // workspace fullscreen, and the publish surface. Any future change
+    // to canvas / scale / background / fit logic lives in exactly one
+    // file.
     const canvas = resolveCanvas(content, format);
-    const frame = (() => {
-      // Inner host: in canvas modes the outer Stage already controls
-      // sizing, so the host fills 100% of the Stage; in legacy mode
-      // the host carries pickHtmlLayout's class+style directly.
-      if (canvas) {
-        const stretchCls =
-          "!w-full !h-full [&_.huozi-story]:!w-full [&_.huozi-story]:!h-full [&_.huozi-story]:!min-h-0 [&_.huozi-deck]:!w-full [&_.huozi-deck]:!h-full [&_.huozi-deck]:!min-h-0";
-        const stretchStyle = { width: "100%", height: "100%" } as const;
-        const inner =
-          format === "dashboard" ? (
-            <DashboardSurface
-              html={html}
-              hostClassName={stretchCls}
-              hostStyle={stretchStyle}
-              tabs={tabs}
-              refreshMs={refreshMs}
-            />
-          ) : (
-            <HtmlInlineFrame
-              html={html}
-              hostClassName={
-                canvas.mode === "lock-width"
-                  ? // paper flows vertically; only width is locked.
-                    // Don't force h-full on the host — let height grow.
-                    "!w-full [&_.huozi-paper]:!min-h-0"
-                  : stretchCls
-              }
-              hostStyle={
-                canvas.mode === "lock-width"
-                  ? { width: "100%" }
-                  : stretchStyle
-              }
-              format={format}
-              pages={pages}
-              pageUnit={pageUnit}
-            />
-          );
-        if (canvas.mode === "scale") {
-          return (
-            <div
-              className="huozi-canvas-outer"
-              style={{
-                width: "100%",
-                aspectRatio: `${canvas.width} / ${canvas.height}`,
-                maxWidth: `${canvas.width}px`,
-                marginLeft: "auto",
-                marginRight: "auto",
-                background: canvas.background,
-              }}
-            >
-              <ScaledStage
-                width={canvas.width}
-                height={canvas.height!}
-                fit={canvas.fit}
-              >
-                {inner}
-              </ScaledStage>
-            </div>
-          );
-        }
-        // lock-width (paper)
-        return (
-          <div
-            className="huozi-canvas-outer"
-            style={{
-              width: "100%",
-              height: "min(80vh, 1100px)",
-              maxWidth: `${canvas.width}px`,
-              marginLeft: "auto",
-              marginRight: "auto",
-              background: canvas.background,
-            }}
-          >
-            <FixedWidthStage width={canvas.width}>{inner}</FixedWidthStage>
-          </div>
-        );
-      }
-      // No canvas — mobile / web / unknown fall back to the legacy
-      // flow-based sizing.
-      const layout = pickHtmlLayout(content);
-      return (
-        <HtmlInlineFrame
-          html={html}
-          hostClassName={layout.className}
-          hostStyle={layout.style}
-          format={format}
-          pages={pages}
-          pageUnit={pageUnit}
-        />
-      );
-    })();
+    const frame = (
+      <HtmlCanvasFrame
+        html={html}
+        format={format}
+        canvas={canvas}
+        pages={pages}
+        pageUnit={pageUnit}
+        tabs={tabs}
+        refreshMs={refreshMs}
+      />
+    );
     // Validation banner is workspace-only (the publish surface intentionally
     // hides dev hints from readers). `inlineEditable` doubles as the
     // workspace-context flag — `/p/<slug>` always passes false.
@@ -381,107 +295,6 @@ function wrapEditable({
     </EditableSurface>
   );
 }
-
-interface HtmlLayout {
-  className: string;
-  style: React.CSSProperties;
-}
-
-/**
- * Pick the inline-preview wrapper sizing for a published HTML file.
- *
- * Priority:
- *   1. `<meta name="huozi:viewport" content="aspect-ratio:16/9; max-width:360px; max-height:80vh">`
- *      Custom HTML authors can opt in to format-aware sizing by adding this
- *      meta. Recognized keys: aspect-ratio, max-width, max-height.
- *   2. Fallback: sniff the .huozi-{deck,story,paper} class on the body root
- *      so the standard 5 templates work without authoring meta.
- *   3. Otherwise: a sensible scrollable box (mobile / page / unknown).
- *
- * The wrapper className also forces the template root (.huozi-deck etc.)
- * to fill the wrapper via Tailwind arbitrary variants. The template root
- * defaults to 100vw × 100vh (correct for published view) — these
- * overrides scope it to the workspace embed.
- */
-function pickHtmlLayout(rawContent: string): HtmlLayout {
-  const meta = parseHuoziViewport(rawContent);
-  const format = detectHuoziFormat(rawContent);
-
-  const style: React.CSSProperties = { width: "100%" };
-  let cls = "";
-
-  // Apply meta hints first (explicit > sniff).
-  if (meta?.["aspect-ratio"]) style.aspectRatio = meta["aspect-ratio"];
-  if (meta?.["max-width"]) {
-    style.maxWidth = meta["max-width"];
-    style.marginLeft = "auto";
-    style.marginRight = "auto";
-  }
-  if (meta?.["max-height"]) {
-    style.height = meta["max-height"];
-    style.overflowY = "auto";
-  }
-
-  // Format-specific overrides: force the template root to fill the wrapper.
-  if (format === "deck") {
-    if (!meta?.["aspect-ratio"]) style.aspectRatio = "16 / 9";
-    cls =
-      "[&_.huozi-deck]:!w-full [&_.huozi-deck]:!h-full [&_.huozi-deck]:!min-h-0";
-  } else if (format === "story") {
-    if (!meta?.["aspect-ratio"]) style.aspectRatio = "9 / 16";
-    if (!meta?.["max-width"]) {
-      style.maxWidth = "360px";
-      style.marginLeft = "auto";
-      style.marginRight = "auto";
-    }
-    cls =
-      "[&_.huozi-story]:!w-full [&_.huozi-story]:!h-full [&_.huozi-story]:!min-h-0";
-  } else if (format === "paper") {
-    if (!meta?.["max-height"]) {
-      style.height = "min(80vh, 800px)";
-      style.overflowY = "auto";
-    }
-    // Paper grows to content; wrapper provides the scroll box.
-    cls = "[&_.huozi-paper]:!min-h-0";
-  } else if (format === "dashboard") {
-    // Big-screen, fixed-aspect surface. Default 16:9 (overridable via
-    // `<meta huozi:viewport>` — the meta check above already set
-    // style.aspectRatio when present). Author owns inner layout; we just
-    // provide the box. No max-height: the dashboard fills its aspect-
-    // constrained box and any tab section longer than the box scrolls
-    // internally via the platform CSS rule on [data-tab].
-    if (!meta?.["aspect-ratio"]) style.aspectRatio = "16 / 9";
-  } else if (format === "blog") {
-    // Long-flow responsive content: let the page extend naturally.
-    // Workspace's main column already scrolls, so wrapping in a
-    // fixed-height scroll box just makes a window-in-a-window. Only the
-    // paginated formats (deck / story / paper) need a constraint to
-    // keep one "page" visible at a time.
-    cls = "[&_.huozi-blog]:!min-h-0";
-  } else if (!meta?.["aspect-ratio"] && !meta?.["max-height"]) {
-    // Unknown HTML, no meta → also let it flow naturally. The host page
-    // (workspace) handles the scroll; no need for a nested 80vh box.
-  }
-
-  return { className: cls, style };
-}
-
-function parseHuoziViewport(html: string): Record<string, string> | null {
-  const m = html.match(
-    /<meta\s+name=["']huozi:viewport["']\s+content=["']([^"']+)["']/i,
-  );
-  if (!m) return null;
-  const out: Record<string, string> = {};
-  for (const part of m[1].split(";")) {
-    const idx = part.indexOf(":");
-    if (idx < 0) continue;
-    const k = part.slice(0, idx).trim();
-    const v = part.slice(idx + 1).trim();
-    if (k && v) out[k] = v;
-  }
-  return out;
-}
-
 
 function SourceBlock({
   content,

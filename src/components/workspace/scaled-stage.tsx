@@ -100,9 +100,16 @@ export function ScaledStage({
   // Per-instance class so the scoped <style> block only affects this
   // stage, not others on the page.
   const cls = `huozi-canvas-stage--${width}x${height}-${fit}`;
+  // For cover-fit, contain is the safe default: even if the media query
+  // somehow fails to register (RSC <style> hoisting quirks, display:none
+  // ancestors, container-query non-resolution), contain never blows up
+  // the canvas — at worst portrait phones see a small letterbox where
+  // we wanted edge-to-edge, which is acceptable. The cover override
+  // applies ONLY when the viewport is narrower than the canvas aspect
+  // (genuine portrait-phone case).
   const css =
     fit === "cover"
-      ? `.${cls}{transform:${coverTransform}}@media (min-aspect-ratio: ${width}/${height}){.${cls}{transform:${containTransform}}}`
+      ? `.${cls}{transform:${containTransform}}@media (max-aspect-ratio: ${width}/${height}){.${cls}{transform:${coverTransform}}}`
       : `.${cls}{transform:${containTransform}}`;
   const stageStyle: CSSProperties = {
     width: `${width}px`,
