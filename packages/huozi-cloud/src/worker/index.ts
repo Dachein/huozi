@@ -21,6 +21,7 @@ import { CloudflareStorage } from '../storage/cloudflare/storage.js'
 import { resolveBearer, touchAction } from '../storage/cloudflare/auth.js'
 import {
   archiveProject,
+  enableTasks,
   unarchiveProject,
   upgradeProject,
 } from '../lib/project-actions.js'
@@ -1064,9 +1065,24 @@ async function handleMeProject(
       }
       return Response.json({ ok: true, ...r.data })
     }
+    case 'enable_tasks': {
+      const r = await enableTasks(
+        storage,
+        principal.workspaceId,
+        author,
+        folderPath,
+      )
+      if (!r.ok) {
+        return Response.json({ error: r.message }, { status: r.status })
+      }
+      return Response.json({ ok: true, ...r.data })
+    }
     default:
       return Response.json(
-        { error: 'invalid_action', allowed: ['upgrade', 'archive', 'unarchive'] },
+        {
+          error: 'invalid_action',
+          allowed: ['upgrade', 'archive', 'unarchive', 'enable_tasks'],
+        },
         { status: 400 },
       )
   }

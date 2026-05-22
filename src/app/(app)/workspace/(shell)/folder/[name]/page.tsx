@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { EnableTasksButton } from "@/components/workspace/enable-tasks-button";
 import { FolderAccessSection } from "@/components/workspace/folder-access-section";
 import { FolderSettingsActions } from "@/components/workspace/folder-settings-actions";
 import { SideDrawer } from "@/components/workspace/side-drawer";
@@ -57,189 +58,216 @@ export default async function FolderSettingsPage({ params }: PageProps) {
   const folderPrefix = `${folder}/`;
   const acl = acls.find((a) => a.path_prefix === folderPrefix) ?? null;
 
+  // Top section state — collapses "is this a Project?" and "is Tasks
+  // enabled?" into two list rows. State + lifecycle button live on the
+  // same row so the action that flips the state is co-located with the
+  // state itself. No more separate "Actions" section.
+  const projectRowLabel = status.isArchived
+    ? "Archived"
+    : status.isProject
+      ? "Project"
+      : "Folder";
+  const projectRowTone: RowTone = status.isArchived
+    ? "muted"
+    : status.isProject
+      ? "active"
+      : "off";
+  const projectRowHint = status.isArchived
+    ? `Archived under .archive/${folder}/. Restore to bring it back.`
+    : status.isProject
+      ? "tasks.jsonl + agent memory live in this folder."
+      : "Plain folder. Upgrade to mint a sentinel + agent memory.";
+
   return (
     <SideDrawer title={folder}>
       <div className="space-y-8">
-      {/* Header: status chip + descriptor (drawer header carries the title) */}
-      <header className="space-y-2">
-        <ProjectStatusChip
-          isProject={status.isProject}
-          isArchived={status.isArchived}
-        />
-        <p className="text-sm text-muted-foreground">
-          {status.isArchived
-            ? `Archived. Lives under .archive/${folder}/. Restore to bring it back to the top level.`
-            : status.isProject
-              ? "Upgraded Project. Tasks, memory, and README live in this folder."
-              : "Plain folder. Upgrade to give it a tasks.jsonl + agent memory."}
-        </p>
-      </header>
-
-      {/* Stats grid */}
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <StatTile
-          label="Tasks"
-          value={status.isProject ? String(status.taskCount) : "—"}
-          hint={
-            status.isProject
-              ? "Distinct entities in tasks.jsonl"
-              : "Available after Upgrade"
-          }
-        />
-        <StatTile
-          label="Memory entries"
-          value={status.isProject ? String(status.memoryCount) : "—"}
-          hint={
-            status.isProject
-              ? "Active records after fold (supersede / tombstone applied)"
-              : "Available after Upgrade"
-          }
-        />
-        <StatTile
-          label="State"
-          value={
-            status.isArchived
-              ? "Archived"
-              : status.isProject
-                ? "Project"
-                : "Folder"
-          }
-          hint={
-            status.isArchived
-              ? ".archive/<folder>/"
-              : status.isProject
-                ? "Sentinel: .huozi/memory.md"
-                : "No sentinel — Upgrade to mint one"
-          }
-        />
-      </section>
-
-      {/* Actions */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-          Actions
-        </h2>
-        <FolderSettingsActions
-          folder={folder}
-          isProject={status.isProject}
-          isArchived={status.isArchived}
-        />
-      </section>
-
-      {/* Quick links */}
-      {status.isProject && (
+        {/* PROJECT — status + lifecycle controls collapsed into a 2-row
+            list. Each row carries its own action button on the right so
+            you read the state and the affordance that flips it on the
+            same line. The Tasks row only renders for upgraded,
+            non-archived projects (it has nothing to say otherwise). */}
         <section className="space-y-3">
           <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            Open
+            Project
           </h2>
-          <ul className="space-y-1.5 text-sm">
-            <li>
-              <Link
-                href={`/workspace/view?path=${encodeURIComponent(`${folder}/README.md`)}`}
-                className="text-foreground underline-offset-2 hover:underline"
-              >
-                README.md
-              </Link>
-              <span className="text-muted-foreground"> — project overview</span>
-            </li>
-            <li>
-              <Link
-                href={`/workspace/view?path=${encodeURIComponent(`${folder}/tasks.jsonl`)}`}
-                className="text-foreground underline-offset-2 hover:underline"
-              >
-                tasks.jsonl
-              </Link>
-              <span className="text-muted-foreground"> — task entities ({status.taskCount})</span>
-            </li>
-            <li>
-              <Link
-                href={`/workspace/view?path=${encodeURIComponent(`${folder}/.huozi/memory.md`)}`}
-                className="text-foreground underline-offset-2 hover:underline"
-              >
-                .huozi/memory.md
-              </Link>
-              <span className="text-muted-foreground"> — agent memory ({status.memoryCount} entr{status.memoryCount === 1 ? "y" : "ies"})</span>
-            </li>
-          </ul>
+          <div className="overflow-hidden rounded border border-border bg-background/50 divide-y divide-border">
+            <StatusRow
+              label={projectRowLabel}
+              tone={projectRowTone}
+              hint={projectRowHint}
+              action={
+                <FolderSettingsActions
+                  folder={folder}
+                  isProject={status.isProject}
+                  isArchived={status.isArchived}
+                />
+              }
+            />
+            {status.isProject && !status.isArchived && (
+              <StatusRow
+                label="Tasks"
+                tone={status.isTasksEnabled ? "active" : "off"}
+                hint={
+                  status.isTasksEnabled
+                    ? "Tracking enabled — tasks.jsonl is live in this folder."
+                    : "Off by default. Enable to start tracking action items."
+                }
+                action={
+                  status.isTasksEnabled ? null : (
+                    <EnableTasksButton folder={folder} />
+                  )
+                }
+              />
+            )}
+          </div>
         </section>
-      )}
 
-      {/* Folder access — was the ⋯ modal on the file tree before P2.4
-          file-tree consolidation. Now lives here so the file tree stays
-          single-affordance. */}
-      {principal && workspaceId && (
-        <section className="space-y-3">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            Folder access
-          </h2>
-          <FolderAccessSection
-            folder={folder}
-            isPrivate={acl !== null}
-            memberCount={acl?.members.length ?? 0}
-            members={members}
-            currentUserId={principal.userId}
-          />
-        </section>
-      )}
+        {/* FEATURES — content cards. Status badges are gone (status is
+            owned by the Project section above). Each card focuses on
+            the count + Open. Tasks-off renders the card but greys out
+            and drops the Open button: the user is told *to* go enable
+            it from the Project section. */}
+        {status.isProject && !status.isArchived && (
+          <section className="space-y-3">
+            <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+              Features
+            </h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <FeatureCard
+                title="README"
+                openHref={`/workspace/view?path=${encodeURIComponent(`${folder}/README.md`)}`}
+              />
+              <FeatureCard
+                title="Memory"
+                value={status.memoryCount}
+                valueSuffix={
+                  status.memoryCount === 1 ? "entry" : "entries"
+                }
+                openHref={`/workspace/view?path=${encodeURIComponent(`${folder}/.huozi/memory.md`)}`}
+              />
+              <FeatureCard
+                title="Tasks"
+                value={status.isTasksEnabled ? status.taskCount : null}
+                valueSuffix={
+                  status.isTasksEnabled
+                    ? status.taskCount === 1
+                      ? "entity"
+                      : "entities"
+                    : undefined
+                }
+                openHref={
+                  status.isTasksEnabled
+                    ? `/workspace/view?path=${encodeURIComponent(`${folder}/tasks.jsonl`)}`
+                    : null
+                }
+              />
+            </div>
+          </section>
+        )}
+
+        {/* Folder access — was the ⋯ modal on the file tree before P2.4
+            file-tree consolidation. Now lives here so the file tree stays
+            single-affordance. */}
+        {principal && workspaceId && (
+          <section className="space-y-3">
+            <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+              Folder access
+            </h2>
+            <FolderAccessSection
+              folder={folder}
+              isPrivate={acl !== null}
+              memberCount={acl?.members.length ?? 0}
+              members={members}
+              currentUserId={principal.userId}
+            />
+          </section>
+        )}
       </div>
     </SideDrawer>
   );
 }
 
-function ProjectStatusChip({
-  isProject,
-  isArchived,
-}: {
-  isProject: boolean;
-  isArchived: boolean;
-}) {
-  // All status chips share one shape — rounded border + bg-muted base,
-  // a single accented dot for state. Keeps the page brutalist-aligned
-  // (no rounded-full pills) and themable via tokens.
-  if (isArchived) {
-    return <StatusPill label="Archived" tone="muted" />;
-  }
-  if (isProject) {
-    return <StatusPill label="Project" tone="accent" />;
-  }
-  return <StatusPill label="Folder" tone="muted" />;
-}
+type RowTone = "active" | "off" | "muted";
 
-function StatusPill({
+function StatusRow({
   label,
   tone,
+  hint,
+  action,
 }: {
   label: string;
-  tone: "accent" | "muted";
+  tone: RowTone;
+  hint: string;
+  action: React.ReactNode;
 }) {
   const dot =
-    tone === "accent"
+    tone === "active"
       ? "bg-emerald-600"
-      : "bg-muted-foreground/50";
+      : tone === "muted"
+        ? "bg-muted-foreground/50"
+        : "border border-muted-foreground/40 bg-transparent";
   return (
-    <span className="inline-flex items-center gap-1.5 rounded border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground/80">
-      <span aria-hidden className={`size-1.5 rounded-full ${dot}`} />
-      {label}
-    </span>
+    <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+      <div className="flex-1 min-w-0 flex items-center gap-2">
+        <span
+          aria-hidden
+          className={`size-2 rounded-full shrink-0 ${dot}`}
+        />
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-foreground">{label}</div>
+          <div className="text-xs text-muted-foreground">{hint}</div>
+        </div>
+      </div>
+      {action !== null && (
+        <div className="shrink-0">{action}</div>
+      )}
+    </div>
   );
 }
 
-function StatTile({
-  label,
+function FeatureCard({
+  title,
   value,
-  hint,
+  valueSuffix,
+  openHref,
 }: {
-  label: string;
-  value: string;
-  hint: string;
+  title: string;
+  /** Count to display large. `null` means "—" (feature dormant or
+   *  countless, e.g. README). `undefined` means "no number column". */
+  value?: number | null;
+  valueSuffix?: string;
+  /** Set to `null` to drop the Open button entirely (e.g. Tasks-off). */
+  openHref: string | null;
 }) {
+  const showValue = value !== undefined;
+  const disabled = openHref === null;
   return (
-    <div className="huozi-card rounded border border-border bg-background/50 p-3">
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-        {label}
+    <div
+      className={`huozi-card flex flex-col gap-3 rounded border border-border bg-background/50 p-3 ${disabled ? "opacity-60" : ""}`}
+    >
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      {showValue ? (
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-2xl font-semibold tabular-nums">
+            {value === null ? "—" : value}
+          </span>
+          {valueSuffix && (
+            <span className="text-[11px] text-muted-foreground">
+              {valueSuffix}
+            </span>
+          )}
+        </div>
+      ) : null}
+      <div className="mt-auto">
+        {openHref !== null && (
+          <Link
+            href={openHref}
+            className="inline-flex w-fit items-center rounded border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            Open
+          </Link>
+        )}
       </div>
-      <div className="mt-1 text-xl font-semibold tabular-nums">{value}</div>
-      <div className="mt-1 text-[11px] text-muted-foreground">{hint}</div>
     </div>
   );
 }

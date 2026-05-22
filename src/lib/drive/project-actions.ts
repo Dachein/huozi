@@ -21,6 +21,11 @@ export interface ProjectStatus {
   isProject: boolean
   /** Top-level slot under `.archive/<folder>/` already has files. */
   isArchived: boolean
+  /** Tasks is opt-in per-Project. True iff memory.md frontmatter declares
+   *  `tasks_enabled: true`. Legacy projects upgraded before this flag
+   *  shipped read as false even when tasks.jsonl is on disk — users must
+   *  click Enable on the Settings page to bring Tasks back. */
+  isTasksEnabled: boolean
   taskCount: number
   memoryCount: number
 }
@@ -30,6 +35,13 @@ interface UpgradeData {
   paths_written: string[]
   commit_sha: string
   readme_existed: boolean
+}
+
+interface EnableTasksData {
+  folder_path: string
+  paths_written: string[]
+  commit_sha: string
+  tasks_already_existed: boolean
 }
 
 interface ArchiveData {
@@ -79,6 +91,17 @@ function countMemoryEntries(text: string): number {
   return count
 }
 
+function readTasksEnabledFromMemory(memoryContent: string): boolean {
+  // Mirror of `readTasksEnabled` in `packages/huozi-cloud/src/lib/project-actions.ts`.
+  // Kept inline (not imported) to avoid pulling worker-only deps into the
+  // Next.js bundle. If the format changes, update both sides together.
+  const fmMatch = /^(?:﻿)?---\n([\s\S]*?)\n---/.exec(memoryContent)
+  if (!fmMatch) return false
+  const m = /(^|\n)\s*tasks_enabled\s*:\s*([^\n]+)/.exec(fmMatch[1])
+  if (!m) return false
+  return m[2].trim().toLowerCase() === 'true'
+}
+
 export async function fetchProjectStatus(
   key: string,
   folder: string,
@@ -87,6 +110,7 @@ export async function fetchProjectStatus(
     folder,
     isProject: false,
     isArchived: false,
+    isTasksEnabled: false,
     taskCount: 0,
     memoryCount: 0,
   }
@@ -103,12 +127,14 @@ export async function fetchProjectStatus(
   status.isProject = sentinel.ok
   status.isArchived = archivedSentinel.ok
 
-  if (tasksFile.ok && tasksFile.data.file?.content) {
-    status.taskCount = countDistinctIds(tasksFile.data.file.content)
+  if (status.isProject && sentinel.ok && sentinel.data.file?.content) {
+    const memText = sentinel.data.file.content
+    status.memoryCount = countMemoryEntries(memText)
+    status.isTasksEnabled = readTasksEnabledFromMemory(memText)
   }
 
-  if (status.isProject && sentinel.ok && sentinel.data.file?.content) {
-    status.memoryCount = countMemoryEntries(sentinel.data.file.content)
+  if (status.isTasksEnabled && tasksFile.ok && tasksFile.data.file?.content) {
+    status.taskCount = countDistinctIds(tasksFile.data.file.content)
   }
 
   return status
@@ -177,6 +203,16 @@ export function projectUnarchive(
 ): Promise<ActionResult<ArchiveData>> {
   return meProjectAction<ArchiveData>(key, {
     action: 'unarchive',
+    folder_path,
+  })
+}
+
+export function projectEnableTasks(
+  key: string,
+  folder_path: string,
+): Promise<ActionResult<EnableTasksData>> {
+  return meProjectAction<EnableTasksData>(key, {
+    action: 'enable_tasks',
     folder_path,
   })
 }

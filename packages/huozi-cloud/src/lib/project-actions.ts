@@ -229,20 +229,18 @@ export async function upgradeProject(
     readmeParent = null
   }
 
-  const tasksPath = `${folder}/tasks.jsonl`
   const memoryPath = `${folder}/.huozi/memory.md`
 
+  // Tasks is opt-in: upgrade no longer mints tasks.jsonl. Users explicitly
+  // enable Tasks per-project via `enableTasks` (POST /me/project
+  // {action: 'enable_tasks'}). README + memory remain mandatory — they
+  // define the Project itself.
   const encoder = new TextEncoder()
   const edits = [
     {
       path: readmePath,
       content: encoder.encode(readmeContent),
       parent_sha: readmeParent,
-    },
-    {
-      path: tasksPath,
-      content: encoder.encode(buildTasksSchemaLine(at) + '\n'),
-      parent_sha: null as string | null,
     },
     {
       path: memoryPath,
@@ -273,9 +271,168 @@ export async function upgradeProject(
     ok: true,
     data: {
       folder_path: folder,
-      paths_written: [readmePath, tasksPath, memoryPath],
+      paths_written: [readmePath, memoryPath],
       commit_sha: result.commit_sha,
       readme_existed: existingReadme !== null,
+    },
+  }
+}
+
+// ── Enable Tasks ──────────────────────────────────────────────────────
+
+/** Read the `tasks_enabled` frontmatter flag from a memory.md body.
+ *  Missing key, malformed frontmatter, or any value other than the
+ *  literal string `true` all yield `false`. Legacy projects upgraded
+ *  before Tasks-opt-in shipped therefore read as `false` and require
+ *  an explicit Enable click. */
+export function readTasksEnabled(memoryContent: string): boolean {
+  const fm = detectFrontmatter(memoryContent)
+  if (!fm) return false
+  const m = /(^|\n)\s*tasks_enabled\s*:\s*([^\n]+)/.exec(fm.inner)
+  if (!m || m[2] === undefined) return false
+  return m[2].trim().toLowerCase() === 'true'
+}
+
+/** Insert or replace `tasks_enabled: true` in a memory.md body's
+ *  frontmatter. Always operates on an existing frontmatter block —
+ *  every project memory.md starts with one (the sentinel template) —
+ *  and is idempotent when the flag is already set. */
+export function setTasksEnabled(memoryContent: string): string {
+  const fm = detectFrontmatter(memoryContent)
+  if (!fm) {
+    return `---\nhuozi: project-memory\ntasks_enabled: true\n---\n${memoryContent}`
+  }
+  if (/(^|\n)\s*tasks_enabled\s*:/.test(fm.inner)) {
+    const replaced = fm.inner.replace(
+      /(^|\n)(\s*tasks_enabled\s*:\s*)([^\n]*)/,
+      (_m, prefix: string, key: string) => `${prefix}${key}true`,
+    )
+    if (replaced === fm.inner) return memoryContent
+    return (
+      memoryContent.slice(0, memoryContent.indexOf(fm.inner)) +
+      replaced +
+      memoryContent.slice(memoryContent.indexOf(fm.inner) + fm.inner.length)
+    )
+  }
+  const injected = `${fm.inner.replace(/\n*$/, '')}\ntasks_enabled: true\n`
+  const bom = memoryContent.startsWith('﻿') ? '﻿' : ''
+  return `${bom}---\n${injected}---\n${memoryContent.slice(fm.bodyStart)}`
+}
+
+export interface EnableTasksData {
+  folder_path: string
+  paths_written: string[]
+  commit_sha: string
+  tasks_already_existed: boolean
+}
+
+/**
+ * Flip the project's `tasks_enabled` flag to true and seed `tasks.jsonl`
+ * if it doesn't already exist. Idempotent: re-running on an
+ * already-enabled project returns success with no commit. One-way: there
+ * is no `disableTasks` counterpart by design — see the Project model
+ * comment in this file's header.
+ */
+export async function enableTasks(
+  storage: StorageBackend,
+  workspaceId: string,
+  author: Author,
+  folderPath: string,
+): Promise<ActionResult<EnableTasksData>> {
+  if (!looksLikeTopLevelName(folderPath)) {
+    return {
+      ok: false,
+      status: 400,
+      message:
+        'folder_path must be a single top-level folder name. Nested projects are not supported.',
+    }
+  }
+  if (RESERVED_NAMES.has(folderPath)) {
+    return {
+      ok: false,
+      status: 400,
+      message: `"${folderPath}" is a reserved system folder name and cannot have Tasks enabled.`,
+    }
+  }
+
+  const memoryPath = `${folderPath}/.huozi/memory.md`
+  const existingMemory = await storage.readFile(workspaceId, memoryPath)
+  if (!existingMemory) {
+    return {
+      ok: false,
+      status: 404,
+      message: `"${folderPath}" is not an upgraded Project (no ${memoryPath}). Upgrade first.`,
+    }
+  }
+
+  const decoder = new TextDecoder()
+  const currentMemoryText = decoder.decode(existingMemory.content)
+  const alreadyEnabled = readTasksEnabled(currentMemoryText)
+
+  const tasksPath = `${folderPath}/tasks.jsonl`
+  const existingTasks = await storage.readFile(workspaceId, tasksPath)
+
+  if (alreadyEnabled && existingTasks !== null) {
+    return {
+      ok: true,
+      data: {
+        folder_path: folderPath,
+        paths_written: [],
+        commit_sha: existingMemory.blob_sha,
+        tasks_already_existed: true,
+      },
+    }
+  }
+
+  const encoder = new TextEncoder()
+  const at = new Date().toISOString()
+  const edits: Array<{
+    path: string
+    content: Uint8Array
+    parent_sha: string | null
+  }> = []
+
+  if (!alreadyEnabled) {
+    const updated = setTasksEnabled(currentMemoryText)
+    edits.push({
+      path: memoryPath,
+      content: encoder.encode(updated),
+      parent_sha: existingMemory.blob_sha,
+    })
+  }
+  if (existingTasks === null) {
+    edits.push({
+      path: tasksPath,
+      content: encoder.encode(buildTasksSchemaLine(at) + '\n'),
+      parent_sha: null,
+    })
+  }
+
+  const result = await storage.writeBatch({
+    workspaceId,
+    author,
+    edits,
+    allOrNothing: true,
+    message: `project_enable_tasks: ${folderPath}`,
+  })
+  if (result.aborted || result.commit_sha === null) {
+    const firstError = result.results.find((r) => !r.success)?.error
+    return {
+      ok: false,
+      status: 409,
+      message: firstError
+        ? `Enable Tasks aborted: ${firstError.message}`
+        : 'Enable Tasks aborted (writeBatch returned no commit).',
+    }
+  }
+
+  return {
+    ok: true,
+    data: {
+      folder_path: folderPath,
+      paths_written: edits.map((e) => e.path),
+      commit_sha: result.commit_sha,
+      tasks_already_existed: existingTasks !== null,
     },
   }
 }

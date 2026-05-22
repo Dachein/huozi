@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { InMemoryStorage } from '../../storage/memory.js'
 import {
   archiveProject,
+  enableTasks,
   ensureHuoziFrontmatter,
+  readTasksEnabled,
+  setTasksEnabled,
   unarchiveProject,
   upgradeProject,
 } from '../project-actions.js'
@@ -61,7 +64,7 @@ describe('ensureHuoziFrontmatter', () => {
 })
 
 describe('upgradeProject — fresh folder', () => {
-  it('creates README + tasks.jsonl + memory.jsonl in one commit', async () => {
+  it('creates README + memory.md in one commit (tasks is opt-in)', async () => {
     const storage = new InMemoryStorage()
     const r = await upgradeProject(storage, 'ws', author, { folderPath: 'fresh' })
     expect(r.ok).toBe(true)
@@ -69,22 +72,100 @@ describe('upgradeProject — fresh folder', () => {
     expect(r.data.paths_written.sort()).toEqual([
       'fresh/.huozi/memory.md',
       'fresh/README.md',
-      'fresh/tasks.jsonl',
     ])
     expect(r.data.readme_existed).toBe(false)
 
     const readme = await readText(storage, 'fresh/README.md')
     expect(readme).toMatch(/^---\nhuozi: project\n---/)
-    const tasksSchema = JSON.parse(
-      (await readText(storage, 'fresh/tasks.jsonl')).trim(),
-    )
-    expect(tasksSchema.op).toBe('schema')
-    expect(tasksSchema.schema.title).toBe('Tasks')
-    // Memory is now a markdown doc — verify the frontmatter + heading
-    // are seeded, no JSON to parse.
+
+    expect(await storage.readFile('ws', 'fresh/tasks.jsonl')).toBeNull()
+
     const memDoc = await readText(storage, 'fresh/.huozi/memory.md')
     expect(memDoc).toMatch(/^---\nhuozi: project-memory\n---/)
     expect(memDoc).toContain('# Project Memory')
+    expect(readTasksEnabled(memDoc)).toBe(false)
+  })
+})
+
+describe('readTasksEnabled / setTasksEnabled', () => {
+  it('reads false when frontmatter lacks the key (legacy / fresh upgrade)', () => {
+    expect(readTasksEnabled('---\nhuozi: project-memory\n---\n# X\n')).toBe(false)
+  })
+
+  it('reads true when frontmatter declares tasks_enabled: true', () => {
+    const input = '---\nhuozi: project-memory\ntasks_enabled: true\n---\n# X\n'
+    expect(readTasksEnabled(input)).toBe(true)
+  })
+
+  it('rejects non-true values', () => {
+    expect(
+      readTasksEnabled('---\nhuozi: project-memory\ntasks_enabled: false\n---\n'),
+    ).toBe(false)
+    expect(
+      readTasksEnabled('---\nhuozi: project-memory\ntasks_enabled: yes\n---\n'),
+    ).toBe(false)
+  })
+
+  it('injects tasks_enabled: true into an existing block', () => {
+    const out = setTasksEnabled('---\nhuozi: project-memory\n---\n# X\n')
+    expect(readTasksEnabled(out)).toBe(true)
+    expect(out).toContain('huozi: project-memory')
+    expect(out).toContain('# X')
+  })
+
+  it('is idempotent when already enabled', () => {
+    const input = '---\nhuozi: project-memory\ntasks_enabled: true\n---\n# X\n'
+    expect(setTasksEnabled(input)).toBe(input)
+  })
+})
+
+describe('enableTasks', () => {
+  it('flips the flag and seeds tasks.jsonl on first run', async () => {
+    const storage = new InMemoryStorage()
+    await upgradeProject(storage, 'ws', author, { folderPath: 'p' })
+    const r = await enableTasks(storage, 'ws', author, 'p')
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.data.tasks_already_existed).toBe(false)
+    expect(r.data.paths_written.sort()).toEqual([
+      'p/.huozi/memory.md',
+      'p/tasks.jsonl',
+    ])
+    const mem = await readText(storage, 'p/.huozi/memory.md')
+    expect(readTasksEnabled(mem)).toBe(true)
+    const tasksSchema = JSON.parse((await readText(storage, 'p/tasks.jsonl')).trim())
+    expect(tasksSchema.op).toBe('schema')
+    expect(tasksSchema.schema.title).toBe('Tasks')
+  })
+
+  it('is idempotent when both flag and tasks.jsonl already exist', async () => {
+    const storage = new InMemoryStorage()
+    await upgradeProject(storage, 'ws', author, { folderPath: 'p' })
+    await enableTasks(storage, 'ws', author, 'p')
+    const r = await enableTasks(storage, 'ws', author, 'p')
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.data.tasks_already_existed).toBe(true)
+    expect(r.data.paths_written).toEqual([])
+  })
+
+  it('refuses non-Project folders', async () => {
+    const storage = new InMemoryStorage()
+    const r = await enableTasks(storage, 'ws', author, 'p')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.message).toMatch(/not an upgraded Project/)
+  })
+
+  it('legacy project (tasks.jsonl exists, flag missing) → flips flag, keeps existing tasks.jsonl', async () => {
+    const storage = new InMemoryStorage()
+    await upgradeProject(storage, 'ws', author, { folderPath: 'p' })
+    await writeFile(storage, 'p/tasks.jsonl', '{"legacy":true}\n')
+    const r = await enableTasks(storage, 'ws', author, 'p')
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.data.tasks_already_existed).toBe(true)
+    expect(r.data.paths_written).toEqual(['p/.huozi/memory.md'])
+    expect(await readText(storage, 'p/tasks.jsonl')).toBe('{"legacy":true}\n')
   })
 })
 

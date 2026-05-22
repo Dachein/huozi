@@ -13,11 +13,12 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { HUOZI_CLOUD_KEY_COOKIE } from '@/lib/drive/mcp-client'
 import {
   projectArchive,
+  projectEnableTasks,
   projectUnarchive,
   projectUpgrade,
 } from '@/lib/drive/project-actions'
 
-type Action = 'upgrade' | 'archive' | 'unarchive'
+type Action = 'upgrade' | 'archive' | 'unarchive' | 'enable_tasks'
 
 interface ProjectBody {
   action?: unknown
@@ -29,6 +30,7 @@ const ALLOWED_ACTIONS: ReadonlySet<Action> = new Set([
   'upgrade',
   'archive',
   'unarchive',
+  'enable_tasks',
 ])
 
 function isValidAction(v: unknown): v is Action {
@@ -97,6 +99,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       if (!r.ok) {
         return NextResponse.json(
           { error: 'unarchive_failed', message: r.message },
+          { status: r.status },
+        )
+      }
+      return NextResponse.json({ ok: true, ...r.data })
+    }
+    case 'enable_tasks': {
+      const r = await projectEnableTasks(key, folderPath)
+      if (!r.ok) {
+        return NextResponse.json(
+          { error: 'enable_tasks_failed', message: r.message },
           { status: r.status },
         )
       }

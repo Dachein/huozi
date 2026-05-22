@@ -526,18 +526,22 @@ function TreeNode({
             onClick={() => onToggle(node.path)}
             className="flex-1 min-w-0 flex items-center gap-1.5 text-left"
           >
-            <FileIcon name={node.name} isDir open={open} />
-            <span className="text-sm text-muted-foreground truncate">
+            <FileIcon
+              name={node.name}
+              isDir
+              open={open}
+              isProject={isProject}
+            />
+            <span
+              className="text-sm text-muted-foreground truncate"
+              title={
+                isProject
+                  ? "Upgraded Project — has tasks.jsonl + .huozi/memory.md"
+                  : undefined
+              }
+            >
               {node.name}
             </span>
-            {isProject && (
-              <span
-                className="text-[11px] font-mono font-medium text-emerald-700 shrink-0"
-                title="Upgraded Project — has tasks.jsonl + .huozi/memory.md"
-              >
-                [P]
-              </span>
-            )}
             {isSystemNamed && (
               <span
                 className="inline-flex items-center rounded border border-border bg-muted px-1 text-[9px] font-medium text-muted-foreground shrink-0"

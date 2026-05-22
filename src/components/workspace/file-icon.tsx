@@ -106,9 +106,12 @@ export interface FileIconProps {
   isDir: boolean;
   /** Folder-only: rotates the chevron 90° when expanded. */
   open?: boolean;
+  /** Folder-only: render the "upgraded Project" variant (folder shape
+   *  with a P stamp inside) instead of the plain folder. */
+  isProject?: boolean;
 }
 
-export function FileIcon({ name, isDir, open }: FileIconProps) {
+export function FileIcon({ name, isDir, open, isProject }: FileIconProps) {
   const theme = useTheme();
 
   if (isDir) {
@@ -117,7 +120,13 @@ export function FileIcon({ name, isDir, open }: FileIconProps) {
         className="inline-flex items-center justify-center w-4"
         aria-hidden="true"
       >
-        {open ? <FolderOpenIcon /> : <FolderClosedIcon />}
+        {isProject
+          ? open
+            ? <FolderProjectOpenIcon />
+            : <FolderProjectClosedIcon />
+          : open
+            ? <FolderOpenIcon />
+            : <FolderClosedIcon />}
       </span>
     );
   }
@@ -481,6 +490,76 @@ function FolderOpenIcon() {
         strokeWidth="1.2"
         strokeLinejoin="round"
       />
+    </IconBox>
+  );
+}
+
+/** Project closed folder — same silhouette as FolderClosedIcon plus an
+ *  emerald "P" stamp centered on the body. Marks folders that have
+ *  graduated to the upgraded-Project state (tasks.jsonl + .huozi/memory.md).
+ *  Emerald matches the legacy `[P]` text tag for visual continuity. */
+function FolderProjectClosedIcon() {
+  const c = COLOR.folder;
+  const wash = `${c}14`;
+  const stamp = "#047857";
+  return (
+    <IconBox>
+      <path
+        d="M2 5 a1 1 0 0 1 1 -1 H6.5 L8 5.5 H13 a1 1 0 0 1 1 1 V12.5 a1 1 0 0 1 -1 1 H3 a1 1 0 0 1 -1 -1 Z"
+        fill={wash}
+        stroke={c}
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      <text
+        x="8"
+        y="12"
+        textAnchor="middle"
+        fontFamily="ui-sans-serif, system-ui, sans-serif"
+        fontSize="6.5"
+        fontWeight="800"
+        fill={stamp}
+      >
+        P
+      </text>
+    </IconBox>
+  );
+}
+
+/** Project open folder — open-folder pose with the P stamp on the
+ *  front flap. Slightly smaller font than the closed variant because
+ *  the flap leaves less vertical room. */
+function FolderProjectOpenIcon() {
+  const c = COLOR.folder;
+  const wash = `${c}14`;
+  const stamp = "#047857";
+  return (
+    <IconBox>
+      <path
+        d="M2 5 a1 1 0 0 1 1 -1 H6.5 L8 5.5 H13 a1 1 0 0 1 1 1 V8.5 H2 Z"
+        fill={wash}
+        stroke={c}
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M3 8 H14 L12.5 13.5 a0.5 0.5 0 0 1 -0.5 0.5 H3.5 a0.5 0.5 0 0 1 -0.5 -0.5 Z"
+        fill={wash}
+        stroke={c}
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      <text
+        x="8"
+        y="12.6"
+        textAnchor="middle"
+        fontFamily="ui-sans-serif, system-ui, sans-serif"
+        fontSize="5"
+        fontWeight="800"
+        fill={stamp}
+      >
+        P
+      </text>
     </IconBox>
   );
 }
