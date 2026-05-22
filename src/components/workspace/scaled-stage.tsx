@@ -83,17 +83,39 @@ export function ScaledStage({
   //
   // contain → min(W_ratio, H_ratio)  (canvas inside box, letterbox bars)
   // cover   → max(W_ratio, H_ratio)  (canvas fills box, long axis clipped)
-  const fn = fit === "cover" ? "max" : "min";
+  //
+  // For cover, a naive `max(...)` blows up on viewports that are wider
+  // than the canvas (story = 9:16 displayed on a 16:9 desktop ⇒ scale
+  // ~3.8×, ~70% of content clipped). The user-visible expectation is:
+  //   - viewport portrait-ish (narrower than the canvas's aspect)
+  //     → cover, fill the short edge so the screen feels immersive
+  //   - viewport landscape (wider than the canvas's aspect)
+  //     → fall back to contain so the whole canvas is visible
+  // Express that via a media query on aspect-ratio: when the viewport's
+  // W/H is ≥ canvas W/H, we're "wider than canvas" → contain. Below
+  // that, we cover. The crossover (equal aspects) is exactly where both
+  // formulas evaluate identically, so there's no visible snap.
+  const containTransform = `scale(min(calc(100cqw / ${width}px), calc(100cqh / ${height}px)))`;
+  const coverTransform = `scale(max(calc(100cqw / ${width}px), calc(100cqh / ${height}px)))`;
+  // Per-instance class so the scoped <style> block only affects this
+  // stage, not others on the page.
+  const cls = `huozi-canvas-stage--${width}x${height}-${fit}`;
+  const css =
+    fit === "cover"
+      ? `.${cls}{transform:${coverTransform}}@media (min-aspect-ratio: ${width}/${height}){.${cls}{transform:${containTransform}}}`
+      : `.${cls}{transform:${containTransform}}`;
   const stageStyle: CSSProperties = {
     width: `${width}px`,
     height: `${height}px`,
-    transform: `scale(${fn}(calc(100cqw / ${width}px), calc(100cqh / ${height}px)))`,
     transformOrigin: "center center",
   };
   return (
     <div className="huozi-canvas-frame w-full h-full overflow-hidden grid place-items-center [container-type:size]">
+      {/* React 19 hoists in-tree <style> to <head>; the per-dims class
+          name keeps the rule local to this instance. */}
+      <style dangerouslySetInnerHTML={{ __html: css }} />
       <div
-        className={`huozi-canvas-stage shrink-0${stageClassName ? " " + stageClassName : ""}`}
+        className={`huozi-canvas-stage shrink-0 ${cls}${stageClassName ? " " + stageClassName : ""}`}
         style={stageStyle}
       >
         {children}
