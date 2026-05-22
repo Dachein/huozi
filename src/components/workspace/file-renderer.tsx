@@ -15,6 +15,9 @@ import type { ObjectKind } from "@/components/workspace/inline-edit";
 import { HtmlInlineFrame } from "@/components/workspace/html-inline-frame";
 import { DashboardSurface } from "@/components/workspace/dashboard-surface";
 import { HtmlValidationBanner } from "@/components/workspace/html-validation-banner";
+import { ScaledStage } from "@/components/workspace/scaled-stage";
+import { FixedWidthStage } from "@/components/workspace/fixed-width-stage";
+import { resolveCanvas } from "@/lib/html/canvas";
 
 /**
  * Renders a file's content based on its extension.
@@ -144,23 +147,104 @@ export async function FileRenderer({
       injectSourcePos: inlineEditable,
       bundleCtx: { dataBase, filePath: path },
     });
-    const layout = pickHtmlLayout(content);
     const format = detectHuoziFormat(content);
     const pages = extractPages(content);
     const tabs = format === "dashboard" ? extractTabs(content) : [];
     const refreshMs = format === "dashboard" ? extractRefreshMs(content) : null;
     const pageUnit: "slide" | "page" =
       format === "deck" || format === "story" ? "slide" : "page";
-    const frame =
-      format === "dashboard" ? (
-        <DashboardSurface
-          html={html}
-          hostClassName={layout.className}
-          hostStyle={layout.style}
-          tabs={tabs}
-          refreshMs={refreshMs}
-        />
-      ) : (
+
+    // Canvas dispatch — see lib/html/canvas.ts.
+    //
+    //   - scale mode (story / deck / dashboard): fixed W×H, ScaledStage
+    //     uses transform: scale to fit the surrounding box. cqw/cqh
+    //     inside resolves to canvas dims.
+    //   - lock-width mode (paper): fixed W, content-driven H,
+    //     FixedWidthStage centers a column with vertical scroll.
+    //   - null (mobile / web / unknown): fall through to legacy
+    //     pickHtmlLayout — these formats reflow freely, no canvas.
+    const canvas = resolveCanvas(content, format);
+    const frame = (() => {
+      // Inner host: in canvas modes the outer Stage already controls
+      // sizing, so the host fills 100% of the Stage; in legacy mode
+      // the host carries pickHtmlLayout's class+style directly.
+      if (canvas) {
+        const stretchCls =
+          "!w-full !h-full [&_.huozi-story]:!w-full [&_.huozi-story]:!h-full [&_.huozi-story]:!min-h-0 [&_.huozi-deck]:!w-full [&_.huozi-deck]:!h-full [&_.huozi-deck]:!min-h-0";
+        const stretchStyle = { width: "100%", height: "100%" } as const;
+        const inner =
+          format === "dashboard" ? (
+            <DashboardSurface
+              html={html}
+              hostClassName={stretchCls}
+              hostStyle={stretchStyle}
+              tabs={tabs}
+              refreshMs={refreshMs}
+            />
+          ) : (
+            <HtmlInlineFrame
+              html={html}
+              hostClassName={
+                canvas.mode === "lock-width"
+                  ? // paper flows vertically; only width is locked.
+                    // Don't force h-full on the host — let height grow.
+                    "!w-full [&_.huozi-paper]:!min-h-0"
+                  : stretchCls
+              }
+              hostStyle={
+                canvas.mode === "lock-width"
+                  ? { width: "100%" }
+                  : stretchStyle
+              }
+              format={format}
+              pages={pages}
+              pageUnit={pageUnit}
+            />
+          );
+        if (canvas.mode === "scale") {
+          return (
+            <div
+              className="huozi-canvas-outer"
+              style={{
+                width: "100%",
+                aspectRatio: `${canvas.width} / ${canvas.height}`,
+                maxWidth: `${canvas.width}px`,
+                marginLeft: "auto",
+                marginRight: "auto",
+                background: canvas.background,
+              }}
+            >
+              <ScaledStage
+                width={canvas.width}
+                height={canvas.height!}
+                fit={canvas.fit}
+              >
+                {inner}
+              </ScaledStage>
+            </div>
+          );
+        }
+        // lock-width (paper)
+        return (
+          <div
+            className="huozi-canvas-outer"
+            style={{
+              width: "100%",
+              height: "min(80vh, 1100px)",
+              maxWidth: `${canvas.width}px`,
+              marginLeft: "auto",
+              marginRight: "auto",
+              background: canvas.background,
+            }}
+          >
+            <FixedWidthStage width={canvas.width}>{inner}</FixedWidthStage>
+          </div>
+        );
+      }
+      // No canvas — mobile / web / unknown fall back to the legacy
+      // flow-based sizing.
+      const layout = pickHtmlLayout(content);
+      return (
         <HtmlInlineFrame
           html={html}
           hostClassName={layout.className}
@@ -170,6 +254,7 @@ export async function FileRenderer({
           pageUnit={pageUnit}
         />
       );
+    })();
     // Validation banner is workspace-only (the publish surface intentionally
     // hides dev hints from readers). `inlineEditable` doubles as the
     // workspace-context flag — `/p/<slug>` always passes false.

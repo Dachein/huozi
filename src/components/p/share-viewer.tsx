@@ -23,6 +23,9 @@ import {
 } from "@/components/workspace/fullscreen-content";
 import { FullscreenProvider } from "@/components/workspace/fullscreen-context";
 import { DashboardSurface } from "@/components/workspace/dashboard-surface";
+import { ScaledStage } from "@/components/workspace/scaled-stage";
+import { FixedWidthStage } from "@/components/workspace/fixed-width-stage";
+import { resolveCanvas } from "@/lib/html/canvas";
 import type { PageEntry } from "@/lib/html/extract-pages";
 import type { TabEntry } from "@/lib/html/extract-tabs";
 import type { ShareContent } from "@/lib/drive/shares";
@@ -182,28 +185,131 @@ function renderInitial(props: ShareViewerProps) {
           <EmptyHint />
         )
       ) : kind === "prose" && props.prerenderedHtml ? (
-        props.htmlFormat === "dashboard" ? (
-          <DashboardSurface
-            html={props.prerenderedHtml}
-            hostClassName=""
-            tabs={props.tabs ?? []}
-            refreshMs={props.refreshMs ?? null}
-          />
-        ) : (
-          <article
-            className={proseClass}
-            {...(props.htmlFormat === "deck"
-              ? { "data-huozi-rotate-portrait": "" }
-              : {})}
-            dangerouslySetInnerHTML={{ __html: props.prerenderedHtml }}
-          />
-        )
+        renderProse(props)
       ) : props.rawText ? (
         <SourceBlock content={props.rawText} />
       ) : (
         <EmptyHint />
       )}
     </FullscreenContent>
+  );
+}
+
+/**
+ * Render the prose / HTML branch. Mirrors file-renderer's canvas
+ * dispatch (story / deck / dashboard → ScaledStage, paper →
+ * FixedWidthStage, mobile / web → no wrapper) so the public share view
+ * matches workspace inline / fullscreen typography pixel-for-pixel.
+ *
+ * `proseClass` is "huozi-html-host" for HTML; for the canvas modes we
+ * additionally force the host (and the file's `.huozi-story` /
+ * `.huozi-deck` root) to fill the Stage's box.
+ */
+function renderProse(props: ShareViewerProps): React.ReactNode {
+  if (!props.prerenderedHtml) return null;
+  const format = props.htmlFormat ?? "web";
+  const canvas = props.rawText ? resolveCanvas(props.rawText, format) : null;
+
+  // Dashboard always uses DashboardSurface (it has its own internal
+  // chrome: tabs, refresh, etc.). Inside the canvas Stage we just
+  // stretch it to fill.
+  if (format === "dashboard") {
+    const dashboard = (
+      <DashboardSurface
+        html={props.prerenderedHtml}
+        hostClassName={canvas ? "!w-full !h-full" : ""}
+        hostStyle={canvas ? { width: "100%", height: "100%" } : undefined}
+        tabs={props.tabs ?? []}
+        refreshMs={props.refreshMs ?? null}
+      />
+    );
+    if (canvas && canvas.mode === "scale") {
+      return (
+        <div
+          className="huozi-canvas-outer"
+          style={{
+            width: "100%",
+            aspectRatio: `${canvas.width} / ${canvas.height}`,
+            maxWidth: `${canvas.width}px`,
+            marginLeft: "auto",
+            marginRight: "auto",
+            background: canvas.background,
+          }}
+        >
+          <ScaledStage
+            width={canvas.width}
+            height={canvas.height!}
+            fit={canvas.fit}
+          >
+            {dashboard}
+          </ScaledStage>
+        </div>
+      );
+    }
+    return dashboard;
+  }
+
+  // Article-based HTML formats.
+  const stretchCls = canvas
+    ? canvas.mode === "lock-width"
+      ? " !w-full [&_.huozi-paper]:!min-h-0"
+      : " !w-full !h-full [&_.huozi-story]:!w-full [&_.huozi-story]:!h-full [&_.huozi-story]:!min-h-0 [&_.huozi-deck]:!w-full [&_.huozi-deck]:!h-full [&_.huozi-deck]:!min-h-0"
+    : "";
+  const article = (
+    <article
+      className={"huozi-html-host" + stretchCls}
+      style={
+        canvas
+          ? canvas.mode === "lock-width"
+            ? { width: "100%" }
+            : { width: "100%", height: "100%" }
+          : undefined
+      }
+      {...(format === "deck" ? { "data-huozi-rotate-portrait": "" } : {})}
+      dangerouslySetInnerHTML={{ __html: props.prerenderedHtml }}
+    />
+  );
+
+  if (!canvas) return article;
+
+  if (canvas.mode === "scale") {
+    return (
+      <div
+        className="huozi-canvas-outer"
+        style={{
+          width: "100%",
+          aspectRatio: `${canvas.width} / ${canvas.height}`,
+          maxWidth: `${canvas.width}px`,
+          marginLeft: "auto",
+          marginRight: "auto",
+          background: canvas.background,
+        }}
+      >
+        <ScaledStage
+          width={canvas.width}
+          height={canvas.height!}
+          fit={canvas.fit}
+        >
+          {article}
+        </ScaledStage>
+      </div>
+    );
+  }
+  // lock-width (paper)
+  return (
+    <div
+      className="huozi-canvas-outer"
+      style={{
+        width: "100%",
+        height: "min(80vh, 1100px)",
+        maxWidth: `${canvas.width}px`,
+        marginLeft: "auto",
+        marginRight: "auto",
+        background: canvas.background,
+      }}
+    >
+      <FixedWidthStage width={canvas.width}>{article}</FixedWidthStage>
+    </div>
   );
 }
 

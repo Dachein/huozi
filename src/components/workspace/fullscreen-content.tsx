@@ -150,26 +150,29 @@ export function FullscreenContent({
   //
   //   paper / mobile / web — long-flow. Host follows block width, container
   //                    scrolls vertically.
-  const isDashboard = htmlFormat === "dashboard";
-  const isPaginated = htmlFormat === "deck" || htmlFormat === "story";
-  const containerCls = isDashboard
-    ? // Outer surface fills viewport; drop inline aspect-ratio.
-      `overflow-hidden
-       [&_.huozi-dashboard-surface]:![aspect-ratio:auto]
-       [&_.huozi-dashboard-surface]:!w-screen
-       [&_.huozi-dashboard-surface]:!h-screen
-       [&_.huozi-dashboard-surface]:!max-w-none
-       [&_.huozi-dashboard-surface]:!max-h-none
-       [&_.huozi-dashboard-surface]:!m-0`
-    : isPaginated
-    ? // Force-to-viewport sizing on the host; lock outer overflow.
-      `overflow-hidden
-       [&_.huozi-html-host]:!w-screen [&_.huozi-html-host]:!h-screen
-       [&_.huozi-html-host]:!max-w-none [&_.huozi-html-host]:!max-h-none
-       [&_.huozi-html-host]:![aspect-ratio:auto]
-       [&_.huozi-html-host]:!overflow-visible
-       [&_.huozi-html-host]:!m-0
-       [&_.huozi-story]:!h-screen [&_.huozi-deck]:!h-screen`
+  // Canvas formats (story / deck / dashboard / paper) are wrapped in a
+  // `.huozi-canvas-outer` by file-renderer / share-viewer — that outer
+  // carries the inline-preview aspect-ratio + max-width. In fullscreen
+  // we strip those constraints so the outer fills the viewport; the
+  // inner Stage (ScaledStage for scale, FixedWidthStage for paper)
+  // takes care of the rest (transform for scaled, centered scroll for
+  // paper). No more `.huozi-html-host !w-screen !h-screen` overrides —
+  // those broke container-query semantics by forcing the host away
+  // from canvas dims.
+  //
+  // Long-flow formats (mobile / web) keep the legacy host-based
+  // overrides since they don't have a canvas-outer wrapper.
+  const isCanvas =
+    htmlFormat === "deck" ||
+    htmlFormat === "story" ||
+    htmlFormat === "dashboard" ||
+    htmlFormat === "paper";
+  const containerCls = isCanvas
+    ? `overflow-hidden
+       [&_.huozi-canvas-outer]:!w-screen [&_.huozi-canvas-outer]:!h-screen
+       [&_.huozi-canvas-outer]:!max-w-none [&_.huozi-canvas-outer]:!max-h-none
+       [&_.huozi-canvas-outer]:![aspect-ratio:auto]
+       [&_.huozi-canvas-outer]:!m-0`
     : // Long-flow: container scrolls vertically, host follows block width.
       // overflow-x-hidden is a belt-and-suspenders against any inner
       // element (or vw-based custom CSS) trying to overflow horizontally.
