@@ -392,6 +392,33 @@ export function cloudEdit(
   return callTool<EditData>(key, 'huozi_edit', args, { useSession })
 }
 
+export interface WriteData {
+  type: 'create' | 'update'
+  filePath: string
+  content: string
+  commit_sha: string
+  new_blob_sha: string
+}
+
+/**
+ * Write a file to the workspace via `huozi_write`.
+ *
+ * For *new* files (no prior `huozi_read` needed) you can call this directly.
+ * For *updates* the tool requires a prior `huozi_read` in the same session DO
+ * — pair with `cloudReadForEdit` and keep `useSession: true` on both calls.
+ *
+ * Used by sidecar writers (e.g. highlights) where the Web UI needs to create
+ * or overwrite a small JSON file next to a user-visible artifact.
+ */
+export function cloudWrite(
+  key: string,
+  args: { file_path: string; content: string },
+  opts: { useSession?: boolean } = {},
+): Promise<McpResult<WriteData>> {
+  const useSession = opts.useSession ?? false
+  return callTool<WriteData>(key, 'huozi_write', args, { useSession })
+}
+
 // ── Helpers for the UI ─────────────────────────────────────────────────
 
 /**
