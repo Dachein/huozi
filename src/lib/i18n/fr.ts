@@ -558,6 +558,16 @@ export const fr = {
 
   // Inline edit (workspace view)
   "editor.inline.button": "Modifier",
+  "highlights.clip.button": "Extraire",
+  "highlights.clip.saved": "Extrait enregistré",
+  "highlights.clip.error": "Échec de l'enregistrement de l'extrait",
+  "highlights.drawer.title": "Extraits",
+  "highlights.drawer.empty":
+    "Aucun extrait pour l'instant — sélectionnez du texte pour en créer un.",
+  "highlights.drawer.toggle": "Afficher les extraits",
+  "highlights.drawer.delete": "Supprimer",
+  "highlights.replay.orphan":
+    "La source a changé — impossible de réancrer cet extrait.",
   "editor.inline.title": "Modifier la sélection",
   "editor.inline.save": "Enregistrer",
   "editor.inline.saving": "Enregistrement…",

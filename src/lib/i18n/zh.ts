@@ -540,6 +540,14 @@ export const zh = {
 
   // Inline edit (workspace view)
   "editor.inline.button": "编辑",
+  "highlights.clip.button": "剪藏",
+  "highlights.clip.saved": "已剪藏",
+  "highlights.clip.error": "剪藏失败",
+  "highlights.drawer.title": "剪藏",
+  "highlights.drawer.empty": "还没有剪藏，选中文本即可保存。",
+  "highlights.drawer.toggle": "查看剪藏",
+  "highlights.drawer.delete": "删除",
+  "highlights.replay.orphan": "原文已变化，无法定位到这条剪藏。",
   "editor.inline.title": "编辑选区",
   "editor.inline.save": "保存",
   "editor.inline.saving": "保存中…",

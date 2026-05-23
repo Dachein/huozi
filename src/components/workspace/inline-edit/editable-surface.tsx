@@ -35,6 +35,8 @@ import type {
 import { useObjectSelection } from "./use-object-selection";
 import { EditModal } from "./edit-modal";
 import { findHtmlInnerRange } from "./anchor";
+import { buildHighlightPayload, captureHighlight } from "./highlight-capture";
+import { notifyError, notifyInfo } from "./notify";
 
 const Ctx = createContext<EditableSurfaceContextValue | null>(null);
 
@@ -229,6 +231,56 @@ export function EditableSurface({
     });
   }
 
+  async function onClipClick() {
+    if (!sel) return;
+    const host = hostRef.current;
+    if (!host) return;
+    if (
+      fileKind !== "md-block" &&
+      fileKind !== "html-element" &&
+      fileKind !== "jsonl-field"
+    ) {
+      return;
+    }
+    const captured = captureHighlight(host, sel, fileKind);
+    if (!captured) {
+      notifyError(t("highlights.clip.error"));
+      return;
+    }
+    const payload = buildHighlightPayload(captured);
+    try {
+      const res = await fetch("/api/app/drive/highlights", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          source_path: filePath,
+          source_blob_sha: parentBlobSha,
+          highlight: payload,
+        }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as {
+          message?: string;
+        };
+        notifyError(data.message ?? t("highlights.clip.error"));
+        return;
+      }
+      // Clear the live selection so the toolbar dismisses; nicer than
+      // leaving the pills floating over the just-clipped text.
+      window.getSelection()?.removeAllRanges();
+      notifyInfo(t("highlights.clip.saved"));
+      // Tell the layer + drawer to refresh. Detail carries the source
+      // path so multi-pane layouts can ignore events for other files.
+      window.dispatchEvent(
+        new CustomEvent("huozi:highlights-changed", {
+          detail: { sourcePath: filePath },
+        }),
+      );
+    } catch (e) {
+      notifyError((e as Error).message);
+    }
+  }
+
   return (
     <Ctx.Provider value={ctxValue}>
       <div
@@ -238,10 +290,22 @@ export function EditableSurface({
       >
         {children}
         {selectionEnabled && sel && request === null && (
-          <FloatingEditButton
+          <SelectionToolbar
             rect={sel.rect}
-            label={t("editor.inline.button")}
-            onClick={onPopoverClick}
+            actions={[
+              {
+                kind: "edit",
+                label: t("editor.inline.button"),
+                onClick: onPopoverClick,
+              },
+              {
+                kind: "clip",
+                label: t("highlights.clip.button"),
+                onClick: () => {
+                  void onClipClick();
+                },
+              },
+            ]}
           />
         )}
         {request && (
@@ -356,36 +420,50 @@ function tryNarrowToSelection(
   };
 }
 
-interface FloatingEditButtonProps {
+interface SelectionToolbarProps {
   rect: { top: number; left: number; width: number; height: number };
-  label: string;
-  onClick(): void;
+  actions: Array<{
+    /** `kind` lets the theme layer style edit vs. clip differently if
+     *  desired (data attribute on the button). */
+    kind: "edit" | "clip";
+    label: string;
+    onClick(): void;
+  }>;
 }
 
-function FloatingEditButton({ rect, label, onClick }: FloatingEditButtonProps) {
-  // Position the button just above-right of the selection box. Use
-  // `position: fixed` so the rect (which is viewport-relative) lines up
-  // without recomputing on scroll — the parent hook re-fires on scroll
-  // to update the rect.
+function SelectionToolbar({ rect, actions }: SelectionToolbarProps) {
+  // Position the pill row just above-right of the selection box. Use
+  // `position: fixed` so the rect (viewport-relative) lines up without
+  // recomputing on scroll — the parent hook re-fires on scroll to
+  // update the rect.
   //
   // The `huozi-edit-pill` class is the stable hook the theme layer uses
   // to override appearance per theme (brutal-mono renders this as a
-  // stamped black-on-yellow pill instead of the default red fill — see
-  // globals.css). Don't drop the class without also updating that file.
+  // stamped black-on-yellow pill — see globals.css). Don't drop the class
+  // without also updating that file.
   const top = Math.max(8, rect.top - 32);
   const left = rect.left + rect.width;
   return (
-    <button
-      type="button"
+    <div
+      className="fixed z-[60] flex gap-1"
+      style={{ top, left }}
       onMouseDown={(e) => {
-        // Don't let the click clear the selection before our handler runs.
+        // Don't let clicks inside the toolbar clear the selection before
+        // any handler runs.
         e.preventDefault();
       }}
-      onClick={onClick}
-      className="huozi-edit-pill fixed z-[60] px-2 py-1 text-xs rounded shadow-lg bg-accent text-accent-foreground hover:opacity-90 border border-border"
-      style={{ top, left }}
     >
-      {label}
-    </button>
+      {actions.map((a) => (
+        <button
+          key={a.kind}
+          type="button"
+          data-action={a.kind}
+          onClick={a.onClick}
+          className="huozi-edit-pill px-2 py-1 text-xs rounded shadow-lg bg-accent text-accent-foreground hover:opacity-90 border border-border"
+        >
+          {a.label}
+        </button>
+      ))}
+    </div>
   );
 }

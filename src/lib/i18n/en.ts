@@ -555,6 +555,15 @@ export const en = {
 
   // Inline edit (workspace view)
   "editor.inline.button": "Edit",
+  "highlights.clip.button": "Clip",
+  "highlights.clip.saved": "Clipping saved",
+  "highlights.clip.error": "Couldn't save clipping",
+  "highlights.drawer.title": "Clippings",
+  "highlights.drawer.empty": "No clippings yet — select text to capture one.",
+  "highlights.drawer.toggle": "Show clippings",
+  "highlights.drawer.delete": "Delete",
+  "highlights.replay.orphan":
+    "Source changed — couldn't re-anchor this clipping.",
   "editor.inline.title": "Edit selection",
   "editor.inline.save": "Save",
   "editor.inline.saving": "Saving…",
