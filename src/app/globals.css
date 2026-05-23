@@ -1355,3 +1355,29 @@ body::before {
 .huozi-scrollarea::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Highlight overlay (剪藏 / clippings).
+ *
+ * Persisted clippings render via the CSS Custom Highlight API; we
+ * register a single highlight registry named `huozi-hl` per page. The
+ * underline uses `currentColor` so themed text colors drive it — light
+ * mode gets the accent tint, dark mode reads the lighter accent
+ * variant, etc. Themes that want a stronger marker can override these
+ * properties under their `[data-theme="…"]` block.
+ *
+ * `huozi-hl-flash` is a transient registry the drawer uses to flash a
+ * clipping when the user clicks it in the side panel — same dotted
+ * underline plus a brief background pulse.
+ * ───────────────────────────────────────────────────────────────────── */
+::highlight(huozi-hl) {
+  text-decoration: underline dotted var(--color-accent, currentColor);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+::highlight(huozi-hl-flash) {
+  background-color: color-mix(in srgb, var(--color-accent, gold) 30%, transparent);
+  text-decoration: underline dotted var(--color-accent, currentColor);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}

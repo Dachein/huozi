@@ -552,6 +552,16 @@ export const ja = {
 
   // Inline edit (workspace view)
   "editor.inline.button": "編集",
+  "highlights.clip.button": "クリップ",
+  "highlights.clip.saved": "クリップを保存しました",
+  "highlights.clip.error": "クリップの保存に失敗しました",
+  "highlights.drawer.title": "クリップ",
+  "highlights.drawer.empty":
+    "まだクリップがありません。テキストを選択して保存できます。",
+  "highlights.drawer.toggle": "クリップを表示",
+  "highlights.drawer.delete": "削除",
+  "highlights.replay.orphan":
+    "ソースが変更されたため、このクリップを再配置できませんでした。",
   "editor.inline.title": "選択範囲を編集",
   "editor.inline.save": "保存",
   "editor.inline.saving": "保存中…",

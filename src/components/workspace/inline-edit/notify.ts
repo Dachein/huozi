@@ -17,7 +17,20 @@
 const TOAST_DURATION_MS = 6000;
 const TOAST_CLASS = "huozi-edit-toast";
 
+/** Brief confirmation toast — green, shorter timeout. Used by clip flow
+ *  to confirm the save without stealing focus. */
+export function notifyInfo(message: string): void {
+  showToast(message, { background: "#16a34a", durationMs: 2200 });
+}
+
 export function notifyError(message: string): void {
+  showToast(message, { background: "#dc2626", durationMs: TOAST_DURATION_MS });
+}
+
+function showToast(
+  message: string,
+  opts: { background: string; durationMs: number },
+): void {
   if (typeof document === "undefined") return;
 
   // Stack new toasts below existing ones — don't overwrite a still-
@@ -37,7 +50,7 @@ export function notifyError(message: string): void {
     right: "16px",
     zIndex: "100",
     padding: "10px 14px",
-    background: "#dc2626",
+    background: opts.background,
     color: "white",
     borderRadius: "6px",
     boxShadow: "0 4px 12px rgba(0,0,0,0.18)",
@@ -60,7 +73,7 @@ export function notifyError(message: string): void {
     el.style.transform = "translateY(0)";
   });
 
-  window.setTimeout(() => dismiss(el), TOAST_DURATION_MS);
+  window.setTimeout(() => dismiss(el), opts.durationMs);
 }
 
 function dismiss(el: HTMLDivElement): void {
