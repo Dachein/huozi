@@ -154,9 +154,6 @@ function renderInitial(props: ShareViewerProps) {
     return i < 0 ? "" : props.filePath.slice(i + 1).toLowerCase();
   })();
   const isHtmlAsset = ext === "html" || ext === "htm";
-  const proseClass = isHtmlAsset
-    ? "huozi-html-host"
-    : "prose prose-sm sm:prose-base max-w-none break-words prose-huozi";
 
   return (
     <FullscreenContent
@@ -183,7 +180,7 @@ function renderInitial(props: ShareViewerProps) {
           <EmptyHint />
         )
       ) : kind === "prose" && props.prerenderedHtml ? (
-        renderProse(props)
+        renderProse(props, isHtmlAsset)
       ) : props.rawText ? (
         <SourceBlock content={props.rawText} />
       ) : (
@@ -194,26 +191,37 @@ function renderInitial(props: ShareViewerProps) {
 }
 
 /**
- * Render the prose / HTML branch. Mirrors file-renderer's canvas
- * dispatch (story / deck / dashboard → ScaledStage, paper →
- * FixedWidthStage, mobile / web → no wrapper) so the public share view
- * matches workspace inline / fullscreen typography pixel-for-pixel.
+ * Render the prose / HTML branch.
  *
- * `proseClass` is "huozi-html-host" for HTML; for the canvas modes we
- * additionally force the host (and the file's `.huozi-story` /
- * `.huozi-deck` root) to fill the Stage's box.
+ * - Markdown (.md / .mdx) — `renderMarkdown` emits unstyled HTML
+ *   (`<h1>`, `<p>`, …). Wrap it in `<article class="prose …">` so
+ *   Tailwind Typography supplies heading sizes, paragraph spacing, list
+ *   markers, etc. Without this the published page reads as a flat dump
+ *   of 16px regular text. Mirrors workspace file-renderer's md branch
+ *   byte-for-byte.
+ *
+ * - HTML (.html / .htm) — the file ships its own CSS (scoped to
+ *   `.huozi-html-host` by the sanitizer). Dispatch through
+ *   `HtmlCanvasFrame` so canvas mode, scaling, background bleed, and
+ *   pager chrome stay identical to workspace inline / fullscreen.
  */
-function renderProse(props: ShareViewerProps): React.ReactNode {
+function renderProse(
+  props: ShareViewerProps,
+  isHtmlAsset: boolean,
+): React.ReactNode {
   if (!props.prerenderedHtml) return null;
+
+  if (!isHtmlAsset) {
+    return (
+      <article
+        className="prose prose-sm sm:prose-base max-w-none break-words"
+        dangerouslySetInnerHTML={{ __html: props.prerenderedHtml }}
+      />
+    );
+  }
+
   const format = props.htmlFormat ?? "blog";
   const canvas = props.rawText ? resolveCanvas(props.rawText, format) : null;
-  // Single shared dispatch — same component file-renderer uses, so the
-  // canvas frame, scale logic, background bleed, and class overrides
-  // are identical to workspace inline / fullscreen. The only thing
-  // share-viewer adds on top is FullscreenContent's alwaysOpen chrome
-  // (close button absent, "Open in Huozi" pill, etc.); the visual
-  // payload itself is byte-identical to a logged-in viewer's
-  // workspace fullscreen of the same file.
   return (
     <HtmlCanvasFrame
       html={props.prerenderedHtml}
