@@ -132,6 +132,31 @@ describe("injectSourcePositions", () => {
     }
   });
 
+  it("treats <div class=\"mermaid\"> as a mermaid container too", () => {
+    // mermaid v10 accepts both `<pre class="mermaid">` and
+    // `<div class="mermaid">`. Flowchart node labels typically embed
+    // literal `<br/>` for line breaks (e.g. `A["line 1<br/>line 2"]`),
+    // and injecting `data-obj-src` onto those would break mermaid's
+    // DSL parser.
+    const input =
+      '<div class="mermaid">flowchart LR\n  A["line 1<br/>line 2"] --> B\n</div>';
+    const out = injectSourcePositions(input);
+    // Outer div is still addressable.
+    const div = extractFirstSrc(out, "div")!;
+    expect(input.slice(div[0], div[1])).toBe(input);
+    // No data-obj-src injected onto the inner <br/>.
+    expect(out).not.toMatch(/<br[^>]*data-obj-src/);
+    // Diagram source survives unchanged.
+    expect(out).toContain('A["line 1<br/>line 2"] --> B');
+  });
+
+  it("still injects into ordinary <div> blocks", () => {
+    const input = '<div class="other"><br/></div>';
+    const out = injectSourcePositions(input);
+    // Regression guard: only div.mermaid is special-cased.
+    expect(out).toMatch(/<br data-obj-src/);
+  });
+
   it("still injects into <pre> blocks that are not mermaid", () => {
     const input = '<pre class="code"><br/></pre>';
     const out = injectSourcePositions(input);

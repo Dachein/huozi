@@ -186,14 +186,16 @@ export function injectSourcePositions(input: string): string {
         });
       }
 
-      // `<pre class="mermaid">` blocks contain diagram source as text, but
-      // authors commonly include literal `<br/>` (and other tag-shaped
-      // tokens) that mermaid treats as part of its mini-syntax. Recursing
-      // into the pre body would inject `data-obj-src` onto those tokens,
-      // corrupting the diagram source by the time mermaid reads it.
-      // Treat such blocks as raw-text containers.
-      const isMermaidPre =
-        tagName === "pre" &&
+      // `<pre class="mermaid">` and `<div class="mermaid">` blocks contain
+      // diagram source as text, but authors commonly include literal `<br/>`
+      // (and other tag-shaped tokens) that mermaid treats as part of its
+      // mini-syntax — notably inside flowchart node labels. Recursing into
+      // the body would inject `data-obj-src` onto those tokens, corrupting
+      // the diagram source by the time mermaid reads it. Mermaid v10
+      // accepts both container tags interchangeably, so the exemption
+      // matches either.
+      const isMermaidContainer =
+        (tagName === "pre" || tagName === "div") &&
         !isSelfClosing &&
         (() => {
           const openTag = input.slice(openStart, openTagEnd);
@@ -204,7 +206,7 @@ export function injectSourcePositions(input: string): string {
         })();
 
       // For raw-text containers, fast-forward to the matching close.
-      if ((RAWTEXT_TAGS.has(tagName) || isMermaidPre) && !isSelfClosing) {
+      if ((RAWTEXT_TAGS.has(tagName) || isMermaidContainer) && !isSelfClosing) {
         const close = `</${tagName}`;
         const closeIdx = indexOfCaseInsensitive(input, close, openTagEnd);
         if (closeIdx < 0) {
