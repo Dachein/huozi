@@ -12,6 +12,8 @@ import { CsvGrid } from "@/components/csv-grid";
 import { CollectionView } from "@/components/collection-view";
 import { EditableSurface } from "@/components/workspace/inline-edit";
 import type { ObjectKind } from "@/components/workspace/inline-edit";
+import { HighlightLayer } from "@/components/workspace/highlights/highlight-layer";
+import { HighlightsDrawer } from "@/components/workspace/highlights/highlights-drawer";
 import { HtmlValidationBanner } from "@/components/workspace/html-validation-banner";
 import { HtmlCanvasFrame } from "@/components/workspace/html-canvas-frame";
 import { resolveCanvas } from "@/lib/html/canvas";
@@ -283,6 +285,17 @@ function wrapEditable({
     kind === "jsonl-field"
       ? "relative flex flex-col flex-1 min-h-0"
       : "relative";
+  // Highlights are gated on the same `enabled` flag as inline-edit —
+  // they share the workspace/`canEdit` surface and don't render on
+  // public `/p/<slug>` viewers. Only the byte-range + jsonl-field kinds
+  // have a working capture path today; csv-cell skips the layer to
+  // avoid mounting code that can't do anything useful.
+  const highlightsKinds: ObjectKind[] = [
+    "md-block",
+    "html-element",
+    "jsonl-field",
+  ];
+  const showHighlights = highlightsKinds.includes(kind);
   return (
     <EditableSurface
       filePath={path}
@@ -292,6 +305,12 @@ function wrapEditable({
       wrapperClassName={wrapperClassName}
     >
       {children}
+      {showHighlights && (
+        <>
+          <HighlightLayer sourcePath={path} />
+          <HighlightsDrawer sourcePath={path} />
+        </>
+      )}
     </EditableSurface>
   );
 }
