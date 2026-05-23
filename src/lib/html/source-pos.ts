@@ -41,6 +41,11 @@ const VOID_TAGS = new Set([
 
 const RAWTEXT_TAGS = new Set(["script", "style", "textarea", "title"]);
 
+// Matches a `class` attribute (quoted, apostrophed, or bareword) whose
+// value contains the token `mermaid`.
+const MERMAID_CLASS_RE =
+  /\bclass\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/i;
+
 interface Insert {
   /** Position in the original string at which to splice. Always points
    *  to the byte-offset of the `>` that closes the opening tag (or the
@@ -181,8 +186,25 @@ export function injectSourcePositions(input: string): string {
         });
       }
 
+      // `<pre class="mermaid">` blocks contain diagram source as text, but
+      // authors commonly include literal `<br/>` (and other tag-shaped
+      // tokens) that mermaid treats as part of its mini-syntax. Recursing
+      // into the pre body would inject `data-obj-src` onto those tokens,
+      // corrupting the diagram source by the time mermaid reads it.
+      // Treat such blocks as raw-text containers.
+      const isMermaidPre =
+        tagName === "pre" &&
+        !isSelfClosing &&
+        (() => {
+          const openTag = input.slice(openStart, openTagEnd);
+          const m = openTag.match(MERMAID_CLASS_RE);
+          if (!m) return false;
+          const cls = m[1] ?? m[2] ?? m[3] ?? "";
+          return /\bmermaid\b/.test(cls);
+        })();
+
       // For raw-text containers, fast-forward to the matching close.
-      if (RAWTEXT_TAGS.has(tagName) && !isSelfClosing) {
+      if ((RAWTEXT_TAGS.has(tagName) || isMermaidPre) && !isSelfClosing) {
         const close = `</${tagName}`;
         const closeIdx = indexOfCaseInsensitive(input, close, openTagEnd);
         if (closeIdx < 0) {

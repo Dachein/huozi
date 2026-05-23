@@ -104,6 +104,41 @@ describe("injectSourcePositions", () => {
     expect(injectSourcePositions(input)).toBe(input);
   });
 
+  it("does not inject into tag-shaped tokens inside <pre class=\"mermaid\">", () => {
+    // Authors put literal `<br/>` inside mermaid sequence diagrams. The
+    // injector must not rewrite it — mermaid reads textContent and any
+    // attribute we add leaks through as visible diagram syntax.
+    const input =
+      '<pre class="mermaid">sequenceDiagram\n  A->>B: hi<br/>there\n</pre>';
+    const out = injectSourcePositions(input);
+    // Pre itself still tagged (mermaid block remains addressable for inline edit).
+    const pre = extractFirstSrc(out, "pre")!;
+    expect(input.slice(pre[0], pre[1])).toBe(input);
+    // No data-obj-src on the inner <br/>.
+    expect(out).not.toMatch(/<br[^>]*data-obj-src/);
+    // The mermaid source body survives unchanged.
+    expect(out).toContain("A->>B: hi<br/>there");
+  });
+
+  it("recognizes mermaid class regardless of quote style and extra classes", () => {
+    const cases = [
+      `<pre class='mermaid'><br/></pre>`,
+      `<pre class="lang-mermaid mermaid"><br/></pre>`,
+      `<pre class=mermaid><br/></pre>`,
+    ];
+    for (const input of cases) {
+      const out = injectSourcePositions(input);
+      expect(out).not.toMatch(/<br[^>]*data-obj-src/);
+    }
+  });
+
+  it("still injects into <pre> blocks that are not mermaid", () => {
+    const input = '<pre class="code"><br/></pre>';
+    const out = injectSourcePositions(input);
+    // Regression guard: only mermaid pre is special-cased.
+    expect(out).toMatch(/<br data-obj-src/);
+  });
+
   it("survives unclosed tags by emitting a span to end-of-input", () => {
     const input = "<div>oops";
     const out = injectSourcePositions(input);
