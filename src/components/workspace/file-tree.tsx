@@ -119,8 +119,35 @@ function buildTree(
 }
 
 const MAIL_DIR = "__mail__";
+const CLIPPINGS_DIR = "__clippings__";
 const ASSETS_DIR = "__assets__";
-const SYSTEM_DIRS = [MAIL_DIR, ASSETS_DIR] as const;
+
+/** System-dir entries pinned at the top of the file tree. Each one
+ *  intercepts the standard folder rendering and links to a dedicated
+ *  route. Order here is render order in the sidebar. */
+const SYSTEM_DIRS = [MAIL_DIR, CLIPPINGS_DIR, ASSETS_DIR] as const;
+
+/** Per-system-dir UI metadata. Lookup powers the friendly label + icon
+ *  shown in the sidebar (replacing the raw `__name__` and the generic
+ *  folder glyph). The label key resolves through the i18n dict so each
+ *  locale picks its own translation; falls back to the dir name if a
+ *  key is missing. */
+const SYSTEM_DIR_META: Record<
+  string,
+  { href: string; labelKey: string; icon: "mail" | "clippings" | "assets" }
+> = {
+  [MAIL_DIR]: { href: "/workspace/mail", labelKey: "ws.nav.mail", icon: "mail" },
+  [CLIPPINGS_DIR]: {
+    href: "/workspace/clippings",
+    labelKey: "ws.nav.clippings",
+    icon: "clippings",
+  },
+  [ASSETS_DIR]: {
+    href: "/workspace/assets",
+    labelKey: "ws.nav.assets",
+    icon: "assets",
+  },
+};
 
 /** Ancestors of a path like "a/b/c.ts" → ["a", "a/b"]. */
 function ancestorDirs(path: string): string[] {
@@ -477,33 +504,20 @@ function TreeNode({
 
   // Top-level system folders render as leaf links to their dedicated views,
   // not as expandable tree nodes. They're system-owned spaces where the
-  // raw file list isn't meaningful to a human.
-  if (node.isDir && depth === 0 && node.name === MAIL_DIR) {
-    const mailActive = currentPath?.startsWith(`${MAIL_DIR}/`) ?? false;
+  // raw file list isn't meaningful to a human; each gets a themed icon
+  // + localized label instead of the raw `__name__` shown by FileLeafLink.
+  if (node.isDir && depth === 0 && node.name in SYSTEM_DIR_META) {
+    const meta = SYSTEM_DIR_META[node.name]!;
+    const active = currentPath?.startsWith(`${node.name}/`) ?? false;
     return (
       <li>
-        <FileLeafLink
-          href="/workspace/mail"
-          onNavigate={onNavigate}
-          selected={mailActive}
+        <SystemDirLink
+          href={meta.href}
+          labelKey={meta.labelKey}
+          icon={meta.icon}
+          selected={active}
           paddingLeft={paddingLeft}
-          name={node.name}
-          isDir
-        />
-      </li>
-    );
-  }
-  if (node.isDir && depth === 0 && node.name === ASSETS_DIR) {
-    const galleryActive = currentPath?.startsWith(`${ASSETS_DIR}/`) ?? false;
-    return (
-      <li>
-        <FileLeafLink
-          href="/workspace/assets"
           onNavigate={onNavigate}
-          selected={galleryActive}
-          paddingLeft={paddingLeft}
-          name={node.name}
-          isDir
         />
       </li>
     );
@@ -818,6 +832,109 @@ function FileLeafLink({
       <FileIcon name={name} isDir={isDir} />
       <span className="text-sm font-mono truncate">{name}</span>
     </Link>
+  );
+}
+
+/**
+ * Sidebar entry for the pinned system dirs (Mail / Clippings / Assets).
+ *
+ * Visually distinct from FileLeafLink:
+ *   - Themed mini-icon (envelope · bookmark · photo stack) instead of
+ *     the generic folder glyph — readers should be able to spot the
+ *     three feature shortcuts at a glance.
+ *   - Localized label (sans, not mono) instead of the raw `__name__`
+ *     dir on disk.
+ *   - Bumped vertical padding so the trio reads as a tight nav block
+ *     rather than blending into the user-folder rows below.
+ */
+function SystemDirLink({
+  href,
+  labelKey,
+  icon,
+  selected,
+  paddingLeft,
+  onNavigate,
+}: {
+  href: string;
+  labelKey: string;
+  icon: "mail" | "clippings" | "assets";
+  selected: boolean;
+  paddingLeft: number;
+  onNavigate?: () => void;
+}) {
+  const { navigate } = useWorkspaceNav();
+  const t = useT();
+  return (
+    <Link
+      href={href}
+      onClick={(e) => {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) {
+          return;
+        }
+        e.preventDefault();
+        onNavigate?.();
+        navigate(href);
+      }}
+      aria-current={selected ? "page" : undefined}
+      className={`huozi-row flex items-center gap-2 py-1.5 rounded transition-colors ${
+        selected ? "bg-accent/10 text-accent" : "hover:bg-muted/60"
+      }`}
+      style={{ paddingLeft, paddingRight: 8 }}
+    >
+      <SystemDirIcon kind={icon} />
+      <span className="text-sm truncate">{t(labelKey)}</span>
+    </Link>
+  );
+}
+
+/**
+ * Inline SVG icons for the three system entries. Sized to match
+ * FileIcon's 16×16 grid (w-4 container). All three use stroke-only
+ * rendering with currentColor + 1.2px strokes so they pick up the
+ * row's text color (and the accent tint when selected) without per-
+ * theme overrides.
+ */
+function SystemDirIcon({ kind }: { kind: "mail" | "clippings" | "assets" }) {
+  return (
+    <span
+      className="inline-flex items-center justify-center w-4 shrink-0"
+      aria-hidden="true"
+    >
+      <svg
+        viewBox="0 0 16 16"
+        width="16"
+        height="16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        {kind === "mail" && (
+          <>
+            <rect x="2" y="3.5" width="12" height="9" rx="1" />
+            <path d="M2.5 4.5l5.5 4 5.5-4" />
+          </>
+        )}
+        {kind === "clippings" && (
+          // Bookmark-ribbon mark — the "saved passage" silhouette.
+          <>
+            <path d="M4 2.5h8v11l-4-2.6-4 2.6z" />
+            <path d="M6 6.5h4" />
+            <path d="M6 9h3" />
+          </>
+        )}
+        {kind === "assets" && (
+          // Stacked frames + a small disc for "photo gallery".
+          <>
+            <rect x="2.5" y="4" width="9.5" height="7.5" rx="0.8" />
+            <path d="M4.5 6.8h0.01" strokeWidth="1.6" />
+            <path d="M2.5 9.5l2.5-2 3 2 2-1.5 2 1.5" />
+            <path d="M5 13h8.5a0.8 0.8 0 0 0 0.8-0.8V6" opacity="0.6" />
+          </>
+        )}
+      </svg>
+    </span>
   );
 }
 

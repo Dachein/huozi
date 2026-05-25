@@ -67,6 +67,9 @@ export const fr = {
 
   // Workspace · titre latéral (lien cliquable vers l'accueil)
   "ws.shell.title": "Workspace",
+  "ws.nav.mail": "Mail",
+  "ws.nav.clippings": "Extraits",
+  "ws.nav.assets": "Ressources",
   "ws.shell.subtitle": "Gérer · Rechercher",
   "ws.stats.files": "Fichiers",
   "ws.stats.recent": "Modifs récentes",

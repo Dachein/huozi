@@ -66,6 +66,9 @@ export const ja = {
 
   // ワークスペース · サイドバー見出し（クリックでホームへ）
   "ws.shell.title": "Workspace",
+  "ws.nav.mail": "メール",
+  "ws.nav.clippings": "クリップ",
+  "ws.nav.assets": "素材",
   "ws.shell.subtitle": "管理 · 検索",
   "ws.stats.files": "ファイル",
   "ws.stats.recent": "最近の編集",

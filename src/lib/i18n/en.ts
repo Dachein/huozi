@@ -67,6 +67,9 @@ export const en = {
 
   // Workspace · sidebar title (the clickable "home" link)
   "ws.shell.title": "Workspace",
+  "ws.nav.mail": "Mail",
+  "ws.nav.clippings": "Clippings",
+  "ws.nav.assets": "Assets",
   "ws.shell.subtitle": "Manage · Search",
   "ws.stats.files": "Files",
   "ws.stats.recent": "Recent edits",

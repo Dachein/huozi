@@ -66,6 +66,9 @@ export const zh = {
 
   // 云盘 · 侧边栏标题（可点的"首页"链接）
   "ws.shell.title": "Workspace",
+  "ws.nav.mail": "邮件",
+  "ws.nav.clippings": "剪藏",
+  "ws.nav.assets": "素材",
   "ws.shell.subtitle": "管理 · 搜索",
   "ws.stats.files": "文件",
   "ws.stats.recent": "最近编辑",
