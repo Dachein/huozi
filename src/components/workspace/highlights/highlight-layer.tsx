@@ -20,7 +20,7 @@
  */
 
 import { useEffect, useRef } from "react";
-import type { HighlightsSidecar } from "@/lib/highlights/types";
+import type { HighlightWithSource } from "@/lib/highlights/types";
 import { resolveHighlightRange } from "./resolve-range";
 import { publishHighlights } from "./store";
 
@@ -35,9 +35,9 @@ export function HighlightLayer({ sourcePath }: HighlightLayerProps) {
   // Anchor element so we can find the EditableSurface host (our parent
   // div carrying `data-source`) without prop-drilling a ref.
   const anchorRef = useRef<HTMLDivElement>(null);
-  // Keep the latest sidecar across re-mounts so we don't re-fetch on
-  // every render; the renderer re-runs whenever the source changes.
-  const sidecarRef = useRef<HighlightsSidecar | null>(null);
+  // Keep the latest list across re-mounts so we don't re-fetch on
+  // every render; the layer re-runs whenever the source changes.
+  const clippingsRef = useRef<HighlightWithSource[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,9 +53,13 @@ export function HighlightLayer({ sourcePath }: HighlightLayerProps) {
           // clippings. We deliberately don't surface a toast here.
           return;
         }
-        const data = (await res.json()) as { sidecar: HighlightsSidecar | null };
+        const data = (await res.json()) as {
+          clippings: HighlightWithSource[];
+        };
         if (cancelled) return;
-        sidecarRef.current = data.sidecar;
+        clippingsRef.current = Array.isArray(data.clippings)
+          ? data.clippings
+          : [];
         applyHighlights();
       } catch {
         // Network error — silent. Refresh will retry.
@@ -66,8 +70,7 @@ export function HighlightLayer({ sourcePath }: HighlightLayerProps) {
       if (typeof window === "undefined") return;
       const host = anchorRef.current?.parentElement;
       if (!host) return;
-      const sidecar = sidecarRef.current;
-      const list = sidecar?.highlights ?? [];
+      const list = clippingsRef.current;
 
       // CSS Custom Highlight API gate. Older browsers without it still
       // get clipping + the drawer; only the in-text underline is missing.

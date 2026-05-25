@@ -99,7 +99,7 @@ export function HighlightsDrawer({ sourcePath }: HighlightsDrawerProps) {
     async (entry: ResolvedHighlight) => {
       try {
         const res = await fetch(
-          `/api/app/drive/highlights?path=${encodeURIComponent(sourcePath)}&id=${encodeURIComponent(entry.highlight.id)}`,
+          `/api/app/drive/highlights?id=${encodeURIComponent(entry.highlight.id)}`,
           { method: "DELETE" },
         );
         if (!res.ok) {

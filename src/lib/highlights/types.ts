@@ -1,17 +1,27 @@
 /**
  * Highlight / clipping data model.
  *
- * Highlights are stored in a sidecar JSON file next to the source file
- * (e.g. `article.md` → `article.md.highlights.json`). The locator format
- * mirrors the inline-edit ObjectLocator so we can reuse the same DOM-↔-bytes
- * resolution that the editor pipeline already supports.
+ * Highlights are stored in a workspace-root Collection at
+ * `clippings.jsonl` — schema-first, multi-entity, append-only. Each
+ * clipping is one entity (`id`); the event log carries `create` and
+ * `remove` ops on that entity. Mirrors the `inbox.jsonl` convention so
+ * users get the standard CollectionView (list / detail / filter) for
+ * free.
+ *
+ * The locator shape mirrors the inline-edit ObjectLocator so we share
+ * DOM-↔-bytes resolution with the editor pipeline.
  */
 
 import type { ObjectLocator } from "@/components/workspace/inline-edit"
 
-/** Schema version for the sidecar file. Bump when the on-disk shape changes
- *  in a non-additive way. Readers should refuse versions they don't know. */
-export const HIGHLIGHTS_SIDECAR_VERSION = 1
+/** Where the collection lives. Pinned to a workspace-root file (no
+ *  per-source sharding) so the user has one "all my clippings" view. */
+export const CLIPPINGS_FILE_PATH = "clippings.jsonl"
+
+/** `op` values written to clippings.jsonl. `schema` is reserved for the
+ *  schema line itself (handled by the jsonl parser, not appended by
+ *  the clip / delete code paths). */
+export type ClippingOp = "create" | "remove"
 
 export interface Highlight {
   /** Stable id (ULID-ish). Used for delete / future cross-refs. */
@@ -40,28 +50,21 @@ export interface Highlight {
   createdAt: string
 }
 
-export interface HighlightsSidecar {
-  version: typeof HIGHLIGHTS_SIDECAR_VERSION
-  /** The source file this sidecar annotates, relative to workspace root.
-   *  Stored explicitly so a sidecar file moved (or read out of context)
-   *  still self-identifies. */
-  source: string
-  /** blob_sha of the source observed when the most recent highlight was
-   *  captured. Drift is informational only (replay still attempts the
-   *  locator + fuzzy fallback); the drawer can surface a "source has
-   *  changed" hint when it differs from the live blob_sha. */
+/** What lives in clippings.jsonl alongside the schema line. Each
+ *  Highlight maps to one `create` event; deletes append a `remove` event
+ *  for the same id (soft tombstone — preserves history). */
+export interface HighlightWithSource extends Highlight {
+  /** Workspace-relative path of the source file this clipping was
+   *  captured from. Stored on every event so we can filter
+   *  clippings.jsonl by source without a separate index. */
+  sourcePath: string
+  /** blob_sha observed at capture time. Drift indicator only — replay
+   *  still tries the locator + fuzzy fallback regardless. */
   sourceBlobSha: string | null
-  highlights: Highlight[]
 }
 
-/** Compute the sidecar path for a given source file path. Keeps the rule in
- *  one place — change the suffix here and every read/write follows. */
-export function sidecarPathFor(sourcePath: string): string {
-  return `${sourcePath}.highlights.json`
-}
-
-/** True iff a path is itself a highlights sidecar. Used to hide sidecar
- *  files from the file tree / search results. */
+/** True iff a path is a legacy highlights sidecar (pre-clippings.jsonl
+ *  storage). Used to hide leftover files from the workspace tree. */
 export function isSidecarPath(path: string): boolean {
   return path.endsWith(".highlights.json")
 }

@@ -205,8 +205,15 @@ export function FileTree({
       typeFilter === "all"
         ? paths
         : paths.filter((p) => getFileType(p) === typeFilter);
-    if (showHidden) return byType;
-    return byType.filter((p) => !p.split("/").some((seg) => seg.startsWith(".")));
+    // Always strip sidecar-style generated files. Pre-clippings.jsonl
+    // versions wrote `<source>.highlights.json` next to every annotated
+    // file; surfacing those in the tree is noise even though the toggle
+    // could theoretically un-hide them. Drop unconditionally.
+    const withoutSidecars = byType.filter((p) => !p.endsWith(".highlights.json"));
+    if (showHidden) return withoutSidecars;
+    return withoutSidecars.filter(
+      (p) => !p.split("/").some((seg) => seg.startsWith(".")),
+    );
   }, [paths, typeFilter, showHidden]);
 
   // v-final — top-level folders whose sentinel `.huozi/memory.md`

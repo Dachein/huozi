@@ -1,28 +1,32 @@
 /**
- * Highlights sidecar API.
+ * Clippings API — backed by workspace-root `clippings.jsonl`.
  *
- *   GET    /api/app/drive/highlights?path=<source>
- *     → 200 { sidecar: HighlightsSidecar } | 200 { sidecar: null } (no sidecar yet)
+ *   GET    /api/app/drive/highlights?path=<source_path>
+ *     → 200 { clippings: HighlightWithSource[] }
+ *     If `path` omitted, returns every clipping in the workspace.
  *
  *   POST   /api/app/drive/highlights
- *     body: { source_path, highlight: Highlight, source_blob_sha? }
- *     → 200 { sidecar }   appends one highlight (creates sidecar if needed)
+ *     body: { source_path, source_blob_sha?, highlight: Highlight }
+ *     → 200 { clippings: HighlightWithSource[] }
+ *     Appends a `create` event to clippings.jsonl.
  *
- *   DELETE /api/app/drive/highlights?path=<source>&id=<highlight_id>
- *     → 200 { sidecar }
+ *   DELETE /api/app/drive/highlights?id=<highlight_id>
+ *     → 200 { clippings: HighlightWithSource[] }
+ *     Appends a `remove` event (tombstone — history preserved).
  *
- * Carve-out pattern mirrors `/api/app/drive/edit`: cookie auth, MCP-side
- * permission enforcement, errorCode → HTTP status mapping kept narrow.
+ * Auth: cookie carve-out, same pattern as `/api/app/drive/edit`.
+ * Pre-clippings.jsonl sidecars (`<path>.highlights.json`) are no longer
+ * read or written by any of these routes.
  */
 
 import { cookies } from "next/headers"
 import { NextResponse, type NextRequest } from "next/server"
 import { HUOZI_CLOUD_KEY_COOKIE } from "@/lib/drive/mcp-client"
 import {
-  appendHighlight,
-  loadSidecar,
-  removeHighlight,
-} from "@/lib/highlights/sidecar"
+  createClipping,
+  loadClippings,
+  removeClipping,
+} from "@/lib/highlights/clippings"
 import type { Highlight } from "@/lib/highlights/types"
 
 const MAX_TEXT_BYTES = 8_000
@@ -62,20 +66,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "not_authenticated" }, { status: 401 })
   }
   const path = req.nextUrl.searchParams.get("path")
-  if (!path) {
-    return NextResponse.json({ error: "missing_path" }, { status: 400 })
-  }
-  const res = await loadSidecar(key, path)
-  if (res.kind === "missing") {
-    return NextResponse.json({ sidecar: null })
-  }
+  const res = await loadClippings(
+    key,
+    path ? { sourcePath: path } : {},
+  )
   if (res.kind === "error") {
     return NextResponse.json(
       { error: "load_failed", code: res.code, message: res.message },
       { status: statusFor(res.code) },
     )
   }
-  return NextResponse.json({ sidecar: res.sidecar })
+  return NextResponse.json({ clippings: res.clippings })
 }
 
 interface PostBody {
@@ -108,14 +109,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ? body.source_blob_sha
       : null
 
-  const res = await appendHighlight(key, sourcePath, highlight, sourceBlobSha)
+  const res = await createClipping(
+    key,
+    highlight,
+    sourcePath,
+    sourceBlobSha,
+    "user",
+  )
   if (!res.ok) {
     return NextResponse.json(
       { error: "save_failed", code: res.errorCode, message: res.message },
       { status: statusFor(res.errorCode) },
     )
   }
-  return NextResponse.json({ sidecar: res.data })
+  return NextResponse.json({ clippings: res.data })
 }
 
 export async function DELETE(req: NextRequest): Promise<NextResponse> {
@@ -123,19 +130,18 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
   if (!key) {
     return NextResponse.json({ error: "not_authenticated" }, { status: 401 })
   }
-  const path = req.nextUrl.searchParams.get("path")
   const id = req.nextUrl.searchParams.get("id")
-  if (!path || !id) {
-    return NextResponse.json({ error: "missing_param" }, { status: 400 })
+  if (!id) {
+    return NextResponse.json({ error: "missing_id" }, { status: 400 })
   }
-  const res = await removeHighlight(key, path, id)
+  const res = await removeClipping(key, id, "user")
   if (!res.ok) {
     return NextResponse.json(
       { error: "delete_failed", code: res.errorCode, message: res.message },
       { status: statusFor(res.errorCode) },
     )
   }
-  return NextResponse.json({ sidecar: res.data })
+  return NextResponse.json({ clippings: res.data })
 }
 
 function validateHighlight(value: unknown): Highlight | null {
