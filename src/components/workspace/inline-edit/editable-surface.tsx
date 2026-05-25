@@ -459,7 +459,7 @@ function SelectionToolbar({ rect, actions }: SelectionToolbarProps) {
           type="button"
           data-action={a.kind}
           onClick={a.onClick}
-          className="huozi-edit-pill px-2 py-1 text-xs rounded shadow-lg bg-accent text-accent-foreground hover:opacity-90 border border-border"
+          className="huozi-edit-pill px-2.5 py-1 text-xs font-medium rounded shadow-md bg-foreground text-background hover:opacity-85 border border-border/40"
         >
           {a.label}
         </button>

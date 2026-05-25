@@ -1277,9 +1277,11 @@ body::before {
  * ───────────────────────────────────────────────────────────────────── */
 
 /* Default theme: muted-warm wash, foreground stays foreground.
- * Lightweight enough to read text through, dark enough to be visible. */
+ * Lightweight enough to read text through, dark enough to be visible.
+ * 12% on Paper-style cream keeps the brand accent visible without
+ * letting a multi-line selection turn into a heavy salmon wash. */
 ::selection {
-  background-color: color-mix(in srgb, var(--accent) 22%, transparent);
+  background-color: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--foreground);
 }
 
