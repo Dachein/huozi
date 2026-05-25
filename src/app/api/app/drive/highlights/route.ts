@@ -1,32 +1,45 @@
 /**
- * Clippings API — backed by workspace-root `clippings.jsonl`.
+ * Clippings API — backed by per-user `.huozi/clippings/<userId>/clippings.jsonl`.
  *
  *   GET    /api/app/drive/highlights?path=<source_path>
  *     → 200 { clippings: HighlightWithSource[] }
- *     If `path` omitted, returns every clipping in the workspace.
+ *     If `path` omitted, returns every clipping the caller owns.
  *
  *   POST   /api/app/drive/highlights
  *     body: { source_path, source_blob_sha?, highlight: Highlight }
  *     → 200 { clippings: HighlightWithSource[] }
- *     Appends a `create` event to clippings.jsonl.
  *
  *   DELETE /api/app/drive/highlights?id=<highlight_id>
  *     → 200 { clippings: HighlightWithSource[] }
- *     Appends a `remove` event (tombstone — history preserved).
  *
- * Auth: cookie carve-out, same pattern as `/api/app/drive/edit`.
- * Pre-clippings.jsonl sidecars (`<path>.highlights.json`) are no longer
- * read or written by any of these routes.
+ * Auth model
+ * - Identity comes from getIdentity() (JWT cookie in Cloud, single
+ *   admin principal in Edge). The MCP key cookie authenticates the
+ *   actual file read/write against the cloud worker; both cookies are
+ *   required.
+ * - The clippings file path is computed *server-side* from the
+ *   resolved userId; clients cannot ask for someone else's clippings
+ *   via the path query param. Within the workspace, only the owner
+ *   can read their own clippings — enforced by folder-acl
+ *   (mode: "private", members: [userId]) installed on the first write
+ *   and re-asserted on every subsequent write for resilience.
+ *
+ * Pre-per-user `clippings.jsonl` files at workspace root are orphans
+ * now and not surfaced by this route. They can be deleted via the
+ * normal file operations.
  */
 
 import { cookies } from "next/headers"
 import { NextResponse, type NextRequest } from "next/server"
 import { HUOZI_CLOUD_KEY_COOKIE } from "@/lib/drive/mcp-client"
+import { getIdentity } from "@/lib/identity"
+import { slugToWorkspaceId } from "@/lib/drive/admin"
 import {
   createClipping,
   loadClippings,
   removeClipping,
 } from "@/lib/highlights/clippings"
+import { ensureClippingsAcl } from "@/lib/highlights/acl"
 import type { Highlight } from "@/lib/highlights/types"
 
 const MAX_TEXT_BYTES = 8_000
@@ -55,19 +68,47 @@ function statusFor(code: number): number {
   }
 }
 
-async function authKey(): Promise<string | null> {
-  const c = await cookies()
-  return c.get(HUOZI_CLOUD_KEY_COOKIE)?.value ?? null
+/**
+ * Resolve {mcpKey, userId, workspaceId} for the current request, or
+ * return a NextResponse with an appropriate auth error. All three
+ * routes share this shape — the MCP key is needed for file IO, the
+ * userId/workspaceId pair drives the per-user path + ACL.
+ */
+interface AuthedContext {
+  key: string
+  userId: string
+  workspaceId: string
 }
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
-  const key = await authKey()
+async function authorize(): Promise<NextResponse | AuthedContext> {
+  const c = await cookies()
+  const key = c.get(HUOZI_CLOUD_KEY_COOKIE)?.value
   if (!key) {
     return NextResponse.json({ error: "not_authenticated" }, { status: 401 })
   }
+  const identity = await getIdentity()
+  const principal = await identity.getPrincipal()
+  if (!principal) {
+    return NextResponse.json({ error: "not_authenticated" }, { status: 401 })
+  }
+  const ws = await identity.getPrimaryWorkspace()
+  if (!ws) {
+    return NextResponse.json({ error: "no_workspace" }, { status: 404 })
+  }
+  return {
+    key,
+    userId: principal.userId,
+    workspaceId: slugToWorkspaceId(ws.slug),
+  }
+}
+
+export async function GET(req: NextRequest): Promise<NextResponse> {
+  const ctx = await authorize()
+  if (ctx instanceof NextResponse) return ctx
   const path = req.nextUrl.searchParams.get("path")
   const res = await loadClippings(
-    key,
+    ctx.key,
+    ctx.userId,
     path ? { sourcePath: path } : {},
   )
   if (res.kind === "error") {
@@ -86,10 +127,8 @@ interface PostBody {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const key = await authKey()
-  if (!key) {
-    return NextResponse.json({ error: "not_authenticated" }, { status: 401 })
-  }
+  const ctx = await authorize()
+  if (ctx instanceof NextResponse) return ctx
   let body: PostBody
   try {
     body = (await req.json()) as PostBody
@@ -109,12 +148,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ? body.source_blob_sha
       : null
 
+  // Idempotently lock the user's clippings folder before writing. If
+  // this fails we refuse the write rather than create an unprotected
+  // file — better to surface the ACL failure than silently leak the
+  // user's clippings to workspace peers.
+  const aclRes = await ensureClippingsAcl(ctx.workspaceId, ctx.userId)
+  if (!aclRes.ok) {
+    return NextResponse.json(
+      { error: "acl_setup_failed", message: aclRes.message },
+      { status: 502 },
+    )
+  }
+
   const res = await createClipping(
-    key,
+    ctx.key,
+    ctx.userId,
     highlight,
     sourcePath,
     sourceBlobSha,
-    "user",
+    ctx.userId,
   )
   if (!res.ok) {
     return NextResponse.json(
@@ -126,15 +178,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 }
 
 export async function DELETE(req: NextRequest): Promise<NextResponse> {
-  const key = await authKey()
-  if (!key) {
-    return NextResponse.json({ error: "not_authenticated" }, { status: 401 })
-  }
+  const ctx = await authorize()
+  if (ctx instanceof NextResponse) return ctx
   const id = req.nextUrl.searchParams.get("id")
   if (!id) {
     return NextResponse.json({ error: "missing_id" }, { status: 400 })
   }
-  const res = await removeClipping(key, id, "user")
+  const res = await removeClipping(ctx.key, ctx.userId, id, ctx.userId)
   if (!res.ok) {
     return NextResponse.json(
       { error: "delete_failed", code: res.errorCode, message: res.message },

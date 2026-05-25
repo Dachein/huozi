@@ -25,7 +25,7 @@ import {
 } from "@/lib/drive/mcp-client"
 import { parseJsonl } from "@/lib/jsonl/parse"
 import {
-  CLIPPINGS_FILE_PATH,
+  clippingsFilePathFor,
   type Highlight,
   type HighlightWithSource,
 } from "./types"
@@ -138,9 +138,10 @@ export type LoadResult = LoadClippingsResult | LoadClippingsError
 
 export async function loadClippings(
   key: string,
+  userId: string,
   opts: { sourcePath?: string } = {},
 ): Promise<LoadResult> {
-  const res = await cloudRead(key, CLIPPINGS_FILE_PATH)
+  const res = await cloudRead(key, clippingsFilePathFor(userId))
   if (!res.ok) {
     if (res.errorCode === ERR_FILE_NOT_FOUND) {
       return { kind: "ok", clippings: [] }
@@ -167,12 +168,13 @@ export async function loadClippings(
  */
 export async function createClipping(
   key: string,
+  userId: string,
   highlight: Highlight,
   sourcePath: string,
   sourceBlobSha: string | null,
   by: string,
 ): Promise<McpResult<HighlightWithSource[]>> {
-  return mutate(key, by, (current) => {
+  return mutate(key, userId, by, (current) => {
     const event: CreateEvent = {
       op: "create",
       at: new Date().toISOString(),
@@ -200,10 +202,11 @@ export async function createClipping(
  */
 export async function removeClipping(
   key: string,
+  userId: string,
   id: string,
   by: string,
 ): Promise<McpResult<HighlightWithSource[]>> {
-  return mutate(key, by, (current) => {
+  return mutate(key, userId, by, (current) => {
     const event: RemoveEvent = {
       op: "remove",
       at: new Date().toISOString(),
@@ -218,12 +221,14 @@ export async function removeClipping(
 
 async function mutate(
   key: string,
+  userId: string,
   _by: string,
   apply: (current: ClippingEvent[]) => ClippingEvent[],
 ): Promise<McpResult<HighlightWithSource[]>> {
+  const path = clippingsFilePathFor(userId)
   // 1. Read current state via the session DO so huozi_write's
   //    Read-first invariant is satisfied if the file exists.
-  const read = await cloudReadForEdit(key, CLIPPINGS_FILE_PATH)
+  const read = await cloudReadForEdit(key, path)
   let existingText = ""
   let exists = false
   if (read.ok) {
@@ -265,7 +270,7 @@ async function mutate(
   //    Read counts toward the freshness check.
   const write = await cloudWrite(
     key,
-    { file_path: CLIPPINGS_FILE_PATH, content },
+    { file_path: path, content },
     { useSession: exists },
   )
   if (!write.ok) {
@@ -276,7 +281,7 @@ async function mutate(
     ) {
       // Race: file appeared between our missing-read and our write.
       // One retry through the read-then-write path.
-      return mutate(key, _by, apply)
+      return mutate(key, userId, _by, apply)
     }
     return write
   }

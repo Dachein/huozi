@@ -14,9 +14,26 @@
 
 import type { ObjectLocator } from "@/components/workspace/inline-edit"
 
-/** Where the collection lives. Pinned to a workspace-root file (no
- *  per-source sharding) so the user has one "all my clippings" view. */
-export const CLIPPINGS_FILE_PATH = "clippings.jsonl"
+/** Where the collection lives — under each user's private folder.
+ *
+ *  Per-user scope, not per-workspace: clippings are personal reading
+ *  notes, not collaborative artifacts. The path is dot-prefixed so the
+ *  file tree hides it by default; a folder-acl set `private` for the
+ *  owner gates MCP reads at the server level.
+ *
+ *  The path is always computed from the authenticated principal —
+ *  callers must use `clippingsFilePathFor(userId)` instead of taking
+ *  a path from request input. */
+export function clippingsFilePathFor(userId: string): string {
+  return `.huozi/clippings/${userId}/clippings.jsonl`
+}
+
+/** Parent directory we apply the ACL to. Anything under this path is
+ *  private to `userId` and won't appear in another member's MCP/drive
+ *  responses. */
+export function clippingsAclPathPrefix(userId: string): string {
+  return `.huozi/clippings/${userId}/`
+}
 
 /** `op` values written to clippings.jsonl. `schema` is reserved for the
  *  schema line itself (handled by the jsonl parser, not appended by
