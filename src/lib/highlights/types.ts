@@ -47,22 +47,22 @@ export interface Highlight {
    *  ObjectLocator — for md/html this is a byte range over the source,
    *  for jsonl it's a structural pointer plus inner offsets. */
   locator: ObjectLocator
-  /** The rendered plain text the user selected. Used as a sanity check at
-   *  replay time and as the human-readable label in the drawer. */
-  text: string
+  /** The captured passage — the rendered plain text the user selected.
+   *
+   *  Conceptually a *note*, not a title: clippings have no separate
+   *  title concept; the passage itself is the entity. The Collection
+   *  view treats it as the body field and surfaces the source path as
+   *  the row title instead. */
+  note: string
   /** Up to 30 chars of rendered plain text immediately before/after the
    *  selection — used as a fuzzy-match fallback when the source has been
-   *  edited and `locator` no longer points at `text`. */
+   *  edited and `locator` no longer points at `note`. */
   prefix: string
   suffix: string
   /** Semantic color name (e.g. "accent"). Resolved to a CSS value by the
    *  theme layer so changing themes doesn't leave stale color values
-   *  baked into the sidecar. */
+   *  baked on disk. */
   color: string
-  /** Reserved for v2 — always empty string in v1. The drawer doesn't show
-   *  an input for it yet, but keeping the field reserves the on-disk
-   *  shape so we don't have to migrate later. */
-  note: string
   /** ISO-8601 UTC timestamp. */
   createdAt: string
 }

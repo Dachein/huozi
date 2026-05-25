@@ -35,62 +35,58 @@ const ERR_NOT_READ_FIRST = 6
 const ERR_MODIFIED_SINCE_READ = 7
 
 /** Schema event written as line 1 the first time clippings.jsonl is
- *  created. Designed so the file renders as a usable Collection: each
- *  clipping shows its text as the headline, source path as subheadline,
- *  filterable; the locator / affix fields stay hidden noise. */
+ *  created. The clipping passage *is* the note — clippings have no
+ *  separate title concept. The source file path stands in as the row
+ *  title (a citation); the note renders as preview (2-line clamp) in
+ *  the list and as body (full text) in the detail view. Replay-only
+ *  fields stay on the line but are hidden from the UI. */
 const CLIPPINGS_SCHEMA = {
   title: "Clippings",
   description:
-    "Text clippings captured from workspace files. Append-only — `create` adds a clip, `remove` tombstones it.",
+    "Text clippings captured from workspace files. Each entity is one passage; the source file is recorded for reference.",
   entity: {
-    title_field: "text",
-    subtitle_field: "sourcePath",
+    title_field: "sourcePath",
   },
   fields: {
-    text: {
+    note: {
       type: "paragraph",
-      label: "Text",
-      display: "headline",
+      label: "Note",
+      display: "body",
       searchable: true,
     },
     sourcePath: {
       type: "text",
       label: "Source",
-      display: "subheadline",
       filterable: true,
       searchable: true,
-    },
-    color: {
-      type: "text",
-      label: "Color",
-      display: "meta",
-    },
-    note: {
-      type: "paragraph",
-      label: "Note",
-      display: "body",
+      // Hidden in the body section — already rendered as the entity
+      // title in the detail header, no need to repeat.
+      hide: true,
     },
     createdAt: {
       type: "datetime",
       label: "Captured",
       display: "meta",
+      format: "relative",
     },
     // Replay-only fields — kept on the line for restore but hidden in
-    // the Collection UI (the row is about the human-readable clip, not
-    // the byte arithmetic that locates it).
+    // the Collection UI (these are byte arithmetic, not user content).
     prefix: { type: "text", hide: true },
     suffix: { type: "text", hide: true },
     locator: { type: "object", hide: true },
+    color: { type: "text", hide: true },
     sourceBlobSha: { type: "text", hide: true },
   },
   list_view: {
     filters: ["sourcePath"],
-    search: ["text", "sourcePath", "note"],
-    sort: "-_updated_at",
+    search: ["note", "sourcePath"],
+    sort: "-createdAt",
     row: {
-      title: "text",
-      subtitle: "sourcePath",
-      timestamp: "_updated_at",
+      // Row 1: source path as title (1-line truncate) + relative time.
+      // Row 3: the note clamped to 2 lines as preview (muted, smaller).
+      title: "sourcePath",
+      timestamp: "createdAt",
+      preview: "note",
     },
   },
 } as const
@@ -102,11 +98,12 @@ interface CreateEvent {
   id: string
   sourcePath: string
   sourceBlobSha: string | null
-  text: string
+  /** The captured passage. Stored under `note` so the Collection schema
+   *  can render it as body/preview without a renaming step. */
+  note: string
   prefix: string
   suffix: string
   color: string
-  note: string
   createdAt: string
   locator: Highlight["locator"]
 }
@@ -182,11 +179,10 @@ export async function createClipping(
       id: highlight.id,
       sourcePath,
       sourceBlobSha,
-      text: highlight.text,
+      note: highlight.note,
       prefix: highlight.prefix,
       suffix: highlight.suffix,
       color: highlight.color,
-      note: highlight.note,
       createdAt: highlight.createdAt,
       locator: highlight.locator,
     }
@@ -244,23 +240,17 @@ async function mutate(
     .split(/\r?\n/)
     .filter((l) => l.length > 0)
   const events = parseEvents(existingLines)
-  const hasSchema = existingLines.some((l) => l.includes('"op":"schema"'))
 
   // 3. Apply mutation, append, re-emit.
+  //
+  // The schema line is *always* rebuilt from the current
+  // CLIPPINGS_SCHEMA constant — we own the file end-to-end, so any
+  // older shape on disk is upgraded in place the next time the user
+  // clips. This is intentionally divergent from inbox/tasks (which
+  // accumulate user-authored schema events); for clippings the
+  // rendering config is library-owned, not user-extensible.
   const next = apply(events)
-  const lines: string[] = []
-  if (!hasSchema) {
-    lines.push(buildSchemaLine())
-  } else {
-    // Preserve existing line order (including schema). Replace the
-    // tail with our new event list.
-    for (const l of existingLines) {
-      if (l.includes('"op":"schema"')) {
-        lines.push(l)
-        break
-      }
-    }
-  }
+  const lines: string[] = [buildSchemaLine()]
   for (const e of next) {
     lines.push(JSON.stringify(e))
   }
@@ -326,10 +316,19 @@ function coerceEvent(value: unknown): ClippingEvent | null {
   if (!value || typeof value !== "object") return null
   const v = value as Record<string, unknown>
   if (v.op === "create") {
+    // Back-compat: pre-rename clippings carried the passage in `text`.
+    // Read either field so existing per-user files don't blank out
+    // after the schema rename; writers only emit `note` going forward.
+    const passage =
+      typeof v.note === "string"
+        ? v.note
+        : typeof v.text === "string"
+          ? v.text
+          : null
     if (
       typeof v.id !== "string" ||
       typeof v.sourcePath !== "string" ||
-      typeof v.text !== "string" ||
+      passage === null ||
       typeof v.createdAt !== "string"
     ) {
       return null
@@ -342,11 +341,10 @@ function coerceEvent(value: unknown): ClippingEvent | null {
       sourcePath: v.sourcePath,
       sourceBlobSha:
         typeof v.sourceBlobSha === "string" ? v.sourceBlobSha : null,
-      text: v.text,
+      note: passage,
       prefix: typeof v.prefix === "string" ? v.prefix : "",
       suffix: typeof v.suffix === "string" ? v.suffix : "",
       color: typeof v.color === "string" ? v.color : "accent",
-      note: typeof v.note === "string" ? v.note : "",
       createdAt: v.createdAt,
       locator: v.locator as Highlight["locator"],
     }
@@ -375,11 +373,10 @@ function foldClippingsFile(content: string): Map<string, HighlightWithSource> {
     if (e.op === "create") {
       out.set(e.id, {
         id: e.id,
-        text: e.text,
+        note: e.note,
         prefix: e.prefix,
         suffix: e.suffix,
         color: e.color,
-        note: e.note,
         createdAt: e.createdAt,
         locator: e.locator,
         sourcePath: e.sourcePath,

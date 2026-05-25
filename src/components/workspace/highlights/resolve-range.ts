@@ -29,9 +29,9 @@ export function resolveHighlightRange(
   host: HTMLElement,
   highlight: Highlight,
 ): Range | null {
-  const primary = tryLocator(host, highlight.locator, highlight.text)
+  const primary = tryLocator(host, highlight.locator, highlight.note)
   if (primary) return primary
-  return tryFuzzy(host, highlight.text, highlight.prefix, highlight.suffix)
+  return tryFuzzy(host, highlight.note, highlight.prefix, highlight.suffix)
 }
 
 function tryLocator(

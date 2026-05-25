@@ -214,7 +214,7 @@ function ClippingRow({
         }`}
       >
         <span className="line-clamp-3 whitespace-pre-wrap break-words">
-          {entry.highlight.text}
+          {entry.highlight.note}
         </span>
       </button>
       <div className="mt-1.5 flex items-center justify-between text-[11px] text-muted-foreground">

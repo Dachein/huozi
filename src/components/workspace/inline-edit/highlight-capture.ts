@@ -167,11 +167,12 @@ export function buildHighlightPayload(
   return {
     id: makeId(),
     locator: captured.locator,
-    text: captured.text,
+    // The captured passage is the note — clippings don't carry a
+    // separate title (see Highlight.note doc on the type).
+    note: captured.text,
     prefix: captured.prefix,
     suffix: captured.suffix,
     color,
-    note: "",
     createdAt: new Date().toISOString(),
   };
 }

@@ -200,7 +200,16 @@ function validateHighlight(value: unknown): Highlight | null {
   if (typeof h.id !== "string" || h.id.length === 0 || h.id.length > 64) {
     return null
   }
-  if (typeof h.text !== "string" || h.text.length > MAX_TEXT_BYTES) return null
+  // Note carries the captured passage. Accept legacy `text` from
+  // clients that haven't redeployed yet so a brief deploy gap doesn't
+  // 400 in-flight POSTs.
+  const note =
+    typeof h.note === "string"
+      ? h.note
+      : typeof h.text === "string"
+        ? h.text
+        : null
+  if (note === null || note.length > MAX_TEXT_BYTES) return null
   if (typeof h.prefix !== "string" || h.prefix.length > MAX_AFFIX_BYTES) {
     return null
   }
@@ -208,17 +217,15 @@ function validateHighlight(value: unknown): Highlight | null {
     return null
   }
   if (typeof h.color !== "string" || h.color.length > 32) return null
-  if (typeof h.note !== "string" || h.note.length > MAX_TEXT_BYTES) return null
   if (typeof h.createdAt !== "string") return null
   const locator = validateLocator(h.locator)
   if (!locator) return null
   return {
     id: h.id,
-    text: h.text,
+    note,
     prefix: h.prefix,
     suffix: h.suffix,
     color: h.color,
-    note: h.note,
     createdAt: h.createdAt,
     locator,
   }
