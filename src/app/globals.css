@@ -1352,6 +1352,18 @@ body::before {
   text-decoration-thickness: 1.5px;
   text-underline-offset: 3px;
 }
+/* Optimistic mark — drawn the instant the user clicks Clip, before the
+ * server has confirmed. Same dotted accent underline as the confirmed
+ * registry, but `opacity` (via color-mix on the underline color) is
+ * reduced so the not-yet-saved state reads distinct without inventing
+ * a new visual vocabulary. Removed by the optimistic primitive on
+ * commit success or revert on failure. */
+::highlight(huozi-hl-pending) {
+  text-decoration: underline dotted
+    color-mix(in srgb, var(--color-accent, currentColor) 60%, transparent);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
 ::highlight(huozi-hl-flash) {
   background-color: color-mix(in srgb, var(--color-accent, gold) 30%, transparent);
   text-decoration: underline dotted var(--color-accent, currentColor);

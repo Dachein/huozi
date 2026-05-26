@@ -32,6 +32,7 @@ import { isEditError } from "./strategies/types";
 import { EditorBody } from "./editor-body";
 import { applyOptimisticPatch } from "./optimistic-patch";
 import { notifyError } from "./notify";
+import { runOptimistic } from "@/lib/optimistic/run-optimistic";
 
 export interface EditModalProps {
   filePath: string;
@@ -149,73 +150,55 @@ export function EditModal(props: EditModalProps) {
       return;
     }
 
-    // Optimistic flow — the path that wins us 1–3 seconds of perceived
-    // save latency. We commit the user's edit to the DOM RIGHT NOW and
-    // close the modal RIGHT NOW. The actual POST then runs in the
-    // background; if it eventually fails, we revert the DOM patch and
-    // show a toast. The CloudLiveEvents WS path triggers
-    // router.refresh() once the commit broadcasts back, so we don't
-    // need our own refresh timer here — when SSR re-renders, the bytes
-    // match the optimistic patch and the user sees no flicker.
-    const revert = applyOptimisticPatch(locator, value, source);
+    // Optimistic flow — the shared `runOptimistic` primitive applies
+    // the DOM patch immediately, closes the modal, fires the background
+    // POST, and reverts the patch + toasts on failure. Success is a
+    // no-op here; CloudLiveEvents WS will broadcast the commit and
+    // trigger router.refresh(), replacing the optimistic bytes with
+    // canonical SSR (byte-identical → no flicker).
     onClose();
-
-    void backgroundSave({
-      file_path: filePath,
-      old_string,
-      new_string,
-      parent_blob_sha: parentBlobSha ?? undefined,
-      onError: (msg) => {
-        revert?.();
-        notifyError(msg);
+    runOptimistic(
+      {
+        applyLocal: () => applyOptimisticPatch(locator, value, source),
+        commit: async () => {
+          let res: Response;
+          try {
+            res = await fetch("/api/app/drive/edit", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                file_path: filePath,
+                old_string,
+                new_string,
+                ...(parentBlobSha ? { parent_blob_sha: parentBlobSha } : {}),
+              }),
+            });
+          } catch (e) {
+            // Transport error: keep the modal's generic-error template so
+            // the toast reads the same as it did before this refactor.
+            return {
+              ok: false,
+              message: t("editor.inline.error.generic").replace(
+                "{message}",
+                e instanceof Error ? e.message : String(e),
+              ),
+            };
+          }
+          if (!res.ok) {
+            const body = (await res.json().catch(() => ({}))) as ApiError;
+            const key = errorKey(body.code);
+            const msg = t(key as Parameters<typeof t>[0]);
+            const finalMsg = msg.includes("{message}")
+              ? msg.replace("{message}", body.message ?? `HTTP ${res.status}`)
+              : msg;
+            return { ok: false, message: finalMsg };
+          }
+          return { ok: true };
+        },
+        onError: (msg) => notifyError(msg),
       },
-    });
-  }
-
-  // Background POST. Wrapped in its own function so the callbacks can
-  // close over `t` (i18n) without dragging the rest of the modal scope
-  // into the request lifecycle.
-  async function backgroundSave(args: {
-    file_path: string;
-    old_string: string;
-    new_string: string;
-    parent_blob_sha?: string;
-    onError: (message: string) => void;
-  }): Promise<void> {
-    try {
-      const res = await fetch("/api/app/drive/edit", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          file_path: args.file_path,
-          old_string: args.old_string,
-          new_string: args.new_string,
-          ...(args.parent_blob_sha
-            ? { parent_blob_sha: args.parent_blob_sha }
-            : {}),
-        }),
-      });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as ApiError;
-        const key = errorKey(body.code);
-        const msg = t(key as Parameters<typeof t>[0]);
-        const finalMsg = msg.includes("{message}")
-          ? msg.replace("{message}", body.message ?? `HTTP ${res.status}`)
-          : msg;
-        args.onError(finalMsg);
-        return;
-      }
-      // Success — no action needed. CloudLiveEvents WS will pick up
-      // the broadcast and trigger router.refresh, replacing the
-      // optimistic patch with canonical bytes (byte-identical → no
-      // flicker).
-    } catch (e) {
-      const msg = t("editor.inline.error.generic").replace(
-        "{message}",
-        e instanceof Error ? e.message : String(e),
-      );
-      args.onError(msg);
-    }
+      undefined,
+    );
   }
 
   const scopeLabel = t(SCOPE_KEY[objectKind] as Parameters<typeof t>[0]);

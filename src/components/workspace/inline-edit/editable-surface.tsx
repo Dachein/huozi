@@ -37,6 +37,8 @@ import { EditModal } from "./edit-modal";
 import { findHtmlInnerRange } from "./anchor";
 import { buildHighlightPayload, captureHighlight } from "./highlight-capture";
 import { notifyError, notifyInfo } from "./notify";
+import { runOptimistic } from "@/lib/optimistic/run-optimistic";
+import { addPendingMark } from "@/components/workspace/highlights/pending-marks";
 
 const Ctx = createContext<EditableSurfaceContextValue | null>(null);
 
@@ -231,7 +233,7 @@ export function EditableSurface({
     });
   }
 
-  async function onClipClick() {
+  function onClipClick() {
     if (!sel) return;
     const host = hostRef.current;
     if (!host) return;
@@ -242,43 +244,72 @@ export function EditableSurface({
     ) {
       return;
     }
+    // Capture WHILE the live selection still exists — captureHighlight's
+    // narrowing path reads `window.getSelection()`, and the optimistic
+    // `applyLocal` below clears the selection so the toolbar dismisses.
     const captured = captureHighlight(host, sel, fileKind);
     if (!captured) {
       notifyError(t("highlights.clip.error"));
       return;
     }
+    const liveSel = window.getSelection();
+    const pendingRange = liveSel && liveSel.rangeCount > 0
+      ? liveSel.getRangeAt(0).cloneRange()
+      : null;
     const payload = buildHighlightPayload(captured);
-    try {
-      const res = await fetch("/api/app/drive/highlights", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          source_path: filePath,
-          source_blob_sha: parentBlobSha,
-          highlight: payload,
-        }),
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as {
-          message?: string;
-        };
-        notifyError(data.message ?? t("highlights.clip.error"));
-        return;
-      }
-      // Clear the live selection so the toolbar dismisses; nicer than
-      // leaving the pills floating over the just-clipped text.
-      window.getSelection()?.removeAllRanges();
-      notifyInfo(t("highlights.clip.saved"));
-      // Tell the layer + drawer to refresh. Detail carries the source
-      // path so multi-pane layouts can ignore events for other files.
-      window.dispatchEvent(
-        new CustomEvent("huozi:highlights-changed", {
-          detail: { sourcePath: filePath },
-        }),
-      );
-    } catch (e) {
-      notifyError((e as Error).message);
-    }
+
+    runOptimistic(
+      {
+        applyLocal: () => {
+          // Pending dotted underline drawn via the CSS Custom Highlight
+          // API (huozi-hl-pending registry — same accent dotted style as
+          // confirmed clips, reduced opacity). Clear the live selection
+          // so the toolbar dismisses and the mark reads as the new
+          // visual state.
+          const revert = pendingRange ? addPendingMark([pendingRange]) : null;
+          window.getSelection()?.removeAllRanges();
+          notifyInfo(t("highlights.clip.saved"));
+          return revert;
+        },
+        commit: async () => {
+          const res = await fetch("/api/app/drive/highlights", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              source_path: filePath,
+              source_blob_sha: parentBlobSha,
+              highlight: payload,
+            }),
+          });
+          if (!res.ok) {
+            const data = (await res.json().catch(() => ({}))) as {
+              message?: string;
+            };
+            return {
+              ok: false,
+              message: data.message ?? t("highlights.clip.error"),
+            };
+          }
+          return { ok: true };
+        },
+        onCommitted: (_data, cleanup) => {
+          // Tell the layer + drawer to refresh. Detail carries the source
+          // path so multi-pane layouts can ignore events for other files.
+          window.dispatchEvent(
+            new CustomEvent("huozi:highlights-changed", {
+              detail: { sourcePath: filePath },
+            }),
+          );
+          // Clear the pending mark once the confirmed layer has had time
+          // to repaint from the new clippings.jsonl state. A short delay
+          // lets the layer's GET + resolveRange run, so the dotted line
+          // never blinks off between pending-removed and confirmed-drawn.
+          window.setTimeout(cleanup, 800);
+        },
+        onError: (msg) => notifyError(msg),
+      },
+      undefined,
+    );
   }
 
   return (
