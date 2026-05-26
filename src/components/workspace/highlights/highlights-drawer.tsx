@@ -56,6 +56,23 @@ export function HighlightsDrawer({ sourcePath }: HighlightsDrawerProps) {
   const [open, setOpen] = useState(false);
   const flashTimer = useRef<number | null>(null);
 
+  // Mark <html> while the panel is open so any fixed-position overlay
+  // that would otherwise sit under our 320px-wide slide-in (e.g. the
+  // fullscreen close + Share chrome) can shove itself out of the way
+  // via CSS. The marker is removed on close + unmount so we never leave
+  // a stuck class behind.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    if (open) {
+      root.classList.add("huozi-clippings-drawer-open");
+      return () => {
+        root.classList.remove("huozi-clippings-drawer-open");
+      };
+    }
+    return undefined;
+  }, [open]);
+
   useEffect(
     () => () => {
       if (flashTimer.current !== null) {

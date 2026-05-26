@@ -77,9 +77,12 @@ export function FullscreenContent({
   // Top-right chrome strip: pager + optional caller-supplied buttons + close.
   // top-4 right-4 = 16px breathing room from edges so the chrome doesn't
   // crowd the viewport corner.
+  // `huozi-fullscreen-chrome` is a hook for sibling overlays (the
+  // Clippings drawer in particular) to shove this strip out of their
+  // way via CSS. See globals.css §"Clippings drawer collision avoidance".
   const topRight =
     pagerInChrome || chrome || closeButton ? (
-      <div className="fixed top-4 right-4 z-[60] flex items-center gap-2">
+      <div className="huozi-fullscreen-chrome fixed top-4 right-4 z-[60] flex items-center gap-2">
         {pagerInChrome}
         {chrome}
         {closeButton}

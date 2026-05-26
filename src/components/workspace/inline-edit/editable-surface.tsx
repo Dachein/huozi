@@ -39,6 +39,7 @@ import { buildHighlightPayload, captureHighlight } from "./highlight-capture";
 import { notifyError, notifyInfo } from "./notify";
 import { runOptimistic } from "@/lib/optimistic/run-optimistic";
 import { addPendingMark } from "@/components/workspace/highlights/pending-marks";
+import { addPendingEntry } from "@/components/workspace/highlights/store";
 
 const Ctx = createContext<EditableSurfaceContextValue | null>(null);
 
@@ -261,15 +262,27 @@ export function EditableSurface({
     runOptimistic(
       {
         applyLocal: () => {
-          // Pending dotted underline drawn via the CSS Custom Highlight
-          // API (huozi-hl-pending registry — same accent dotted style as
-          // confirmed clips, reduced opacity). Clear the live selection
-          // so the toolbar dismisses and the mark reads as the new
-          // visual state.
-          const revert = pendingRange ? addPendingMark([pendingRange]) : null;
+          // Two-pronged optimistic effect:
+          //   1. Dotted underline in the body (huozi-hl-pending registry
+          //      — same dotted accent style as confirmed clips, reduced
+          //      opacity).
+          //   2. Drawer entry at the top of the list (pending bucket of
+          //      the highlights store). The drawer's getHighlights
+          //      returns `[...pending, ...confirmed]`, so the new clip
+          //      shows up instantly — same source-path filtering as
+          //      confirmed entries because pending is keyed by filePath.
+          // Both revert together if commit fails.
+          const revertMark = pendingRange ? addPendingMark([pendingRange]) : null;
+          const revertEntry = addPendingEntry(filePath, {
+            highlight: payload,
+            range: pendingRange,
+          });
           window.getSelection()?.removeAllRanges();
           notifyInfo(t("highlights.clip.saved"));
-          return revert;
+          return () => {
+            revertMark?.();
+            revertEntry();
+          };
         },
         commit: async () => {
           const res = await fetch("/api/app/drive/highlights", {

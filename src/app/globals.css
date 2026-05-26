@@ -1364,6 +1364,21 @@ body::before {
   text-decoration-thickness: 1.5px;
   text-underline-offset: 3px;
 }
+/* Clippings drawer collision avoidance.
+ *
+ * `.huozi-fullscreen-chrome` is the top-right strip in fullscreen mode
+ * (pager · Share · close). The Clippings drawer is also fixed
+ * right:0 and 320px wide, so when the drawer opens it lands under the
+ * chrome buttons. While the drawer is open we push the chrome left by
+ * exactly the drawer width so the two stop overlapping. Transition so
+ * the shift tracks the drawer's own slide-in. */
+.huozi-fullscreen-chrome {
+  transition: transform 200ms ease;
+}
+html.huozi-clippings-drawer-open .huozi-fullscreen-chrome {
+  transform: translateX(-320px);
+}
+
 ::highlight(huozi-hl-flash) {
   background-color: color-mix(in srgb, var(--color-accent, gold) 30%, transparent);
   text-decoration: underline dotted var(--color-accent, currentColor);
