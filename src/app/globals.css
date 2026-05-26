@@ -618,22 +618,6 @@
  * heavy stamp because their density is one-per-paragraph, not
  * many-per-line. */
 
-/* Brutal-mono: HTML embed host = white block.
- *
- * Embedded HTML files often have transparent backgrounds (the author
- * relies on the page chrome to provide one). In default theme that's
- * fine — both page and embed share the same cream. In brutal, the
- * page is cream but the embed should read as a stamped block: white
- * surface, black border, hard shadow.
- *
- * Inner elements with their own bg (deck slides, story cards, etc.)
- * paint over this fill, so the override only kicks in for "naked"
- * HTML that didn't author its own canvas. */
-[data-theme="brutal-mono"] .huozi-html-host {
-  background: var(--surface-elevated);
-  border: var(--border-width) solid var(--border);
-  box-shadow: var(--shadow);
-}
 
 /* Brutal-mono: stat / panel cards = framed surface.
  *
@@ -832,14 +816,6 @@
   border-radius: var(--radius);
   box-shadow: var(--shadow) !important;
   overflow: hidden;
-}
-
-/* HTML embed host: hairline frame, soft shadow. */
-[data-theme="office"] .huozi-html-host {
-  background: var(--background);
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
 }
 
 /* Stat / panel cards: hairline frame + soft shadow. */
@@ -1153,7 +1129,7 @@ body::before {
  *   .huozi-csv-grid       — CSV grid wrapper (frame + bg + clip)
  *   .huozi-collection-card — JSONL collection-view card (frame + bg
  *                           + inset)
- *   .huozi-html-host      — HTML embed host (frame + bg)
+ *   .huozi-html-host      — HTML embed host (transparent — embed owns paint)
  *
  * Per-theme overrides may still exist above for cases where a theme
  * wants to express something the chrome tokens don't (e.g. amber's
@@ -1192,12 +1168,11 @@ body::before {
   background: color-mix(in srgb, var(--muted) 30%, var(--surface-elevated));
 }
 
-.huozi-html-host {
-  background: var(--surface-elevated);
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-}
+/* .huozi-html-host has no default background or frame — the embed
+ * owns its own surface. Authors paint via `html`/`body`/`:root` in
+ * their <style> (sanitizer rewrites those to the host element) or via
+ * `<meta name="huozi:background">` for canvas formats. With no author
+ * paint the workspace theme bleeds through uniformly. */
 
 /* ─────────────────────────────────────────────────────────────────────
  * Reading-token consumers — wire .prose and .prose-huozi to the
