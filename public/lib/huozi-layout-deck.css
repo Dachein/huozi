@@ -99,6 +99,22 @@
     width: 100% !important;
     height: 100% !important;
   }
+  /* Neutralize legacy author copies of the old rule.
+     Earlier versions of this stylesheet rotated .huozi-deck directly;
+     authors who started from a pre-2026-05 deck template often pasted
+     the whole platform block (including that rotate) into their own
+     <style>. Their copy and the platform <link> have identical
+     specificity, so cascade order makes the author duplicate win —
+     and combined with the new wrapper rotation above the deck rotates
+     twice (= 180°). Higher-specificity selector here (canvas-stage
+     ancestor) so we beat author duplicates without depending on
+     cascade order. The deck must just fill its stage parent at 100%
+     with no own rotation — ScaledStage outside handles the fit. */
+  [data-huozi-rotate-portrait] .huozi-canvas-stage .huozi-deck {
+    width: 100% !important;
+    height: 100% !important;
+    transform: translateZ(0) !important;
+  }
 }
 
 /* Print: each slide becomes a page. Strip the viewport-pinned scroll
