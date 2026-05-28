@@ -57,19 +57,47 @@
 }
 
 /* Mobile portrait auto-rotate. Opt-in via the wrapper attribute the
- * publish surface adds: [data-huozi-rotate-portrait]. Workspace inline
+ * fullscreen surface adds: [data-huozi-rotate-portrait]. Workspace inline
  * preview never gets the attribute, so its embed-sized 16:9 frame is
- * preserved. Phone in portrait → deck rotates 90° to keep the 16:9
- * aspect intact. */
+ * preserved.
+ *
+ * Why rotate the wrapper, not .huozi-deck:
+ *   The deck lives inside a ScaledStage (transform: scale fits a fixed
+ *   1920×1080 canvas to the surrounding box). If we rotate .huozi-deck
+ *   itself, the stage still measures 390×844 of viewport, picks a 0.20×
+ *   contain factor, and the deck collapses to a sideways strip — the
+ *   exact bug this rule was meant to prevent.
+ *
+ *   Rotating the outermost fullscreen wrapper and SWAPPING its layout
+ *   box (width:100vh, height:100vw) means descendants see a landscape
+ *   box. The canvas-outer override below switches its forced viewport
+ *   dims (100vw/100vh) back to parent-relative so it inherits that
+ *   landscape box. ScaledStage's container query then resolves to the
+ *   rotated dims and the 16:9 deck fills the long edge.
+ *
+ *   The CSS `transform` also establishes a containing block for fixed-
+ *   positioned descendants, so the pager + close-button chrome
+ *   (`position: fixed; top: 4; right: 4`) rotates along with the deck,
+ *   keeping the reading orientation consistent. */
 @media (max-width: 767px) and (orientation: portrait) {
-  [data-huozi-rotate-portrait] .huozi-deck {
+  [data-huozi-rotate-portrait] {
+    /* Override `fixed inset-0` so width/height take effect without
+       conflicting bottom/right anchors. */
     width: 100vh !important;
     height: 100vw !important;
-    transform: rotate(90deg) translateY(-100vw) !important;
-    transform-origin: top left !important;
-  }
-  [data-huozi-rotate-portrait] {
+    inset: auto !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) rotate(90deg) !important;
+    transform-origin: center center !important;
     overflow: hidden;
+  }
+  /* FullscreenContent pins .huozi-canvas-outer to 100vw × 100vh.
+     After rotation, viewport units still mean *portrait* viewport —
+     re-pin to parent-relative so the outer fills the rotated wrapper. */
+  [data-huozi-rotate-portrait] .huozi-canvas-outer {
+    width: 100% !important;
+    height: 100% !important;
   }
 }
 
