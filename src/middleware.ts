@@ -120,7 +120,6 @@ export async function middleware(request: NextRequest) {
   // If the user is already signed in (valid huozi_session cookie) and lands
   // on /login or /signup, send them to /workspace. Verifying the JWT here
   // avoids a Worker roundtrip on every page load.
-  const path = request.nextUrl.pathname;
   if (path === "/login" || path === "/signup") {
     const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
     if (token) {
