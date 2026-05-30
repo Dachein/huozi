@@ -358,9 +358,21 @@ export async function processHtmlDirect(
     // External (non-/__assets__) hrefs are left untouched — we can't rewrite
     // what we can't fetch, and they're the author's choice to load globally.
     if (opts.fetchAsset) {
-      for (const sheet of parsed.stylesheets) {
-        if (!sheet.href.startsWith("/__assets__/")) continue;
-        const css = await opts.fetchAsset(sheet.href);
+      // Parallel fetch: each /__assets__/ stylesheet is an independent
+      // worker round-trip. Serial `await` in a loop turned N stylesheets
+      // into N × ~80ms of latency on every render — for the common case
+      // of 2-4 author stylesheets this alone dominated SSR time.
+      const fetcher = opts.fetchAsset;
+      const targets = parsed.stylesheets.filter((s) =>
+        s.href.startsWith("/__assets__/"),
+      );
+      const fetched = await Promise.all(
+        targets.map(async (sheet) => ({
+          sheet,
+          css: await fetcher(sheet.href),
+        })),
+      );
+      for (const { sheet, css } of fetched) {
         if (css) {
           styles.push(css);
           consumedHrefs.add(sheet.href);

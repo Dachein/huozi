@@ -27,6 +27,10 @@ import {
   cloudReadForEdit,
   type McpResult,
 } from '@/lib/drive/mcp-client'
+import {
+  shellCacheKey,
+  invalidateShellCache,
+} from '@/app/(app)/workspace/(shell)/_shell-data'
 
 interface EditBody {
   file_path?: unknown
@@ -137,6 +141,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!e.ok) {
     return NextResponse.json(errorBody(e), { status: statusFor(e.errorCode) })
   }
+
+  // Drop the shell-data cache for this api_key so the next workspace
+  // render sees fresh recent / glob (the edited file climbs to top of
+  // recent; new sections inside the file may shift extracted page list).
+  invalidateShellCache(shellCacheKey(key))
 
   return NextResponse.json({
     ok: true,

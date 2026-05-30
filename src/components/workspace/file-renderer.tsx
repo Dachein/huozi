@@ -2,9 +2,7 @@ import { cookies } from "next/headers";
 import { renderMarkdown } from "@/lib/markdown/renderer";
 import { processHtmlDirect } from "@/lib/html/sanitizer";
 import { processChartComponents } from "@/lib/html/chart-components";
-import { detectHuoziFormat } from "@/lib/html/detect-format";
-import { extractPages } from "@/lib/html/extract-pages";
-import { extractTabs, extractRefreshMs } from "@/lib/html/extract-tabs";
+import { computeHtmlMeta, type HtmlMeta } from "@/lib/html/meta";
 import { validateHuoziHtml } from "@/lib/html/validate";
 import { cloudFetch } from "@/lib/cloud-fetch";
 import { HUOZI_CLOUD_KEY_COOKIE } from "@/lib/drive/mcp-client";
@@ -49,6 +47,14 @@ export interface FileRendererProps {
    * Read-first path.
    */
   parentBlobSha?: string | null;
+  /**
+   * Pre-computed format / pages / tabs / refreshMs from `computeHtmlMeta`.
+   * Callers that already ran the scan (workspace view page, which needs
+   * format + pages for its header chrome) pass them in so the renderer
+   * skips re-scanning the same HTML 4 times. Optional — when missing the
+   * renderer falls back to a local `computeHtmlMeta(content)`.
+   */
+  htmlMeta?: HtmlMeta;
 }
 
 function getExt(path: string): string {
@@ -63,6 +69,7 @@ export async function FileRenderer({
   raw,
   inlineEditable = false,
   parentBlobSha = null,
+  htmlMeta,
 }: FileRendererProps) {
   const ext = getExt(path);
 
@@ -146,10 +153,10 @@ export async function FileRenderer({
       injectSourcePos: inlineEditable,
       bundleCtx: { dataBase, filePath: path },
     });
-    const format = detectHuoziFormat(content);
-    const pages = extractPages(content);
-    const tabs = format === "dashboard" ? extractTabs(content) : [];
-    const refreshMs = format === "dashboard" ? extractRefreshMs(content) : null;
+    // Re-use caller-computed extracts when available; otherwise scan
+    // here. Workspace view passes htmlMeta; legacy direct callers don't.
+    const meta = htmlMeta ?? computeHtmlMeta(content);
+    const { format, pages, tabs, refreshMs } = meta;
     const pageUnit: "slide" | "page" =
       format === "deck" || format === "story" ? "slide" : "page";
 

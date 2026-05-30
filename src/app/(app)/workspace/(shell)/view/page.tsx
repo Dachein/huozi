@@ -14,11 +14,8 @@ import {
 } from "@/components/workspace/fullscreen-content";
 import { PageOutlineMenu } from "@/components/workspace/page-outline-menu";
 import { ShareFullscreenButton } from "@/components/workspace/share-fullscreen-button";
-import { extractPages } from "@/lib/html/extract-pages";
-import {
-  detectHuoziFormat,
-  pagerOrientationFor,
-} from "@/lib/html/detect-format";
+import { pagerOrientationFor } from "@/lib/html/detect-format";
+import { computeHtmlMeta, EMPTY_HTML_META, type HtmlMeta } from "@/lib/html/meta";
 import { getServerT } from "@/lib/i18n/server";
 import {
   cloudRead,
@@ -143,24 +140,21 @@ async function FileView({
 
   const fileInfo = readRes.ok ? readRes.data.file : null;
 
-  // For paginated HTML files, extract the page outline so the header can
-  // render a "{N} pages ▾" dropdown. Empty array for everything else.
-  const pages =
-    !wantRaw &&
-    (ext === "html" || ext === "htm") &&
-    readRes.ok &&
-    readRes.data.type === "text" &&
-    readRes.data.file.content
-      ? extractPages(readRes.data.file.content)
-      : [];
   const fileContent =
     readRes.ok && readRes.data.type === "text"
       ? (readRes.data.file.content ?? "")
       : "";
-  // Authoritative format detection (meta first, class sniff second, default
-  // "web"). Drives PageOutlineMenu arrow orientation + auto-landscape CSS
-  // for deck on mobile portrait.
-  const htmlFormat = detectHuoziFormat(fileContent);
+
+  // Single-pass scan for format / pages / tabs / refreshMs. The same
+  // extracts used to run again inside FileRenderer; we now compute them
+  // once here and thread the result down. Skip the scan for non-HTML
+  // or raw-view paths — they ignore the result anyway.
+  const isHtmlExt = ext === "html" || ext === "htm";
+  const shouldScan = !wantRaw && isHtmlExt && fileContent.length > 0;
+  const htmlMeta: HtmlMeta = shouldScan
+    ? computeHtmlMeta(fileContent)
+    : EMPTY_HTML_META;
+  const { format: htmlFormat, pages } = htmlMeta;
   const pageUnit: "slide" | "page" =
     htmlFormat === "deck" || htmlFormat === "story" ? "slide" : "page";
 
@@ -246,6 +240,7 @@ async function FileView({
                 path={path}
                 wantRaw={wantRaw}
                 paginated={paginated}
+                htmlMeta={htmlMeta}
               />
             </FullscreenContent>
             {readRes.ok && paginated && readRes.data.type === "text" && (
@@ -305,11 +300,13 @@ async function FileBody({
   path,
   wantRaw,
   paginated,
+  htmlMeta,
 }: {
   data: ReadTextData;
   path: string;
   wantRaw: boolean;
   paginated: boolean;
+  htmlMeta?: HtmlMeta;
 }) {
   if (data.type === "file_unchanged") {
     return (
@@ -394,6 +391,7 @@ async function FileBody({
       raw={wantRaw}
       inlineEditable={!wantRaw && !paginated}
       parentBlobSha={data.file.blob_sha ?? null}
+      htmlMeta={htmlMeta}
     />
   );
   return (
