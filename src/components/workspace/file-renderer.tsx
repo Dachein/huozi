@@ -1,5 +1,4 @@
 import { cookies } from "next/headers";
-import dynamic from "next/dynamic";
 import { renderMarkdown } from "@/lib/markdown/renderer";
 import { processHtmlDirect } from "@/lib/html/sanitizer";
 import { processChartComponents } from "@/lib/html/chart-components";
@@ -7,6 +6,12 @@ import { computeHtmlMeta, type HtmlMeta } from "@/lib/html/meta";
 import { validateHuoziHtml } from "@/lib/html/validate";
 import { cloudFetch } from "@/lib/cloud-fetch";
 import { HUOZI_CLOUD_KEY_COOKIE } from "@/lib/drive/mcp-client";
+// Heavy ext-specific renderers — lazy-loaded via thin client wrappers
+// (Next.js 16 forbids `ssr:false` directly in server components).
+// CsvGrid pulls in glide-data-grid (~300KB); CollectionView ~50KB.
+// Common HTML / MD path skips both.
+import { CsvGridLazy as CsvGrid } from "@/components/csv-grid-lazy";
+import { CollectionViewLazy as CollectionView } from "@/components/collection-view-lazy";
 import { EditableSurface } from "@/components/workspace/inline-edit";
 import type { ObjectKind } from "@/components/workspace/inline-edit";
 import { HighlightLayer } from "@/components/workspace/highlights/highlight-layer";
@@ -14,21 +19,6 @@ import { HighlightsDrawer } from "@/components/workspace/highlights/highlights-d
 import { HtmlValidationBanner } from "@/components/workspace/html-validation-banner";
 import { HtmlCanvasFrame } from "@/components/workspace/html-canvas-frame";
 import { resolveCanvas } from "@/lib/html/canvas";
-
-// Heavy ext-specific renderers — lazy-load so the HTML / MD common path
-// doesn't pay for them. CsvGrid pulls in glide-data-grid (~300KB);
-// CollectionView is smaller (~50KB) but only relevant for .jsonl. Both
-// are pure client components, so ssr:false is correct — server has no
-// useful render and would just cost a hydration mismatch round-trip.
-const CsvGrid = dynamic(
-  () => import("@/components/csv-grid").then((m) => m.CsvGrid),
-  { ssr: false },
-);
-const CollectionView = dynamic(
-  () =>
-    import("@/components/collection-view").then((m) => m.CollectionView),
-  { ssr: false },
-);
 
 /**
  * Renders a file's content based on its extension.
