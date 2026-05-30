@@ -77,3 +77,11 @@ export function invalidatePrefix(prefix: string): void {
     if (k.startsWith(prefix)) store.delete(k);
   }
 }
+
+/** Returns true when a live (non-expired) entry exists for the key.
+ *  Read-only — for instrumentation; doesn't refresh or touch the entry. */
+export function cacheProbe(key: string): boolean {
+  const hit = store.get(key);
+  if (!hit) return false;
+  return hit.expiresAt > Date.now();
+}

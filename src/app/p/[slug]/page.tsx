@@ -13,7 +13,7 @@ import { computeHtmlMeta } from "@/lib/html/meta";
 import { extractShareMeta } from "@/lib/share-meta";
 import { parseMarkdown } from "@/lib/share-meta/extract-markdown";
 import { ShareViewer } from "@/components/p/share-viewer";
-import { memoize } from "@/lib/memo-cache";
+import { memoize, cacheProbe } from "@/lib/memo-cache";
 
 export const dynamic = "force-dynamic";
 
@@ -195,8 +195,11 @@ async function loadRenderedShare(
 }
 
 export default async function SharedPage({ params }: { params: Params }) {
+  const t0 = Date.now();
   const { slug } = await params;
+  const t1 = Date.now();
   const res = await getShare(slug);
+  const t2 = Date.now();
 
   if (!res.ok) {
     if (res.errorCode === 404) notFound();
@@ -221,28 +224,46 @@ export default async function SharedPage({ params }: { params: Params }) {
   // within 60s → entire HTML pipeline (sanitize + @scope + all extracts)
   // is skipped on hits. Locked shares always go through the cold path
   // so we never leak across password-gated visitors.
+  const cacheKey = `share-render:${slug}`;
+  const cacheBefore = cacheProbe(cacheKey);
   const rendered = locked
     ? await loadRenderedShare(slug, share)
-    : await memoize(`share-render:${slug}`, 60_000, () =>
+    : await memoize(cacheKey, 60_000, () =>
         loadRenderedShare(slug, share),
       );
+  const t3 = Date.now();
+  const cacheHit = cacheBefore && !locked;
+
+  const timing = [
+    `params=${t1 - t0}`,
+    `getShare=${t2 - t1}`,
+    `render=${t3 - t2}`,
+    `total=${t3 - t0}`,
+    `cache=${cacheHit ? "hit" : "miss"}`,
+  ].join(" ");
 
   // Publish surface is full-bleed: the file IS the page. ShareViewer renders
   // in alwaysOpen fullscreen mode, with an "Open in Huozi" link top-right.
   // No header / footer chrome here so the content shows exactly as it does
   // in the workspace view's fullscreen mode.
   return (
-    <ShareViewer
-      slug={slug}
-      filePath={rendered.filePath}
-      locked={locked}
-      prerenderedHtml={rendered.prerenderedHtml}
-      rawText={rendered.rawText}
-      pages={rendered.pages}
-      pageUnit={rendered.pageUnit}
-      htmlFormat={rendered.htmlFormat}
-      tabs={rendered.tabs}
-      refreshMs={rendered.refreshMs}
-    />
+    <>
+      {/* Server-timing breadcrumb (instrumentation; safe to leave in
+          production — invisible in normal rendering, useful for perf
+          regression triage). */}
+      <meta name="huozi-server-timing" content={timing} />
+      <ShareViewer
+        slug={slug}
+        filePath={rendered.filePath}
+        locked={locked}
+        prerenderedHtml={rendered.prerenderedHtml}
+        rawText={rendered.rawText}
+        pages={rendered.pages}
+        pageUnit={rendered.pageUnit}
+        htmlFormat={rendered.htmlFormat}
+        tabs={rendered.tabs}
+        refreshMs={rendered.refreshMs}
+      />
+    </>
   );
 }
