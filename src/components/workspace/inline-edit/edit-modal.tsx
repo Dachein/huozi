@@ -25,14 +25,27 @@
  */
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useT } from "@/lib/i18n/context";
 import type { ObjectKind, ObjectLocator } from "./types";
 import { getStrategy } from "./strategies/registry";
 import { isEditError } from "./strategies/types";
-import { EditorBody } from "./editor-body";
 import { applyOptimisticPatch } from "./optimistic-patch";
 import { notifyError } from "./notify";
 import { runOptimistic } from "@/lib/optimistic/run-optimistic";
+
+// CodeMirror (+ language packs) is ~200KB gzipped. Only load it once the
+// user actually opens the edit modal — view-only sessions never pay for
+// it. ssr:false because CodeMirror touches the DOM during init.
+const EditorBody = dynamic(
+  () => import("./editor-body").then((m) => m.EditorBody),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="min-h-[140px] rounded border border-border bg-muted/30 animate-pulse" />
+    ),
+  },
+);
 
 export interface EditModalProps {
   filePath: string;
