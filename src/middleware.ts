@@ -95,6 +95,28 @@ export async function middleware(request: NextRequest) {
   const response = NextResponse.next({ request: { headers: buildHeaders() } });
   applyLocale(request, response);
 
+  // Public share pages (/p/<slug>) get an aggressive CDN cache header so
+  // Cloudflare's edge cache services repeat opens without touching the
+  // Worker at all. Locked shares are PASSWORD-gated on the CLIENT (they
+  // POST /api/p/[slug]/unlock); the SSR'd password prompt itself is the
+  // same for every visitor and safe to cache.
+  // The /api/p/* unlock endpoint stays uncached (it's a route handler
+  // that always reaches the Worker), so this cache only fronts the
+  // initial page paint.
+  const path = request.nextUrl.pathname;
+  if (path.startsWith("/p/") && !path.startsWith("/p/api/")) {
+    // s-maxage = shared cache (CDN) TTL; max-age=0 keeps browsers honest
+    // so an edit shows up on next refresh without a full purge.
+    // stale-while-revalidate lets the edge serve stale while it refreshes.
+    response.headers.set(
+      "Cache-Control",
+      "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
+    );
+    // Vary is required so Cloudflare doesn't serve a br response to a
+    // gzip-only client (or vice versa).
+    response.headers.set("Vary", "Accept-Encoding");
+  }
+
   // If the user is already signed in (valid huozi_session cookie) and lands
   // on /login or /signup, send them to /workspace. Verifying the JWT here
   // avoids a Worker roundtrip on every page load.
