@@ -198,7 +198,12 @@ export default async function SharedPage({ params }: { params: Params }) {
   const t0 = Date.now();
   const { slug } = await params;
   const t1 = Date.now();
-  const res = await getShare(slug);
+  // getShare is a worker round-trip into huozi-cloud — empirically 800-
+  // 2400ms per call. Memoize so steady-state opens skip it entirely.
+  // TTL is short (30s) because share metadata (locked toggle, file_path
+  // edits) can change underneath us.
+  const shareMetaKey = `share-meta:${slug}`;
+  const res = await memoize(shareMetaKey, 30_000, () => getShare(slug));
   const t2 = Date.now();
 
   if (!res.ok) {
