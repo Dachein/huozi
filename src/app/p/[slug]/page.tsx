@@ -6,12 +6,14 @@ import { cloudFetch } from "@/lib/cloud-fetch";
 import { renderMarkdown } from "@/lib/markdown/renderer";
 import { processHtmlDirect } from "@/lib/html/sanitizer";
 import { processChartComponents } from "@/lib/html/chart-components";
-import { extractPages, type PageEntry } from "@/lib/html/extract-pages";
-import { extractTabs, extractRefreshMs, type TabEntry } from "@/lib/html/extract-tabs";
-import { detectHuoziFormat, type HuoziFormat } from "@/lib/html/detect-format";
+import { type PageEntry } from "@/lib/html/extract-pages";
+import { type TabEntry } from "@/lib/html/extract-tabs";
+import { type HuoziFormat } from "@/lib/html/detect-format";
+import { computeHtmlMeta } from "@/lib/html/meta";
 import { extractShareMeta } from "@/lib/share-meta";
 import { parseMarkdown } from "@/lib/share-meta/extract-markdown";
 import { ShareViewer } from "@/components/p/share-viewer";
+import { memoize } from "@/lib/memo-cache";
 
 export const dynamic = "force-dynamic";
 
@@ -132,6 +134,66 @@ async function renderForPath(
   return `<pre class="font-mono text-xs whitespace-pre-wrap break-words">${escaped}</pre>`;
 }
 
+interface RenderedShare {
+  filePath: string;
+  prerenderedHtml: string | undefined;
+  rawText: string | undefined;
+  pages: PageEntry[];
+  pageUnit: "page" | "slide" | "sheet";
+  htmlFormat: HuoziFormat;
+  tabs: TabEntry[];
+  refreshMs: number | null;
+}
+
+/**
+ * Memoized share render. Caches everything an unlocked share needs to
+ * paint — including the full prerendered HTML string — so repeat opens
+ * skip the worker fetch, HTML sanitize, scope rewrite, and all metadata
+ * scans. 60s TTL is short enough that author edits show up promptly.
+ *
+ * Locked shares are NEVER cached: each visitor must pass through the
+ * password gate; mixing their personalized response with another
+ * visitor's would be a security bug. The caller checks `locked` before
+ * deciding to read from cache.
+ */
+async function loadRenderedShare(
+  slug: string,
+  share: { file_path: string; text?: string | null | undefined },
+): Promise<RenderedShare> {
+  const filePath = share.file_path;
+  const rawText = share.text ?? undefined;
+  let prerenderedHtml: string | undefined;
+  let pages: PageEntry[] = [];
+  let pageUnit: "page" | "slide" | "sheet" = "page";
+  let htmlFormat: HuoziFormat = "blog";
+  let tabs: TabEntry[] = [];
+  let refreshMs: number | null = null;
+  if (rawText) {
+    const rendered = await renderForPath(filePath, rawText, slug);
+    if (rendered !== null) prerenderedHtml = rendered;
+    const e = ext(filePath);
+    if (e === "html" || e === "htm") {
+      const meta = computeHtmlMeta(rawText);
+      htmlFormat = meta.format;
+      pages = meta.pages;
+      tabs = meta.tabs;
+      refreshMs = meta.refreshMs;
+      pageUnit =
+        htmlFormat === "deck" || htmlFormat === "story" ? "slide" : "page";
+    }
+  }
+  return {
+    filePath,
+    prerenderedHtml,
+    rawText,
+    pages,
+    pageUnit,
+    htmlFormat,
+    tabs,
+    refreshMs,
+  };
+}
+
 export default async function SharedPage({ params }: { params: Params }) {
   const { slug } = await params;
   const res = await getShare(slug);
@@ -155,32 +217,15 @@ export default async function SharedPage({ params }: { params: Params }) {
   const share = res.data;
   const locked = share.locked === true;
 
-  let prerenderedHtml: string | undefined;
-  let rawText: string | undefined;
-  let pages: PageEntry[] = [];
-  let pageUnit: "page" | "slide" | "sheet" = "page";
-  let htmlFormat: HuoziFormat = "blog";
-  let tabs: TabEntry[] = [];
-  let refreshMs: number | null = null;
-  if (!locked) {
-    // share.text is the raw file content
-    rawText = share.text;
-    if (rawText) {
-      const rendered = await renderForPath(share.file_path, rawText, slug);
-      if (rendered !== null) prerenderedHtml = rendered;
-      const e = ext(share.file_path);
-      if (e === "html" || e === "htm") {
-        pages = extractPages(rawText);
-        htmlFormat = detectHuoziFormat(rawText);
-        pageUnit =
-          htmlFormat === "deck" || htmlFormat === "story" ? "slide" : "page";
-        if (htmlFormat === "dashboard") {
-          tabs = extractTabs(rawText);
-          refreshMs = extractRefreshMs(rawText);
-        }
-      }
-    }
-  }
+  // Unlocked shares: render via memo cache. Same isolate, same slug,
+  // within 60s → entire HTML pipeline (sanitize + @scope + all extracts)
+  // is skipped on hits. Locked shares always go through the cold path
+  // so we never leak across password-gated visitors.
+  const rendered = locked
+    ? await loadRenderedShare(slug, share)
+    : await memoize(`share-render:${slug}`, 60_000, () =>
+        loadRenderedShare(slug, share),
+      );
 
   // Publish surface is full-bleed: the file IS the page. ShareViewer renders
   // in alwaysOpen fullscreen mode, with an "Open in Huozi" link top-right.
@@ -189,15 +234,15 @@ export default async function SharedPage({ params }: { params: Params }) {
   return (
     <ShareViewer
       slug={slug}
-      filePath={share.file_path}
+      filePath={rendered.filePath}
       locked={locked}
-      prerenderedHtml={prerenderedHtml}
-      rawText={rawText}
-      pages={pages}
-      pageUnit={pageUnit}
-      htmlFormat={htmlFormat}
-      tabs={tabs}
-      refreshMs={refreshMs}
+      prerenderedHtml={rendered.prerenderedHtml}
+      rawText={rendered.rawText}
+      pages={rendered.pages}
+      pageUnit={rendered.pageUnit}
+      htmlFormat={rendered.htmlFormat}
+      tabs={rendered.tabs}
+      refreshMs={rendered.refreshMs}
     />
   );
 }
