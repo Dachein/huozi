@@ -229,7 +229,28 @@ async function mutate(
   let exists = false
   if (read.ok) {
     exists = true
-    existingText = stripCatN(read.data.file.content ?? "")
+    // Worker omits `content` when it returns `file_unchanged` — i.e.
+    // the session DO knows this principal already saw this blob_sha.
+    // We don't keep per-process state across Next.js requests, so the
+    // missing content would silently become an empty file here and the
+    // subsequent write would wipe every prior event. Re-fetch the
+    // bytes via a non-session read; the session state populated by the
+    // first read still authorizes the upcoming write.
+    const initialContent = read.data.file.content
+    if (initialContent === undefined || read.data.type === "file_unchanged") {
+      const refetch = await cloudRead(key, path)
+      if (!refetch.ok) {
+        if (refetch.errorCode === ERR_FILE_NOT_FOUND) {
+          exists = false
+        } else {
+          return refetch
+        }
+      } else {
+        existingText = stripCatN(refetch.data.file.content ?? "")
+      }
+    } else {
+      existingText = stripCatN(initialContent)
+    }
   } else if (read.errorCode !== ERR_FILE_NOT_FOUND) {
     return read
   }
