@@ -83,6 +83,7 @@ import { fetchWhoami } from '../storage/cloudflare/whoami.js'
 import { WHOAMI_TOOL_NAME } from '../tools/WhoamiTool.js'
 import {
   createShareRow,
+  currentBlobForPath,
   handleCreateShare,
   handleGetShare,
   handleGetShareAsset,
@@ -92,6 +93,15 @@ import {
   handleRevokeShare,
   handleUnlockShare,
 } from '../storage/cloudflare/shares.js'
+import {
+  handleGetOpen,
+  handleGetOpenData,
+} from '../storage/cloudflare/open.js'
+import {
+  signOpenToken,
+  OPEN_TOKEN_DEFAULT_TTL_SECONDS,
+} from '../storage/cloudflare/open-token.js'
+import type { MintOpenResult } from '../tools/OpenTool.js'
 import {
   handleDeviceAuthorize,
   handleDeviceCode,
@@ -514,6 +524,30 @@ const handler: ExportedHandler<HuoziCloudflareBindings> = {
       )
       if (m) {
         return handleGetShareData(request, env, m[1]!, m[2]!)
+      }
+    }
+
+    // GET|HEAD /o/<token>/data/<...> — sibling-file data proxy for the
+    // open-token HTML render, mirror of /shares/<slug>/data/. Must be
+    // matched BEFORE the bare /o/<token> catch-all below — the token is
+    // a JWT (base64url + dots, never slashes), so `[^/]+` captures it
+    // whole and the `/data/` segment disambiguates.
+    {
+      const m = url.pathname.match(/^\/o\/([^/]+)\/data\/(.+)$/)
+      if (m) {
+        return handleGetOpenData(request, env, m[1]!, m[2]!)
+      }
+    }
+
+    // GET /o/<token> — short-lived render endpoint, sister of /shares/.
+    // The token is a JWT signed by `huozi_open` (no D1 row). On verify,
+    // we serve the current bytes for the file_path bound in the token.
+    // Returns JSON envelope so Next.js `/o/[token]/page.tsx` SSR can
+    // run the same renderForPath pipeline as the share path.
+    {
+      const m = url.pathname.match(/^\/o\/(.+)$/)
+      if (m) {
+        return handleGetOpen(request, env, m[1]!)
       }
     }
 
@@ -1226,6 +1260,54 @@ async function handleMcp(
       // Edge deploys override via HUOZI_PUBLIC_BASE; default keeps the
       // hosted huozi.app build working with zero config.
       publicBase: env.HUOZI_PUBLIC_BASE ?? 'https://huozi.app',
+    },
+    openDeps: {
+      // Sister to shareDeps but stateless — validates the file exists,
+      // signs a single-file JWT, returns `<publicBase>/o/<token>`. No
+      // D1 row, no slug; the URL IS the credential.
+      mintOpenUrl: async (principal, input): Promise<MintOpenResult> => {
+        const filePath = (input.file_path ?? '').trim()
+        if (!filePath || filePath.length > 4096) {
+          return { ok: false, error: 'invalid_file_path' }
+        }
+        const absolutePath = principal.scopePath
+          ? principal.scopePath + '/' + filePath.replace(/^\/+/, '')
+          : filePath
+        const current = await currentBlobForPath(
+          env,
+          principal.workspaceId,
+          absolutePath,
+        )
+        if (!current) {
+          return { ok: false, error: 'file_not_found', message: filePath }
+        }
+        const secret = (env as { HUOZI_AUTH_SECRET?: string }).HUOZI_AUTH_SECRET
+        if (!secret || secret.length < 32) {
+          return {
+            ok: false,
+            error: 'internal',
+            message: 'HUOZI_AUTH_SECRET not configured',
+          }
+        }
+        const ttl =
+          input.expires_in_seconds && input.expires_in_seconds > 0
+            ? input.expires_in_seconds
+            : OPEN_TOKEN_DEFAULT_TTL_SECONDS
+        const { token, expiresAt } = await signOpenToken(secret, {
+          workspaceId: principal.workspaceId,
+          filePath: absolutePath,
+          scopePath: principal.scopePath,
+          principalId: principal.principalId,
+          ttlSeconds: ttl,
+        })
+        const base = env.HUOZI_PUBLIC_BASE ?? 'https://huozi.app'
+        return {
+          ok: true,
+          url: `${base}/o/${token}`,
+          file_path: filePath,
+          expires_at: expiresAt,
+        }
+      },
     },
     whoamiDeps: {
       // Bake env + this request's principal/keyHash into a closure so the

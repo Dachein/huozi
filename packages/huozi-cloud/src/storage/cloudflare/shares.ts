@@ -80,7 +80,7 @@ function normalizeTtlSeconds(raw: unknown): number | null | 'invalid' {
 
 // ── Internal helpers ────────────────────────────────────────────────────
 
-async function currentBlobForPath(
+export async function currentBlobForPath(
   env: HuoziCloudflareBindings,
   workspaceId: string,
   filePath: string,
@@ -102,7 +102,7 @@ async function currentBlobForPath(
   return { blob_sha: row.blob_sha, commit_sha: commit?.commit_sha ?? null }
 }
 
-async function fetchBlobContent(
+export async function fetchBlobContent(
   env: HuoziCloudflareBindings,
   blob_sha: string,
 ): Promise<{ bytes: Uint8Array; size: number } | null> {
@@ -933,9 +933,6 @@ export async function handleGetShareData(
   if (!SLUG_RE.test(slug)) {
     return Response.json({ error: 'bad_slug' }, { status: 400 })
   }
-  if (!dataPath || dataPath.includes('..') || dataPath.startsWith('/')) {
-    return Response.json({ error: 'bad_data_path' }, { status: 400 })
-  }
   const row = await env.DB.prepare(
     `SELECT * FROM shares
      WHERE slug = ?
@@ -951,11 +948,55 @@ export async function handleGetShareData(
     return Response.json({ error: 'locked' }, { status: 403 })
   }
 
-  // Load the share's main file bytes to extract the include allowlist.
-  // This is the same blob the public share endpoint serves — at most
-  // one extra fetch per data request, acceptable for MVP without a
-  // separate include-list column in `shares`.
-  const main = await currentBlobForPath(env, row.workspace_id, row.file_path)
+  // Public shares serve data live: revalidate at the edge every request
+  // so HTML pages see author edits without a hard refresh. Allowlist +
+  // sibling resolution + byte-serving are shared with the /o open-token
+  // surface via serveIncludedSiblingData.
+  return serveIncludedSiblingData(
+    env,
+    row.workspace_id,
+    row.file_path,
+    dataPath,
+    request.method as 'GET' | 'HEAD',
+    'public, max-age=0, must-revalidate',
+  )
+}
+
+/**
+ * Serve a sibling data file declared in an HTML host's
+ * `<meta huozi:share-include>` allowlist. Shared by the public share
+ * proxy (`/p/<slug>/d/*`) and the open-token proxy (`/o/<token>/d/*`):
+ * both reduce to "this HTML may fetch exactly the siblings it named".
+ *
+ * The caller supplies the already-authorized `(workspaceId,
+ * hostFilePath)` pair — `/p` derives it from the share row, `/o` from
+ * the verified token's `fp` claim. This function owns the parts that
+ * are identical across surfaces:
+ *   - path with `..` or leading `/`         → 400
+ *   - host file gone / unreadable           → 410
+ *   - dataPath not in the include list      → 403
+ *   - sibling resolved relative to host dir → 404 if absent
+ *
+ * `cacheControl` lets each surface pick its caching contract: public
+ * shares revalidate at the edge (live dashboards); open tokens pass
+ * `no-store` since the URL embeds a short-lived credential.
+ */
+export async function serveIncludedSiblingData(
+  env: HuoziCloudflareBindings,
+  workspaceId: string,
+  hostFilePath: string,
+  dataPath: string,
+  method: 'GET' | 'HEAD',
+  cacheControl: string,
+): Promise<Response> {
+  if (!dataPath || dataPath.includes('..') || dataPath.startsWith('/')) {
+    return Response.json({ error: 'bad_data_path' }, { status: 400 })
+  }
+
+  // Load the host file bytes to extract the include allowlist. One extra
+  // blob fetch per data request — acceptable without a separate
+  // include-list column.
+  const main = await currentBlobForPath(env, workspaceId, hostFilePath)
   if (!main) {
     return Response.json({ error: 'file_no_longer_exists' }, { status: 410 })
   }
@@ -971,11 +1012,11 @@ export async function handleGetShareData(
     return Response.json({ error: 'not_in_include_list' }, { status: 403 })
   }
 
-  // Resolve dataPath relative to the share file's directory.
-  const sharedDir = dirname(row.file_path)
-  const absolutePath = sharedDir ? sharedDir + '/' + dataPath : dataPath
+  // Resolve dataPath relative to the host file's directory.
+  const hostDir = dirname(hostFilePath)
+  const absolutePath = hostDir ? hostDir + '/' + dataPath : dataPath
 
-  const current = await currentBlobForPath(env, row.workspace_id, absolutePath)
+  const current = await currentBlobForPath(env, workspaceId, absolutePath)
   if (!current) {
     return Response.json({ error: 'data_not_found' }, { status: 404 })
   }
@@ -985,18 +1026,14 @@ export async function handleGetShareData(
   }
 
   const contentType = guessDataMime(absolutePath)
-  const body =
-    request.method === 'HEAD' ? null : (blob.bytes.buffer as ArrayBuffer)
+  const body = method === 'HEAD' ? null : (blob.bytes.buffer as ArrayBuffer)
   return new Response(body, {
     status: 200,
     headers: {
       'Content-Type': contentType,
       'Content-Length': String(blob.size),
-      // Live-mode contract: revalidate every request so HTML pages see
-      // the latest data without hard-refresh. Bytes are still cacheable
-      // by ETag (sha-derived) for unchanged blobs.
-      'Cache-Control': 'public, max-age=0, must-revalidate',
       'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': cacheControl,
       ETag: `"${current.blob_sha}"`,
     },
   })
