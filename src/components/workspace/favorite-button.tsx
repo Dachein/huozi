@@ -10,6 +10,7 @@
  */
 
 import { useFavorites } from "./favorites-context";
+import { useT } from "@/lib/i18n/context";
 
 export function FavoriteButton({
   path,
@@ -18,8 +19,10 @@ export function FavoriteButton({
   path: string;
   variant?: "toolbar" | "row";
 }) {
+  const t = useT();
   const { isFavorited, toggle } = useFavorites();
   const fav = isFavorited(path);
+  const label = t(fav ? "favorites.unpin" : "favorites.pin");
 
   const onClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -31,9 +34,9 @@ export function FavoriteButton({
     return (
       <button
         type="button"
-        aria-label={fav ? "取消收藏" : "收藏"}
+        aria-label={label}
         aria-pressed={fav}
-        title={fav ? "取消收藏" : "收藏"}
+        title={label}
         onClick={onClick}
         className={`shrink-0 inline-flex items-center justify-center rounded p-0.5 transition-opacity transition-colors hover:bg-muted/60 ${
           fav
@@ -41,7 +44,7 @@ export function FavoriteButton({
             : "opacity-0 group-hover:opacity-100 focus:opacity-100 text-muted-foreground hover:text-foreground"
         }`}
       >
-        <StarIcon filled={fav} size={14} />
+        <PinIcon filled={fav} size={14} />
       </button>
     );
   }
@@ -59,25 +62,29 @@ export function FavoriteButton({
           : "border-border text-muted-foreground hover:border-foreground/40 hover:bg-muted/60 hover:text-foreground"
       }`}
     >
-      <StarIcon filled={fav} size={16} />
+      <PinIcon filled={fav} size={16} />
     </button>
   );
 }
 
-function StarIcon({ filled, size }: { filled: boolean; size: number }) {
+function PinIcon({ filled, size }: { filled: boolean; size: number }) {
   return (
     <svg
       viewBox="0 0 24 24"
       width={size}
       height={size}
-      fill={filled ? "currentColor" : "none"}
+      fill="none"
       stroke="currentColor"
       strokeWidth="1.6"
       strokeLinejoin="round"
       strokeLinecap="round"
       aria-hidden="true"
     >
-      <path d="M12 3.5l2.6 5.27 5.82.85-4.21 4.1.99 5.79L12 16.9l-5.2 2.6.99-5.79-4.21-4.1 5.82-.85L12 3.5z" />
+      <line x1="12" y1="17" x2="12" y2="22" />
+      <path
+        d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"
+        fill={filled ? "currentColor" : "none"}
+      />
     </svg>
   );
 }
