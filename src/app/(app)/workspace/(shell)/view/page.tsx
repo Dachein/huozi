@@ -6,6 +6,7 @@ import { FileRenderer } from "@/components/workspace/file-renderer";
 import { CloudLiveEvents } from "@/components/workspace/cloud-live-events";
 import { LiveUpdateBanner } from "@/components/workspace/live-update-banner";
 import { FileActionsMenu } from "@/components/workspace/file-actions-menu";
+import { PinButton } from "@/components/workspace/pin-button";
 import { FullscreenProvider } from "@/components/workspace/fullscreen-context";
 import { FullscreenToggleButton } from "@/components/workspace/fullscreen-toggle-button";
 import {
@@ -176,6 +177,7 @@ async function FileView({
               orientation={pagerOrientationFor(htmlFormat)}
             />
             <FullscreenToggleButton enabled={fullscreenMode !== null} />
+            <PinButton path={path} />
             <FileActionsMenu
               path={path}
               wantRaw={wantRaw}

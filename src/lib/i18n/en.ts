@@ -50,6 +50,9 @@ export const en = {
 
   // Workspace · Recent panel
   "recent.title": "Recent",
+  "pin.title": "Pinned",
+  "pin.add": "Pin",
+  "pin.remove": "Unpin",
   "recent.op.new": "new",
   "recent.op.edited": "edited",
   "recent.op.deleted": "deleted",

@@ -49,6 +49,9 @@ export const zh = {
 
   // 云盘 · Recent 面板
   "recent.title": "最近",
+  "pin.title": "置顶",
+  "pin.add": "置顶",
+  "pin.remove": "取消置顶",
   "recent.op.new": "新建",
   "recent.op.edited": "编辑",
   "recent.op.deleted": "删除",
