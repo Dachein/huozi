@@ -50,9 +50,9 @@ export const fr = {
 
   // Workspace · panneau Récent
   "recent.title": "Récent",
-  "favorites.title": "Épinglé",
-  "favorites.pin": "Épingler",
-  "favorites.unpin": "Désépingler",
+  "pin.title": "Épinglé",
+  "pin.add": "Épingler",
+  "pin.remove": "Désépingler",
   "recent.op.new": "nouveau",
   "recent.op.edited": "modifié",
   "recent.op.deleted": "supprimé",

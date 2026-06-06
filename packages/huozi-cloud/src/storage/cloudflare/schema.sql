@@ -485,14 +485,14 @@ CREATE INDEX IF NOT EXISTS idx_email_aliases_user
 CREATE INDEX IF NOT EXISTS idx_email_aliases_active
   ON email_aliases (active);
 
--- ── File favorites ──────────────────────────────────────────────────────
+-- ── File pins ──────────────────────────────────────────────────────
 --
 -- One row per (workspace, principal, file_path) a user has starred. Backs
--- the miniapp / web "favorites" list. Scoped to the issuing principal so two
+-- the miniapp / web "pins" list. Scoped to the issuing principal so two
 -- users in the same workspace keep independent stars. `file_path` is stored
 -- verbatim as the client sees it (no scope rewriting); the same principal
 -- always reads/writes with the same path convention, so it round-trips.
-CREATE TABLE IF NOT EXISTS favorites (
+CREATE TABLE IF NOT EXISTS pins (
   workspace_id TEXT NOT NULL,
   principal_id TEXT NOT NULL,
   file_path    TEXT NOT NULL,
@@ -500,5 +500,5 @@ CREATE TABLE IF NOT EXISTS favorites (
   PRIMARY KEY (workspace_id, principal_id, file_path)
 );
 
-CREATE INDEX IF NOT EXISTS idx_favorites_ws_principal
-  ON favorites (workspace_id, principal_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_pins_ws_principal
+  ON pins (workspace_id, principal_id, created_at);

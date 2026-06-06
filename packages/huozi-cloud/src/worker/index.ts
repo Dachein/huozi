@@ -79,7 +79,7 @@ import {
   sweepExpiredTickets,
 } from '../storage/cloudflare/events.js'
 import { handleRecent } from '../storage/cloudflare/recent.js'
-import { handleFavorites } from '../storage/cloudflare/favorites.js'
+import { handlePins } from '../storage/cloudflare/pins.js'
 import { fetchWhoami } from '../storage/cloudflare/whoami.js'
 import { WHOAMI_TOOL_NAME } from '../tools/WhoamiTool.js'
 import {
@@ -479,13 +479,13 @@ const handler: ExportedHandler<HuoziCloudflareBindings> = {
       return handleRecent(request, env)
     }
 
-    // GET/POST/DELETE /me/favorites — per-principal file favorites backing
-    // the miniapp / web "starred files" list. Bearer-authed, not an MCP tool
+    // GET/POST/DELETE /me/pins — per-principal file pins backing
+    // the miniapp / web "pinned files" list. Bearer-authed, not an MCP tool
     // (same rationale as /events/recent). Mounted under /me/* so it matches
     // the worker's existing route pattern on cloud.huozi.app — everything
     // outside the listed prefixes falls through to the Next.js worker.
-    if (url.pathname === '/me/favorites') {
-      return handleFavorites(request, env)
+    if (url.pathname === '/me/pins') {
+      return handlePins(request, env)
     }
 
     // Public shares — `huozi.app/p/<slug>` backing endpoints.

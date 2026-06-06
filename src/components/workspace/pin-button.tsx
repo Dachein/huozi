@@ -1,18 +1,18 @@
 "use client";
 
 /**
- * Star toggle backed by <FavoritesProvider>. Two variants:
+ * Star toggle backed by <PinProvider>. Two variants:
  *   - "toolbar": bordered 32px button for the file detail header.
- *   - "row": tiny inline star for file-tree / favorites-panel rows;
- *     hidden until row hover unless the file is already favorited.
+ *   - "row": tiny inline star for file-tree / pins-panel rows;
+ *     hidden until row hover unless the file is already pinned.
  *
  * Always stops propagation so toggling never triggers the row's navigation.
  */
 
-import { useFavorites } from "./favorites-context";
+import { usePins } from "./pin-context";
 import { useT } from "@/lib/i18n/context";
 
-export function FavoriteButton({
+export function PinButton({
   path,
   variant = "toolbar",
 }: {
@@ -20,9 +20,9 @@ export function FavoriteButton({
   variant?: "toolbar" | "row";
 }) {
   const t = useT();
-  const { isFavorited, toggle } = useFavorites();
-  const fav = isFavorited(path);
-  const label = t(fav ? "favorites.unpin" : "favorites.pin");
+  const { isPinned, toggle } = usePins();
+  const pinned = isPinned(path);
+  const label = t(pinned ? "pin.remove" : "pin.add");
 
   const onClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -35,16 +35,16 @@ export function FavoriteButton({
       <button
         type="button"
         aria-label={label}
-        aria-pressed={fav}
+        aria-pressed={pinned}
         title={label}
         onClick={onClick}
         className={`shrink-0 inline-flex items-center justify-center rounded p-0.5 transition-opacity transition-colors hover:bg-muted/60 ${
-          fav
+          pinned
             ? "opacity-100 text-amber-500"
             : "opacity-0 group-hover:opacity-100 focus:opacity-100 text-muted-foreground hover:text-foreground"
         }`}
       >
-        <PinIcon filled={fav} size={14} />
+        <PinIcon filled={pinned} size={14} />
       </button>
     );
   }
@@ -52,17 +52,17 @@ export function FavoriteButton({
   return (
     <button
       type="button"
-      aria-label={fav ? "取消收藏" : "收藏"}
-      aria-pressed={fav}
-      title={fav ? "取消收藏" : "收藏"}
+      aria-label={label}
+      aria-pressed={pinned}
+      title={label}
       onClick={onClick}
       className={`huozi-button inline-flex items-center justify-center rounded-md border h-8 w-8 transition-colors ${
-        fav
+        pinned
           ? "border-amber-400/60 bg-amber-50/40 text-amber-500"
           : "border-border text-muted-foreground hover:border-foreground/40 hover:bg-muted/60 hover:text-foreground"
       }`}
     >
-      <PinIcon filled={fav} size={16} />
+      <PinIcon filled={pinned} size={16} />
     </button>
   );
 }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Fragment, useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { FileIcon } from "@/components/workspace/file-icon";
-import { FavoriteButton } from "@/components/workspace/favorite-button";
+import { PinButton } from "@/components/workspace/pin-button";
 import { FolderAclModal } from "@/components/workspace/folder-acl-modal";
 import { useWorkspaceNav } from "@/components/workspace/nav-pending";
 import { useT } from "@/lib/i18n/context";
@@ -835,7 +835,7 @@ function FileLeafLink({
     >
       <FileIcon name={name} isDir={isDir} />
       <span className="text-sm font-mono truncate flex-1 min-w-0">{name}</span>
-      {path && !isDir && <FavoriteButton path={path} variant="row" />}
+      {path && !isDir && <PinButton path={path} variant="row" />}
     </Link>
   );
 }

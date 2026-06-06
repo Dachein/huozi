@@ -1,11 +1,11 @@
 /**
- * GET  /api/app/favorites              → list the signed-in user's favorites
- * POST /api/app/favorites  { file_path, favorited }
- *                                       → add (favorited !== false) / remove
+ * GET  /api/app/pins              → list the signed-in user's pins
+ * POST /api/app/pins  { file_path, pinned }
+ *                                       → add (pinned !== false) / remove
  *
  * Thin proxy: reads the huozi-cloud key cookie and forwards to the worker's
- * Bearer-auth `/me/favorites` (same per-principal store the miniapp uses, so
- * stars stay in sync across web + mobile). Mirrors the /api/app/project flow.
+ * Bearer-auth `/me/pins` (same per-principal store the miniapp uses, so
+ * pins stay in sync across web + mobile). Mirrors the /api/app/project flow.
  */
 
 import { cookies } from "next/headers";
@@ -23,7 +23,7 @@ export async function GET(): Promise<NextResponse> {
   if (!key) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
-  const res = await cloudFetch("/me/favorites", {
+  const res = await cloudFetch("/me/pins", {
     method: "GET",
     headers: { Authorization: `Bearer ${key}` },
     cache: "no-store",
@@ -40,9 +40,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
 
-  let body: { file_path?: unknown; favorited?: unknown };
+  let body: { file_path?: unknown; pinned?: unknown };
   try {
-    body = (await req.json()) as { file_path?: unknown; favorited?: unknown };
+    body = (await req.json()) as { file_path?: unknown; pinned?: unknown };
   } catch {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "invalid_file_path" }, { status: 400 });
   }
 
-  const res = await cloudFetch("/me/favorites", {
+  const res = await cloudFetch("/me/pins", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${key}`,
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     },
     body: JSON.stringify({
       file_path: body.file_path,
-      favorited: body.favorited !== false,
+      pinned: body.pinned !== false,
     }),
   });
   const out = (await res.json().catch(() => ({}))) as unknown;

@@ -1,27 +1,27 @@
 "use client";
 
 /**
- * "Favorites" pane in the workspace sidebar — sibling of <RecentPanel>.
- * Lists the user's starred files (from <FavoritesProvider>); hidden when
+ * "Pins" pane in the workspace sidebar — sibling of <RecentPanel>.
+ * Lists the user's pinned files (from <PinProvider>); hidden when
  * empty. Each row navigates to the file and carries an inline star to
- * unfavorite in place.
+ * unpin in place.
  */
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { FavoriteButton } from "./favorite-button";
-import { useFavorites } from "./favorites-context";
+import { PinButton } from "./pin-button";
+import { usePins } from "./pin-context";
 import { FileIcon } from "@/components/workspace/file-icon";
 import { useWorkspaceNav } from "@/components/workspace/nav-pending";
 import { useT } from "@/lib/i18n/context";
 
-export function FavoritesPanel({
+export function PinsPanel({
   currentPath: currentPathProp,
 }: {
   currentPath?: string | null;
 }) {
   const t = useT();
-  const { favorites } = useFavorites();
+  const { pins } = usePins();
   const pathname = usePathname();
   const search = useSearchParams();
   const derivedPath =
@@ -30,24 +30,24 @@ export function FavoritesPanel({
       : null;
   const currentPath = currentPathProp ?? derivedPath;
 
-  const list = [...favorites].sort((a, b) => a.localeCompare(b));
+  const list = [...pins].sort((a, b) => a.localeCompare(b));
   if (list.length === 0) return null;
 
   return (
     <div className="border-b border-border/50">
       <div className="px-3 py-2 text-[10px] uppercase tracking-wider text-muted-foreground">
-        {t("favorites.title")}
+        {t("pin.title")}
       </div>
       <ul className="px-1 pb-2 space-y-0.5 max-h-64 overflow-y-auto">
         {list.map((p) => (
-          <FavoriteRow key={p} path={p} current={p === currentPath} />
+          <PinRow key={p} path={p} current={p === currentPath} />
         ))}
       </ul>
     </div>
   );
 }
 
-function FavoriteRow({
+function PinRow({
   path,
   current,
 }: {
@@ -89,7 +89,7 @@ function FavoriteRow({
             </span>
           )}
         </span>
-        <FavoriteButton path={path} variant="row" />
+        <PinButton path={path} variant="row" />
       </Link>
     </li>
   );
