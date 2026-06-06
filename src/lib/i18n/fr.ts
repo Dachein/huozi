@@ -50,6 +50,7 @@ export const fr = {
 
   // Workspace · panneau Récent
   "recent.title": "Récent",
+  "favorites.title": "Favoris",
   "recent.op.new": "nouveau",
   "recent.op.edited": "modifié",
   "recent.op.deleted": "supprimé",

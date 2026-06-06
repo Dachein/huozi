@@ -5,6 +5,8 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FileTree, type MemberLite } from "./file-tree";
 import { RecentPanel } from "./recent-panel";
+import { FavoritesPanel } from "./favorites-panel";
+import { FavoritesProvider } from "./favorites-context";
 import { NavLoadingBar, WorkspaceNavProvider } from "./nav-pending";
 import { useT } from "@/lib/i18n/context";
 import type { RecentEntry } from "@/lib/drive/mcp-client";
@@ -93,6 +95,7 @@ export function WorkspaceShell({
 
   return (
     <WorkspaceNavProvider>
+    <FavoritesProvider>
     <div className="flex flex-col lg:flex-row flex-1 min-h-0">
       {/* Mobile top strip (hamburger) — hidden on lg+.
           Exit / language now live in the AppHeader's UserMenu, so this
@@ -117,6 +120,7 @@ export function WorkspaceShell({
       {/* Desktop fixed tree ≥ lg */}
       <aside className="huozi-shell-panel hidden lg:flex lg:flex-col lg:w-72 lg:shrink-0 lg:border-r lg:border-border/50 lg:h-[calc(100vh-var(--shell-header-height))] lg:sticky lg:top-[var(--shell-header-height)] lg:overflow-hidden">
         <TreeHeader numFiles={numFiles} truncated={truncated} />
+        <FavoritesPanel currentPath={currentPath ?? null} />
         {recent && recent.length > 0 && (
           <RecentPanel initial={recent} currentPath={currentPath ?? null} />
         )}
@@ -143,6 +147,7 @@ export function WorkspaceShell({
             truncated={truncated}
             onClose={() => setDrawerOpen(false)}
           />
+          <FavoritesPanel currentPath={currentPath ?? null} />
           {recent && recent.length > 0 && (
             <RecentPanel initial={recent} currentPath={currentPath ?? null} />
           )}
@@ -174,6 +179,7 @@ export function WorkspaceShell({
         </div>
       </main>
     </div>
+    </FavoritesProvider>
     </WorkspaceNavProvider>
   );
 }

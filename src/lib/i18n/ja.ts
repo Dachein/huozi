@@ -49,6 +49,7 @@ export const ja = {
 
   // ワークスペース · 最近パネル
   "recent.title": "最近",
+  "favorites.title": "お気に入り",
   "recent.op.new": "新規",
   "recent.op.edited": "編集",
   "recent.op.deleted": "削除",

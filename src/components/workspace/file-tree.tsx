@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Fragment, useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { FileIcon } from "@/components/workspace/file-icon";
+import { FavoriteButton } from "@/components/workspace/favorite-button";
 import { FolderAclModal } from "@/components/workspace/folder-acl-modal";
 import { useWorkspaceNav } from "@/components/workspace/nav-pending";
 import { useT } from "@/lib/i18n/context";
@@ -629,6 +630,7 @@ function TreeNode({
         selected={selected}
         paddingLeft={paddingLeft}
         name={node.name}
+        path={node.path}
       />
     </li>
   );
@@ -794,6 +796,7 @@ function FileLeafLink({
   selected,
   paddingLeft,
   name,
+  path,
   isDir = false,
 }: {
   href: string;
@@ -801,6 +804,7 @@ function FileLeafLink({
   selected: boolean;
   paddingLeft: number;
   name: string;
+  path?: string;
   isDir?: boolean;
 }) {
   const { navigate } = useWorkspaceNav();
@@ -826,11 +830,12 @@ function FileLeafLink({
         navigate(href);
       }}
       aria-current={selected ? "page" : undefined}
-      className={`huozi-row flex items-center gap-1.5 py-1.5 rounded transition-colors ${selected ? "bg-accent/10 text-accent" : "hover:bg-muted/60"}`}
+      className={`huozi-row group flex items-center gap-1.5 py-1.5 rounded transition-colors ${selected ? "bg-accent/10 text-accent" : "hover:bg-muted/60"}`}
       style={{ paddingLeft, paddingRight: 8 }}
     >
       <FileIcon name={name} isDir={isDir} />
-      <span className="text-sm font-mono truncate">{name}</span>
+      <span className="text-sm font-mono truncate flex-1 min-w-0">{name}</span>
+      {path && !isDir && <FavoriteButton path={path} variant="row" />}
     </Link>
   );
 }

@@ -50,6 +50,7 @@ export const en = {
 
   // Workspace · Recent panel
   "recent.title": "Recent",
+  "favorites.title": "Favorites",
   "recent.op.new": "new",
   "recent.op.edited": "edited",
   "recent.op.deleted": "deleted",
