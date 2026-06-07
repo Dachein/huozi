@@ -23,6 +23,7 @@ import {
 import { FileIcon } from "@/components/workspace/file-icon";
 import { isSystemPath } from "@/lib/file-types";
 import { useT } from "@/lib/i18n/context";
+import { useTheme } from "@/lib/theme/context";
 import type { RecentEntry } from "@/lib/drive/mcp-client";
 
 const DISPLAY_LIMIT = 10;
@@ -142,7 +143,8 @@ export function RecentPanel({
   return (
     <div className="border-b border-border/50">
       <div className="px-3 py-2 flex items-center justify-between gap-2">
-        <div className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">
+        <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">
+          <ClockIcon />
           {t("recent.title")}
         </div>
         <div
@@ -198,6 +200,29 @@ function ViewTab({
     >
       {label}
     </button>
+  );
+}
+
+/** Section category glyph for "最近" — a clock (time-ordered). Stroke
+ *  thickens under brutal-mono to match the theme's heavier line work. */
+function ClockIcon() {
+  const theme = useTheme();
+  const sw = theme === "brutal-mono" ? 2.2 : 1.6;
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={11}
+      height={11}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={sw}
+      strokeLinecap={theme === "brutal-mono" ? "butt" : "round"}
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3.5 2" />
+    </svg>
   );
 }
 

@@ -9,7 +9,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { PinButton } from "./pin-button";
+import { PinButton, PinIcon } from "./pin-button";
 import { usePins } from "./pin-context";
 import { FileIcon } from "@/components/workspace/file-icon";
 import { useWorkspaceNav } from "@/components/workspace/nav-pending";
@@ -35,7 +35,8 @@ export function PinsPanel({
 
   return (
     <div className="border-b border-border/50">
-      <div className="px-3 py-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+      <div className="px-3 py-2 flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+        <PinIcon filled size={11} />
         {t("pin.title")}
       </div>
       <ul className="px-1 pb-2 space-y-0.5 max-h-64 overflow-y-auto">
@@ -89,7 +90,7 @@ function PinRow({
             </span>
           )}
         </span>
-        <PinButton path={path} variant="row" />
+        <PinButton path={path} variant="row" revealOnHover />
       </Link>
     </li>
   );
