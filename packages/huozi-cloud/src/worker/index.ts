@@ -80,6 +80,10 @@ import {
 } from '../storage/cloudflare/events.js'
 import { handleRecent } from '../storage/cloudflare/recent.js'
 import { handlePins } from '../storage/cloudflare/pins.js'
+import {
+  handleRecordOpen,
+  handleRecentOpens,
+} from '../storage/cloudflare/opens.js'
 import { fetchWhoami } from '../storage/cloudflare/whoami.js'
 import { WHOAMI_TOOL_NAME } from '../tools/WhoamiTool.js'
 import {
@@ -346,11 +350,22 @@ HTML — sandbox & libraries
         For mermaid that's:
           mermaid.initialize({ startOnLoad: false, theme: 'default' });
           mermaid.run();
+      External data (api-data): declare huozi:bundle="api-data" → exposes
+        window.huozi.market.* (live Yahoo market data via the hosted data
+        plane; chart/quote/quoteSummary/search; also <div data-market="AAPL">).
+        First source of the \`api-data\` framework (external data; the
+        sibling of the \`data\` bundle which reads your own workspace jsonl).
+        Works only inside huozi-rendered pages.
       Reserved (not yet wired — declaring it is a no-op, validator
       still accepts the key): chartjs, vega-lite
       For most dashboards prefer plain SVG (zero JS) or ECharts; uPlot
       only for time-series above ~1 k points.
     Pages without huozi:bundle ship zero JS.
+  - Before authoring, call huozi_capabilities() for the full catalog of
+    data sources + renderers (echarts / mermaid / svg / data-jsonl /
+    api-data-market), each with 原理/规则/边界/Example; pass { id } for one
+    capability's full guide. It's the generative companion to
+    huozi_validate_rules (the corrective gate).
   - Optional: <meta name="huozi:theme" content="light|dark|auto">,
               <meta name="huozi:font"  content="sans|serif|mono">
 
@@ -487,6 +502,13 @@ const handler: ExportedHandler<HuoziCloudflareBindings> = {
     }
     if (url.pathname === '/events/recent') {
       return handleRecent(request, env)
+    }
+    // Per-user file-open tracking (last *opened*, vs /recent's last *edited*).
+    if (url.pathname === '/events/open') {
+      return handleRecordOpen(request, env)
+    }
+    if (url.pathname === '/events/opens') {
+      return handleRecentOpens(request, env)
     }
 
     // GET/POST/DELETE /me/pins — per-principal file pins backing

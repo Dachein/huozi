@@ -31,6 +31,7 @@ import { createRmTool } from '../tools/RmTool.js'
 import { createShareTool, type ShareToolDeps } from '../tools/ShareTool.js'
 import { createOpenTool, type OpenToolDeps } from '../tools/OpenTool.js'
 import { createTemplateTool } from '../tools/TemplateTool/index.js'
+import { createCapabilitiesTool } from '../tools/CapabilitiesTool.js'
 import { createUploadTool } from '../tools/UploadTool/index.js'
 import { createValidateRulesTool } from '../tools/ValidateRulesTool.js'
 import { createValidateTool } from '../tools/ValidateTool.js'
@@ -99,6 +100,7 @@ export function createHuoziToolRegistry(
     createUploadTool({ storage }),
     createValidateTool({ storage }),
     createValidateRulesTool(),
+    createCapabilitiesTool(),
   ]
   if (shareDeps) {
     tools.push(createShareTool(shareDeps))

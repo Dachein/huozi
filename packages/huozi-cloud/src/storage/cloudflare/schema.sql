@@ -502,3 +502,19 @@ CREATE TABLE IF NOT EXISTS pins (
 
 CREATE INDEX IF NOT EXISTS idx_pins_ws_principal
   ON pins (workspace_id, principal_id, created_at);
+-- Per-user file-open tracking. Distinct from `commits` (last *edit*): this
+-- records when a user actually *opened/viewed* a file, an explicit UI signal
+-- POSTed to /events/open. Keyed by principal_id (a user's keys share one),
+-- so "last opened" is per-user and cross-device. See migration
+-- 0013_file_opens.sql. NOTE: also created lazily at runtime by opens.ts
+-- because the deploy token lacks D1-management perms (7403).
+CREATE TABLE IF NOT EXISTS file_opens (
+  workspace_id  TEXT NOT NULL,
+  principal_id  TEXT NOT NULL,
+  path          TEXT NOT NULL,
+  opened_at     INTEGER NOT NULL,
+  PRIMARY KEY (workspace_id, principal_id, path)
+);
+
+CREATE INDEX IF NOT EXISTS idx_file_opens_recent
+  ON file_opens (workspace_id, principal_id, opened_at DESC);

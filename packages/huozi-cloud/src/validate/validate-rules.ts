@@ -145,6 +145,15 @@ export const VALIDATION_RULES: ValidationRule[] = [
       "Check the supported list and fix the typo, or drop the key and inline the library yourself if it's small.",
     docRef: 'toolbox-spec#2-bundles',
   },
+  {
+    code: 'capability-undeclared',
+    level: 'hint',
+    title: 'Uses a capability API without declaring its bundle',
+    why: "The doc calls a platform capability's runtime (e.g. huozi.market.*, echarts.init, mermaid.run, huozi.read) but didn't declare the matching huozi:bundle, so the global won't exist at runtime and the call throws.",
+    remedy:
+      'Declare the bundle in <head> (e.g. <meta name="huozi:bundle" content="api-data">). Call huozi_capabilities({ id }) for the capability\'s full guide + examples.',
+    docRef: 'toolbox-spec#2-bundles',
+  },
 
   // Geometry / scaling hygiene
   {
