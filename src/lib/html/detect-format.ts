@@ -26,6 +26,7 @@ export type HuoziFormat =
   | "story"
   | "paper"
   | "dashboard"
+  | "app"
   | "blog";
 
 const ALL: HuoziFormat[] = [
@@ -33,6 +34,7 @@ const ALL: HuoziFormat[] = [
   "story",
   "paper",
   "dashboard",
+  "app",
   "blog",
 ];
 
@@ -71,6 +73,7 @@ export function pagerOrientationFor(
     case "paper":
       return "vertical";
     case "dashboard":
+    case "app":
     case "blog":
       return null;
   }

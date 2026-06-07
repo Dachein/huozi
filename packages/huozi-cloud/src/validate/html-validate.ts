@@ -41,7 +41,16 @@ const ALL_FORMATS = new Set<HuoziFormat>([
   'story',
   'paper',
   'dashboard',
+  'app',
   'blog',
+])
+
+/** dashboard + app are canvas surfaces with no app-theme fallback in
+ *  the share viewer (`bg-transparent`), so a missing background leaves
+ *  cream bleed around the canvas — a publish bug. */
+const REQUIRES_BACKGROUND: ReadonlySet<HuoziFormat> = new Set<HuoziFormat>([
+  'dashboard',
+  'app',
 ])
 const DEPRECATED_FORMAT_VALUES = new Set<string>(['mobile', 'web'])
 const PAGINATED_FORMATS = new Set<HuoziFormat>(['deck', 'story', 'paper'])
@@ -52,6 +61,7 @@ const KNOWN_BUNDLES = new Set<string>([
   'marked',
   'echarts',
   'uplot',
+  'stock',
   'chartjs',
   'vega-lite',
 ])
@@ -214,6 +224,42 @@ function findDataPageSections(
 const SCRIPT_SRC_RE =
   /<script\b[^>]*\ssrc\s*=\s*["']?(https?:[^"'\s>]+)["']?[^>]*>/gi
 
+/** Detect any background-paint declaration the file makes — used to
+ *  decide whether dashboard / app surfaces have an explicit theme. */
+function hasBackgroundDeclaration(html: string): boolean {
+  if (
+    /<meta\s+name=["']huozi:background["']\s+content=["'][^"']+["']/i.test(
+      html,
+    )
+  ) {
+    return true
+  }
+  const styleRe = /<style\b[^>]*>([\s\S]*?)<\/style>/gi
+  let m: RegExpExecArray | null
+  while ((m = styleRe.exec(html)) !== null) {
+    const css = m[1] ?? ''
+    const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '')
+    const ruleRe = /([^{}]+)\{([^{}]*)\}/g
+    let r: RegExpExecArray | null
+    while ((r = ruleRe.exec(stripped)) !== null) {
+      const selector = r[1] ?? ''
+      const body = r[2] ?? ''
+      if (!/\bbackground\b/.test(body)) continue
+      if (/(^|[,\s>])(html|body|:root)([,\s.{:]|$)/.test(selector)) {
+        return true
+      }
+    }
+  }
+  const bodyTag = html.match(/<body\b[^>]*>/i)
+  if (bodyTag) {
+    const styleAttr = bodyTag[0].match(/style=["']([^"']*)["']/i)
+    if (styleAttr && /\bbackground\b/.test(styleAttr[1] ?? '')) {
+      return true
+    }
+  }
+  return false
+}
+
 export function validateHuoziHtml(html: string): ValidationIssue[] {
   const issues: ValidationIssue[] = []
   const skip = buildSkipRanges(html)
@@ -270,6 +316,17 @@ export function validateHuoziHtml(html: string): ValidationIssue[] {
         message: `推荐显式写 <meta name="huozi:format" content="${classFormat}">`,
       }),
     )
+  }
+
+  // ── Rule: dashboard + app must declare a background ──
+  if (REQUIRES_BACKGROUND.has(effectiveFormat)) {
+    if (!hasBackgroundDeclaration(html)) {
+      issues.push(
+        issueFromRule('canvas-background-missing', {
+          message: 'huozi:format=' + effectiveFormat + ' 必须声明背景；当前文件未在 <meta huozi:background>、style 块的 html/body/:root 或 body style 中找到 background',
+        }),
+      )
+    }
   }
 
   // Paginated structure

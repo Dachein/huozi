@@ -104,6 +104,13 @@ export const FORMAT_ASSETS: Record<HuoziFormat, FormatAssets> = {
   // (aspect-ratio container + [data-tab] mutual-exclusive visibility);
   // typography / decoration / grid is author's.
   dashboard: { css: ["/lib/huozi-layout-dashboard.css"] },
+  // app — mobile H5 single-screen UI. Platform ships no layout CSS
+  // initially — the canvas (375 × 812 contain) + author CSS own visual
+  // structure. We can promote shared status-bar / safe-area defaults
+  // here once we see real usage patterns. Validator will require a
+  // background declaration (no default fallback) so app surfaces never
+  // ship with a bare cream theme bleed.
+  app: { css: [] },
   // blog is the catch-all default — responsive long-flow content
   // (articles, landing pages, notes). No platform CSS; the author's
   // own responsive rules drive layout.
@@ -229,6 +236,27 @@ if (!window.huozi.__bus) {
     scripts: ["/lib/uplot-1.6.31.iife.min.js"],
     css: "/lib/uplot-1.6.31.min.css",
   },
+
+  // ─── stock — internal market-data runtime (Yahoo proxy SDK) ─────
+  // Loads the huozi-stock SDK from the data plane (data.huozi.app), a
+  // transparent CORS-adding Yahoo Finance proxy, and injects the access
+  // token. The publish sandbox strips author `<script src=…>`, so authors
+  // cannot load this themselves — declaring `huozi:bundle="stock"` is the
+  // only door, and the token is emitted only into docs that ask for it.
+  // That's the "internal use only" gate: data.huozi.app 403s any request
+  // without the token. Author then uses `HuoziStock.chart(...)` /
+  // `<div data-huozi-stock="AAPL">`; responses are Yahoo's shape verbatim.
+  stock: {
+    scripts: ["https://data.huozi.app/sdk/huozi-stock.js"],
+    // Eager so the token global exists before the deferred SDK runs.
+    // Read server-side from the worker secret; same pattern as the other
+    // HUOZI_* secrets accessed via process.env across this app.
+    eagerInit: () => {
+      const token = process.env.HUOZI_DATA_TOKEN ?? "";
+      return `window.__HUOZI_DATA_KEY__ = ${JSON.stringify(token)};`;
+    },
+  },
+
   // vega-lite, chartjs — reserved keys (see below). Vega-Lite's
   // grammar-of-graphics niche overlaps ~95% with ECharts at ~3x the
   // bytes (vega + vega-lite + vega-embed ≈ 800 KB raw / ~250 KB gzip),

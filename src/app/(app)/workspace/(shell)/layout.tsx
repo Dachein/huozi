@@ -49,6 +49,7 @@ export default async function WorkspaceShellLayout({
         numFiles={shell.glob.numFiles}
         truncated={shell.glob.truncated}
         recent={shell.recent}
+        projectFolders={shell.projectFolders}
         privatePrefixes={shell.privatePrefixes}
         members={shell.members.map((m) => ({
           user_id: m.user_id,

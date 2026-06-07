@@ -15,6 +15,7 @@ import {
   type RecentEntry,
 } from "@/lib/drive/mcp-client";
 import { memoize, invalidatePrefix } from "@/lib/memo-cache";
+import { isSystemPath } from "@/lib/file-types";
 
 /**
  * Per-request shared loader for the file-centric workspace shell. Wrapped
@@ -80,16 +81,50 @@ export const loadShellData = cache(async (): Promise<ShellData> => {
     ? globRes.data
     : { durationMs: 0, numFiles: 0, filenames: [], truncated: false };
 
+  // Project folders = any folder carrying `.huozi/memory.md`. Derived from
+  // the *raw* file list (the sentinel is itself a dot path that the filters
+  // below strip), and needed to classify `<project>/tasks.jsonl` as system.
+  const projectFolders = deriveProjectFolders(glob.filenames);
+
+  // `glob` stays raw: the FileTree owns its own hide-dot toggle + derives
+  // Project status from the raw paths, so feeding it a filtered list would
+  // break both. `visiblePaths` is the browse/search-facing list with system
+  // junk removed (assets are kept — they surface via the file-tree
+  // SYSTEM_DIRS and the recent "assets" tab).
+  const visiblePaths = glob.filenames.filter(
+    (p) => !isSystemPath(p, projectFolders),
+  );
+
+  // Recent: drop system paths (fixes `.huozi/*` writes leaking into Recent)
+  // but keep `__assets__` so the panel's assets tab isn't empty.
+  const visibleRecent = recent.filter((r) => !isSystemPath(r.path, projectFolders));
+
   return {
     glob,
+    visiblePaths,
+    projectFolders,
     globOk: globRes.ok,
     globError: globRes.ok ? null : globRes.message,
-    recent,
+    recent: visibleRecent,
     members,
     privatePrefixes,
     currentUserId: principal?.userId,
   };
 });
+
+const PROJECT_SENTINEL_SUFFIX = "/.huozi/memory.md";
+
+/** Folders carrying `.huozi/memory.md` — the Project marker. Used to
+ *  classify `<project>/tasks.jsonl` as a system path. */
+function deriveProjectFolders(filenames: string[]): string[] {
+  const out: string[] = [];
+  for (const p of filenames) {
+    if (p.endsWith(PROJECT_SENTINEL_SUFFIX)) {
+      out.push(p.slice(0, -PROJECT_SENTINEL_SUFFIX.length));
+    }
+  }
+  return out;
+}
 
 /** Canonical cache-key suffix derived from the user's api_key. Keys
  *  are opaque randoms, so a tail slice is uniquely identifying without
@@ -115,7 +150,13 @@ export function invalidateWorkspaceMeta(workspaceId: string): void {
 }
 
 export interface ShellData {
+  /** Raw file list — FileTree consumes this (owns its own dot-toggle and
+   *  derives Project status from the raw sentinel paths). */
   glob: GlobData;
+  /** Browse/search-facing file list with system junk removed (assets kept). */
+  visiblePaths: string[];
+  /** Folders carrying `.huozi/memory.md`; classifies project task stores. */
+  projectFolders: string[];
   globOk: boolean;
   globError: string | null;
   recent: RecentEntry[];
@@ -126,6 +167,8 @@ export interface ShellData {
 
 const EMPTY_SHELL: ShellData = {
   glob: { durationMs: 0, numFiles: 0, filenames: [], truncated: false },
+  visiblePaths: [],
+  projectFolders: [],
   globOk: true,
   globError: null,
   recent: [],

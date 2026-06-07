@@ -169,7 +169,8 @@ export function FullscreenContent({
     htmlFormat === "deck" ||
     htmlFormat === "story" ||
     htmlFormat === "dashboard" ||
-    htmlFormat === "paper";
+    htmlFormat === "paper" ||
+    htmlFormat === "app";
   const containerCls = isCanvas
     ? `overflow-hidden
        [&_.huozi-canvas-outer]:!w-screen [&_.huozi-canvas-outer]:!h-screen
@@ -185,9 +186,20 @@ export function FullscreenContent({
        [&_.huozi-html-host]:![aspect-ratio:auto]
        [&_.huozi-html-host]:!overflow-visible
        [&_.huozi-html-host]:!m-0`;
+  // Share view (alwaysOpen): the wrapper is an overlay (fixed inset-0
+  // z-50) that covers the document body. Painting it with bg-background
+  // (cream) erases whatever the file's <style> declared on html/body —
+  // the sanitizer injects e.g. `html, body { background: #0b0d12 }` for
+  // a dark dashboard, and that has to be visible. Use bg-transparent so
+  // the wrapper passes through to the body, which carries either the
+  // file's bg (dark dashboard / themed canvas) or the layout bg-background
+  // fallback (markdown blog with no body paint). Workspace fullscreen
+  // keeps bg-background so the explicit "close to enter workspace" stage
+  // still reads as part of the app shell, not as a publish surface.
+  const wrapperBg = alwaysOpen ? "bg-transparent" : "bg-background";
   return (
     <div
-      className={`fixed inset-0 z-50 bg-background ${containerCls}`}
+      className={`fixed inset-0 z-50 ${wrapperBg} ${containerCls}`}
       // Opt-in marker for the deck-only mobile-portrait auto-landscape CSS
       // baked into the deck template. Workspace inline preview never gets
       // this attribute, so its embed-sized 16:9 frame is preserved.

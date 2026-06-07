@@ -16,6 +16,9 @@ export interface WorkspaceShellProps {
   truncated: boolean;
   /** Seed data for the live-updating "Recent" pane. Safe to omit. */
   recent?: RecentEntry[];
+  /** Project folders (carry `.huozi/memory.md`) — lets RecentPanel filter
+   *  `<project>/tasks.jsonl` out of live commit updates. */
+  projectFolders?: string[];
   /** Main content. Rendered in the primary column. */
   children: React.ReactNode;
   // ── Folder-ACL surface (passed straight through to FileTree) ───────
@@ -38,6 +41,7 @@ export function WorkspaceShell({
   numFiles,
   truncated,
   recent,
+  projectFolders,
   children,
   privatePrefixes,
   members,
@@ -83,6 +87,7 @@ export function WorkspaceShell({
   const tree = (
     <FileTree
       paths={paths}
+      projectFolders={projectFolders ?? []}
       currentPath={currentPath ?? null}
       onNavigate={() => setDrawerOpen(false)}
       privatePrefixes={privatePrefixes}
@@ -118,7 +123,11 @@ export function WorkspaceShell({
       <aside className="huozi-shell-panel hidden lg:flex lg:flex-col lg:w-72 lg:shrink-0 lg:border-r lg:border-border/50 lg:h-[calc(100vh-var(--shell-header-height))] lg:sticky lg:top-[var(--shell-header-height)] lg:overflow-hidden">
         <TreeHeader numFiles={numFiles} truncated={truncated} />
         {recent && recent.length > 0 && (
-          <RecentPanel initial={recent} currentPath={currentPath ?? null} />
+          <RecentPanel
+            initial={recent}
+            projectFolders={projectFolders ?? []}
+            currentPath={currentPath ?? null}
+          />
         )}
         <div className="flex-1 min-h-0 overflow-y-auto">{tree}</div>
       </aside>
@@ -144,7 +153,11 @@ export function WorkspaceShell({
             onClose={() => setDrawerOpen(false)}
           />
           {recent && recent.length > 0 && (
-            <RecentPanel initial={recent} currentPath={currentPath ?? null} />
+            <RecentPanel
+              initial={recent}
+              projectFolders={projectFolders ?? []}
+              currentPath={currentPath ?? null}
+            />
           )}
           <div className="flex-1 min-h-0 overflow-y-auto">{tree}</div>
         </aside>

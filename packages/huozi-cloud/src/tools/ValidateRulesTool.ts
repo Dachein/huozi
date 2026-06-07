@@ -27,7 +27,7 @@ import type { Tool, ToolResult } from '../types.js'
 
 export const VALIDATE_RULES_TOOL_NAME = 'huozi_validate_rules'
 
-const HUOZI_FORMATS = ['deck', 'story', 'paper', 'dashboard', 'blog'] as const
+const HUOZI_FORMATS = ['deck', 'story', 'paper', 'dashboard', 'app', 'blog'] as const
 const LEVELS = ['error', 'warning', 'hint'] as const
 
 export const validateRulesInputSchema = z
