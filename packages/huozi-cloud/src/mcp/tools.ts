@@ -29,6 +29,7 @@ import { createMkdirTool } from '../tools/MkdirTool.js'
 import { createMvTool } from '../tools/MvTool.js'
 import { createRmTool } from '../tools/RmTool.js'
 import { createShareTool, type ShareToolDeps } from '../tools/ShareTool.js'
+import { createOpenTool, type OpenToolDeps } from '../tools/OpenTool.js'
 import { createTemplateTool } from '../tools/TemplateTool/index.js'
 import { createUploadTool } from '../tools/UploadTool/index.js'
 import { createValidateRulesTool } from '../tools/ValidateRulesTool.js'
@@ -52,6 +53,12 @@ export interface HuoziToolRegistryDeps {
    */
   shareDeps?: ShareToolDeps
   /**
+   * Enables the `huozi_open` tool. Same Worker-binding requirement as
+   * shareDeps (it signs a JWT over HUOZI_AUTH_SECRET); in-memory tests
+   * omit it and the tool is not registered.
+   */
+  openDeps?: OpenToolDeps
+  /**
    * Enables `huozi_whoami`. Same story as shareDeps — needs D1 + the
    * authenticated principal/keyHash, which only the Worker entry has.
    */
@@ -74,7 +81,7 @@ export interface HuoziToolRegistryDeps {
 export function createHuoziToolRegistry(
   deps: HuoziToolRegistryDeps,
 ): HuoziToolRegistry {
-  const { storage, shareDeps, whoamiDeps, binarySigner, svgRenderer } = deps
+  const { storage, shareDeps, openDeps, whoamiDeps, binarySigner, svgRenderer } = deps
   const tools: Tool<any, any>[] = [
     createReadTool({ storage, binarySigner }),
     createEditTool({ storage }),
@@ -95,6 +102,9 @@ export function createHuoziToolRegistry(
   ]
   if (shareDeps) {
     tools.push(createShareTool(shareDeps))
+  }
+  if (openDeps) {
+    tools.push(createOpenTool(openDeps))
   }
   if (whoamiDeps) {
     tools.push(createWhoamiTool(whoamiDeps))
