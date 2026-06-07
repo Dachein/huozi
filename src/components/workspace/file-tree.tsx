@@ -8,7 +8,12 @@ import { PinButton } from "@/components/workspace/pin-button";
 import { FolderAclModal } from "@/components/workspace/folder-acl-modal";
 import { useWorkspaceNav } from "@/components/workspace/nav-pending";
 import { useT } from "@/lib/i18n/context";
-import { FOUR_TYPES, type FileType, getFileType } from "@/lib/file-types";
+import {
+  FOUR_TYPES,
+  type FileType,
+  getFileType,
+  isSystemPath,
+} from "@/lib/file-types";
 
 export interface MemberLite {
   user_id: string;
@@ -19,6 +24,9 @@ export interface MemberLite {
 export interface FileTreeProps {
   /** Workspace-relative paths, e.g. "funds/fund-A/report.md" */
   paths: string[];
+  /** Project folders (carry `.huozi/memory.md`) — classifies
+   *  `<project>/tasks.jsonl` as a hidden system path. */
+  projectFolders?: string[];
   /** Path currently being viewed (highlighted + ancestors auto-expanded). */
   currentPath?: string | null;
   /** Called after the user clicks a leaf — used by mobile shell to close the drawer. */
@@ -186,6 +194,7 @@ function saveExpanded(s: Set<string>): void {
 
 export function FileTree({
   paths,
+  projectFolders,
   currentPath: currentPathProp,
   onNavigate,
   privatePrefixes,
@@ -222,10 +231,13 @@ export function FileTree({
     return c;
   }, [paths]);
 
-  // v3.3 §8 visibility rules: paths whose any segment starts with "."
-  // (e.g. `.huozi/memory.jsonl`, `.archive/old-project/...`,
-  // `.huozi-keep`) are hidden by default. Users can flip the toggle
-  // below the tree to see them — UI state only, not persisted.
+  // Visibility rules: system paths are hidden by default — dot paths
+  // (`.huozi/*`, `.huozi-keep`), the root mail store (`inbox.jsonl`), the
+  // root `tasks/` subtree, and `<project>/tasks.jsonl`. These have their own
+  // entry points (mail/clippings nav, folder settings), so the tree stays
+  // clean. Users can flip the toggle below the tree to reveal them — UI
+  // state only, not persisted. `__assets__` is NOT system (see isSystemPath)
+  // and stays pinned via SYSTEM_DIRS.
   const [showHidden, setShowHidden] = useState(false);
 
   const filteredPaths = useMemo(() => {
@@ -239,10 +251,8 @@ export function FileTree({
     // could theoretically un-hide them. Drop unconditionally.
     const withoutSidecars = byType.filter((p) => !p.endsWith(".highlights.json"));
     if (showHidden) return withoutSidecars;
-    return withoutSidecars.filter(
-      (p) => !p.split("/").some((seg) => seg.startsWith(".")),
-    );
-  }, [paths, typeFilter, showHidden]);
+    return withoutSidecars.filter((p) => !isSystemPath(p, projectFolders));
+  }, [paths, typeFilter, showHidden, projectFolders]);
 
   // v-final — top-level folders whose sentinel `.huozi/memory.md`
   // exists in the path list are upgraded Projects. We always look at
@@ -369,8 +379,8 @@ export function FileTree({
       </nav>
 
       {/* Footer controls — Projects overview link + Show-hidden toggle.
-          Dot-prefixed paths (`.huozi`, `.archive`, `.huozi-keep`) are
-          hidden by default per spec §8. UI state only, not persisted. */}
+          System paths (dot paths, mail store, task stores) are hidden by
+          default. UI state only, not persisted. */}
       <div className="px-3 py-2 border-t border-border/40 text-[11px] text-muted-foreground flex items-center gap-3">
         <Link
           href="/workspace/projects"
@@ -384,7 +394,7 @@ export function FileTree({
           onClick={() => setShowHidden((v) => !v)}
           className="hover:text-foreground transition-colors"
         >
-          {showHidden ? "Hide dot files" : "Show hidden"}
+          {showHidden ? "Hide system files" : "Show hidden"}
         </button>
       </div>
       {aclEnabled && aclEditingPath !== null && (

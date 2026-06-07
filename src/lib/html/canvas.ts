@@ -109,6 +109,17 @@ const DEFAULTS: Partial<Record<HuoziFormat, CanvasSpec>> = {
   // they're reading surfaces, not cinematic stages.
   dashboard: { mode: "scale", width: 2560, height: 1440, fit: "contain" },
   paper: { mode: "lock-width", width: 816, height: null },
+  // app — mobile H5 single-screen UI. 390 × 844 matches the iPhone
+  // 14/15 CSS-pixel viewport and aligns with story's canvas — one
+  // 9:19.5 mental model spans both mobile formats. The semantic split
+  // lives in `fit`: app uses "contain" because a UI surface must never
+  // clip (a tap target lost off-edge is a bug), while story uses
+  // "cover" for immersive Reels/Shorts framing. Background is
+  // INTENTIONALLY ABSENT here: the validator REQUIRES authors to
+  // declare a background for dashboard and app (canvas surfaces with
+  // no theme to fall back on), since cream/transparent bleed around a
+  // UI surface looks broken in the publish viewer.
+  app: { mode: "scale", width: 390, height: 844, fit: "contain" },
 };
 
 interface ViewportMeta {

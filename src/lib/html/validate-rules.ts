@@ -62,7 +62,7 @@ export const VALIDATION_RULES: ValidationRule[] = [
     level: "error",
     title: "huozi:format value is not a known format",
     why: "The platform only knows 5 formats: deck / story / paper / dashboard / blog. Unknown values degrade silently to blog, which is rarely what the author meant.",
-    remedy: "Pick one: deck (16:9 slides), story (9:16 immersive), paper (A4-width document), dashboard (16:9 ops surface with [data-tab]), blog (responsive long-form).",
+    remedy: "Pick one: deck (16:9 slides), story (9:16 immersive media), app (9:19.5 mobile UI), paper (A4-width document), dashboard (16:9 ops surface with [data-tab]), blog (responsive long-form).",
     docRef: "norms#1-format-types",
   },
   {
@@ -80,6 +80,15 @@ export const VALIDATION_RULES: ValidationRule[] = [
     why: "Class-sniffing on the body root works as a legacy fallback, but the meta tag is the authoritative declaration. Explicit > implicit; future tooling may stop sniffing.",
     remedy: 'Add `<meta name="huozi:format" content="X">` in <head> where X matches your `huozi-X` class.',
     docRef: "norms#1-3-format-declaration",
+  },
+  {
+    code: "canvas-background-missing",
+    level: "warning",
+    title: "dashboard / app surface has no background declaration",
+    why: "Both dashboard and app are canvas surfaces — they're transformed into a fixed pixel frame inside the share viewer, whose wrapper is intentionally `bg-transparent` so the file's theme bleeds through. Without an author-declared background the cream layout color leaks into the publish frame, which reads as broken.",
+    remedy: 'Declare one of: `<meta name="huozi:background" content="#0b0d12">` (canvas-bleed color), a `<style>` rule on `html` / `body` / `:root` with `background: ...`, or `<body style="background: ...">`.',
+    docRef: "norms#1-format-types",
+    appliesTo: ["dashboard", "app"],
   },
 
   // ── Paginated structure ────────────────────────────────────────────

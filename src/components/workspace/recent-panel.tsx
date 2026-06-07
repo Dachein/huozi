@@ -21,6 +21,7 @@ import {
   type CommitEvent,
 } from "./cloud-live-events";
 import { FileIcon } from "@/components/workspace/file-icon";
+import { isSystemPath } from "@/lib/file-types";
 import { useT } from "@/lib/i18n/context";
 import type { RecentEntry } from "@/lib/drive/mcp-client";
 
@@ -32,6 +33,9 @@ type RecentView = "works" | "assets";
 
 export interface RecentPanelProps {
   initial: RecentEntry[];
+  /** Project folders (carry `.huozi/memory.md`) — classifies
+   *  `<project>/tasks.jsonl` so it's filtered like other system paths. */
+  projectFolders: string[];
   currentPath?: string | null;
 }
 
@@ -42,6 +46,7 @@ interface LiveEntry extends RecentEntry {
 
 export function RecentPanel({
   initial,
+  projectFolders,
   currentPath: currentPathProp,
 }: RecentPanelProps) {
   const t = useT();
@@ -61,7 +66,7 @@ export function RecentPanel({
   // row per file with the newest timestamp / op, and the active-row
   // highlight has exactly one target to bind to.
   const [entries, setEntries] = useState<LiveEntry[]>(() =>
-    dedupByPath(initial),
+    dedupByPath(initial.filter((r) => !isSystemPath(r.path, projectFolders))),
   );
   // Default = "works" (non-asset files). The asset bucket is full of
   // hash-named PNG blobs and dominates Recent if mixed in.
@@ -94,16 +99,23 @@ export function RecentPanel({
       if (!detail || detail.type !== "commit") return;
 
       // Each commit may touch multiple paths — prepend one row per path.
-      const newRows: LiveEntry[] = detail.paths.map((p) => ({
-        path: p.path,
-        operation: p.operation,
-        commit_sha: detail.commit_sha,
-        timestamp: detail.timestamp,
-        author: detail.author,
-        message: detail.message,
-        in_batch: detail.paths.length,
-        freshTag: Date.now(),
-      }));
+      // The live feed is raw (the server has no notion of system files), so
+      // drop system paths here too, matching the already-filtered initial
+      // seed — otherwise a `.huozi/*` or task-store write would flash into
+      // Recent mid-session.
+      const newRows: LiveEntry[] = detail.paths
+        .filter((p) => !isSystemPath(p.path, projectFolders))
+        .map((p) => ({
+          path: p.path,
+          operation: p.operation,
+          commit_sha: detail.commit_sha,
+          timestamp: detail.timestamp,
+          author: detail.author,
+          message: detail.message,
+          in_batch: detail.paths.length,
+          freshTag: Date.now(),
+        }));
+      if (newRows.length === 0) return;
 
       setEntries((prev) => {
         // Drop any existing rows for the same paths so the newest surfaces to
@@ -118,7 +130,7 @@ export function RecentPanel({
     return () => {
       window.removeEventListener(HUOZI_LIVE_COMMIT_EVENT, onCommit);
     };
-  }, []);
+  }, [projectFolders]);
 
   if (entries.length === 0) return null;
 

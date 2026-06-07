@@ -18,6 +18,9 @@ export interface WorkspaceShellProps {
   truncated: boolean;
   /** Seed data for the live-updating "Recent" pane. Safe to omit. */
   recent?: RecentEntry[];
+  /** Project folders (carry `.huozi/memory.md`) — lets RecentPanel filter
+   *  `<project>/tasks.jsonl` out of live commit updates. */
+  projectFolders?: string[];
   /** Main content. Rendered in the primary column. */
   children: React.ReactNode;
   // ── Folder-ACL surface (passed straight through to FileTree) ───────
@@ -40,6 +43,7 @@ export function WorkspaceShell({
   numFiles,
   truncated,
   recent,
+  projectFolders,
   children,
   privatePrefixes,
   members,
@@ -85,6 +89,7 @@ export function WorkspaceShell({
   const tree = (
     <FileTree
       paths={paths}
+      projectFolders={projectFolders ?? []}
       currentPath={currentPath ?? null}
       onNavigate={() => setDrawerOpen(false)}
       privatePrefixes={privatePrefixes}
@@ -122,7 +127,11 @@ export function WorkspaceShell({
         <TreeHeader numFiles={numFiles} truncated={truncated} />
         <PinsPanel currentPath={currentPath ?? null} />
         {recent && recent.length > 0 && (
-          <RecentPanel initial={recent} currentPath={currentPath ?? null} />
+          <RecentPanel
+            initial={recent}
+            projectFolders={projectFolders ?? []}
+            currentPath={currentPath ?? null}
+          />
         )}
         <div className="flex-1 min-h-0 overflow-y-auto">{tree}</div>
       </aside>
@@ -149,7 +158,11 @@ export function WorkspaceShell({
           />
           <PinsPanel currentPath={currentPath ?? null} />
           {recent && recent.length > 0 && (
-            <RecentPanel initial={recent} currentPath={currentPath ?? null} />
+            <RecentPanel
+              initial={recent}
+              projectFolders={projectFolders ?? []}
+              currentPath={currentPath ?? null}
+            />
           )}
           <div className="flex-1 min-h-0 overflow-y-auto">{tree}</div>
         </aside>

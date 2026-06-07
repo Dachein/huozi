@@ -148,7 +148,10 @@ export default async function CloudWorkspacePage() {
             ]}
           />
         ) : (
-          <WorkspaceSearch paths={shell.glob.filenames} />
+          <WorkspaceSearch
+            paths={shell.visiblePaths}
+            projectFolders={shell.projectFolders}
+          />
         )}
       </div>
       <CloudLiveEvents mode="workspace" />

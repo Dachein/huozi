@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FileIcon } from "@/components/workspace/file-icon";
+import { isSystemPath } from "@/lib/file-types";
 import { useT } from "@/lib/i18n/context";
 
 const MAX_LOCAL_HITS = 12;
@@ -10,8 +11,12 @@ const MIN_CONTENT_QUERY_LEN = 3;
 const DEBOUNCE_MS = 250;
 
 export interface WorkspaceSearchProps {
-  /** Workspace-relative paths, full file list visible to current user. */
+  /** Workspace-relative paths visible to the current user (system junk
+   *  already stripped upstream in `loadShellData`). */
   paths: string[];
+  /** Project folders (carry `.huozi/memory.md`) — needed to classify
+   *  `<project>/tasks.jsonl` when filtering server-side content hits. */
+  projectFolders: string[];
 }
 
 interface ContentState {
@@ -21,7 +26,10 @@ interface ContentState {
   message?: string;
 }
 
-export function WorkspaceSearch({ paths }: WorkspaceSearchProps) {
+export function WorkspaceSearch({
+  paths,
+  projectFolders,
+}: WorkspaceSearchProps) {
   const t = useT();
   const [query, setQuery] = useState("");
   const [content, setContent] = useState<ContentState>({
@@ -105,11 +113,18 @@ export function WorkspaceSearch({ paths }: WorkspaceSearchProps) {
     return () => window.clearTimeout(handle);
   }, [query]);
 
-  // Content hits exclusive of filename hits, so we don't list the same path twice.
+  // Content hits exclusive of filename hits, so we don't list the same path
+  // twice. The Worker grep runs over raw file contents and has no notion of
+  // system files, so we also strip them here to match the (already filtered)
+  // local list — otherwise `.huozi/*`, the mail store, or project task stores
+  // could surface via a content match.
   const localSet = useMemo(() => new Set(localHits), [localHits]);
   const contentOnlyHits = useMemo(
-    () => content.filenames.filter((p) => !localSet.has(p)),
-    [content.filenames, localSet],
+    () =>
+      content.filenames.filter(
+        (p) => !localSet.has(p) && !isSystemPath(p, projectFolders),
+      ),
+    [content.filenames, localSet, projectFolders],
   );
 
   const trimmed = query.trim();

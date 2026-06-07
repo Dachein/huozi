@@ -76,7 +76,17 @@ const ALL_FORMATS = new Set<HuoziFormat>([
   "story",
   "paper",
   "dashboard",
+  "app",
   "blog",
+]);
+
+/** Formats that REQUIRE an author-declared background. dashboard and
+ *  app are canvas surfaces with no "app theme" to fall back on in the
+ *  share viewer (which is intentionally `bg-transparent`), so a missing
+ *  background leaves cream bleed around the canvas — a publish bug. */
+const REQUIRES_BACKGROUND: ReadonlySet<HuoziFormat> = new Set<HuoziFormat>([
+  "dashboard",
+  "app",
 ]);
 
 /** Deprecated `huozi:format` values that still parse at render time
@@ -162,6 +172,58 @@ function readClassFormat(
     }
   }
   return null;
+}
+
+/** Detect any background-paint declaration the file makes — used to
+ *  decide whether dashboard / app surfaces have an explicit theme.
+ *  We accept any of:
+ *    1. `<meta huozi:background>` (canvas-spec bleed declaration)
+ *    2. A CSS rule in any <style> block whose selector mentions
+ *       `html`, `body`, or `:root` AND whose body contains the
+ *       `background` property
+ *    3. A `style="..."` attribute on the literal <body ...> tag with
+ *       `background` in it (rare, but valid)
+ *  We do NOT try to parse colors — presence of the `background` key
+ *  in a root-targeting selector is enough signal. Comments / pre / code
+ *  are not skipped here because a background rule shown in a code
+ *  example wouldn't actually paint anything (the validator runs against
+ *  authored source, not rendered DOM). Spec-doc examples can flip this
+ *  to a hint if it ever produces false positives. */
+function hasBackgroundDeclaration(
+  html: string,
+  _skip: Array<[number, number]>,
+): boolean {
+  // 1. meta huozi:background
+  if (/<meta\s+name=["']huozi:background["']\s+content=["'][^"']+["']/i.test(html)) {
+    return true;
+  }
+  // 2. inline <style> with body/html/:root + background
+  const styleRe = /<style\b[^>]*>([\s\S]*?)<\/style>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = styleRe.exec(html)) !== null) {
+    const css = m[1];
+    // Strip CSS comments so /* background: ... */ doesn't count.
+    const stripped = css.replace(/\/\*[\s\S]*?\*\//g, "");
+    const ruleRe = /([^{}]+)\{([^{}]*)\}/g;
+    let r: RegExpExecArray | null;
+    while ((r = ruleRe.exec(stripped)) !== null) {
+      const selector = r[1];
+      const body = r[2];
+      if (!/\bbackground\b/.test(body)) continue;
+      if (/(^|[,\s>])(html|body|:root)([,\s.{:]|$)/.test(selector)) {
+        return true;
+      }
+    }
+  }
+  // 3. inline style on <body ...>
+  const bodyTag = html.match(/<body\b[^>]*>/i);
+  if (bodyTag) {
+    const styleAttr = bodyTag[0].match(/style=["']([^"']*)["']/i);
+    if (styleAttr && /\bbackground\b/.test(styleAttr[1])) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function readBundleMeta(
@@ -256,7 +318,7 @@ export function validateHuoziHtml(html: string): ValidationIssue[] {
         code: "format-unknown",
         message: `huozi:format="${formatMeta.value}" 不在已知 5 种类型里，已退化为 blog`,
         line: lineFor(html, formatMeta.index),
-        remedy: "使用 deck / story / paper / dashboard / blog 之一",
+        remedy: "使用 deck / story / paper / dashboard / app / blog 之一",
         docRef: "norms#1-format-types",
       });
     }
@@ -302,6 +364,23 @@ export function validateHuoziHtml(html: string): ValidationIssue[] {
       remedy: "class 嗅探是 legacy 兜底，meta 是 authoritative declaration",
       docRef: "norms#1-3-format-declaration",
     });
+  }
+
+  // ── Rule: dashboard + app must declare a background ──
+  // Canvas surfaces don't have an app theme to bleed through in the
+  // share viewer (wrapper is bg-transparent by design). Detect any
+  // author paint signal: `<meta huozi:background>`, an inline body /
+  // html / :root background in <style>, or a body/html `style="..."`
+  // attribute. Absence → warning so the publish surface doesn't ship
+  // with a cream-edge UI.
+  if (REQUIRES_BACKGROUND.has(effectiveFormat)) {
+    if (!hasBackgroundDeclaration(html, skip)) {
+      issues.push(
+        issueFromRule("canvas-background-missing", {
+          message: `huozi:format=${effectiveFormat} 必须声明背景；当前文件未在 <meta huozi:background>、style 块的 html/body/:root 或 body style 中找到 background`,
+        }),
+      );
+    }
   }
 
   // ── Rule: paginated format must have at least one [data-page] ──

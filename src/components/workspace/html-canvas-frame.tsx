@@ -74,7 +74,8 @@ export interface HtmlCanvasFrameProps {
 const STRETCH_ROOTS =
   "!w-full !h-full" +
   " [&_.huozi-story]:!w-full [&_.huozi-story]:!h-full [&_.huozi-story]:!min-h-0" +
-  " [&_.huozi-deck]:!w-full [&_.huozi-deck]:!h-full [&_.huozi-deck]:!min-h-0";
+  " [&_.huozi-deck]:!w-full [&_.huozi-deck]:!h-full [&_.huozi-deck]:!min-h-0" +
+  " [&_.huozi-app]:!w-full [&_.huozi-app]:!h-full [&_.huozi-app]:!min-h-0";
 
 // For paper / lock-width canvases: width follows the column, height
 // flows with content. Pinning `h-full` would cap content; pinning
