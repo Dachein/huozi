@@ -61,7 +61,7 @@ const KNOWN_BUNDLES = new Set<string>([
   'marked',
   'echarts',
   'uplot',
-  'stock',
+  'api-data',
   'chartjs',
   'vega-lite',
 ])
@@ -429,6 +429,46 @@ export function validateHuoziHtml(html: string): ValidationIssue[] {
         line: lineFor(html, inlineScripts[0]!),
       }),
     )
+  }
+
+  // Capability used without its bundle declared → hint. Signals live in
+  // inline <script> (so we search WITH script ranges, only excluding
+  // comment/pre/code/style via displaySkip — keeps example code out).
+  const declaredBundles = new Set(
+    bundleMeta
+      ? bundleMeta.value.split(',').map((k) => k.trim()).filter(Boolean)
+      : [],
+  )
+  const CAP_SIGNALS: Array<{
+    re: RegExp
+    bundle: string
+    cap: string
+    api: string
+  }> = [
+    { re: /\bhuozi\.market\b|\bdata-market\s*=/, bundle: 'api-data', cap: 'api-data/market', api: 'huozi.market / data-market' },
+    { re: /\becharts\s*\.\s*(init|setOption|registerTheme|registerMap)\b/, bundle: 'echarts', cap: 'echarts', api: 'echarts.*' },
+    { re: /\bmermaid\s*\.\s*(run|initialize|render)\b/, bundle: 'mermaid', cap: 'mermaid', api: 'mermaid.*' },
+    { re: /\bhuozi\.read(?:Json|Jsonl)?\s*\(/, bundle: 'data', cap: 'data/jsonl', api: 'huozi.read' },
+  ]
+  for (const sig of CAP_SIGNALS) {
+    if (declaredBundles.has(sig.bundle)) continue
+    const re = new RegExp(sig.re.source, 'gi')
+    let m: RegExpExecArray | null
+    let hit = -1
+    while ((m = re.exec(html)) !== null) {
+      if (isInRanges(m.index, displaySkip)) continue
+      hit = m.index
+      break
+    }
+    if (hit >= 0) {
+      issues.push(
+        issueFromRule('capability-undeclared', {
+          message: `用了 ${sig.api} 但未声明 huozi:bundle="${sig.bundle}"`,
+          line: lineFor(html, hit),
+          remedy: `<head> 加 <meta name="huozi:bundle" content="${sig.bundle}">;详见 huozi_capabilities({ id:"${sig.cap}" })`,
+        }),
+      )
+    }
   }
 
   // iframe / embed / object

@@ -237,17 +237,19 @@ if (!window.huozi.__bus) {
     css: "/lib/uplot-1.6.31.min.css",
   },
 
-  // ─── stock — internal market-data runtime (Yahoo proxy SDK) ─────
-  // Loads the huozi-stock SDK from the data plane (data.huozi.app), a
-  // transparent CORS-adding Yahoo Finance proxy, and injects the access
-  // token. The publish sandbox strips author `<script src=…>`, so authors
-  // cannot load this themselves — declaring `huozi:bundle="stock"` is the
-  // only door, and the token is emitted only into docs that ask for it.
-  // That's the "internal use only" gate: data.huozi.app 403s any request
-  // without the token. Author then uses `HuoziStock.chart(...)` /
-  // `<div data-huozi-stock="AAPL">`; responses are Yahoo's shape verbatim.
-  stock: {
-    scripts: ["https://data.huozi.app/sdk/huozi-stock.js"],
+  // ─── api-data — hosted external data sources (api-data.huozi.app) ───
+  // The "external data" sibling to the `data` bundle (which reads your own
+  // workspace jsonl/csv). Loads the huozi-data SDK and injects the access
+  // token. First leg is `api-data/market` (transparent Yahoo proxy);
+  // sibling legs (rate, fx, …) mount under the same window.huozi root.
+  // The publish sandbox strips author `<script src=…>`, so authors cannot
+  // load this themselves — declaring `huozi:bundle="api-data"` is the only
+  // door, and the token is emitted only into docs that ask for it. That's
+  // the "internal use only" gate: api-data.huozi.app 403s any request without
+  // the token. Author then uses `huozi.market.chart(...)` /
+  // `<div data-market="AAPL">`; responses are Yahoo's shape verbatim.
+  "api-data": {
+    scripts: ["https://api-data.huozi.app/sdk/huozi-market.js"],
     // Eager so the token global exists before the deferred SDK runs.
     // Read server-side from the worker secret; same pattern as the other
     // HUOZI_* secrets accessed via process.env across this app.

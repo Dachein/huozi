@@ -86,7 +86,8 @@ HTML lint gate (.html / .htm files only):
 - Before writing, the tool runs the huozi HTML validator on the new content.
 - If any error-level issues are detected (e.g. format-unknown, paginated-no-pages, page-id-duplicate), the write is REFUSED with errorCode 120 and meta.issues containing the structured findings. Apply each issue's remedy and call huozi_write again.
 - Warning and hint issues do not block the write; they are returned in the success payload as validation_warnings[] so you can fix them on the next pass.
-- Call huozi_validate_rules to enumerate the full rule catalog with each rule's why/remedy ahead of time.`
+- Call huozi_validate_rules to enumerate the full rule catalog with each rule's why/remedy ahead of time.
+- Authoring a chart / live-data / diagram doc? Call huozi_capabilities first — it lists the data sources + renderers (echarts / mermaid / svg / data-jsonl / api-data-market) with how to declare each + copy-paste examples. Using a capability's API (e.g. huozi.market.*, echarts.init, mermaid.run, huozi.read) without declaring its bundle yields a hint here.`
 }
 
 export interface WriteToolDeps {
