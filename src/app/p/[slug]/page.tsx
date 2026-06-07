@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getShare } from "@/lib/drive/shares";
+import { getShare, unlockShare } from "@/lib/drive/shares";
 import { cloudFetch } from "@/lib/cloud-fetch";
 import { renderMarkdown } from "@/lib/markdown/renderer";
 import { processHtmlDirect } from "@/lib/html/sanitizer";
@@ -194,9 +194,27 @@ async function loadRenderedShare(
   };
 }
 
-export default async function SharedPage({ params }: { params: Params }) {
+type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
+
+function firstParam(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v;
+}
+
+export default async function SharedPage({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams: SearchParams;
+}) {
   const t0 = Date.now();
   const { slug } = await params;
+  const sp = await searchParams;
+  // `?pw=` lets a caller (today: the miniapp, after collecting the code once
+  // natively) unlock server-side; `?chrome=0` (alias `?embed=1`) hides the
+  // "Open in Huozi" link for embedded web-views.
+  const pw = firstParam(sp.pw);
+  const chromeless = firstParam(sp.chrome) === "0" || firstParam(sp.embed) === "1";
   const t1 = Date.now();
   // getShare is a worker round-trip into huozi-cloud — empirically 800-
   // 2400ms per call. Memoize so steady-state opens skip it entirely.
@@ -223,21 +241,37 @@ export default async function SharedPage({ params }: { params: Params }) {
   }
 
   const share = res.data;
-  const locked = share.locked === true;
+  let locked = share.locked === true;
 
-  // Unlocked shares: render via memo cache. Same isolate, same slug,
-  // within 60s → entire HTML pipeline (sanitize + @scope + all extracts)
-  // is skipped on hits. Locked shares always go through the cold path
-  // so we never leak across password-gated visitors.
+  // Server-side passcode unlock. Doing it here — not client-side via
+  // PasscodeForm — is what lets a locked HTML share run the full SSR
+  // sanitize/chart pipeline; the client unlock path can only show raw
+  // source. Wrong / absent code stays locked and falls through to the
+  // form. The fetched text drives loadRenderedShare exactly like an
+  // unlocked share would.
+  let shareForRender: { file_path: string; text?: string | null | undefined } =
+    share;
+  let pwUnlocked = false;
+  if (locked && pw && /^\d{6}$/.test(pw)) {
+    const u = await unlockShare(slug, pw);
+    if (u.ok) {
+      shareForRender = { file_path: u.data.file_path, text: u.data.text };
+      locked = false;
+      pwUnlocked = true;
+    }
+  }
+
+  // Cache only the anonymous public render. Locked AND pw-unlocked renders
+  // take the cold path so we never serve one visitor's gated content to
+  // another (the cache key is slug-only, with no passcode in it).
   const cacheKey = `share-render:${slug}`;
   const cacheBefore = cacheProbe(cacheKey);
-  const rendered = locked
-    ? await loadRenderedShare(slug, share)
-    : await memoize(cacheKey, 60_000, () =>
-        loadRenderedShare(slug, share),
-      );
+  const rendered =
+    locked || pwUnlocked
+      ? await loadRenderedShare(slug, shareForRender)
+      : await memoize(cacheKey, 60_000, () => loadRenderedShare(slug, share));
   const t3 = Date.now();
-  const cacheHit = cacheBefore && !locked;
+  const cacheHit = cacheBefore && !locked && !pwUnlocked;
 
   const timing = [
     `params=${t1 - t0}`,
@@ -261,6 +295,7 @@ export default async function SharedPage({ params }: { params: Params }) {
         slug={slug}
         filePath={rendered.filePath}
         locked={locked}
+        chromeless={chromeless}
         prerenderedHtml={rendered.prerenderedHtml}
         rawText={rendered.rawText}
         pages={rendered.pages}

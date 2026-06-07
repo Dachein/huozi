@@ -24,6 +24,7 @@ import {
 import { FullscreenProvider } from "@/components/workspace/fullscreen-context";
 import { HtmlCanvasFrame } from "@/components/workspace/html-canvas-frame";
 import { resolveCanvas } from "@/lib/html/canvas";
+import type { HuoziFormat } from "@/lib/html/detect-format";
 import type { PageEntry } from "@/lib/html/extract-pages";
 import type { TabEntry } from "@/lib/html/extract-tabs";
 import type { ShareContent } from "@/lib/drive/shares";
@@ -43,12 +44,17 @@ interface ShareViewerProps {
   /** Detected huozi layout (meta tag → class sniff → "blog" fallback).
    *  Drives auto-landscape on mobile-portrait for deck via the
    *  [data-huozi-rotate-portrait] opt-in. */
-  htmlFormat?: "deck" | "story" | "paper" | "dashboard" | "blog";
+  htmlFormat?: HuoziFormat;
   /** Dashboard tab manifest (parsed from `<meta huozi:tabs>`). Empty for
    *  non-dashboard formats; the share-viewer ignores it then. */
   tabs?: TabEntry[];
   /** Dashboard auto-refresh interval in ms (from `<meta huozi:refresh>`). */
   refreshMs?: number | null;
+  /** Suppress the "Open in Huozi" chrome link (set via `?chrome=0`). The
+   *  miniapp web-view passes this — inside the app the link points nowhere
+   *  useful and the host provides its own back button. A plain browser
+   *  visitor (no param) still gets the link. */
+  chromeless?: boolean;
 }
 
 type Kind = "csv" | "tsv" | "jsonl" | "prose" | "source";
@@ -109,7 +115,9 @@ export function ShareViewer(props: ShareViewerProps) {
   // inside an actual full-viewport container — wasting space.
   return (
     <FullscreenProvider initial>
-      {unlocked ? renderUnlocked(unlocked) : renderInitial(props)}
+      {unlocked
+        ? renderUnlocked(unlocked, props.chromeless)
+        : renderInitial(props)}
     </FullscreenProvider>
   );
 }
@@ -117,7 +125,7 @@ export function ShareViewer(props: ShareViewerProps) {
 // After client-side unlock we only have raw text — route by extension into
 // the same source / csv / jsonl path. Prose stays as source here (server-
 // side sanitizer / chart pipeline isn't available client-side).
-function renderUnlocked(unlocked: ShareContent) {
+function renderUnlocked(unlocked: ShareContent, chromeless?: boolean) {
   const filePath = unlocked.file_path;
   const text = unlocked.text ?? "";
   const kind = kindFor(filePath, false);
@@ -128,7 +136,7 @@ function renderUnlocked(unlocked: ShareContent) {
       pageUnit="page"
       htmlFormat="blog"
       alwaysOpen
-      chrome={<OpenInHuoziLink filePath={filePath} />}
+      chrome={chromeless ? undefined : <OpenInHuoziLink filePath={filePath} />}
     >
       {kind === "csv" || kind === "tsv" ? (
         <CsvGrid content={text} delim={kind === "tsv" ? "\t" : ","} />
@@ -162,7 +170,11 @@ function renderInitial(props: ShareViewerProps) {
       pageUnit={props.pageUnit ?? "page"}
       htmlFormat={props.htmlFormat ?? "blog"}
       alwaysOpen
-      chrome={<OpenInHuoziLink filePath={props.filePath} />}
+      chrome={
+        props.chromeless ? undefined : (
+          <OpenInHuoziLink filePath={props.filePath} />
+        )
+      }
     >
       {kind === "csv" || kind === "tsv" ? (
         props.rawText ? (
