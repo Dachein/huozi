@@ -11,10 +11,11 @@
  *     hover even though the file is pinned (the panel's own header pin
  *     glyph already signals "pinned", so a per-row indicator is redundant).
  *
- * Color/stroke adapt per theme — paper (default) shows an outline-only
- * amber pin (a solid fill reads too hot on the cream bg); amber is
- * near-invisible on brutal-mono's yellow, so brutal switches to a bold
- * filled black pin and office to its filled blue accent.
+ * Color/stroke adapt per theme — paper (default) and office both use the
+ * brand accent; paper renders it outline-only (a solid fill read too hot
+ * on the cream bg) while office keeps its filled blue accent. brutal-mono,
+ * where the accent is near-invisible on its yellow, uses a bold filled
+ * black pin.
  *
  * Always stops propagation so toggling never triggers the row's navigation.
  */
@@ -26,15 +27,13 @@ import { useTheme } from "@/lib/theme/context";
 // Active (pinned) foreground per theme.
 function activePinClass(theme: string): string {
   if (theme === "brutal-mono") return "text-foreground";
-  if (theme === "office") return "text-accent";
-  return "text-amber-500";
+  return "text-accent";
 }
 // Toolbar (bordered) active chrome per theme.
 function activeToolbarClass(theme: string): string {
   if (theme === "brutal-mono")
     return "border-foreground bg-accent/15 text-foreground";
-  if (theme === "office") return "border-accent/50 bg-accent/10 text-accent";
-  return "border-amber-400/60 bg-amber-50/40 text-amber-500";
+  return "border-accent/50 bg-accent/10 text-accent";
 }
 
 export function PinButton({
