@@ -17,6 +17,12 @@ import {
 import { memoize, invalidatePrefix } from "@/lib/memo-cache";
 import { isSystemPath } from "@/lib/file-types";
 
+// The agent-facing huozi_glob default is 100 (token-budget friendly), but the
+// web file tree renders the whole workspace client-side (tree + search + type
+// counts all consume this flat list), so request a much higher cap. Beyond
+// this, hierarchical lazy-loading would be the next step.
+const WORKSPACE_GLOB_LIMIT = 5000;
+
 /**
  * Per-request shared loader for the file-centric workspace shell. Wrapped
  * in `React.cache()` so the `(shell)/layout.tsx` and any child page that
@@ -49,7 +55,9 @@ export const loadShellData = cache(async (): Promise<ShellData> => {
   const wsKey = principal?.workspaceId ?? "anon";
 
   const [globRes, recentRes, members, folderAcls] = await Promise.all([
-    memoize(`glob:${userKey}`, 30_000, () => cloudGlob(key, "**/*")),
+    memoize(`glob:${userKey}`, 30_000, () =>
+      cloudGlob(key, "**/*", undefined, { limit: WORKSPACE_GLOB_LIMIT }),
+    ),
     memoize(`recent:${userKey}`, 10_000, () => cloudRecent(key, 20)),
     principal && principal.workspaceId
       ? memoize(`members:${wsKey}`, 120_000, () =>

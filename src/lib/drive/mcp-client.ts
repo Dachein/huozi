@@ -178,10 +178,12 @@ export function cloudGlob(
   key: string,
   pattern: string,
   path?: string,
+  opts?: { limit?: number },
 ): Promise<McpResult<GlobData>> {
   return callTool<GlobData>(key, 'huozi_glob', {
     pattern,
     ...(path ? { path } : {}),
+    ...(opts?.limit ? { limit: opts.limit } : {}),
   })
 }
 

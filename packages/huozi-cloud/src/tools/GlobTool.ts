@@ -22,10 +22,20 @@ import { canonicalizePath } from '../utils/path.js'
 export const GLOB_TOOL_NAME = 'huozi_glob'
 
 const GLOB_DEFAULT_LIMIT = 100
+const GLOB_MAX_LIMIT = 10_000
 
 export const globInputSchema = z.object({
   pattern: z.string(),
   path: z.string().optional(),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(GLOB_MAX_LIMIT)
+    .optional()
+    .describe(
+      `Max results to return. Default 100 (agent-friendly); the web file tree passes a higher cap. Hard-capped at 10000.`,
+    ),
   include_hidden: z
     .boolean()
     .optional()
@@ -123,8 +133,9 @@ export function createGlobTool(deps: GlobToolDeps): Tool<GlobInput, GlobOutput> 
         return a.path.localeCompare(b.path)
       })
 
-      const truncated = matched.length > GLOB_DEFAULT_LIMIT
-      const filenames = matched.slice(0, GLOB_DEFAULT_LIMIT).map((m) => m.path)
+      const limit = Math.min(input.limit ?? GLOB_DEFAULT_LIMIT, GLOB_MAX_LIMIT)
+      const truncated = matched.length > limit
+      const filenames = matched.slice(0, limit).map((m) => m.path)
 
       return {
         kind: 'success',

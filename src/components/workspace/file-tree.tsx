@@ -192,8 +192,39 @@ function saveExpanded(s: Set<string>): void {
   }
 }
 
+// Last-known-good file list, persisted per user. The tree is fed by SSR, so
+// this is a resilience/instant-paint fallback: if a glob round-trip returns
+// empty (worker hiccup), render the cached list instead of an empty tree.
+const PATHS_LS_PREFIX = "huozi-cloud:tree-paths:";
+
+function pathsCacheKey(userId?: string): string {
+  return PATHS_LS_PREFIX + (userId ?? "anon");
+}
+
+function loadCachedPaths(userId?: string): string[] | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(pathsCacheKey(userId));
+    if (!raw) return null;
+    const arr = JSON.parse(raw) as unknown;
+    if (Array.isArray(arr)) return arr.filter((x) => typeof x === "string");
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function saveCachedPaths(userId: string | undefined, paths: string[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(pathsCacheKey(userId), JSON.stringify(paths));
+  } catch {
+    // ignore
+  }
+}
+
 export function FileTree({
-  paths,
+  paths: incomingPaths,
   projectFolders,
   currentPath: currentPathProp,
   onNavigate,
@@ -214,6 +245,19 @@ export function FileTree({
   const currentPath = currentPathProp ?? derivedPath;
 
   const t = useT();
+
+  // Client-side fallback cache (see loadCachedPaths). SSR normally fills
+  // incomingPaths; cachedPaths only kicks in when a glob round-trip comes
+  // back empty. Starts null so first render matches SSR (no hydration skew).
+  const [cachedPaths, setCachedPaths] = useState<string[] | null>(null);
+  useEffect(() => {
+    setCachedPaths(loadCachedPaths(currentUserId));
+  }, [currentUserId]);
+  useEffect(() => {
+    if (incomingPaths.length > 0) saveCachedPaths(currentUserId, incomingPaths);
+  }, [incomingPaths, currentUserId]);
+  const paths =
+    incomingPaths.length > 0 ? incomingPaths : (cachedPaths ?? incomingPaths);
 
   // Type-filter state — chips above the search narrow the tree to one of
   // the four data-type categories (see app/docs/four-types.md).
