@@ -72,7 +72,7 @@ const CAPABILITIES: Capability[] = [
         ].join("\n"),
       },
     ],
-    validateRefs: ["bundle-unknown-key", "inline-script-blocked"],
+    validateRefs: ["bundle-unknown-key"],
   },
   {
     id: "mermaid",
@@ -202,7 +202,7 @@ const CAPABILITIES: Capability[] = [
         ].join("\n"),
       },
     ],
-    validateRefs: ["bundle-unknown-key", "inline-script-blocked"],
+    validateRefs: ["bundle-unknown-key"],
   },
 ];
 

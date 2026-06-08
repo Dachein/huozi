@@ -156,6 +156,11 @@ export async function FileRenderer({
       fetchAsset,
       injectSourcePos: inlineEditable,
       bundleCtx: { dataBase, filePath: path },
+      // Workspace renders via React innerHTML, which never auto-runs
+      // <script>. Defer them to the client runner (HtmlInlineFrame /
+      // DashboardSurface) so author logic + bundle inits execute exactly
+      // once — same as /p. /p · /o leave this off (full-SSR parse-time).
+      deferScripts: true,
     });
     // Re-use caller-computed extracts when available; otherwise scan
     // here. Workspace view passes htmlMeta; legacy direct callers don't.

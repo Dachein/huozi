@@ -479,29 +479,17 @@ export function validateHuoziHtml(html: string): ValidationIssue[] {
     );
   }
 
-  // ── Rule: inline <script> blocks will be stripped ──
-  // Match <script>…</script> where the opening tag has NO src attribute.
-  // We're not looking inside skip ranges (which include <script> itself),
-  // so we run our own scan over the raw html. Skip code-example regions
-  // (pre/code) but not script regions themselves.
-  const INLINE_SCRIPT_RE = /<script\b([^>]*)>/gi;
+  // Inline <script> (no src) is intentionally PRESERVED by the publish
+  // sanitizer and executed once on every surface by the client script
+  // runner — see sanitizer.ts (only `<script src=...>` is stripped). It is
+  // the documented way to drive dashboards / apps that read sibling files
+  // via the `data` bundle, so it is NOT a validation issue. Only external
+  // src scripts (external-script-blocked, above) are blocked; the
+  // huozi:bundle keys are the allow-list for third-party libraries.
+
+  // Skip ranges shared by the markup-stripping rules below (code examples
+  // in <pre>/<code>, etc. — see displaySkip).
   const codeOnlySkip = displaySkip;
-  const inlineScripts: number[] = [];
-  let inlineMatch: RegExpExecArray | null;
-  while ((inlineMatch = INLINE_SCRIPT_RE.exec(html)) !== null) {
-    if (isInRanges(inlineMatch.index, codeOnlySkip)) continue;
-    // Has src? Already covered by external-script-blocked.
-    if (/\bsrc\s*=/i.test(inlineMatch[1])) continue;
-    inlineScripts.push(inlineMatch.index);
-  }
-  if (inlineScripts.length > 0) {
-    issues.push(
-      issueFromRule("inline-script-blocked", {
-        message: `检测到 ${inlineScripts.length} 个内联 <script>，发布时会被沙箱 strip`,
-        line: lineFor(html, inlineScripts[0]),
-      }),
-    );
-  }
 
   // ── Rule: <iframe> / <embed> / <object> will be stripped ──
   const EMBED_RE = /<(iframe|embed|object)\b[^>]*>/gi;

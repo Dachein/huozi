@@ -61,6 +61,7 @@ const KNOWN_BUNDLES = new Set<string>([
   'marked',
   'echarts',
   'uplot',
+  'data',
   'api-data',
   'chartjs',
   'vega-lite',
@@ -412,24 +413,13 @@ export function validateHuoziHtml(html: string): ValidationIssue[] {
     )
   }
 
-  // Inline scripts (without src)
-  const INLINE_SCRIPT_RE = /<script\b([^>]*)>/gi
-  const inlineScripts: number[] = []
-  let inlineMatch: RegExpExecArray | null
-  while ((inlineMatch = INLINE_SCRIPT_RE.exec(html)) !== null) {
-    if (isInRanges(inlineMatch.index, displaySkip)) continue
-    const attrs = inlineMatch[1] ?? ''
-    if (/\bsrc\s*=/i.test(attrs)) continue
-    inlineScripts.push(inlineMatch.index)
-  }
-  if (inlineScripts.length > 0) {
-    issues.push(
-      issueFromRule('inline-script-blocked', {
-        message: `检测到 ${inlineScripts.length} 个内联 <script>，发布时会被沙箱 strip`,
-        line: lineFor(html, inlineScripts[0]!),
-      }),
-    )
-  }
+  // Inline <script> (no src) is intentionally PRESERVED by the publish
+  // sanitizer (see sanitizer.ts: only `<script src=...>` is stripped) and
+  // executed once on every surface by the client script runner. Authors
+  // need inline JS to drive dashboards / apps reading sibling files via the
+  // `data` bundle, so it is NOT a validation issue. Only external src
+  // scripts (handled above) are blocked — the huozi:bundle keys are the
+  // allow-list for third-party libraries.
 
   // Capability used without its bundle declared → hint. Signals live in
   // inline <script> (so we search WITH script ranges, only excluding

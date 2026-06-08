@@ -130,14 +130,6 @@ export const VALIDATION_RULES: ValidationRule[] = [
     docRef: "toolbox-spec#3-2-author-constraints",
   },
   {
-    code: "inline-script-blocked",
-    level: "warning",
-    title: "Inline <script> blocks will be stripped",
-    why: "Same as external scripts — the sanitizer strips ALL <script>, inline or external. JS-driven interactivity won't reach the share viewer.",
-    remedy: "Move logic into platform-provided bundles (huozi:bundle) or restructure as static CSS-only behavior.",
-    docRef: "toolbox-spec#3-2-author-constraints",
-  },
-  {
     code: "iframe-or-embed-stripped",
     level: "warning",
     title: "<iframe> / <embed> / <object> will be stripped",

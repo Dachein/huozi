@@ -23,10 +23,11 @@
  * Spec: docs/share-viewer-norms (workspace inline surface).
  */
 
-import { useEffect, type CSSProperties } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 import { type HuoziFormat } from "@/lib/html/detect-format";
 import type { PageEntry } from "@/lib/html/extract-pages";
 import { useFullscreen } from "./fullscreen-context";
+import { useDeferredScripts } from "./use-deferred-scripts";
 
 export interface HtmlInlineFrameProps {
   /** Sanitized + scoped HTML from `processHtmlDirect`. Goes through
@@ -61,6 +62,11 @@ export function HtmlInlineFrame({
   format,
 }: HtmlInlineFrameProps) {
   const { setFullscreen } = useFullscreen();
+  const hostRef = useRef<HTMLDivElement | null>(null);
+
+  // Run any scripts the sanitizer deferred for the workspace surface
+  // (no-op on /p · /o, which contain no deferred scripts).
+  useDeferredScripts(hostRef, html);
 
   // Mobile-portrait + deck → auto-enter fullscreen on mount. The fullscreen
   // wrapper already sets `data-huozi-rotate-portrait`, so the deck rotates
@@ -79,6 +85,7 @@ export function HtmlInlineFrame({
   // owns the rotation, not the inline frame.
   return (
     <div
+      ref={hostRef}
       className={`huozi-html-host block ${hostClassName}`}
       style={hostStyle}
       dangerouslySetInnerHTML={{ __html: html }}

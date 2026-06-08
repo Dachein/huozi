@@ -49,6 +49,7 @@
 import { useRef, type CSSProperties } from "react";
 import type { TabEntry } from "@/lib/html/extract-tabs";
 import { DashboardTabBar } from "./dashboard-tab-bar";
+import { useDeferredScripts } from "./use-deferred-scripts";
 
 export interface DashboardSurfaceProps {
   /** Sanitized + scoped HTML from `processHtmlDirect`. */
@@ -74,6 +75,10 @@ export function DashboardSurface({
   refreshMs,
 }: DashboardSurfaceProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+
+  // Run scripts the sanitizer deferred for the workspace surface
+  // (no-op on /p · /o, which contain no deferred scripts).
+  useDeferredScripts(hostRef, html);
 
   return (
     <div

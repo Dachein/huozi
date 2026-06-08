@@ -247,6 +247,23 @@ export interface ProcessHtmlOptions {
    * `filePath` is the workspace path of the HTML being rendered.
    */
   bundleCtx?: BundleInitContext;
+  /**
+   * When true, every `<script>` in the emitted HTML (author inline,
+   * platform eager-init, bundle libs, init shim) is neutralized to
+   * `type="application/huozi-deferred"` so the browser does NOT auto-run
+   * it at parse time. A client-side runner (HtmlInlineFrame) then
+   * re-injects them in document order exactly once after mount.
+   *
+   * This is the WORKSPACE-only surface contract: the workspace preview
+   * renders via React `dangerouslySetInnerHTML` on client navigation,
+   * where browsers never execute innerHTML `<script>` — so author logic
+   * (and bundle inits) would never run. Deferring + a client runner makes
+   * execution consistent and exactly-once across hard-load and SPA-nav.
+   *
+   * Left false for `/p` and `/o`, which are full SSR documents whose
+   * scripts execute at parse — those surfaces stay byte-identical.
+   */
+  deferScripts?: boolean;
 }
 
 const ASSET_PREFIX = "/__assets__/";
@@ -509,6 +526,34 @@ export async function processHtmlDirect(
     if (scriptTags.length > 0) {
       html = `${html}\n${scriptTags.join("\n")}`;
     }
+  }
+
+  // ── Workspace surface: defer ALL scripts to the client runner ──
+  // Neutralize every <script> opening tag to a non-executable type so the
+  // browser won't run it at parse. The HtmlInlineFrame runner re-injects
+  // them in document order, exactly once, after mount. External `src` is
+  // stashed as `data-huozi-src` (the live `src` would fetch+run); defer/
+  // async are dropped since the runner owns ordering. No-op for /p and /o.
+  if (opts.deferScripts) {
+    html = html.replace(/<script\b([^>]*)>/gi, (_full, attrs: string) => {
+      let rest = attrs;
+      let dataSrc = "";
+      const srcMatch = /\ssrc\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/i.exec(rest);
+      if (srcMatch) {
+        rest = rest.replace(srcMatch[0], "");
+        let v = srcMatch[1]!.trim();
+        if (
+          (v.startsWith('"') && v.endsWith('"')) ||
+          (v.startsWith("'") && v.endsWith("'"))
+        ) {
+          v = v.slice(1, -1);
+        }
+        dataSrc = ` data-huozi-src="${v.replace(/"/g, "&quot;")}"`;
+      }
+      rest = rest.replace(/\stype\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/i, "");
+      rest = rest.replace(/\s(?:defer|async)\b/gi, "");
+      return `<script type="application/huozi-deferred"${dataSrc}${rest}>`;
+    });
   }
 
   return {
