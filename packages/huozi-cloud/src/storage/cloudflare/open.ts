@@ -10,6 +10,9 @@
  *                                 → sibling-file proxy for the rendered
  *                                   HTML's data sources, mirror of the
  *                                   public `/p/<slug>/data/*` proxy.
+ *   - GET|HEAD /o/<token>/asset/__assets__/<path>
+ *                                 → token-gated workspace asset proxy for
+ *                                   HTML/markdown resources.
  *
  * The JSON envelope mirrors the share-content shape so the same
  * downstream `renderForPath` code path can be reused on the Next.js
@@ -74,6 +77,57 @@ function detectTextMime(filePath: string): string {
       return 'application/json'
     case 'txt':
       return 'text/plain'
+    default:
+      return 'application/octet-stream'
+  }
+}
+
+function guessAssetMime(path: string): string {
+  const ext = path.split('.').pop()?.toLowerCase() ?? ''
+  switch (ext) {
+    case 'png':
+      return 'image/png'
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg'
+    case 'webp':
+      return 'image/webp'
+    case 'gif':
+      return 'image/gif'
+    case 'svg':
+      return 'image/svg+xml'
+    case 'avif':
+      return 'image/avif'
+    case 'ico':
+      return 'image/x-icon'
+    case 'css':
+      return 'text/css; charset=utf-8'
+    case 'js':
+    case 'mjs':
+      return 'text/javascript; charset=utf-8'
+    case 'json':
+    case 'map':
+      return 'application/json; charset=utf-8'
+    case 'woff':
+      return 'font/woff'
+    case 'woff2':
+      return 'font/woff2'
+    case 'ttf':
+      return 'font/ttf'
+    case 'otf':
+      return 'font/otf'
+    case 'eot':
+      return 'application/vnd.ms-fontobject'
+    case 'pdf':
+      return 'application/pdf'
+    case 'mp4':
+      return 'video/mp4'
+    case 'webm':
+      return 'video/webm'
+    case 'mp3':
+      return 'audio/mpeg'
+    case 'wav':
+      return 'audio/wav'
     default:
       return 'application/octet-stream'
   }
@@ -188,4 +242,64 @@ export async function handleGetOpenData(
     request.method as 'GET' | 'HEAD',
     'no-store',
   )
+}
+
+/**
+ * GET|HEAD /o/<token>/asset/__assets__/<path> — private asset proxy for
+ * open-token renders. Mirrors `/shares/<slug>/asset/*` but uses the token's
+ * workspace id instead of a public share row and always serves `no-store`.
+ */
+export async function handleGetOpenAsset(
+  request: Request,
+  env: HuoziCloudflareBindings,
+  token: string,
+  assetPath: string,
+): Promise<Response> {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return new Response('method not allowed', { status: 405 })
+  }
+  const secret = (env as { HUOZI_AUTH_SECRET?: string }).HUOZI_AUTH_SECRET
+  if (!secret || secret.length < 32) {
+    return Response.json(
+      { error: 'misconfigured', message: 'HUOZI_AUTH_SECRET not set' },
+      { status: 500 },
+    )
+  }
+  const claims = await verifyOpenToken(secret, token)
+  if (!claims) {
+    return Response.json({ error: 'invalid_or_expired' }, { status: 404 })
+  }
+  if (!assetPath.startsWith('__assets__/') || assetPath.includes('..')) {
+    return Response.json({ error: 'bad_asset_path' }, { status: 400 })
+  }
+
+  const current = await currentBlobForPath(env, claims.sub, assetPath)
+  if (!current) {
+    return Response.json({ error: 'asset_not_found' }, { status: 404 })
+  }
+  const blob = await fetchBlobContent(env, current.blob_sha)
+  if (!blob) {
+    return Response.json({ error: 'blob_missing' }, { status: 410 })
+  }
+  const contentRow = await env.DB.prepare(
+    'SELECT content_type FROM files_current WHERE workspace_id = ? AND path = ?',
+  )
+    .bind(claims.sub, assetPath)
+    .first<{ content_type: string | null }>()
+  const contentType = contentRow?.content_type ?? guessAssetMime(assetPath)
+  const body =
+    request.method === 'HEAD'
+      ? null
+      : (blob.bytes.buffer as ArrayBuffer)
+
+  return new Response(body, {
+    status: 200,
+    headers: {
+      'Content-Type': contentType,
+      'Content-Length': String(blob.size),
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+      ETag: `"${current.blob_sha}"`,
+    },
+  })
 }

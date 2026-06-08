@@ -5,7 +5,7 @@ export const templateInputSchema = z.object({
   format: z
     .enum(TEMPLATE_FORMATS)
     .describe(
-      'One of the 5 huozi standard layouts ("版"). Two unpaginated (long scroll): web (desktop-first, the catch-all default), mobile (mobile-first). Three paginated (one-page-at-a-time, with [data-page] markers): deck (16:9 slide), story (9:16 vertical), paper (A4 print).',
+      'One of the 6 huozi standard layouts ("版"): blog (responsive long-flow), deck (16:9 paginated slides), story (9:16 paginated vertical media), paper (A4-width paginated document), dashboard (16:9 tabbed ops surface), app (390×844 mobile UI surface).',
     ),
 })
 

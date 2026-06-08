@@ -21,6 +21,9 @@
  *     data-driven dashboards resolve their `huozi:share-include` jsonl/
  *     csv siblings through the `/o/<token>/d/<path>` proxy — the same
  *     allowlist + live-data contract as `/p/<slug>/d/`.
+ *   - Workspace assets: `/__assets__/...` URLs rewrite to
+ *     `/o/<token>/a/...`, which tunnels through the worker's open-token
+ *     asset proxy.
  *
  * Differences from `/p/<slug>`:
  *   - NO "Open in Huozi" chrome link (web-view can't navigate to
@@ -28,11 +31,8 @@
  *   - NO OG / Twitter card metadata (this is a private viewer page,
  *     not a sharing surface).
  *   - `robots: noindex, nofollow` — token URLs must not be crawled.
- *   - NO asset proxy yet — HTML pages that reference
- *     `/__assets__/foo.png` will have broken images for now. Add an
- *     `/o/<token>/__assets__/<path>` route if asset-rich pages become
- *     a common miniapp case. (The *data* proxy at `/o/<token>/d/<path>`
- *     IS wired — see Pipeline reuse above.)
+ *   - Assets and data are token-gated and served no-store; unlike `/p`,
+ *     these URLs are not intended for public sharing or indexing.
  */
 
 import type { Metadata } from "next";
@@ -43,6 +43,7 @@ import { processChartComponents } from "@/lib/html/chart-components";
 import { computeHtmlMeta } from "@/lib/html/meta";
 import { parseMarkdown } from "@/lib/share-meta/extract-markdown";
 import { getOpen } from "@/lib/drive/open-client";
+import { cloudFetch } from "@/lib/cloud-fetch";
 import {
   FullscreenContent,
   type FullscreenMode,
@@ -94,23 +95,35 @@ async function prepareRender(
   }
   if (e === "md" || e === "mdx") {
     const { content } = parseMarkdown(text);
-    // assetBase intentionally empty — see header docstring on asset proxy.
-    const html = await renderMarkdown(content, { assetBase: "" });
+    const html = await renderMarkdown(content, {
+      assetBase: `/o/${encodeURIComponent(token)}`,
+    });
     return { filePath, rawText: text, prerenderedHtml: html, isHtml: false, isMarkdown: true };
   }
   if (e === "html" || e === "htm") {
+    const tokenBase = `/o/${encodeURIComponent(token)}`;
+    const fetchAsset = async (url: string): Promise<string | null> => {
+      if (!url.startsWith("/__assets__/")) return null;
+      try {
+        const res = await cloudFetch(`${tokenBase}/asset${url}`);
+        if (!res.ok) return null;
+        const ct = res.headers.get("Content-Type") ?? "";
+        if (!ct.toLowerCase().startsWith("text/css")) return null;
+        return await res.text();
+      } catch {
+        return null;
+      }
+    };
     const { html } = await processHtmlDirect(processChartComponents(text), {
-      assetBase: "",
-      // No fetchAsset — the `/__assets__/` proxy isn't wired on /o yet,
-      // so asset-rich HTML degrades to "missing images" (see header).
-      hostAsBody: ".huozi-html-host",
+      assetBase: tokenBase,
+      fetchAsset,
       // bundleCtx DOES resolve here: the worker serves `huozi:share-include`
       // siblings at /o/<token>/data/<path>, proxied by the route handler at
       // /o/[token]/d/[...path]. dataBase embeds that base into
       // `window.huozi.data`, so `window.huozi.read()` and manual
       // `fetch(location.pathname + '/d/' + name)` both reach the data —
       // byte-identical to the /p/<slug> publish surface.
-      bundleCtx: { dataBase: `/o/${token}/d/`, filePath },
+      bundleCtx: { dataBase: `${tokenBase}/d/`, filePath },
     });
     return { filePath, rawText: text, prerenderedHtml: html, isHtml: true, isMarkdown: false };
   }

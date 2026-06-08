@@ -1,5 +1,5 @@
 /**
- * The 4 huozi standard layout ("版") templates surfaced via huozi_template.
+ * The 6 huozi standard layout ("版") templates surfaced via huozi_template.
  *
  * Each is a self-contained, single-file HTML scaffold the agent fills with
  * content before publishing via huozi_share. Inlined here as `const` strings
@@ -11,7 +11,8 @@
  *   Canvas formats (platform scales to fit):
  *     - deck       16:9 horizontal slides, contain-fit, 1920×1080 canvas
  *     - story       9:16 vertical immersive, cover-fit, 390×844 canvas
- *     - dashboard  16:9 ops surface (no scaffold yet — author writes directly)
+ *     - dashboard  16:9 ops surface with host-managed [data-tab] chrome
+ *     - app        9:19.5 mobile UI surface, contain-fit, 390×844 canvas
  *
  *   Lock-width formats (platform locks the column, content flows vertically):
  *     - paper      816×auto, US Letter / A4 column for printable reports
@@ -23,7 +24,7 @@
  *   (Deprecated: `mobile` and `web` collapsed into `blog` 2026-05-22.)
  *
  * Design constraints:
- *   - Pure CSS (no JS) — the publish surface strips <script>.
+ *   - Pure CSS by default — templates avoid JS unless a format specifically needs runtime behavior.
  *   - All styles inlined in <style> — no @import, no external links.
  *   - Class names prefixed `huozi-{format}-` to avoid global CSS collision.
  *   - Container queries (cqw / cqh) for self-scaling slide stages instead
@@ -41,8 +42,9 @@
  *   - Print: pages-menu is hidden in @media print.
  */
 
-// Order: 1 free-flow (blog) then 3 paginated (deck / story / paper).
+// Order: free-flow, paginated, dashboard, then mobile app.
 // Paginated formats include [data-page] markers + outline + pager chrome.
+// Dashboard declares [data-tab] sections; app is a single-screen mobile UI.
 // `blog` is the catch-all default — the publish view treats unmarked HTML
 // as `blog` too.
 export const TEMPLATE_FORMATS = [
@@ -50,6 +52,8 @@ export const TEMPLATE_FORMATS = [
   'deck',
   'story',
   'paper',
+  'dashboard',
+  'app',
 ] as const
 
 export type TemplateFormat = (typeof TEMPLATE_FORMATS)[number]
@@ -554,6 +558,165 @@ const BLOG_HTML = `<!doctype html>
 </html>
 `
 
+const DASHBOARD_HTML = `<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="huozi:format" content="dashboard">
+<meta name="huozi:viewport" content="width:2560; height:1440">
+<meta name="huozi:background" content="#090b10">
+<meta name="huozi:tabs" content="overview=Overview, signals=Signals, team=Team">
+<title>Untitled Dashboard</title>
+<meta name="description" content="">
+<meta property="og:title" content="">
+<meta property="og:description" content="">
+<meta property="og:type" content="article">
+<meta property="og:image" content="">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+:root{
+  --bg:#090b10;
+  --panel:#131924;
+  --panel-2:#0f141d;
+  --fg:#eef3fb;
+  --muted:#8e9aab;
+  --accent:#ff7a4d;
+  --line:#273244;
+  --ok:#49d18f;
+  --warn:#ffd166;
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI","PingFang SC",sans-serif;
+  background:var(--bg);
+  color:var(--fg);
+}
+html,body{margin:0;width:100%;height:100%;background:var(--bg);}
+.huozi-dashboard{width:100%;height:100%;box-sizing:border-box;background:var(--bg);color:var(--fg);container-type:size;overflow:hidden;}
+.dashboard-shell{height:100%;display:grid;grid-template-rows:auto 1fr;gap:32px;padding:56px;box-sizing:border-box;}
+.topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:32px;border-bottom:1px solid var(--line);padding-bottom:28px;}
+.eyebrow{margin:0 0 10px;color:var(--accent);font-size:24px;font-weight:700;text-transform:uppercase;}
+h1{margin:0;font-size:64px;line-height:1.05;font-weight:760;}
+.sub{margin:14px 0 0;color:var(--muted);font-size:26px;}
+.time{text-align:right;color:var(--muted);font-size:22px;}
+.time strong{display:block;color:var(--accent);font-size:36px;margin-bottom:8px;}
+.grid{display:grid;grid-template-columns:1.15fr .85fr;grid-template-rows:auto 1fr;gap:28px;min-height:0;}
+.kpis{grid-column:1 / -1;display:grid;grid-template-columns:repeat(4,1fr);gap:20px;}
+.card{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--line);border-radius:8px;padding:28px;box-sizing:border-box;min-height:0;}
+.kpi-label{color:var(--muted);font-size:20px;text-transform:uppercase;}
+.kpi-value{font-size:52px;font-weight:760;margin-top:14px;}
+.section-title{margin:0 0 22px;color:var(--accent);font-size:24px;text-transform:uppercase;}
+.list{display:grid;gap:18px;}
+.item{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center;border-bottom:1px solid var(--line);padding-bottom:16px;font-size:24px;}
+.item small{display:block;color:var(--muted);font-size:18px;margin-top:6px;}
+.badge{border:1px solid var(--line);border-radius:999px;padding:7px 12px;color:var(--ok);font-size:18px;}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+.metric{height:22px;background:#20283a;border-radius:999px;overflow:hidden;}
+.metric span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--warn));}
+[data-tab]{height:100%;min-height:0;}
+[data-tab]:not(.is-active){display:none;}
+</style>
+</head>
+<body>
+<div class="huozi-dashboard">
+  <section data-tab="overview" class="is-active">
+    <div class="dashboard-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Command Center</p>
+          <h1>Operations Dashboard</h1>
+          <p class="sub">A fixed 2560 × 1440 canvas. Host chrome provides the tab bar.</p>
+        </div>
+        <div class="time"><strong>2026-06-08</strong>Live mode</div>
+      </header>
+      <main class="grid">
+        <div class="kpis">
+          <div class="card"><div class="kpi-label">Revenue</div><div class="kpi-value">128k</div></div>
+          <div class="card"><div class="kpi-label">Accounts</div><div class="kpi-value">42</div></div>
+          <div class="card"><div class="kpi-label">Actions</div><div class="kpi-value">319</div></div>
+          <div class="card"><div class="kpi-label">Risk</div><div class="kpi-value">Low</div></div>
+        </div>
+        <div class="card">
+          <h2 class="section-title">Priority Signals</h2>
+          <div class="list">
+            <div class="item"><span>Onboarding velocity<small>Activation rose week over week</small></span><span class="badge">healthy</span></div>
+            <div class="item"><span>Support queue<small>Two enterprise blockers remain open</small></span><span class="badge">watch</span></div>
+            <div class="item"><span>Data freshness<small>All feeds updated inside SLA</small></span><span class="badge">live</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <h2 class="section-title">Capacity</h2>
+          <div class="list">
+            <div><div class="item"><span>Research</span><strong>82%</strong></div><div class="metric"><span style="width:82%"></span></div></div>
+            <div><div class="item"><span>Implementation</span><strong>68%</strong></div><div class="metric"><span style="width:68%"></span></div></div>
+            <div><div class="item"><span>Review</span><strong>54%</strong></div><div class="metric"><span style="width:54%"></span></div></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </section>
+  <section data-tab="signals"><div class="dashboard-shell"><h1>Signals</h1><div class="split"><div class="card">Signal stream</div><div class="card">Trend map</div></div></div></section>
+  <section data-tab="team"><div class="dashboard-shell"><h1>Team</h1><div class="card">Team map</div></div></section>
+</div>
+</body>
+</html>
+`
+
+const APP_HTML = `<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="huozi:format" content="app">
+<meta name="huozi:viewport" content="width:390; height:844">
+<meta name="huozi:background" content="#f5f7fb">
+<title>Untitled App</title>
+<meta name="description" content="">
+<meta property="og:title" content="">
+<meta property="og:description" content="">
+<meta property="og:type" content="article">
+<meta property="og:image" content="">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI","PingFang SC",sans-serif;background:#f5f7fb;color:#111827;}
+html,body{margin:0;width:100%;height:100%;background:#f5f7fb;}
+.huozi-app{width:100%;height:100%;box-sizing:border-box;background:#f5f7fb;color:#111827;container-type:size;overflow:hidden;}
+.screen{height:100%;display:grid;grid-template-rows:auto 1fr auto;gap:18px;padding:28px 22px;box-sizing:border-box;}
+.top{display:flex;justify-content:space-between;align-items:center;}
+.logo{font-weight:760;font-size:24px;}
+.icon{width:36px;height:36px;border-radius:50%;background:#111827;color:white;display:grid;place-items:center;font-size:14px;}
+.hero{align-self:start;margin-top:18px;}
+h1{font-size:36px;line-height:1.05;margin:0 0 12px;}
+p{margin:0;color:#667085;font-size:15px;line-height:1.55;}
+.panel{background:white;border:1px solid #d9e0ea;border-radius:8px;padding:18px;box-shadow:0 10px 28px rgba(15,23,42,.08);}
+.rows{display:grid;gap:12px;margin-top:18px;}
+.row{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #eef2f7;padding-top:12px;font-size:14px;}
+.row:first-child{border-top:0;padding-top:0;}
+strong{font-size:18px;}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+button{appearance:none;border:0;border-radius:8px;padding:14px 12px;font-weight:700;font-size:15px;}
+.primary{background:#111827;color:white;}
+.secondary{background:#e8edf5;color:#111827;}
+</style>
+</head>
+<body>
+<div class="huozi-app">
+  <main class="screen">
+    <header class="top"><div class="logo">App Surface</div><div class="icon">HZ</div></header>
+    <section class="hero">
+      <h1>Mobile-first HTML app</h1>
+      <p>A contained 390 × 844 canvas for miniapp preview and mobile H5 flows. Keep key controls in the safe center.</p>
+      <div class="panel rows">
+        <div class="row"><span>Status</span><strong>Ready</strong></div>
+        <div class="row"><span>Tasks</span><strong>8</strong></div>
+        <div class="row"><span>Next sync</span><strong>12:30</strong></div>
+      </div>
+    </section>
+    <footer class="actions"><button class="secondary">Details</button><button class="primary">Continue</button></footer>
+  </main>
+</div>
+</body>
+</html>
+`
+
 export const TEMPLATES: Record<TemplateFormat, TemplateMeta> = {
   deck: {
     format: 'deck',
@@ -574,6 +737,20 @@ export const TEMPLATES: Record<TemplateFormat, TemplateMeta> = {
     description: 'A4 print sheet. Reports, letters, printable PDFs.',
     shape: 'A4',
     body: PAPER_HTML,
+  },
+  dashboard: {
+    format: 'dashboard',
+    description:
+      '16:9 big-screen operations surface with host-managed dashboard tabs.',
+    shape: '16:9 dashboard canvas',
+    body: DASHBOARD_HTML,
+  },
+  app: {
+    format: 'app',
+    description:
+      '9:19.5 mobile app surface for miniapp preview and H5 workflows.',
+    shape: '390×844 mobile canvas',
+    body: APP_HTML,
   },
   blog: {
     format: 'blog',

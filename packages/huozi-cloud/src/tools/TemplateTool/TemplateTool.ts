@@ -1,13 +1,13 @@
 /**
  * huozi_template — huozi extension.
  *
- * Returns one of the 5 standard layout ("版") HTML scaffolds, baked into
+ * Returns one of the 6 standard layout ("版") HTML scaffolds, baked into
  * the Worker bundle. Pure read-only; no storage, no D1, no DO state.
  *
  * The point of this tool is to keep the publishing pipeline coherent:
  * the agent doesn't have to invent HTML structure, doesn't fetch any
  * external CSS, and produces self-contained pages that survive the
- * publish-time sanitizer (which strips <script>, @import, etc.).
+ * publish-time sanitizer (which strips external scripts, @import, and unsafe vectors).
  */
 
 import { ERR } from '../../errors.js'
@@ -36,7 +36,7 @@ export function createTemplateTool(): Tool<TemplateInput, TemplateOutput> {
     outputSchema: templateOutputSchema,
 
     async description() {
-      return 'Fetch one of the 5 huozi standard layout (版) templates: deck (16:9), story (9:16), paper (A4), mobile, page.'
+      return 'Fetch one of the 6 huozi standard layout (版) templates: blog, deck, story, paper, dashboard, app.'
     },
     async prompt() {
       return templatePrompt()
