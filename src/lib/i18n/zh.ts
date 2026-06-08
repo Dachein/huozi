@@ -48,7 +48,7 @@ export const zh = {
   // 营销页脚 —— 分组
 
   // 云盘 · Recent 面板
-  "recent.title": "最近",
+  "recent.title": "最近更新（不包括浏览的）",
   "pin.title": "置顶",
   "pin.add": "置顶",
   "pin.remove": "取消置顶",
@@ -56,9 +56,7 @@ export const zh = {
   "recent.op.edited": "编辑",
   "recent.op.deleted": "删除",
   "recent.folderCreated": "新建目录",
-  "recent.filter.view.label": "过滤",
-  "recent.filter.view.works": "作品",
-  "recent.filter.view.assets": "素材",
+  "recent.filter.all": "全部",
 
   // 云盘 · 文件视图错误 / 提示
   "view.error.label": "错误",

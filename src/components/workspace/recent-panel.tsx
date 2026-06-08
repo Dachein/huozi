@@ -1,7 +1,11 @@
 "use client";
 
 /**
- * "Recently touched" pane that lives at the top of the workspace sidebar.
+ * "Recently updated" pane at the top of the workspace sidebar.
+ *
+ * Shows files touched by commits (edits/creates/deletes) — NOT files
+ * merely viewed. By default the feed is curated: asset blobs and
+ * deletions are hidden. The "全部" checkbox opts into the raw feed.
  *
  * Data source:
  *   - Initial: server-side `cloudRecent()` call (via `initial` prop)
@@ -29,8 +33,6 @@ import type { RecentEntry } from "@/lib/drive/mcp-client";
 const DISPLAY_LIMIT = 10;
 const ASSETS_PREFIX = "__assets__/";
 const VIEW_LS_KEY = "huozi-cloud:recent-view";
-
-type RecentView = "works" | "assets";
 
 export interface RecentPanelProps {
   initial: RecentEntry[];
@@ -69,25 +71,27 @@ export function RecentPanel({
   const [entries, setEntries] = useState<LiveEntry[]>(() =>
     dedupByPath(initial.filter((r) => !isSystemPath(r.path, projectFolders))),
   );
-  // Default = "works" (non-asset files). The asset bucket is full of
-  // hash-named PNG blobs and dominates Recent if mixed in.
-  const [view, setViewState] = useState<RecentView>("works");
+  // Default view is curated: only "works" (non-asset files) and no
+  // deletions — the asset bucket is hash-named PNG blobs and deletes are
+  // noise. "全部" opts into the raw feed (assets + deletes included).
+  const [showAll, setShowAllState] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      const raw = window.localStorage.getItem(VIEW_LS_KEY);
-      if (raw === "assets" || raw === "works") setViewState(raw);
+      if (window.localStorage.getItem(VIEW_LS_KEY) === "all") {
+        setShowAllState(true);
+      }
     } catch {
       // ignore
     }
   }, []);
 
-  const setView = (next: RecentView) => {
-    setViewState(next);
+  const setShowAll = (next: boolean) => {
+    setShowAllState(next);
     try {
       if (typeof window !== "undefined") {
-        window.localStorage.setItem(VIEW_LS_KEY, next);
+        window.localStorage.setItem(VIEW_LS_KEY, next ? "all" : "curated");
       }
     } catch {
       // ignore
@@ -135,34 +139,28 @@ export function RecentPanel({
 
   if (entries.length === 0) return null;
 
-  const visible =
-    view === "works"
-      ? entries.filter((e) => !e.path.startsWith(ASSETS_PREFIX))
-      : entries.filter((e) => e.path.startsWith(ASSETS_PREFIX));
+  // Curated default hides asset blobs and deletions; "全部" shows the raw
+  // feed with everything included.
+  const visible = showAll
+    ? entries
+    : entries.filter(
+        (e) => !e.path.startsWith(ASSETS_PREFIX) && e.operation !== "delete",
+      );
 
   return (
     <div className="border-b border-border/50">
       <div className="px-3 py-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">
-          <ClockIcon />
-          {t("recent.title")}
+        <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground min-w-0">
+          <span className="shrink-0">
+            <ClockIcon />
+          </span>
+          <span className="truncate">{t("recent.title")}</span>
         </div>
-        <div
-          role="tablist"
-          aria-label={t("recent.filter.view.label")}
-          className="inline-flex rounded border border-border overflow-hidden shrink-0"
-        >
-          <ViewTab
-            active={view === "works"}
-            onClick={() => setView("works")}
-            label={t("recent.filter.view.works")}
-          />
-          <ViewTab
-            active={view === "assets"}
-            onClick={() => setView("assets")}
-            label={t("recent.filter.view.assets")}
-          />
-        </div>
+        <AllToggle
+          checked={showAll}
+          onChange={() => setShowAll(!showAll)}
+          label={t("recent.filter.all")}
+        />
       </div>
       <ul className="px-1 pb-2 space-y-0.5 max-h-64 overflow-y-auto">
         {visible.slice(0, DISPLAY_LIMIT).map((e) => (
@@ -177,27 +175,52 @@ export function RecentPanel({
   );
 }
 
-function ViewTab({
-  active,
-  onClick,
+/** Single "全部" checkbox: off = curated feed (works only, no deletes),
+ *  on = raw feed (assets + deletes included). */
+function AllToggle({
+  checked,
+  onChange,
   label,
 }: {
-  active: boolean;
-  onClick: () => void;
+  checked: boolean;
+  onChange: () => void;
   label: string;
 }) {
   return (
     <button
       type="button"
-      role="tab"
-      aria-selected={active}
-      onClick={onClick}
-      className={`text-[10px] px-1.5 py-0.5 transition-colors ${
-        active
-          ? "bg-accent/10 text-accent"
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      title={label}
+      className={`inline-flex items-center gap-1 rounded px-1 py-0.5 text-[10px] transition-colors shrink-0 ${
+        checked
+          ? "text-accent"
           : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
       }`}
     >
+      <span
+        aria-hidden="true"
+        className={`inline-flex h-3 w-3 items-center justify-center rounded-[3px] border transition-colors ${
+          checked ? "border-accent bg-accent/10" : "border-border"
+        }`}
+      >
+        {checked && (
+          <svg
+            viewBox="0 0 24 24"
+            width={9}
+            height={9}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M5 13l4 4L19 7" />
+          </svg>
+        )}
+      </span>
       {label}
     </button>
   );

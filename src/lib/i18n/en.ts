@@ -49,7 +49,7 @@ export const en = {
   // Marketing footer — column groupings
 
   // Workspace · Recent panel
-  "recent.title": "Recent",
+  "recent.title": "Recently updated",
   "pin.title": "Pinned",
   "pin.add": "Pin",
   "pin.remove": "Unpin",
@@ -57,9 +57,7 @@ export const en = {
   "recent.op.edited": "edited",
   "recent.op.deleted": "deleted",
   "recent.folderCreated": "folder created",
-  "recent.filter.view.label": "Filter",
-  "recent.filter.view.works": "Works",
-  "recent.filter.view.assets": "Assets",
+  "recent.filter.all": "All",
 
   // Workspace · file view error / hint
   "view.error.label": "Error",

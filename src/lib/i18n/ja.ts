@@ -48,7 +48,7 @@ export const ja = {
   // マーケティングフッター — グルーピング
 
   // ワークスペース · 最近パネル
-  "recent.title": "最近",
+  "recent.title": "最近の更新",
   "pin.title": "ピン留め",
   "pin.add": "ピン留め",
   "pin.remove": "解除",
@@ -56,9 +56,7 @@ export const ja = {
   "recent.op.edited": "編集",
   "recent.op.deleted": "削除",
   "recent.folderCreated": "フォルダ作成",
-  "recent.filter.view.label": "フィルター",
-  "recent.filter.view.works": "作品",
-  "recent.filter.view.assets": "素材",
+  "recent.filter.all": "すべて",
 
   // ワークスペース · ファイルビューのエラー / ヒント
   "view.error.label": "エラー",

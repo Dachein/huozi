@@ -49,7 +49,7 @@ export const fr = {
   // Pied de page marketing — groupes
 
   // Workspace · panneau Récent
-  "recent.title": "Récent",
+  "recent.title": "Récemment modifié",
   "pin.title": "Épinglé",
   "pin.add": "Épingler",
   "pin.remove": "Désépingler",
@@ -57,9 +57,7 @@ export const fr = {
   "recent.op.edited": "modifié",
   "recent.op.deleted": "supprimé",
   "recent.folderCreated": "dossier créé",
-  "recent.filter.view.label": "Filtre",
-  "recent.filter.view.works": "Œuvres",
-  "recent.filter.view.assets": "Ressources",
+  "recent.filter.all": "Tout",
 
   // Workspace · erreur / indice de la vue de fichier
   "view.error.label": "Erreur",
