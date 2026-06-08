@@ -48,7 +48,7 @@ export const zh = {
   // 营销页脚 —— 分组
 
   // 云盘 · Recent 面板
-  "recent.title": "最近更新（不包括浏览的）",
+  "recent.title": "最近更新",
   "pin.title": "置顶",
   "pin.add": "置顶",
   "pin.remove": "取消置顶",
