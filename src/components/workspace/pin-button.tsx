@@ -11,9 +11,10 @@
  *     hover even though the file is pinned (the panel's own header pin
  *     glyph already signals "pinned", so a per-row indicator is redundant).
  *
- * Color/stroke adapt per theme — amber reads as a gold pin on the cream
- * (default/paper) bg, but is near-invisible on brutal-mono's yellow, so
- * brutal switches to bold black and office to its blue accent.
+ * Color/stroke adapt per theme — paper (default) shows an outline-only
+ * amber pin (a solid fill reads too hot on the cream bg); amber is
+ * near-invisible on brutal-mono's yellow, so brutal switches to a bold
+ * filled black pin and office to its filled blue accent.
  *
  * Always stops propagation so toggling never triggers the row's navigation.
  */
@@ -76,7 +77,7 @@ export function PinButton({
         onClick={onClick}
         className={`shrink-0 inline-flex items-center justify-center rounded p-0.5 transition-opacity transition-colors hover:bg-muted/60 ${hidden} ${color}`}
       >
-        <PinIcon filled={pinned} size={14} />
+        <PinIcon filled={pinned && theme !== "default"} size={14} />
       </button>
     );
   }
@@ -94,7 +95,7 @@ export function PinButton({
           : "border-border text-muted-foreground hover:border-foreground/40 hover:bg-muted/60 hover:text-foreground"
       }`}
     >
-      <PinIcon filled={pinned} size={16} />
+      <PinIcon filled={pinned && theme !== "default"} size={16} />
     </button>
   );
 }
