@@ -50,6 +50,17 @@ export const HUOZI_LIVE_COMMIT_EVENT = "huozi-live-commit";
 /** DOM event name for "a new Agent just used its key for the first time". */
 export const HUOZI_LIVE_CONNECTION_EVENT = "huozi-live-connection";
 
+/** DOM event name for WebSocket connection status updates. */
+export const HUOZI_LIVE_STATUS_EVENT = "huozi-live-status";
+
+export type LiveStatus = "connecting" | "online" | "offline";
+
+export interface LiveStatusEvent {
+  status: LiveStatus;
+  label: string;
+  tip: string;
+}
+
 export interface ConnectionEvent {
   type: "connection";
   action: "first_used";
@@ -82,20 +93,34 @@ export interface CloudLiveEventsProps {
 
 export function CloudLiveEvents({ mode, watchPath }: CloudLiveEventsProps) {
   const router = useRouter();
-  const [status, setStatus] = useState<"connecting" | "online" | "offline">(
-    "connecting",
-  );
+  const [status, setStatus] = useState<LiveStatus>("connecting");
 
   // Keep a mutable ref to the latest router.refresh so the stable WS effect
   // can reach into it without forcing reconnects on every render.
   const refreshRef = useRef(router.refresh);
-  refreshRef.current = router.refresh;
-
   const watchPathRef = useRef(watchPath);
-  watchPathRef.current = watchPath;
-
   const modeRef = useRef(mode);
-  modeRef.current = mode;
+
+  useEffect(() => {
+    try {
+      window.dispatchEvent(
+        new CustomEvent<LiveStatusEvent>(HUOZI_LIVE_STATUS_EVENT, {
+          detail: {
+            status,
+            ...LIVE_STATUS_COPY[status],
+          },
+        }),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [status]);
+
+  useEffect(() => {
+    refreshRef.current = router.refresh;
+    watchPathRef.current = watchPath;
+    modeRef.current = mode;
+  }, [mode, router.refresh, watchPath]);
 
   useEffect(() => {
     let cancelled = false;
@@ -246,55 +271,22 @@ export function CloudLiveEvents({ mode, watchPath }: CloudLiveEventsProps) {
     };
     // Intentional: we never want to tear down the WS on prop changes. The
     // refs above expose the latest mode / watchPath.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return <StatusPill status={status} />;
+  return null;
 }
 
-function StatusPill({ status }: { status: "connecting" | "online" | "offline" }) {
-  const map = {
-    connecting: {
-      label: "Connecting…",
-      tip:
-        "Opening a WebSocket to huozi-cloud. New file commits will arrive once " +
-        "the connection is established.",
-      cls: "border-border text-muted-foreground",
-      dot: "bg-muted-foreground/60 animate-pulse",
-    },
-    online: {
-      label: "Live",
-      tip:
-        "Real-time sync is on. Any file written by another tab, agent, or the " +
-        "huozi-bridge daemon shows up here without a reload.",
-      cls: "border-emerald-500/30 text-emerald-500",
-      dot: "bg-emerald-500",
-    },
-    offline: {
-      label: "Offline",
-      tip:
-        "WebSocket disconnected. The page still works but won't reflect remote " +
-        "commits until the connection comes back; reload if you need the latest.",
-      cls: "border-border text-muted-foreground",
-      dot: "bg-muted-foreground/60",
-    },
-  };
-  const { label, tip, cls, dot } = map[status];
-  return (
-    // Pinned top-right of the viewport, sitting just inside the AppHeader's
-    // right padding so it reads as part of the workspace chrome rather than
-    // a floating toast. Native `title` carries the multi-line tooltip — keeps
-    // bundle size flat (no popover library) and screen readers pick it up via
-    // accessible name.
-    <span
-      className={`fixed top-3 right-4 z-40 inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] bg-background/80 backdrop-blur ${cls}`}
-      title={`${label} — ${tip}`}
-      role="status"
-      aria-live="polite"
-    >
-      <span className={`inline-block w-2 h-2 rounded-full ${dot}`} />
-      {label}
-    </span>
-  );
-}
-
+const LIVE_STATUS_COPY: Record<LiveStatus, { label: string; tip: string }> = {
+  connecting: {
+    label: "Connecting",
+    tip: "连接中",
+  },
+  online: {
+    label: "Live",
+    tip: "连接正常",
+  },
+  offline: {
+    label: "Offline",
+    tip: "连接断开",
+  },
+};

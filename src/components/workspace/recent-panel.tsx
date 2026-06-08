@@ -22,7 +22,10 @@ import { useEffect, useRef, useState } from "react";
 import { useWorkspaceNav } from "@/components/workspace/nav-pending";
 import {
   HUOZI_LIVE_COMMIT_EVENT,
+  HUOZI_LIVE_STATUS_EVENT,
   type CommitEvent,
+  type LiveStatus,
+  type LiveStatusEvent,
 } from "./cloud-live-events";
 import { FileIcon } from "@/components/workspace/file-icon";
 import { isSystemPath } from "@/lib/file-types";
@@ -33,6 +36,11 @@ import type { RecentEntry } from "@/lib/drive/mcp-client";
 const DISPLAY_LIMIT = 10;
 const ASSETS_PREFIX = "__assets__/";
 const VIEW_LS_KEY = "huozi-cloud:recent-view";
+const DEFAULT_LIVE_STATUS: LiveStatusEvent = {
+  status: "connecting",
+  label: "Connecting",
+  tip: "连接中",
+};
 
 export interface RecentPanelProps {
   initial: RecentEntry[];
@@ -71,21 +79,19 @@ export function RecentPanel({
   const [entries, setEntries] = useState<LiveEntry[]>(() =>
     dedupByPath(initial.filter((r) => !isSystemPath(r.path, projectFolders))),
   );
+  const [liveStatus, setLiveStatus] =
+    useState<LiveStatusEvent>(DEFAULT_LIVE_STATUS);
   // Default view is curated: only "works" (non-asset files) and no
   // deletions — the asset bucket is hash-named PNG blobs and deletes are
   // noise. "全部" opts into the raw feed (assets + deletes included).
-  const [showAll, setShowAllState] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+  const [showAll, setShowAllState] = useState(() => {
+    if (typeof window === "undefined") return false;
     try {
-      if (window.localStorage.getItem(VIEW_LS_KEY) === "all") {
-        setShowAllState(true);
-      }
+      return window.localStorage.getItem(VIEW_LS_KEY) === "all";
     } catch {
-      // ignore
+      return false;
     }
-  }, []);
+  });
 
   const setShowAll = (next: boolean) => {
     setShowAllState(next);
@@ -97,6 +103,19 @@ export function RecentPanel({
       // ignore
     }
   };
+
+  useEffect(() => {
+    function onStatus(e: Event) {
+      const detail = (e as CustomEvent<LiveStatusEvent>).detail;
+      if (!detail) return;
+      setLiveStatus(detail);
+    }
+
+    window.addEventListener(HUOZI_LIVE_STATUS_EVENT, onStatus);
+    return () => {
+      window.removeEventListener(HUOZI_LIVE_STATUS_EVENT, onStatus);
+    };
+  }, []);
 
   useEffect(() => {
     function onCommit(e: Event) {
@@ -155,6 +174,7 @@ export function RecentPanel({
             <ClockIcon />
           </span>
           <span className="truncate">{t("recent.title")}</span>
+          <LiveStatusDot status={liveStatus} />
         </div>
         <AllToggle
           checked={showAll}
@@ -174,6 +194,31 @@ export function RecentPanel({
     </div>
   );
 }
+
+function LiveStatusDot({ status }: { status: LiveStatusEvent }) {
+  const tone = LIVE_STATUS_TONE[status.status];
+
+  return (
+    <span
+      className={`inline-flex h-2 w-2 shrink-0 rounded-full ${tone.dot}`}
+      title={status.tip}
+      role="status"
+      aria-label={`${status.label}: ${status.tip}`}
+    />
+  );
+}
+
+const LIVE_STATUS_TONE: Record<LiveStatus, { dot: string }> = {
+  connecting: {
+    dot: "bg-muted-foreground/60 animate-pulse",
+  },
+  online: {
+    dot: "bg-emerald-500",
+  },
+  offline: {
+    dot: "bg-muted-foreground/60",
+  },
+};
 
 /** Single "全部" checkbox: off = curated feed (works only, no deletes),
  *  on = raw feed (assets + deletes included). */
