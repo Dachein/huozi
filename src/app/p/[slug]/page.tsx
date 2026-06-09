@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { getShare, unlockShare } from "@/lib/drive/shares";
 import { cloudFetch } from "@/lib/cloud-fetch";
 import { renderMarkdown } from "@/lib/markdown/renderer";
@@ -19,6 +18,8 @@ export const dynamic = "force-dynamic";
 
 type Params = Promise<{ slug: string }>;
 
+const SHARE_EXPIRED_MESSAGE = "该分享页面已经过期，请联系作者获得新链接";
+
 export async function generateMetadata({
   params,
 }: {
@@ -27,7 +28,13 @@ export async function generateMetadata({
   const { slug } = await params;
   const res = await getShare(slug);
   if (!res.ok) {
-    return { title: "Not found — huozi" };
+    return {
+      title:
+        res.error === "share_expired"
+          ? "分享已过期 — huozi"
+          : "分享不可用 — huozi",
+      robots: { index: false, follow: false },
+    };
   }
   const share = res.data;
   const text = share.locked === true ? undefined : share.text;
@@ -62,6 +69,36 @@ export async function generateMetadata({
         ? { index: false, follow: false }
         : { index: true, follow: true },
   };
+}
+
+function ShareUnavailable({
+  message,
+  chromeless,
+}: {
+  message: string;
+  chromeless?: boolean;
+}) {
+  return (
+    <main className="min-h-screen bg-background text-foreground flex items-center justify-center px-6">
+      <section className="w-full max-w-md text-center">
+        <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-muted text-lg font-serif text-accent">
+          字
+        </div>
+        <h1 className="text-xl font-semibold tracking-tight">分享页面不可用</h1>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          {message}
+        </p>
+        {!chromeless && (
+          <Link
+            href="/"
+            className="mt-7 inline-flex h-9 items-center justify-center rounded-md border border-border px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            回到 Huozi
+          </Link>
+        )}
+      </section>
+    </main>
+  );
 }
 
 function ext(path: string): string {
@@ -214,19 +251,11 @@ export default async function SharedPage({
   const res = await memoize(shareMetaKey, 30_000, () => getShare(slug));
 
   if (!res.ok) {
-    if (res.errorCode === 404) notFound();
-    return (
-      <div className="mx-auto max-w-lg px-6 py-20 text-sm">
-        <h1 className="text-xl font-semibold mb-2">Couldn&rsquo;t load share</h1>
-        <p className="text-muted-foreground">{res.message}</p>
-        <Link
-          href="/"
-          className="mt-6 inline-block underline text-sm text-muted-foreground hover:text-foreground"
-        >
-          ← Back to huozi
-        </Link>
-      </div>
-    );
+    const message =
+      res.error === "share_expired"
+        ? SHARE_EXPIRED_MESSAGE
+        : res.message || "这个分享页面不存在或已经不可用。";
+    return <ShareUnavailable message={message} chromeless={chromeless} />;
   }
 
   const share = res.data;

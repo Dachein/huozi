@@ -103,7 +103,25 @@ Author-facing conventions:
 | Public/open asset proxies | `src/app/p/[slug]/a`, `src/app/o/[token]/a`, worker share/open handlers |
 | Agent template guidance | `packages/huozi-cloud/src/tools/TemplateTool/*` |
 
-## 7. Test Matrix
+## 7. Share Error Contract
+
+Public readers and miniapp/web-view clients should treat the JSON `error`
+field as the stable protocol. HTTP 404 is intentionally preserved for missing
+or unavailable share URLs, but an expired share must return:
+
+```json
+{
+  "error": "share_expired",
+  "message": "该分享页面已经过期，请联系作者获得新链接"
+}
+```
+
+This applies to `/shares/<slug>`, `/shares/<slug>/unlock`, and the public
+share asset/data proxies. The Web `/p/<slug>` surface renders the same message
+as a centered reader-facing state; miniapp clients can show the `message`
+directly.
+
+## 8. Test Matrix
 
 Every release touching HTML runtime should test one file per format across the surfaces below.
 
@@ -116,7 +134,7 @@ Every release touching HTML runtime should test one file per format across the s
 | dashboard | yes | contained big-screen preview | full viewport contain | same | show mobile/big-screen guidance if needed | host tab bar switches iframe sections. |
 | app | yes | mobile canvas preview | centered mobile UI | same | fills mobile contain | no clipped controls; background explicit. |
 
-## 8. Practical Authoring Rules
+## 9. Practical Authoring Rules
 
 1. Pick the format by user intent, not by current viewport.
 2. Canvas formats should use container-relative sizing (`cqw`, `cqh`, percentages) inside their root, not `vw`/`vh` for internal layout.

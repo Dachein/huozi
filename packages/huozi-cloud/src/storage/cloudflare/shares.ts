@@ -67,6 +67,52 @@ interface ShareRow {
   created_by: string
 }
 
+export const SHARE_EXPIRED_MESSAGE =
+  '该分享页面已经过期，请联系作者获得新链接'
+
+const SHARE_UNAVAILABLE_MESSAGE = '该分享页面不可用，请联系作者获得新链接'
+
+type ShareLookupFailure = 'not_found' | 'revoked' | 'expired'
+
+type ShareLookup =
+  | { ok: true; row: ShareRow }
+  | { ok: false; reason: ShareLookupFailure }
+
+function shareLookupFailureResponse(reason: ShareLookupFailure): Response {
+  if (reason === 'expired') {
+    return Response.json(
+      { error: 'share_expired', message: SHARE_EXPIRED_MESSAGE },
+      { status: 404, headers: { 'Cache-Control': 'no-store' } },
+    )
+  }
+  if (reason === 'revoked') {
+    return Response.json(
+      { error: 'share_unavailable', message: SHARE_UNAVAILABLE_MESSAGE },
+      { status: 404, headers: { 'Cache-Control': 'no-store' } },
+    )
+  }
+  return Response.json(
+    { error: 'not_found' },
+    { status: 404, headers: { 'Cache-Control': 'no-store' } },
+  )
+}
+
+async function loadPublicShareRow(
+  env: HuoziCloudflareBindings,
+  slug: string,
+  now = Date.now(),
+): Promise<ShareLookup> {
+  const row = await env.DB.prepare('SELECT * FROM shares WHERE slug = ?')
+    .bind(slug)
+    .first<ShareRow>()
+  if (!row) return { ok: false, reason: 'not_found' }
+  if (row.revoked_at !== null) return { ok: false, reason: 'revoked' }
+  if (row.expires_at !== null && row.expires_at <= now) {
+    return { ok: false, reason: 'expired' }
+  }
+  return { ok: true, row }
+}
+
 /** Upper bound on TTL in seconds. 10 years; callers pass a discrete choice. */
 const MAX_TTL_SECONDS = 10 * 365 * 24 * 60 * 60
 
@@ -428,17 +474,9 @@ export async function handleGetShare(
   if (!SLUG_RE.test(slug)) {
     return Response.json({ error: 'bad_slug' }, { status: 400 })
   }
-  const row = await env.DB.prepare(
-    `SELECT * FROM shares
-     WHERE slug = ?
-       AND revoked_at IS NULL
-       AND (expires_at IS NULL OR expires_at > ?)`,
-  )
-    .bind(slug, Date.now())
-    .first<ShareRow>()
-  if (!row) {
-    return Response.json({ error: 'not_found' }, { status: 404 })
-  }
+  const share = await loadPublicShareRow(env, slug)
+  if (!share.ok) return shareLookupFailureResponse(share.reason)
+  const row = share.row
 
   // Best-effort view count increment (don't block response on it).
   env.DB.prepare(`UPDATE shares SET view_count = view_count + 1 WHERE slug = ?`)
@@ -513,17 +551,9 @@ export async function handleGetShareAsset(
   if (!assetPath.startsWith('__assets__/') || assetPath.includes('..')) {
     return Response.json({ error: 'bad_asset_path' }, { status: 400 })
   }
-  const row = await env.DB.prepare(
-    `SELECT * FROM shares
-     WHERE slug = ?
-       AND revoked_at IS NULL
-       AND (expires_at IS NULL OR expires_at > ?)`,
-  )
-    .bind(slug, Date.now())
-    .first<ShareRow>()
-  if (!row) {
-    return Response.json({ error: 'not_found' }, { status: 404 })
-  }
+  const share = await loadPublicShareRow(env, slug)
+  if (!share.ok) return shareLookupFailureResponse(share.reason)
+  const row = share.row
   if (row.passcode_hash) {
     return Response.json({ error: 'locked' }, { status: 403 })
   }
@@ -751,17 +781,9 @@ export async function handleUnlockShare(
     )
   }
 
-  const row = await env.DB.prepare(
-    `SELECT * FROM shares
-     WHERE slug = ?
-       AND revoked_at IS NULL
-       AND (expires_at IS NULL OR expires_at > ?)`,
-  )
-    .bind(slug, Date.now())
-    .first<ShareRow>()
-  if (!row) {
-    return Response.json({ error: 'not_found' }, { status: 404 })
-  }
+  const share = await loadPublicShareRow(env, slug)
+  if (!share.ok) return shareLookupFailureResponse(share.reason)
+  const row = share.row
   if (!row.passcode_hash) {
     // Already public — client shouldn't reach here, but behave gracefully.
     const pub = await buildShareContent(env, row)
@@ -915,7 +937,8 @@ export async function handleRevokeShare(
  * asset proxy comments.
  *
  * Routes here mirror the asset proxy's security stance:
- *   - revoked / expired share → 404
+ *   - expired share           → 404 share_expired
+ *   - revoked share           → 404 share_unavailable
  *   - passcode-locked share   → 403 (data follows the lock; you can't
  *                                    unlock data separately from the page)
  *   - path with `..`          → 400
@@ -933,17 +956,9 @@ export async function handleGetShareData(
   if (!SLUG_RE.test(slug)) {
     return Response.json({ error: 'bad_slug' }, { status: 400 })
   }
-  const row = await env.DB.prepare(
-    `SELECT * FROM shares
-     WHERE slug = ?
-       AND revoked_at IS NULL
-       AND (expires_at IS NULL OR expires_at > ?)`,
-  )
-    .bind(slug, Date.now())
-    .first<ShareRow>()
-  if (!row) {
-    return Response.json({ error: 'not_found' }, { status: 404 })
-  }
+  const share = await loadPublicShareRow(env, slug)
+  if (!share.ok) return shareLookupFailureResponse(share.reason)
+  const row = share.row
   if (row.passcode_hash) {
     return Response.json({ error: 'locked' }, { status: 403 })
   }

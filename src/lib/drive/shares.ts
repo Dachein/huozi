@@ -43,10 +43,26 @@ export interface CreateShareInput {
 interface ErrorResponse {
   ok: false
   errorCode: number
+  error: string
   message: string
 }
 
 type Result<T> = { ok: true; data: T } | ErrorResponse
+
+function readShareError(
+  body: unknown,
+): { error: string; message: string } {
+  if (!body || typeof body !== 'object') {
+    return { error: 'unknown', message: 'unknown' }
+  }
+  const record = body as Record<string, unknown>
+  const error = typeof record.error === 'string' ? record.error : 'unknown'
+  const message =
+    typeof record.message === 'string' && record.message
+      ? record.message
+      : error
+  return { error, message }
+}
 
 export async function getShare(slug: string): Promise<Result<ShareResponse>> {
   try {
@@ -56,21 +72,25 @@ export async function getShare(slug: string): Promise<Result<ShareResponse>> {
     })
     const body = (await res.json()) as
       | ({ ok: true } & ShareResponse)
-      | { error: string }
+      | { error: string; message?: string }
     if (!res.ok || !('ok' in body) || !body.ok) {
+      const shareError = readShareError(body)
       return {
         ok: false,
         errorCode: res.status,
-        message: ('error' in body ? body.error : 'unknown') || 'unknown',
+        error: shareError.error,
+        message: shareError.message,
       }
     }
     // Strip the top-level ok so we return the payload shape cleanly.
-    const { ok: _ok, ...rest } = body as { ok: true } & ShareResponse
+    const rest = { ...(body as { ok?: true } & ShareResponse) }
+    delete rest.ok
     return { ok: true, data: rest as ShareResponse }
   } catch (err) {
     return {
       ok: false,
       errorCode: 0,
+      error: 'network_error',
       message: err instanceof Error ? err.message : String(err),
     }
   }
@@ -92,20 +112,24 @@ export async function unlockShare(
     )
     const body = (await res.json()) as
       | ({ ok: true } & ShareContent)
-      | { error: string }
+      | { error: string; message?: string }
     if (!res.ok || !('ok' in body) || !body.ok) {
+      const shareError = readShareError(body)
       return {
         ok: false,
         errorCode: res.status,
-        message: ('error' in body ? body.error : 'unknown') || 'unknown',
+        error: shareError.error,
+        message: shareError.message,
       }
     }
-    const { ok: _ok, ...rest } = body as { ok: true } & ShareContent
+    const rest = { ...(body as { ok?: true } & ShareContent) }
+    delete rest.ok
     return { ok: true, data: rest as ShareContent }
   } catch (err) {
     return {
       ok: false,
       errorCode: 0,
+      error: 'network_error',
       message: err instanceof Error ? err.message : String(err),
     }
   }

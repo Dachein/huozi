@@ -40,7 +40,7 @@ export async function POST(
           ? 404
           : 502;
     return NextResponse.json(
-      { error: res.message },
+      { error: res.error, message: res.message },
       { status },
     );
   }
