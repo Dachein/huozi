@@ -181,7 +181,7 @@ export function FullscreenContent({
       // overflow-x-hidden is a belt-and-suspenders against any inner
       // element (or vw-based custom CSS) trying to overflow horizontally.
       `overflow-x-hidden overflow-y-auto
-       [&_.huozi-html-host]:!w-full [&_.huozi-html-host]:!h-auto
+       [&_.huozi-html-host]:!w-full
        [&_.huozi-html-host]:!max-w-none [&_.huozi-html-host]:!max-h-none
        [&_.huozi-html-host]:![aspect-ratio:auto]
        [&_.huozi-html-host]:!overflow-visible

@@ -7,7 +7,7 @@ huozi treats every file as one of four data types. This is not a UI taxonomy —
 | **Spreadsheet**| `.csv` `.tsv`| A grid of same-shape rows. Cross-sectional snapshot.      | Sortable, virtualized data grid (`CsvGrid`).           |
 | **Document**   | `.md` `.mdx` | Continuous prose. Narrative.                              | Rendered Markdown with the publish-flow renderer.      |
 | **Collection** | `.jsonl`     | A stream of entities, each with identity and a lifeline.  | Cards / table / timeline / current-state views (toggleable). |
-| **Page**       | `.html` `.htm`| A finished visual artifact, sized to its purpose.        | Sandboxed HTML with one of five sub-formats: `web`, `mobile`, `deck`, `story`, `paper`. |
+| **Page**       | `.html` `.htm`| A finished visual artifact, sized to its purpose.        | Sandboxed HTML with one of six sub-formats: `blog`, `deck`, `story`, `paper`, `dashboard`, `app`. |
 
 `Collection` is the newcomer (introduced 2026-05). Everything else has shipped for months. The bulk of this doc is about why Collection deserves its own slot, and how to author and render one correctly.
 
@@ -50,15 +50,16 @@ This is the new type. The rest of this document is about it.
 
 ### Page — `.html` / `.htm`
 
-A self-contained, sanitized HTML artifact. The dominant question is **"how does this look?"** — visual, finished, shareable. The publish flow strips `<script>` and unwanted CSS; the renderer applies a layout wrapper sized to one of five `huozi:format` declarations:
+A self-contained, sanitized HTML artifact. The dominant question is **"how does this look?"** — visual, finished, shareable. The renderer isolates the author document in an iframe inside a standard host shell, then applies a layout wrapper sized to one of six `huozi:format` declarations:
 
 | Sub-format | Aspect / size       | Use for                                  |
 |------------|---------------------|------------------------------------------|
-| `web`      | flowing, no max     | Long-form web pages (default catch-all)  |
-| `mobile`   | flowing, narrow     | Mobile-first long content                |
+| `blog`     | responsive flow     | Long-form web pages (default catch-all)  |
 | `deck`     | 16:9, paginated     | Slide decks                              |
 | `story`    | 9:16, paginated     | Vertical reels / stories                 |
-| `paper`    | A4, paginated       | Print-style long documents               |
+| `paper`    | A4-width, paginated | Print-style long documents               |
+| `dashboard`| 16:9, tabbed        | Big-screen ops / live data dashboards    |
+| `app`      | 390×844 mobile UI   | Miniapp preview / mobile H5 flows        |
 
 Sub-formats are sniffed from `<meta name="huozi:format">` or the body class. They are renderer hints, not separate types — every `.html` is one Page.
 

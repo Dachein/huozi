@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { getShare, unlockShare } from "@/lib/drive/shares";
 import { cloudFetch } from "@/lib/cloud-fetch";
 import { renderMarkdown } from "@/lib/markdown/renderer";
@@ -19,6 +18,8 @@ export const dynamic = "force-dynamic";
 
 type Params = Promise<{ slug: string }>;
 
+const SHARE_EXPIRED_MESSAGE = "该分享页面已经过期，请联系作者获得新链接";
+
 export async function generateMetadata({
   params,
 }: {
@@ -27,7 +28,13 @@ export async function generateMetadata({
   const { slug } = await params;
   const res = await getShare(slug);
   if (!res.ok) {
-    return { title: "Not found — huozi" };
+    return {
+      title:
+        res.error === "share_expired"
+          ? "分享已过期 — huozi"
+          : "分享不可用 — huozi",
+      robots: { index: false, follow: false },
+    };
   }
   const share = res.data;
   const text = share.locked === true ? undefined : share.text;
@@ -64,6 +71,36 @@ export async function generateMetadata({
   };
 }
 
+function ShareUnavailable({
+  message,
+  chromeless,
+}: {
+  message: string;
+  chromeless?: boolean;
+}) {
+  return (
+    <main className="min-h-screen bg-background text-foreground flex items-center justify-center px-6">
+      <section className="w-full max-w-md text-center">
+        <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-muted text-lg font-serif text-accent">
+          字
+        </div>
+        <h1 className="text-xl font-semibold tracking-tight">分享页面不可用</h1>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          {message}
+        </p>
+        {!chromeless && (
+          <Link
+            href="/"
+            className="mt-7 inline-flex h-9 items-center justify-center rounded-md border border-border px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            回到 Huozi
+          </Link>
+        )}
+      </section>
+    </main>
+  );
+}
+
 function ext(path: string): string {
   const i = path.lastIndexOf(".");
   return i < 0 ? "" : path.slice(i + 1).toLowerCase();
@@ -86,10 +123,9 @@ async function renderForPath(
   }
   if (e === "html" || e === "htm") {
     // SSR-inline workspace stylesheets via the share-asset proxy so the
-    // bytes go through the dual-emit transform below. Without this the
-    // browser would fetch the CSS at runtime and `body > nav { ... }`
-    // wouldn't match — the article HTML lives inside a `huozi-html-host`
-    // wrapper, one DOM level below body.
+    // bytes go through the same sanitize/bundle pipeline as inline styles.
+    // The author document later runs inside HtmlIframeFrame, so body/root
+    // selectors apply to the iframe document rather than the share shell.
     const fetchAsset = async (url: string): Promise<string | null> => {
       if (!url.startsWith("/__assets__/")) return null;
       try {
@@ -106,13 +142,6 @@ async function renderForPath(
     const { html } = await processHtmlDirect(processChartComponents(text), {
       assetBase: `/p/${slug}`,
       fetchAsset,
-      // Author writes `body > nav { … }` thinking the file IS the page.
-      // Share embeds article HTML inside `<article class="huozi-html-host">`,
-      // so the platform aliases the host wrapper as "body" via dual-emit:
-      // every `body > X` selector is also emitted as `.huozi-html-host > X`.
-      // Original selectors stay so the same CSS still works in standalone
-      // contexts (file://, GitHub Pages, …).
-      hostAsBody: ".huozi-html-host",
       // `bundle=data` reads dataBase to construct proxy URLs. The worker
       // at `/shares/<slug>/data/<sibling>` resolves siblings relative to
       // the share's host file — so the base URL only needs the slug.
@@ -207,7 +236,6 @@ export default async function SharedPage({
   params: Params;
   searchParams: SearchParams;
 }) {
-  const t0 = Date.now();
   const { slug } = await params;
   const sp = await searchParams;
   // `?pw=` lets a caller (today: the miniapp, after collecting the code once
@@ -215,29 +243,19 @@ export default async function SharedPage({
   // "Open in Huozi" link for embedded web-views.
   const pw = firstParam(sp.pw);
   const chromeless = firstParam(sp.chrome) === "0" || firstParam(sp.embed) === "1";
-  const t1 = Date.now();
   // getShare is a worker round-trip into huozi-cloud — empirically 800-
   // 2400ms per call. Memoize so steady-state opens skip it entirely.
   // TTL is short (30s) because share metadata (locked toggle, file_path
   // edits) can change underneath us.
   const shareMetaKey = `share-meta:${slug}`;
   const res = await memoize(shareMetaKey, 30_000, () => getShare(slug));
-  const t2 = Date.now();
 
   if (!res.ok) {
-    if (res.errorCode === 404) notFound();
-    return (
-      <div className="mx-auto max-w-lg px-6 py-20 text-sm">
-        <h1 className="text-xl font-semibold mb-2">Couldn&rsquo;t load share</h1>
-        <p className="text-muted-foreground">{res.message}</p>
-        <Link
-          href="/"
-          className="mt-6 inline-block underline text-sm text-muted-foreground hover:text-foreground"
-        >
-          ← Back to huozi
-        </Link>
-      </div>
-    );
+    const message =
+      res.error === "share_expired"
+        ? SHARE_EXPIRED_MESSAGE
+        : res.message || "这个分享页面不存在或已经不可用。";
+    return <ShareUnavailable message={message} chromeless={chromeless} />;
   }
 
   const share = res.data;
@@ -270,16 +288,7 @@ export default async function SharedPage({
     locked || pwUnlocked
       ? await loadRenderedShare(slug, shareForRender)
       : await memoize(cacheKey, 60_000, () => loadRenderedShare(slug, share));
-  const t3 = Date.now();
   const cacheHit = cacheBefore && !locked && !pwUnlocked;
-
-  const timing = [
-    `params=${t1 - t0}`,
-    `getShare=${t2 - t1}`,
-    `render=${t3 - t2}`,
-    `total=${t3 - t0}`,
-    `cache=${cacheHit ? "hit" : "miss"}`,
-  ].join(" ");
 
   // Publish surface is full-bleed: the file IS the page. ShareViewer renders
   // in alwaysOpen fullscreen mode, with an "Open in Huozi" link top-right.
@@ -290,7 +299,10 @@ export default async function SharedPage({
       {/* Server-timing breadcrumb (instrumentation; safe to leave in
           production — invisible in normal rendering, useful for perf
           regression triage). */}
-      <meta name="huozi-server-timing" content={timing} />
+      <meta
+        name="huozi-server-timing"
+        content={`cache=${cacheHit ? "hit" : "miss"}`}
+      />
       <ShareViewer
         slug={slug}
         filePath={rendered.filePath}

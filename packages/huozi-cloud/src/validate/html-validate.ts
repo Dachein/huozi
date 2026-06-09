@@ -279,7 +279,7 @@ export function validateHuoziHtml(html: string): ValidationIssue[] {
     } else if (!ALL_FORMATS.has(formatMeta.value as HuoziFormat)) {
       issues.push(
         issueFromRule('format-unknown', {
-          message: `huozi:format="${formatMeta.value}" 不在已知 5 种类型里，已退化为 blog`,
+          message: `huozi:format="${formatMeta.value}" 不在已知 6 种类型里，已退化为 blog`,
           line: lineFor(html, formatMeta.index),
         }),
       )

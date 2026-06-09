@@ -43,7 +43,7 @@ export const VALIDATION_RULES: ValidationRule[] = [
     code: 'format-unknown',
     level: 'error',
     title: 'huozi:format value is not a known format',
-    why: 'The platform only knows 5 formats: deck / story / paper / dashboard / blog. Unknown values degrade silently to blog, which is rarely what the author meant.',
+    why: 'The platform knows 6 formats: deck / story / paper / dashboard / app / blog. Unknown values degrade silently to blog, which is rarely what the author meant.',
     remedy:
       'Pick one: deck (16:9 slides), story (9:16 immersive media), app (9:19.5 mobile UI), paper (A4-width document), dashboard (16:9 ops surface with [data-tab]), blog (responsive long-form).',
     docRef: 'norms#1-format-types',

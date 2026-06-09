@@ -174,7 +174,8 @@ function parseBackgroundMeta(html: string): string | null {
  *     <meta name="huozi:fit" content="cover">
  *
  *  Returns null on missing or invalid value. Caller falls back to the
- *  format default. */
+ *  format default. Dashboard and app later clamp to contain because UI
+ *  surfaces must never clip controls or data. */
 function parseFitMeta(html: string): CanvasFit | null {
   const m = html.match(
     /<meta\s+name=["']huozi:fit["']\s+content=["']([^"']+)["']/i,
@@ -223,7 +224,12 @@ export function resolveCanvas(
   // Resolve them once and stamp onto every return path so callers don't
   // have to remember to thread each one through.
   const bg = parseBackgroundMeta(html) ?? fallback.background;
-  const fit = parseFitMeta(html) ?? fallback.fit ?? "contain";
+  // Dashboards and app surfaces are UI canvases: clipping controls or data is
+  // a product bug, so they always contain even if an old file declares cover.
+  const fit =
+    format === "dashboard" || format === "app"
+      ? "contain"
+      : parseFitMeta(html) ?? fallback.fit ?? "contain";
 
   const meta = parseViewportMeta(html);
   if (!meta) return { ...fallback, background: bg, fit };

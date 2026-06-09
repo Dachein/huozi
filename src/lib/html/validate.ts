@@ -189,10 +189,7 @@ function readClassFormat(
  *  example wouldn't actually paint anything (the validator runs against
  *  authored source, not rendered DOM). Spec-doc examples can flip this
  *  to a hint if it ever produces false positives. */
-function hasBackgroundDeclaration(
-  html: string,
-  _skip: Array<[number, number]>,
-): boolean {
+function hasBackgroundDeclaration(html: string): boolean {
   // 1. meta huozi:background
   if (/<meta\s+name=["']huozi:background["']\s+content=["'][^"']+["']/i.test(html)) {
     return true;
@@ -316,7 +313,7 @@ export function validateHuoziHtml(html: string): ValidationIssue[] {
       issues.push({
         level: "error",
         code: "format-unknown",
-        message: `huozi:format="${formatMeta.value}" 不在已知 5 种类型里，已退化为 blog`,
+        message: `huozi:format="${formatMeta.value}" 不在已知 6 种类型里，已退化为 blog`,
         line: lineFor(html, formatMeta.index),
         remedy: "使用 deck / story / paper / dashboard / app / blog 之一",
         docRef: "norms#1-format-types",
@@ -374,7 +371,7 @@ export function validateHuoziHtml(html: string): ValidationIssue[] {
   // attribute. Absence → warning so the publish surface doesn't ship
   // with a cream-edge UI.
   if (REQUIRES_BACKGROUND.has(effectiveFormat)) {
-    if (!hasBackgroundDeclaration(html, skip)) {
+    if (!hasBackgroundDeclaration(html)) {
       issues.push(
         issueFromRule("canvas-background-missing", {
           message: `huozi:format=${effectiveFormat} 必须声明背景；当前文件未在 <meta huozi:background>、style 块的 html/body/:root 或 body style 中找到 background`,

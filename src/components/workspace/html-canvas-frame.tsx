@@ -19,12 +19,12 @@
  *   - canvas.mode = "scale" + dashboard → DashboardSurface inside
  *     ScaledStage; canvas-outer carries aspect-ratio + max-width and
  *     the platform-declared background bleed.
- *   - canvas.mode = "scale" + deck/story → HtmlInlineFrame inside
+ *   - canvas.mode = "scale" + deck/story → HtmlIframeFrame inside
  *     ScaledStage; same outer treatment.
- *   - canvas.mode = "lock-width" + paper → HtmlInlineFrame inside
+ *   - canvas.mode = "lock-width" + paper → HtmlIframeFrame inside
  *     FixedWidthStage; outer locks width + vertical scroll, no
  *     transform-scale.
- *   - canvas = null + blog/unknown → HtmlInlineFrame with the
+ *   - canvas = null + blog/unknown → HtmlIframeFrame with the
  *     `[&_.huozi-blog]:!min-h-0` long-flow hint; no outer, content
  *     just streams into the surrounding column.
  *
@@ -40,7 +40,7 @@ import { type HuoziFormat } from "@/lib/html/detect-format";
 import type { PageEntry } from "@/lib/html/extract-pages";
 import type { TabEntry } from "@/lib/html/extract-tabs";
 import { DashboardSurface } from "@/components/workspace/dashboard-surface";
-import { HtmlInlineFrame } from "@/components/workspace/html-inline-frame";
+import { HtmlIframeFrame } from "@/components/workspace/html-iframe-frame";
 import { ScaledStage } from "@/components/workspace/scaled-stage";
 import { FixedWidthStage } from "@/components/workspace/fixed-width-stage";
 
@@ -91,26 +91,50 @@ const FLOW_BLOG = "[&_.huozi-blog]:!min-h-0";
 const STRETCH_STYLE: CSSProperties = { width: "100%", height: "100%" };
 const LOCKED_WIDTH_STYLE: CSSProperties = { width: "100%" };
 
+function CanvasMobileHint({
+  background,
+  format,
+}: {
+  background?: string;
+  format: HuoziFormat;
+}) {
+  const message =
+    format === "deck" ? "建议切换横屏查看。" : "建议切换横屏或在大屏查看。";
+  const title = format === "deck" ? "Deck" : "Dashboard";
+  return (
+    <div
+      className="huozi-canvas-mobile-hint absolute inset-0 z-10 flex items-center justify-center px-6 text-center md:hidden"
+      style={{ background: background ?? "#090b10", color: "#f8fafc" }}
+    >
+      <div className="max-w-[260px] rounded-lg border border-white/15 bg-black/20 px-5 py-4 backdrop-blur">
+        <div className="text-sm font-semibold">{title}</div>
+        <p className="mt-2 text-xs leading-5 text-white/75">{message}</p>
+      </div>
+    </div>
+  );
+}
+
 export function HtmlCanvasFrame(props: HtmlCanvasFrameProps) {
   const { html, format, canvas, pages, pageUnit, tabs, refreshMs } = props;
 
   // No canvas (blog / unknown long-flow). Render naturally.
   if (!canvas) {
     return (
-      <HtmlInlineFrame
+      <HtmlIframeFrame
         html={html}
         hostClassName={FLOW_BLOG}
         hostStyle={LOCKED_WIDTH_STYLE}
         format={format}
         pages={pages}
         pageUnit={pageUnit}
+        autoHeight
       />
     );
   }
 
   // Canvas inner — the actual content frame inside the stage. Dashboard
   // uses its dedicated surface (carries tab chrome + refresh ticker);
-  // everything else (deck / story / paper) uses HtmlInlineFrame.
+  // everything else (deck / story / paper) uses HtmlIframeFrame.
   const inner =
     format === "dashboard" ? (
       <DashboardSurface
@@ -121,7 +145,7 @@ export function HtmlCanvasFrame(props: HtmlCanvasFrameProps) {
         refreshMs={refreshMs ?? null}
       />
     ) : (
-      <HtmlInlineFrame
+      <HtmlIframeFrame
         html={html}
         hostClassName={
           canvas.mode === "lock-width" ? STRETCH_PAPER : STRETCH_ROOTS
@@ -132,6 +156,7 @@ export function HtmlCanvasFrame(props: HtmlCanvasFrameProps) {
         format={format}
         pages={pages}
         pageUnit={pageUnit}
+        autoHeight={canvas.mode === "lock-width"}
       />
     );
 
@@ -150,6 +175,7 @@ export function HtmlCanvasFrame(props: HtmlCanvasFrameProps) {
           marginLeft: "auto",
           marginRight: "auto",
           background: canvas.background,
+          position: "relative",
         }}
       >
         <ScaledStage
@@ -159,6 +185,9 @@ export function HtmlCanvasFrame(props: HtmlCanvasFrameProps) {
         >
           {inner}
         </ScaledStage>
+        {format === "dashboard" || format === "deck" ? (
+          <CanvasMobileHint background={canvas.background} format={format} />
+        ) : null}
       </div>
     );
   }

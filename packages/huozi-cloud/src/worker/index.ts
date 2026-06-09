@@ -100,6 +100,7 @@ import {
 } from '../storage/cloudflare/shares.js'
 import {
   handleGetOpen,
+  handleGetOpenAsset,
   handleGetOpenData,
 } from '../storage/cloudflare/open.js'
 import {
@@ -556,6 +557,15 @@ const handler: ExportedHandler<HuoziCloudflareBindings> = {
       )
       if (m) {
         return handleGetShareData(request, env, m[1]!, m[2]!)
+      }
+    }
+
+    // GET|HEAD /o/<token>/asset/__assets__/<...> — private asset proxy for
+    // open-token HTML renders. Matched before the bare /o/<token> endpoint.
+    {
+      const m = url.pathname.match(/^\/o\/([^/]+)\/asset\/(.+)$/)
+      if (m) {
+        return handleGetOpenAsset(request, env, m[1]!, m[2]!)
       }
     }
 

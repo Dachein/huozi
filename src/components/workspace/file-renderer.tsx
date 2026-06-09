@@ -107,14 +107,10 @@ export async function FileRenderer({
   }
 
   // HTML — sanitize + chart processing, same as publish flow.
-  // Rendered inline (no iframe). The wrapper applies a per-format display
-  // box (read from `<meta name="huozi:viewport">` when present, else
-  // sniffed from the .huozi-{format} class), and overrides the template
-  // root class so it fills that box. Inside the template, slide layout
-  // uses container queries (cqh/cqw) which scope to the template root —
-  // so the same bytes look correct in published view (root = 100vw×100vh),
-  // workspace inline preview (root = sized wrapper), and Fullscreen
-  // (FullscreenContent overrides the wrapper to viewport).
+  // The rendered author document now lives inside HtmlIframeFrame. The
+  // platform still owns the canvas, fullscreen, page outline, and dashboard
+  // tab chrome outside the iframe; the iframe gives author CSS/scripts a
+  // normal document execution model across workspace, /p, and /o.
   if (ext === "html" || ext === "htm") {
     // SSR fetcher for inlined+scoped stylesheets. Only resolves /__assets__/*;
     // pulls bytes via the same authenticated /me/asset endpoint that backs the
@@ -147,7 +143,6 @@ export async function FileRenderer({
     // workspace preview instead of after a share has gone out.
     const dataBase = `/workspace/d/${encodeURIComponent(path)}/`;
     const { html } = await processHtmlDirect(processChartComponents(content), {
-      scopeTo: ".huozi-html-host",
       // Route `<link href="/__assets__/...">`, `<img src="/__assets__/...">`,
       // etc. through the authenticated workspace asset proxy. Mirrors the
       // share path's `assetBase: "/p/<slug>"` — same rewrite, different
@@ -156,11 +151,6 @@ export async function FileRenderer({
       fetchAsset,
       injectSourcePos: inlineEditable,
       bundleCtx: { dataBase, filePath: path },
-      // Workspace renders via React innerHTML, which never auto-runs
-      // <script>. Defer them to the client runner (HtmlInlineFrame /
-      // DashboardSurface) so author logic + bundle inits execute exactly
-      // once — same as /p. /p · /o leave this off (full-SSR parse-time).
-      deferScripts: true,
     });
     // Re-use caller-computed extracts when available; otherwise scan
     // here. Workspace view passes htmlMeta; legacy direct callers don't.
@@ -171,10 +161,8 @@ export async function FileRenderer({
 
     // Canvas dispatch is fully owned by HtmlCanvasFrame — the same
     // component that share-viewer (the public /p/<slug> page) uses, so
-    // the visible output is byte-identical across workspace inline,
-    // workspace fullscreen, and the publish surface. Any future change
-    // to canvas / scale / background / fit logic lives in exactly one
-    // file.
+    // workspace inline, workspace fullscreen, /p, and /o share the same
+    // canvas / scale / background / fit rules.
     const canvas = resolveCanvas(content, format);
     const frame = (
       <HtmlCanvasFrame

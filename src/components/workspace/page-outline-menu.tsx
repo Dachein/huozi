@@ -52,8 +52,12 @@ function isTypingTarget(target: EventTarget | null): boolean {
 
 function scrollToPage(id: string): void {
   const el = document.getElementById(id);
-  if (!el) return;
-  el.scrollIntoView({ behavior: "smooth", block: "start", inline: "start" });
+  if (el) {
+    el.scrollIntoView({ behavior: "smooth", block: "start", inline: "start" });
+  }
+  window.dispatchEvent(
+    new CustomEvent("huozi:page:go", { detail: { pageId: id } }),
+  );
 }
 
 export function PageOutlineMenu({
@@ -125,6 +129,19 @@ export function PageOutlineMenu({
     },
     [pages],
   );
+
+  useEffect(() => {
+    if (pages.length < 2) return;
+    const idToIdx = new Map(pages.map((p, i) => [p.id, i]));
+    function onPageChanged(event: Event) {
+      const detail = (event as CustomEvent<{ pageId?: string }>).detail ?? {};
+      if (!detail.pageId) return;
+      const idx = idToIdx.get(detail.pageId);
+      if (idx !== undefined) setActiveIndex(idx);
+    }
+    window.addEventListener("huozi:page:changed", onPageChanged);
+    return () => window.removeEventListener("huozi:page:changed", onPageChanged);
+  }, [pages]);
 
   useEffect(() => {
     if (!orientation || pages.length < 2) return;
@@ -232,9 +249,11 @@ export function PageOutlineMenu({
               <a
                 key={p.id}
                 href={`#${p.id}`}
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
                   setOpen(false);
                   setActiveIndex(i);
+                  scrollToPage(p.id);
                 }}
                 className={`flex gap-2 px-3 py-1.5 transition-colors
                             ${active ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}

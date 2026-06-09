@@ -1,5 +1,5 @@
 /**
- * Detect which of the 5 huozi standard layouts a given HTML file uses.
+ * Detect which of the 6 huozi standard layouts a given HTML file uses.
  *
  * Resolution order:
  *   1. <meta name="huozi:format" content="..."> in <head>. Authoritative when
