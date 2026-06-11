@@ -116,6 +116,7 @@ export const ja = {
   "ws.expiry.hint": "スライディングウィンドウ — リクエストごとに期限がリセットされます。",
 
   // TTL プリセットラベル
+  "ws.ttl.15m": "15 分",
   "ws.ttl.1d": "1 日",
   "ws.ttl.7d": "7 日",
   "ws.ttl.30d": "30 日",

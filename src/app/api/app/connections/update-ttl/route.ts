@@ -28,6 +28,7 @@ interface Body {
 // Only allow the presets we advertise in the UI. Prevents someone from
 // crafting a 1-second TTL or a negative one.
 const ALLOWED_TTL_SECONDS = new Set<number | null>([
+  15 * 60,
   1 * 86400,
   7 * 86400,
   30 * 86400,

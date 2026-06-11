@@ -16,6 +16,58 @@ function escapeScriptEnd(source: string): string {
   return source.replace(/<\/script/gi, "<\\/script");
 }
 
+function formatFallbackStyle(format: HuoziFormat): string {
+  if (format !== "paper") return "";
+  return `
+    html[data-huozi-format="paper"],
+    html[data-huozi-format="paper"] body {
+      background: #eee9df !important;
+    }
+    html[data-huozi-format="paper"] [data-page] {
+      width: min(794px, 100%) !important;
+      height: auto !important;
+      min-height: auto !important;
+      aspect-ratio: 794 / 1123 !important;
+      box-sizing: border-box !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
+      background: #fff !important;
+      border: 1px solid #d8d0c0 !important;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, .08) !important;
+      overflow: visible !important;
+    }
+    html[data-huozi-format="paper"] [data-page] + [data-page] {
+      margin-top: 24px !important;
+    }
+    @media screen and (max-width: 767px) {
+      html[data-huozi-format="paper"] body > main,
+      html[data-huozi-format="paper"] .huozi-paper {
+        padding: 10px !important;
+      }
+      html[data-huozi-format="paper"] [data-page] {
+        padding: 18px 14px !important;
+      }
+      html[data-huozi-format="paper"] [data-page] + [data-page] {
+        margin-top: 10px !important;
+      }
+    }
+    @media print {
+      html[data-huozi-format="paper"],
+      html[data-huozi-format="paper"] body {
+        background: #fff !important;
+      }
+      html[data-huozi-format="paper"] [data-page] {
+        width: 794px !important;
+        min-height: 1123px !important;
+        aspect-ratio: 794 / 1123 !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        page-break-after: always;
+      }
+    }
+  `;
+}
+
 function bridgeScript(input: HtmlIframeDocumentInput): string {
   const tabs = JSON.stringify(input.tabs ?? []);
   const refreshMs = input.refreshMs && input.refreshMs > 0 ? input.refreshMs : 0;
@@ -177,6 +229,7 @@ function bridgeScript(input: HtmlIframeDocumentInput): string {
 export function buildHtmlIframeSrcDoc(input: HtmlIframeDocumentInput): string {
   const format = input.format.replace(/"/g, "");
   const bridge = escapeScriptEnd(bridgeScript(input));
+  const fallbackStyle = formatFallbackStyle(input.format);
 
   return `<!doctype html>
 <html data-huozi-frame="1" data-huozi-format="${format}">
@@ -188,6 +241,7 @@ export function buildHtmlIframeSrcDoc(input: HtmlIframeDocumentInput): string {
     html, body { width: 100%; min-height: 100%; margin: 0; }
     body { overflow: auto; }
     [data-tab][hidden] { display: none !important; }
+    ${fallbackStyle}
   </style>
   <script>${bridge}</script>
 </head>

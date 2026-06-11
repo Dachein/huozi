@@ -116,6 +116,7 @@ export const zh = {
   "ws.expiry.hint": "滑动窗口——每次成功请求都重置倒计时。",
 
   // TTL preset labels
+  "ws.ttl.15m": "15 分钟",
   "ws.ttl.1d": "1 天",
   "ws.ttl.7d": "7 天",
   "ws.ttl.30d": "30 天",

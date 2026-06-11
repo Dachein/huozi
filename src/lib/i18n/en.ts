@@ -117,6 +117,7 @@ export const en = {
   "ws.expiry.hint": "Sliding window — each successful request resets the timer.",
 
   // TTL preset labels
+  "ws.ttl.15m": "15 min",
   "ws.ttl.1d": "1 day",
   "ws.ttl.7d": "7 days",
   "ws.ttl.30d": "30 days",

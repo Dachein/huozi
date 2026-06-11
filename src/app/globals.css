@@ -1379,6 +1379,32 @@ html.huozi-clippings-drawer-open .huozi-fullscreen-chrome {
   transform: translateX(-320px);
 }
 
+/* Mobile landscape preview for wide canvas formats.
+ *
+ * /p and /o open deck / dashboard in portrait first, then let the user
+ * opt into a rotated landscape preview. The wrapper itself rotates and
+ * swaps its layout box (100vh x 100vw), so ScaledStage's container query
+ * sees a real landscape-sized parent and can run the same contain-fit
+ * math as a physically rotated device.
+ */
+@media (max-width: 767px) and (orientation: portrait) {
+  [data-huozi-landscape-active] {
+    width: 100vh !important;
+    height: 100vw !important;
+    inset: auto !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) rotate(90deg) !important;
+    transform-origin: center center !important;
+    overflow: hidden !important;
+  }
+
+  [data-huozi-landscape-active] .huozi-canvas-outer {
+    width: 100% !important;
+    height: 100% !important;
+  }
+}
+
 ::highlight(huozi-hl-flash) {
   background-color: color-mix(in srgb, var(--color-accent, gold) 30%, transparent);
   text-decoration: underline dotted var(--color-accent, currentColor);

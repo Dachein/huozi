@@ -91,29 +91,6 @@ const FLOW_BLOG = "[&_.huozi-blog]:!min-h-0";
 const STRETCH_STYLE: CSSProperties = { width: "100%", height: "100%" };
 const LOCKED_WIDTH_STYLE: CSSProperties = { width: "100%" };
 
-function CanvasMobileHint({
-  background,
-  format,
-}: {
-  background?: string;
-  format: HuoziFormat;
-}) {
-  const message =
-    format === "deck" ? "建议切换横屏查看。" : "建议切换横屏或在大屏查看。";
-  const title = format === "deck" ? "Deck" : "Dashboard";
-  return (
-    <div
-      className="huozi-canvas-mobile-hint absolute inset-0 z-10 flex items-center justify-center px-6 text-center md:hidden"
-      style={{ background: background ?? "#090b10", color: "#f8fafc" }}
-    >
-      <div className="max-w-[260px] rounded-lg border border-white/15 bg-black/20 px-5 py-4 backdrop-blur">
-        <div className="text-sm font-semibold">{title}</div>
-        <p className="mt-2 text-xs leading-5 text-white/75">{message}</p>
-      </div>
-    </div>
-  );
-}
-
 export function HtmlCanvasFrame(props: HtmlCanvasFrameProps) {
   const { html, format, canvas, pages, pageUnit, tabs, refreshMs } = props;
 
@@ -185,9 +162,6 @@ export function HtmlCanvasFrame(props: HtmlCanvasFrameProps) {
         >
           {inner}
         </ScaledStage>
-        {format === "dashboard" || format === "deck" ? (
-          <CanvasMobileHint background={canvas.background} format={format} />
-        ) : null}
       </div>
     );
   }

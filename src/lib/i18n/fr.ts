@@ -117,6 +117,7 @@ export const fr = {
   "ws.expiry.hint": "Fenêtre glissante — chaque requête réinitialise le compteur.",
 
   // Préréglages TTL
+  "ws.ttl.15m": "15 min",
   "ws.ttl.1d": "1 jour",
   "ws.ttl.7d": "7 jours",
   "ws.ttl.30d": "30 jours",
