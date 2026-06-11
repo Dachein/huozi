@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { getShare, unlockShare } from "@/lib/drive/shares";
 import { cloudFetch } from "@/lib/cloud-fetch";
@@ -229,6 +230,16 @@ function firstParam(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
 }
 
+function isMiniappWebView(headersList: Headers): boolean {
+  const ua = headersList.get("user-agent")?.toLowerCase() ?? "";
+  const ref = headersList.get("referer")?.toLowerCase() ?? "";
+  return (
+    ref.includes("servicewechat.com/") ||
+    ua.includes("miniprogram") ||
+    ua.includes("wechatdevtools")
+  );
+}
+
 export default async function SharedPage({
   params,
   searchParams,
@@ -240,9 +251,14 @@ export default async function SharedPage({
   const sp = await searchParams;
   // `?pw=` lets a caller (today: the miniapp, after collecting the code once
   // natively) unlock server-side; `?chrome=0` (alias `?embed=1`) hides the
-  // "Open in Huozi" link for embedded web-views.
+  // "Open in Huozi" link for embedded web-views. Miniapp web-view detection is
+  // a fallback for older cards / direct opens that missed the param.
   const pw = firstParam(sp.pw);
-  const chromeless = firstParam(sp.chrome) === "0" || firstParam(sp.embed) === "1";
+  const h = await headers();
+  const chromeless =
+    firstParam(sp.chrome) === "0" ||
+    firstParam(sp.embed) === "1" ||
+    isMiniappWebView(h);
   // getShare is a worker round-trip into huozi-cloud — empirically 800-
   // 2400ms per call. Memoize so steady-state opens skip it entirely.
   // TTL is short (30s) because share metadata (locked toggle, file_path

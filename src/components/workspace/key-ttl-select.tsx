@@ -33,6 +33,7 @@ interface Preset {
 }
 
 const PRESETS: Preset[] = [
+  { ttlSeconds: 15 * 60, labelKey: "ws.ttl.15m" },
   { ttlSeconds: 1 * 86400, labelKey: "ws.ttl.1d" },
   { ttlSeconds: 7 * 86400, labelKey: "ws.ttl.7d" },
   { ttlSeconds: 30 * 86400, labelKey: "ws.ttl.30d" },
@@ -51,11 +52,6 @@ export function KeyTtlSelect({ keyId, currentTtlSeconds }: Props) {
   const [err, setErr] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const rootRef = useRef<HTMLDivElement>(null);
-
-  // Keep local state in sync with server-confirmed value after refresh.
-  useEffect(() => {
-    setSelected(currentTtlSeconds);
-  }, [currentTtlSeconds]);
 
   // Close on outside click + ESC.
   useEffect(() => {
@@ -172,7 +168,7 @@ export function KeyTtlSelect({ keyId, currentTtlSeconds }: Props) {
               <button
                 key={p.labelKey}
                 type="button"
-                role="menuitem"
+                role="menuitemradio"
                 aria-checked={active}
                 onClick={() => choose(p)}
                 className={`w-full flex items-center justify-between gap-3 px-3 py-1.5 text-xs transition-colors text-left

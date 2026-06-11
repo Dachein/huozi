@@ -88,6 +88,7 @@ export const TTL_PRESETS: ReadonlyArray<{
   seconds: number | null;
   labelKey: string;
 }> = [
+  { seconds: 15 * 60, labelKey: "15m" },
   { seconds: 1 * 86400, labelKey: "1d" },
   { seconds: 7 * 86400, labelKey: "7d" },
   { seconds: 30 * 86400, labelKey: "30d" },

@@ -1,7 +1,10 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { ArrowsPointingInIcon } from "@heroicons/react/24/outline";
+import { useState, type ReactNode } from "react";
+import {
+  ArrowsPointingInIcon,
+  DevicePhoneMobileIcon,
+} from "@heroicons/react/24/outline";
 import { useFullscreen } from "./fullscreen-context";
 import { PageOutlineMenu } from "./page-outline-menu";
 import type { PageEntry } from "@/lib/html/extract-pages";
@@ -42,6 +45,10 @@ export function FullscreenContent({
 }) {
   const { fullscreen, setFullscreen } = useFullscreen();
   const open = alwaysOpen || fullscreen;
+  const canToggleLandscape =
+    htmlFormat === "deck" || htmlFormat === "dashboard";
+  const [landscapeActive, setLandscapeActive] = useState(false);
+  const landscapeEnabled = canToggleLandscape && landscapeActive;
 
   if (!mode || !open) return <>{children}</>;
 
@@ -73,6 +80,21 @@ export function FullscreenContent({
         />
       )
       : null;
+  const landscapeToggle = canToggleLandscape ? (
+    <button
+      type="button"
+      onClick={() => setLandscapeActive((v) => !v)}
+      aria-pressed={landscapeEnabled}
+      aria-label={landscapeEnabled ? "Switch to portrait" : "Switch to landscape"}
+      title={landscapeEnabled ? "竖屏预览" : "横屏预览"}
+      className="huozi-mobile-landscape-toggle md:hidden inline-flex items-center justify-center h-8 w-8 rounded-md border border-border bg-background/90 backdrop-blur text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+    >
+      <DevicePhoneMobileIcon
+        className={`w-4 h-4 transition-transform ${landscapeEnabled ? "rotate-90" : ""}`}
+        aria-hidden="true"
+      />
+    </button>
+  ) : null;
 
   // Top-right chrome strip: pager + optional caller-supplied buttons + close.
   // top-4 right-4 = 16px breathing room from edges so the chrome doesn't
@@ -81,9 +103,10 @@ export function FullscreenContent({
   // Clippings drawer in particular) to shove this strip out of their
   // way via CSS. See globals.css §"Clippings drawer collision avoidance".
   const topRight =
-    pagerInChrome || chrome || closeButton ? (
+    pagerInChrome || landscapeToggle || chrome || closeButton ? (
       <div className="huozi-fullscreen-chrome fixed top-4 right-4 z-[60] flex items-center gap-2">
         {pagerInChrome}
+        {landscapeToggle}
         {chrome}
         {closeButton}
       </div>
@@ -165,15 +188,27 @@ export function FullscreenContent({
   //
   // Long-flow formats (mobile / web) keep the legacy host-based
   // overrides since they don't have a canvas-outer wrapper.
+  const isPaper = htmlFormat === "paper";
   const isCanvas =
     htmlFormat === "deck" ||
     htmlFormat === "story" ||
     htmlFormat === "dashboard" ||
-    htmlFormat === "paper" ||
     htmlFormat === "app";
-  const containerCls = isCanvas
+  const canvasOuterSizeCls = landscapeEnabled
+    ? "[&_.huozi-canvas-outer]:!w-full [&_.huozi-canvas-outer]:!h-full"
+    : "[&_.huozi-canvas-outer]:!w-screen [&_.huozi-canvas-outer]:!h-screen";
+  const containerCls = isPaper
+    ? `overflow-x-hidden overflow-y-auto
+       [&_.huozi-canvas-outer]:!w-full [&_.huozi-canvas-outer]:!h-auto
+       [&_.huozi-canvas-outer]:!min-h-screen
+       [&_.huozi-canvas-outer]:!max-w-none [&_.huozi-canvas-outer]:!max-h-none
+       [&_.huozi-canvas-outer]:![aspect-ratio:auto]
+       [&_.huozi-canvas-outer]:!m-0
+       [&_.huozi-paper-frame]:!h-auto [&_.huozi-paper-frame]:!min-h-screen
+       [&_.huozi-paper-frame]:!overflow-visible`
+    : isCanvas
     ? `overflow-hidden
-       [&_.huozi-canvas-outer]:!w-screen [&_.huozi-canvas-outer]:!h-screen
+       ${canvasOuterSizeCls}
        [&_.huozi-canvas-outer]:!max-w-none [&_.huozi-canvas-outer]:!max-h-none
        [&_.huozi-canvas-outer]:![aspect-ratio:auto]
        [&_.huozi-canvas-outer]:!m-0`
@@ -200,14 +235,15 @@ export function FullscreenContent({
   return (
     <div
       className={`fixed inset-0 z-50 ${wrapperBg} ${containerCls}`}
-      // Opt-in marker for the deck-only mobile-portrait auto-landscape CSS
-      // baked into the deck template. Workspace inline preview never gets
-      // this attribute, so its embed-sized 16:9 frame is preserved.
-      {...(htmlFormat === "deck" ? { "data-huozi-rotate-portrait": "" } : {})}
+      // Mobile portrait opens as a normal portrait preview. The user can
+      // explicitly enter a rotated landscape preview for wide canvases.
+      {...(canToggleLandscape
+        ? { "data-huozi-landscape-capable": htmlFormat }
+        : {})}
+      {...(landscapeEnabled ? { "data-huozi-landscape-active": "" } : {})}
     >
       {topRight}
       {children}
     </div>
   );
 }
-
